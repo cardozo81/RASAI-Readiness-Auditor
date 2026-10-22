@@ -133,7 +133,7 @@ def test_physical_one_context_signed_sidecar_readonly(tmp_path, monkeypatch):
              _URL,_URL,"desktop"),
         )
     import rasai.apdex_readiness_sidecar as sidecar
-    monkeypatch.setattr(sidecar, "_original", lambda root:
+    monkeypatch.setattr(sidecar, "_original", lambda root, **kwargs:
                         ("AUD-FAQ-ONE-SHOT", "a" * 64, "b" * 64))
     faq.keep_private_witness(
         audit_id=audit.name, witness=witness,
@@ -141,7 +141,10 @@ def test_physical_one_context_signed_sidecar_readonly(tmp_path, monkeypatch):
     )
     before_db = (audit / "audit.db").read_bytes()
     verdict = faq.publish_faq_after_seal(audit_id=audit.name, aud_dir=audit)
-    assert verdict == {"eligible":1, "published":1, "rejected":0}
+    assert {key: verdict[key] for key in ("eligible", "published", "rejected")} == {
+        "eligible": 1, "published": 1, "rejected": 0,
+    }
+    assert verdict["rejection_reasons"] == []
     files = list((tmp_path / ".rasai-faq-sidecars" / audit.name).glob("*.json"))
     assert len(files) == 1
     evidence = json.loads(files[0].read_text(encoding="utf-8"))

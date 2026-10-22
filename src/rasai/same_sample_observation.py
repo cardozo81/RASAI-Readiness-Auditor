@@ -256,15 +256,36 @@ def verify_bound_live_witness(
         return fallback
     if linked["status"] != "SIGNED_RECEIPT_MATCHES_PERSISTED_AUD_DOM_BYTES":
         return {**fallback, "reason": linked.get("reason")}
+    # Independent M3 worker-origin Ed25519 record MUST be present inside the
+    # canonical persisted snapshot, not only in the collector's FAQ sidecar.
+    # Verification is a distinct, read-only process boundary after sealing.
+    from rasai.m3_faq_capture_provenance import inspect_persisted_worker_capture
+    m3_attested = inspect_persisted_worker_capture(
+        aud_dir, scope=scope,
+        before_sha256=witness.receipt["before_sha256"],
+        after_sha256=witness.receipt["after_sha256"],
+    )
     return {
         **fallback,
-        "status": "LIVE_COLLECTOR_AND_AUD_DOM_LINKED_NOT_INDEPENDENTLY_ATTESTED",
+        "status": (
+            "M3_WORKER_SESSION_AND_AUD_SAMPLE_CROSS_ATTESTED"
+            if m3_attested else
+            "LIVE_COLLECTOR_AND_AUD_DOM_LINKED_NOT_INDEPENDENTLY_ATTESTED"
+        ),
         "signed_live_page_witness_valid": True,
         "persisted_dom_bytes_match_signed_receipt": True,
+        "same_aud_sample_verified": m3_attested,
+        "same_browser_session_independently_attested": m3_attested,
+        "m3_worker_provenance_signature_verified": m3_attested,
+        "provenance_trust_boundary": "TRUSTED_M3_WORKER_NOT_OS_OR_THIRD_PARTY",
         "collector_claims_same_live_page": True,
         "faq_after_action_text_recoverable": linked["text_recoverable_after_action"],
         "readiness_status": witness.readiness.status,
-        "reason": "TRUSTED_COLLECTOR_WITNESS_NOT_AN_INDEPENDENT_M3_SESSION_ATTESTATION",
+        "reason": (
+            "INDEPENDENT_READONLY_M3_WORKER_AND_COLLECTOR_CROSS_CHECK"
+            if m3_attested else
+            "TRUSTED_COLLECTOR_WITNESS_NOT_AN_INDEPENDENT_M3_SESSION_ATTESTATION"
+        ),
     }
 
 

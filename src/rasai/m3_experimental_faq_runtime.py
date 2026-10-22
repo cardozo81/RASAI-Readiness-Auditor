@@ -187,7 +187,8 @@ def _sidecar_payload(
             "later_html": witness.later_html,
             "verification": verdict,
             "advisory_only": True,
-            "same_persisted_browser_session_independently_attested": False,
+            "same_persisted_browser_session_independently_attested":
+                verdict.get("same_browser_session_independently_attested") is True,
             "crawler_discovery_verified": False,
             "score_change_authorized": False,
         }, sort_keys=True, separators=(",", ":"), ensure_ascii=False,

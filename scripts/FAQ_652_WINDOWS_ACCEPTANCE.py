@@ -204,10 +204,16 @@ def run() -> int:
             "signed_live_page_witness_valid") is True
         report["persistent_aud_dom_bound"] = verification.get(
             "persisted_dom_bytes_match_signed_receipt") is True
-        report["independent_same_session_attestation"] = evidence.get(
-            "same_persisted_browser_session_independently_attested") is True
+        report["independent_same_session_attestation"] = (
+            evidence.get("same_persisted_browser_session_independently_attested") is True
+            and verification.get("same_browser_session_independently_attested") is True
+            and verification.get("m3_worker_provenance_signature_verified") is True
+        )
         report["status"] = (
-            "AUD_DOM_LINKED_NOT_INDEPENDENTLY_ATTESTED"
+            "M3_SESSION_ATTESTED_HUMAN_ACCEPTANCE_PENDING"
+            if report["receipt_verified"] and report["persistent_aud_dom_bound"]
+            and report["independent_same_session_attestation"]
+            else "AUD_DOM_LINKED_NOT_INDEPENDENTLY_ATTESTED"
             if report["receipt_verified"] and report["persistent_aud_dom_bound"]
             else "RECEIPT_BINDING_FAILED"
         )

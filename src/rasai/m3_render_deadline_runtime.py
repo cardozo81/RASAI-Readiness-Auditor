@@ -146,8 +146,17 @@ def _worker(
                     renderer._rasai_private_faq_witness = None
                     if isinstance(private_scope, dict):
                         from rasai.m3_experimental_faq_runtime import isolated_worker_faq_observer
+                        # M3 receives a separate, trusted capture scope; the
+                        # collector callback cannot overwrite the M3 signer.
+                        renderer._rasai_m3_capture_scope = {
+                            name: private_scope[name] for name in (
+                                "audit_id", "page_id", "snapshot_id",
+                                "requested_url", "allowed_final_url", "device",
+                            )
+                        }
                         renderer._rasai_optin_faq_observer = isolated_worker_faq_observer(private_scope)
                     else:
+                        renderer._rasai_m3_capture_scope = None
                         renderer._rasai_optin_faq_observer = None
                     device = DeviceContext(str(message["device"]))
                     result = renderer.render(
@@ -158,6 +167,7 @@ def _worker(
                     private_witness = renderer._rasai_private_faq_witness
                     renderer._rasai_private_faq_witness = None
                     renderer._rasai_optin_faq_observer = None
+                    renderer._rasai_m3_capture_scope = None
                     connection.send({
                         "ok": True, "result": result,
                         "experimental_faq_witness": private_witness,
@@ -165,6 +175,7 @@ def _worker(
                 except BaseException as exc:
                     renderer._rasai_private_faq_witness = None
                     renderer._rasai_optin_faq_observer = None
+                    renderer._rasai_m3_capture_scope = None
                     try:
                         connection.send(
                             {

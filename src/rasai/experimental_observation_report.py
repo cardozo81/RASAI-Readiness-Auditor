@@ -139,7 +139,7 @@ def _faq(
                 or scope.get("audit_id") != aud.name
                 or obj["contract_version"] != "RASAI-FAQ-SAME-SAMPLE-SIDECAR-001"
                 or obj.get("advisory_only") is not True
-                or obj.get("same_persisted_browser_session_independently_attested") is not False
+                or type(obj.get("same_persisted_browser_session_independently_attested")) is not bool
                 or obj.get("crawler_discovery_verified") is not False
                 or obj.get("score_change_authorized") is not False
             ):
@@ -196,13 +196,23 @@ def _faq(
                 )
                 if proof.get("status") != "SIGNED_RECEIPT_MATCHES_PERSISTED_AUD_DOM_BYTES":
                     raise ValueError("FAQ signature does not bind persisted DOM")
+                if obj["same_persisted_browser_session_independently_attested"]:
+                    from rasai.m3_faq_capture_provenance import inspect_persisted_worker_capture
+                    if not inspect_persisted_worker_capture(
+                        aud, scope=scope,
+                        before_sha256=receipt["before_sha256"],
+                        after_sha256=receipt["after_sha256"],
+                    ):
+                        raise ValueError("M3 worker provenance missing or forged")
                 authenticated = True
             observed.append({
                 "page_id": scope.get("page_id", ""),
                 "snapshot_id": scope.get("snapshot_id", ""),
                 "device": scope.get("device", ""),
                 "status": (
-                    "Após clique (recibo autenticado localmente; homologação pendente)"
+                    ("Após clique (recibo e prova M3 independentes; aceite físico pendente)"
+                     if obj["same_persisted_browser_session_independently_attested"] else
+                     "Após clique (recibo autenticado localmente; homologação pendente)")
                     if authenticated else
                     "Não verificado (recibo presente, assinatura não conferida)"
                 ),

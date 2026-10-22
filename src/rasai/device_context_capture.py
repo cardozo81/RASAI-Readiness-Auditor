@@ -815,6 +815,13 @@ def _install_browser_capture() -> None:
                 pass
             stage = "NEW_PAGE"
             page = context.new_page()
+            # M3 owns this capture nonce; the website and FAQ observer cannot
+            # provide or override worker-origin physical page identity.
+            from secrets import token_hex
+            m3_faq_capture_nonce = (
+                token_hex(16) if callable(getattr(self, "_rasai_optin_faq_observer", None))
+                else None
+            )
             page.set_default_timeout(self.navigation_timeout_ms)
             page.set_default_navigation_timeout(self.navigation_timeout_ms)
             stage = "CDP_SETUP"
@@ -951,9 +958,19 @@ def _install_browser_capture() -> None:
             # a changed DOM rather than replacing the canonical source.
             # Do not persist HTML or secrets in the regular browser metadata.
             experimental_receipt = None
+            m3_worker_provenance = None
             observer = getattr(self, "_rasai_optin_faq_observer", None)
             if callable(observer):
                 try:
+                    # The M3 renderer independently freezes its own pre-action
+                    # page/context identity, not a value supplied by the observer.
+                    m3_before_html = page.content()
+                    m3_before_hash = hashlib.sha256(m3_before_html.encode("utf-8")).hexdigest()
+                    m3_page_identity = (
+                        len(context.pages) == 1 and context.pages[0] is page
+                        and not bool(context.service_workers) and page.url != "about:blank"
+                    )
+                    m3_before_url = page.url
                     observed = observer(
                         page=page, captured_html_sha256=hashlib.sha256(
                             rendered_html.encode("utf-8")
@@ -966,6 +983,44 @@ def _install_browser_capture() -> None:
                     if isinstance(observed, dict):
                         if observed.get("_private_witness") is not None:
                             self._rasai_private_faq_witness = observed["_private_witness"]
+                        if (
+                            observed.get("status") == "LOCAL_FAQ_ACTION_OBSERVED_NOT_ATTESTED"
+                            and self._rasai_private_faq_witness is not None
+                            and m3_before_hash == hashlib.sha256(rendered_html.encode("utf-8")).hexdigest()
+                            and observed.get("before_sha256") == m3_before_hash
+                            and m3_page_identity
+                            and len(context.pages) == 1 and context.pages[0] is page
+                            and not bool(context.service_workers) and page.url == m3_before_url
+                            and m3_faq_capture_nonce is not None
+                        ):
+                            # Re-read after the gesture from THIS M3 Playwright page.
+                            # A collector's self-declared hash is not an attestation.
+                            m3_after_hash = hashlib.sha256(page.content().encode("utf-8")).hexdigest()
+                            if m3_after_hash == observed.get("after_sha256"):
+                                private_scope = getattr(self, "_rasai_m3_capture_scope", None)
+                                if (
+                                    isinstance(private_scope, dict)
+                                    and private_scope.get("requested_url") == url
+                                    and private_scope.get("allowed_final_url") == page.url
+                                    and private_scope.get("device") == profile.device.value
+                                ):
+                                    from rasai.m3_faq_capture_provenance import sign_worker_capture
+                                    m3_worker_provenance = sign_worker_capture(
+                                        scope={
+                                            "audit_id": private_scope["audit_id"],
+                                            "page_id": private_scope["page_id"],
+                                            "snapshot_id": private_scope["snapshot_id"],
+                                            "requested_url": url,
+                                            "final_url": page.url,
+                                            "device": profile.device.value,
+                                        },
+                                        nonce=m3_faq_capture_nonce,
+                                        before_sha256=m3_before_hash,
+                                        after_sha256=m3_after_hash,
+                                        navigation_started_ns=navigation_started_ns,
+                                        observed_ns=time.monotonic_ns(),
+                                        same_page_context=True,
+                                    )
                         # Strict fixed projection: never accept raw user HTML.
                         experimental_receipt = {
                             "status": str(observed.get("status", "UNVERIFIED"))[:80],
@@ -984,6 +1039,10 @@ def _install_browser_capture() -> None:
             metadata = self._metadata(profile, settle_outcome=settle_outcome)
             if experimental_receipt is not None:
                 metadata["experimental_faq_same_page_receipt"] = experimental_receipt
+            if m3_worker_provenance is not None:
+                # Signed by the trusted worker, persisted in canonical M3
+                # metadata; no signing key, HTML or private FAQ sidecar here.
+                metadata["experimental_faq_m3_worker_provenance"] = m3_worker_provenance
             metadata["profile"]["user_agent"] = identity.get("user_agent")
             metadata["profile"]["locale"] = identity.get("locale")
             metadata["browser_identity"] = {**identity, "channel": self.browser_channel}
