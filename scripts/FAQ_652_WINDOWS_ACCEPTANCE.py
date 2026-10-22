@@ -9,7 +9,6 @@ session attestation: existing receipt verifier does not claim that proof.
 from __future__ import annotations
 
 import ctypes
-from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -83,7 +82,6 @@ def run() -> int:
     secret_path = workspace / "collector.key"
     secret_path.write_bytes(os.urandom(32))
     # No other process should read the key; in particular, never put it in Git.
-    secret_sha = sha256(secret_path.read_bytes()).hexdigest()
     server = ThreadingHTTPServer(("127.0.0.1", 0), Fixture)
     server.daemon_threads = True
     thread = Thread(target=server.serve_forever, daemon=True)
@@ -104,6 +102,15 @@ def run() -> int:
         "log_path": str(workspace / "audit.log"),
     }
     try:
+        # A recorded firewall rule alone is insufficient when Windows
+        # Defender Firewall is disabled on any profile. Fail closed.
+        profile_check = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+             "@(Get-NetFirewallProfile | Where-Object { -not $_.Enabled }).Count"],
+            capture_output=True, text=True, timeout=20, check=False,
+        )
+        if profile_check.returncode or profile_check.stdout.strip() != "0":
+            raise RuntimeError("Windows Defender Firewall profiles are not all enabled")
         firewall("add", "rule", "name=" + name, "dir=out",
                  "action=block", "program=" + str(browser_path),
                  "enable=yes", "profile=any")
