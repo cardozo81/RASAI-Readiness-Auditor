@@ -10,6 +10,8 @@ on:
       - 'tests/test_claim_review_batch.py'
       - 'scripts/claim_review_windows_acceptance.py'
       - 'scripts/claim_review_prepare_handoff.py'
+      - 'scripts/claim_review_reviewer_finalize.py'
+      - 'tests/test_claim_reviewer_finalize.py'
       - 'tests/test_claim_windows_preflight.py'
       - 'tests/test_claim_private_handoff.py'
       - '.github/workflows/claim-review-focused.yml'
@@ -39,6 +41,7 @@ jobs:
           src/rasai/report_claim_review_advisory.py
           scripts/claim_review_windows_acceptance.py
           scripts/claim_review_prepare_handoff.py
+          scripts/claim_review_reviewer_finalize.py
       - name: Run focused claim physical binding and executive advisory regressions
         run: >-
           python -m pytest -q
@@ -46,3 +49,4 @@ jobs:
           tests/test_claim_collection_provenance.py
           tests/test_claim_windows_preflight.py
           tests/test_claim_private_handoff.py
+          tests/test_claim_reviewer_finalize.py

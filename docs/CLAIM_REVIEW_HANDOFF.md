@@ -299,3 +299,79 @@ autenticidade e a validação deve ocorrer exclusivamente no gate.
 
 Nenhum desses estados significa que uma fonte oficial/revisor já tenha
 sido autenticado pelo software.
+
+
+## 9. Finalizacao local pelo revisor autorizado — sem editar HMAC manualmente
+
+O utilitario `scripts/claim_review_reviewer_finalize.py` reduz etapas
+mecanicas de montagem: le `claim.txt`, `conditions.txt`,
+`manifest.template.json` ja existentes e um novo
+`review.authorized.json` privado **escrito exclusivamente pelo revisor**.
+Ele calcula SHA-256 do documento, transfere literalmente a alegacao para
+o recibo, calcula o MAC com chave privada confiavel, e produz de forma
+exclusiva (sem sobrescrita) `receipt.json` e `manifest.json`.
+O utilitario nao seleciona fonte oficial, nao decide a veracidade da
+alegacao, nao emite atestado de autenticidade em nome da SUSEP, nao acessa
+a rede e nao altera a AUD. Nao reexecutar `prepare_handoff`.
+
+O revisor deve preencher `C:\\RASAI-PRIVADO\\603\\review.authorized.json`
+(no diretorio privado, sem uploads) com o objeto abaixo **usando valores
+reais conferidos independentemente**:
+
+```json
+{
+  "source_url": "https://EMISSOR-OFICIAL/URL-EXATA",
+  "effective_from": "YYYY-MM-DD",
+  "effective_until": "YYYY-MM-DD",
+  "reviewed_on": "YYYY-MM-DD",
+  "collected_on": "YYYY-MM-DD",
+  "product_scope": "PRODUTO-E-VERSAO-REAIS",
+  "document_version": "VERSAO-REAL",
+  "issuer": "EMISSOR-AUTENTICADO",
+  "reviewer_receipt_id": "IDENTIFICADOR-UNICO-REAL",
+  "reviewer_id": "IDENTIDADE-NA-ALLOWLIST",
+  "matched_excerpt": "EXCERTO-LITERAL-DA-FONTE-EXTRAIDA",
+  "review_decision": "UNREVIEWED",
+  "independent_source_authenticity_verified": false
+}
+```
+
+**O JSON ilustrativo e intencionalmente invalido para finalizacao**:
+trocar placeholders, decidir `CORROBORATES` ou `CONTRADICTS`
+apenas com fundamentacao real, conferir `matched_excerpt` literal com
+pelo menos 12 caracteres em `conditions.txt`, autenticar a versao
+de produto/contrato e assinalar `true` **somente quando houve
+autenticacao independente real**. `reviewed_on` e `collected_on`
+sao datas reais, nunca antedatadas. O revisor preserva em cofre privado
+o PDF original (se houver), bytes e hash, canal de autenticacao da fonte,
+e cadeia de extracao UTF-8 para `conditions.txt`.
+
+Sob controle do **proprio revisor autorizado**, disponibilizar no processo
+PowerShell as variaveis `RASAI_CLAIM_REVIEW_HMAC_KEY_HEX` (32+ bytes
+em hexadecimal, nunca em CLI/chat/arquivo do Git) e
+`RASAI_CLAIM_REVIEWER_ALLOWLIST`, conforme a politica de custodia.
+Quando a revisao verdadeira estiver concluida, executar uma vez:
+
+```powershell
+cd C:\IA-PROJETOS\github\RASAI-Readiness-Auditor
+git pull --ff-only
+& ".\.venv\Scripts\python.exe" ".\scripts\claim_review_reviewer_finalize.py" `
+  --private-directory "C:\RASAI-PRIVADO\603" --reviewer-confirmed
+```
+
+Status `PRIVATE_REVIEW_PACKET_FINALIZED` ou
+`PRIVATE_REVIEW_PACKET_REUSED` **nao e aceite da #603**.
+O revisor faz entao a **unica verificacao final da AUD real**:
+
+```powershell
+& ".\.venv\Scripts\python.exe" ".\scripts\claim_review_windows_acceptance.py" `
+  --search-root "C:\IA-PROJETOS" `
+  --manifest "C:\RASAI-PRIVADO\603\manifest.json"
+```
+
+Fornecer ao operador/agente exclusivamente o JSON sanitizado. Nao colar
+`review.authorized.json`, `conditions.txt`, `receipt.json`, `claim.txt`,
+chave HMAC ou segredos. `AUTHENTICATED_REVIEW_AND_AUD_LINK_VERIFIED`
+e a integridade vinculada a AUD real sao os unicos estados de aceite
+tecnico final. Autenticidade documental externa permanece juizo do
+revisor independente, nao certificacao automatica do software.
