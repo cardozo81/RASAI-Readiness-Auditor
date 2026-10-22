@@ -199,7 +199,7 @@ def publish_faq_after_seal(*, audit_id: str, aud_dir: Path) -> dict[str, int]:
     """Independent read-only AUD cross-check then atomic immutable sidecar."""
     with _LOCK:
         rows = tuple(_captured.pop(audit_id, ()))
-    status = {"eligible": len(rows), "published": 0, "rejected": 0}
+    status = {"eligible": len(rows), "published": 0, "rejected": 0, "rejection_reasons": []}
     if not rows:
         return status
     from rasai.apdex_readiness_sidecar import _original
@@ -218,9 +218,9 @@ def publish_faq_after_seal(*, audit_id: str, aud_dir: Path) -> dict[str, int]:
                     permitted_collector_ids=frozenset({collector_id}),
                 )
                 if not verdict.get("signed_live_page_witness_valid"):
-                    raise ValueError("signed live page not verifiable")
+                    raise ValueError("SIGNED_WITNESS_INVALID:" + str(verdict.get("reason", "UNSPECIFIED")))
                 if not verdict.get("persisted_dom_bytes_match_signed_receipt"):
-                    raise ValueError("canonical AUD DOM not attributable")
+                    raise ValueError("PERSISTED_DOM_NOT_ATTRIBUTABLE")
                 payload = _sidecar_payload(witness, verdict)
                 if len(payload) > _MAX_SIDECAR_BYTES:
                     raise ValueError("FAQ evidence exceeds bounded output")
@@ -243,10 +243,19 @@ def publish_faq_after_seal(*, audit_id: str, aud_dir: Path) -> dict[str, int]:
                 finally:
                     Path(name).unlink(missing_ok=True)
                 status["published"] += 1
-            except (OSError, ValueError, TypeError, KeyError):
+            except (OSError, ValueError, TypeError, KeyError) as exc:
                 status["rejected"] += 1
+                # Only bounded, allowlisted classifications leave this trust boundary.
+                reason = str(exc) if type(exc) is ValueError else type(exc).__name__
+                allowed = {"PERSISTED_DOM_NOT_ATTRIBUTABLE", "UNSPECIFIED"}
+                if reason.startswith("SIGNED_WITNESS_INVALID:"):
+                    reason = "SIGNED_WITNESS_INVALID"
+                elif reason not in allowed:
+                    reason = "SIDECAR_PUBLICATION_REJECTED"
+                status["rejection_reasons"].append(reason)
     except (OSError, ValueError, TypeError):
         status["rejected"] = len(rows)
+        status["rejection_reasons"] = ["AUD_SEAL_NOT_VERIFIED"]
     return status
 
 
