@@ -1231,3 +1231,79 @@ def test_capture_revoked_mid_fetch_rejects_materialization(tmp_path, monkeypatch
         _run(folder, tmp_path, consent_registry=registry,
              consent_purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW")
     assert not (tmp_path / "output").exists()
+
+
+
+def test_cobs_stored_replay_is_structurally_consumed_without_content_validation(
+    tmp_path, monkeypatch,
+):
+    """Same captured bytes: persisted COBS -> pair projection -> safe HTML."""
+    from rasai.geo_competitor_pair import compare_cobs_static_pair, _offline_replay_summary
+    from rasai.geo_competitor_pair_html import render_cobs_static_pair_html
+
+    folder = _audit(tmp_path)
+    _add_aud_targets(folder, [(folder.name, _TARGET_URL)])
+    source_bytes = (folder / "audit.db").read_bytes()
+
+    def observed(url, **kwargs):
+        target = kwargs["role"] == "CUSTOMER"
+        digest = ("e" if target else "f") * 64
+        return _response(
+            role=kwargs["role"], requested_url=url, final_url=url,
+            content_sha256=digest,
+            html_fetch_timestamp=("2026-10-10T10:15:00Z"
+                                  if target else "2026-10-10T11:15:00Z"),
+            offline_js_advisory={
+                "contract_version": "RASAI-COBS-NETWORKLESS-INLINE-REPLAY-1",
+                "status": "INLINE_DOM_STABLE_IN_OCI",
+                "source_html_sha256": digest,
+                "isolated_rendered_html_sha256": "a" * 64,
+                "replay_device": "mobile",
+                "live_site_hydration_proven": False,
+                "live_primary_content_proven": False,
+                "same_serp_device_or_population_proven": False,
+                "rendered_html_persisted": False,
+                "isolated_lexical_inventory_is_live_evidence": False,
+                "isolated_lexical_inventory": {
+                    "contract_version": "RASAI-COBS-NETWORKLESS-LEXICAL-INVENTORY-1",
+                    "method": "SAME_SOURCE_HTML_VS_OCI_DOM_OFFLINE",
+                    "static_html": {
+                        "word_count_observed_html": 3, "headings_sample": ["Antes"],
+                    },
+                    "isolated_dom": {
+                        "word_count_observed_html": 7,
+                        "headings_sample": ["Depois <seguro>"],
+                    },
+                    "observed_word_count_delta": 4,
+                    "content_readiness_proven": False,
+                    "live_site_hydration_proven": False,
+                    "primary_content_proven": False,
+                    "semantic_or_editorial_gap_proven": False,
+                    "same_serp_population_proven": False,
+                    "raw_html_persisted": False,
+                    "additional_public_http_requests": 0,
+                },
+            },
+        )
+    monkeypatch.setattr(capture, "inspect_consented_public_html", observed)
+    target = capture.capture_competitor_sidecar(
+        folder, _OBS, _TARGET_URL, role="CUSTOMER",
+        output_root=tmp_path / "customer", consented_hostnames=("customer.example.org",),
+    )
+    competitor = _run(folder, tmp_path)
+    projection = compare_cobs_static_pair(
+        folder, target["manifest_path"], competitor["manifest_path"],
+    )
+    assert projection["competitor"]["offline_replay_summary"]["observed_word_count_delta"] == 4
+    assert projection["competitor"]["offline_replay_summary"]["semantic_or_editorial_gap_proven"] is False
+    rendered = render_cobs_static_pair_html(projection)
+    assert "Depois &lt;seguro&gt;" in rendered
+    assert "replay OCI" in rendered
+    assert (folder / "audit.db").read_bytes() == source_bytes
+
+    # Rehashed but inconsistent offline source identity cannot be promoted.
+    bad = json.loads(open(competitor["manifest_path"], encoding="utf-8").read())
+    bad["capture"]["offline_js_advisory"]["source_html_sha256"] = "b" * 64
+    assert _offline_replay_summary(bad) == {
+        "status": "NOT_VERIFIABLE_OFFLINE_REPLAY",
+    }

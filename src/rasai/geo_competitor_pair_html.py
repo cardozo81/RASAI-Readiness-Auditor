@@ -76,6 +76,44 @@ def _lexical_group(
     )
 
 
+
+def _offline_replay_card(label: str, facts: Mapping[str, Any]) -> str:
+    """Standalone consultative use of stored OCI extraction, no live-site claims."""
+    row = facts.get("offline_replay_summary")
+    if not isinstance(row, Mapping):
+        return ""
+    if row.get("status") != "OFFLINE_LEXICAL_ONLY":
+        return "<section class='panel'><h3>" + escape(label) + (
+            " — replay OCI</h3><p>N/D: extração offline não verificável.</p></section>"
+        )
+    if (row.get("live_primary_content_proven") is not False
+            or row.get("semantic_or_editorial_gap_proven") is not False
+            or row.get("replay_device") not in {"desktop", "mobile"}
+            or not isinstance(row.get("rendered_html_sha256"), str)
+            or not _SHA.fullmatch(row["rendered_html_sha256"])):
+        raise ValueError("offline replay must not assert live/semantic proof")
+    static, oci, delta = (
+        row.get("static_word_count"), row.get("oci_word_count"),
+        row.get("observed_word_count_delta"),
+    )
+    sample = row.get("oci_headings_sample")
+    if (type(static) is not int or type(oci) is not int
+            or not 0 <= static <= 1_000_000 or not 0 <= oci <= 1_000_000
+            or type(delta) is not int or delta != oci - static):
+        raise ValueError("invalid offline replay word inventory")
+    return (
+        "<section class='panel'><h3>" + escape(label) + " — replay OCI</h3>"
+        "<p>Reprodução local " + _safe(row["replay_device"]) +
+        "; SHA do DOM: " + _safe(row["rendered_html_sha256"]) + "</p>"
+        "<p>HTML de origem: " + str(static) +
+        " palavras; DOM OCI: " + str(oci) +
+        " palavras; diferença lexical: " + str(delta) + "</p>"
+        "<p>Headings OCI extraídos (amostra):</p>" + _safe_list(sample) +
+        "<p>Somente reutilização de extração local: não comprova conteúdo ao vivo, "
+        "qualidade, semântica, ranking ou lacuna editorial.</p></section>"
+    )
+
+
 def render_cobs_static_pair_html(projection: Mapping[str, Any]) -> str:
     """Render an untrusted projection only if it retains strict static gates."""
     if not isinstance(projection, Mapping):
@@ -191,6 +229,9 @@ def render_cobs_static_pair_html(projection: Mapping[str, Any]) -> str:
         "<main><div class='grid'>",
         _card("URL auditada - extrato estatico", projection["customer"]),
         _card("URL concorrente - extrato estatico", projection["competitor"]),
+        "</div><h2>Extracao OCI offline persistida (quando observada)</h2><div class='grid'>",
+        _offline_replay_card("Alvo", projection["customer"]),
+        _offline_replay_card("Concorrente", projection["competitor"]),
         "</div><h2>Intersecoes lexicais exatas (nao semanticas)</h2><div class='grid'>",
         _lexical_group("Headings", projection, "observed_heading_text_"),
         _lexical_group("Termos de consulta", projection, "observed_query_body_terms_"),

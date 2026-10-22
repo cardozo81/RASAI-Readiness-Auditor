@@ -280,3 +280,20 @@ inalterados.
 Esta entrega reduz a lacuna de **interpretacao do replay ja disponivel**;
 nao encerra o requisito maior de captura SPA fisica autorizada e comparacao
 de fontes em coorte externa equivalente da #330.
+
+
+
+## Consumo do inventário OCI offline pelo comparativo COBS (#330, 22/10/2026)
+
+O consumidor read-only de pares COBS utiliza, quando presente e estruturalmente
+coerente, o extrato `capture.offline_js_advisory.isolated_lexical_inventory`
+dos **sidecars já persistidos**, exibindo em JSON/HTML quantidades de palavras
+no HTML de origem, no DOM reproduzido sem rede, diferença lexical e pequena
+amostra de headings. Ausência ou metadados contraditórios retornam N/D.
+O registro continua fora da AUD; não ocorrem HTTP, provedores, novas extrações,
+alterações de score nem reescrita de fontes seladas nesse consumidor.
+
+O resultado **não valida o dado coletado**, veracidade, qualidade, semântica,
+identidade live do site nem equivalência de fontes externas. Ele apenas demonstra
+a cadeia estrutural armazenamento → extração → uso consultivo dentro do RASAi.
+O escopo não justifica nova campanha de validação externa ou teste global.
