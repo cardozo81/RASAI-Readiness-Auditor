@@ -17,9 +17,6 @@ import re
 import sqlite3
 from typing import Any, Mapping
 
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
-from cryptography.hazmat.primitives import serialization
-
 from rasai.audit_attempt_inspection import _source_fingerprint
 
 _VERSION = "RASAI-M3-FAQ-CHROMIUM-CAPTURE-001"
@@ -67,6 +64,11 @@ def sign_worker_capture(
         "crawler_discovery_verified": False,
         "score_change_authorized": False,
     }
+    # The attestation extra is opt-in. Legacy read-only FAQ consumers must
+    # import this module successfully even without cryptography installed.
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives import serialization
+
     key = Ed25519PrivateKey.generate()
     public = key.public_key().public_bytes(
         encoding=serialization.Encoding.Raw,
@@ -88,6 +90,13 @@ def verify_worker_capture(
     Its public key is session-local. Authenticity ultimately depends on the
     already verified AUD seal and trusted worker, not on a global PKI anchor.
     """
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        from cryptography.exceptions import InvalidSignature
+    except ImportError:
+        # An unsigned default install must safely abstain; it must not make
+        # the canonical M3 snapshot, existing FAQ readers or reports crash.
+        return False
     try:
         if not isinstance(record, dict) or set(record) != {
             "payload", "public_key_b64", "signature_b64",
@@ -127,15 +136,8 @@ def verify_worker_capture(
             return False
         Ed25519PublicKey.from_public_bytes(public).verify(signature, _canonical(payload))
         return True
-    except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
+    except (ValueError, TypeError, KeyError, AttributeError, OverflowError, InvalidSignature):
         return False
-    except Exception as exc:
-        # InvalidSignature is a cryptography exception; no exception or payload
-        # from a hostile sidecar may escape into the canonical audit.
-        from cryptography.exceptions import InvalidSignature
-        if isinstance(exc, InvalidSignature):
-            return False
-        raise
 
 
 def inspect_persisted_worker_capture(
