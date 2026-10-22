@@ -62,6 +62,10 @@ _NON_PUBLIC_EXECUTION_ENV = frozenset(
         # restore them into another audit's environment.
         "RASAI_CLAIM_REVIEW_HMAC_KEY_HEX",
         "RASAI_CLAIM_REVIEWER_ALLOWLIST",
+        # One-shot loopback FAQ fixtures used only by the isolated physical gate.
+        # Never publish or persist test fixture paths and URLs as operator settings.
+        "RASAI_652_FIXTURE_PATH",
+        "RASAI_652_FIXTURE_URL",
     }
 )
 _NON_PUBLIC_RUNTIME_ENV = _NON_PUBLIC_FEATURE_LOCAL_AI_ENV | _NON_PUBLIC_EXECUTION_ENV

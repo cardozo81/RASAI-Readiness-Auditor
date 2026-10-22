@@ -5,7 +5,7 @@ import sqlite3
 import subprocess
 import sys
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "CLAIM_603_PREPARE_HANDOFF.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "claim_review_prepare_handoff.py"
 AUD_ID = "AUD-EAFBFF6E3F6E415CB0DD41F561B5B2DF"
 
 

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import sqlite3
 
-PATH = Path(__file__).resolve().parents[1] / "scripts" / "CLAIM_603_WINDOWS_ACCEPTANCE.py"
+PATH = Path(__file__).resolve().parents[1] / "scripts" / "claim_review_windows_acceptance.py"
 spec = importlib.util.spec_from_file_location("rasai_claim_603_windows_preflight", PATH)
 gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)

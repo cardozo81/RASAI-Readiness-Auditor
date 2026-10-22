@@ -15,7 +15,7 @@ import re
 import sqlite3
 from typing import Sequence
 
-from CLAIM_603_WINDOWS_ACCEPTANCE import AUD_ID, _candidates, _inspect_aud, _utc_day
+from claim_review_windows_acceptance import AUD_ID, _candidates, _inspect_aud, _utc_day
 from rasai.claim_aud_binding import _ref_file
 from rasai.geo_query_ledger import _audit_digest
 

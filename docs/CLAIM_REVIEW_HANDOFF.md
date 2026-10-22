@@ -200,7 +200,7 @@ sem downloads e sem alterar a AUD:
 ```powershell
 cd C:\IA-PROJETOS\github\RASAI-Readiness-Auditor
 git pull --ff-only
-& ".\.venv\Scripts\python.exe" ".\scripts\CLAIM_603_WINDOWS_ACCEPTANCE.py" --search-root "C:\IA-PROJETOS"
+& ".\.venv\Scripts\python.exe" ".\scripts\claim_review_windows_acceptance.py" --search-root "C:\IA-PROJETOS"
 ```
 
 Quando a AUD tiver sido localizada fora dessa pasta, informar seu caminho
@@ -215,7 +215,7 @@ Quando o revisor fornecer em diretório **privado fora do Git** um
 indicados (nenhum placeholder), executar uma única vez:
 
 ```powershell
-& ".\.venv\Scripts\python.exe" ".\scripts\CLAIM_603_WINDOWS_ACCEPTANCE.py" `
+& ".\.venv\Scripts\python.exe" ".\scripts\claim_review_windows_acceptance.py" `
   --audit-directory "C:\CAMINHO\AUD-EAFBFF6E3F6E415CB0DD41F561B5B2DF" `
   --manifest "C:\REVISAO_PRIVADA\manifest.json"
 ```
@@ -249,7 +249,7 @@ a AUD ja homologada, o operador executa **uma unica preparacao local**:
 ```powershell
 cd C:\IA-PROJETOS\github\RASAI-Readiness-Auditor
 git pull --ff-only
-& ".\.venv\Scripts\python.exe" ".\scripts\CLAIM_603_PREPARE_HANDOFF.py" `
+& ".\.venv\Scripts\python.exe" ".\scripts\claim_review_prepare_handoff.py" `
     --search-root "C:\IA-PROJETOS" `
     --private-directory "C:\RASAI-PRIVADO\603"
 ```

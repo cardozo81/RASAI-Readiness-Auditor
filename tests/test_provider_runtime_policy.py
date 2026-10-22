@@ -95,6 +95,7 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
         import rasai.provider_runtime_policy as runtime_policy
 
         original = runtime_policy.model_definition
+        active_model = SIMPLE_DEFAULT_MODELS["MIMO"]
 
         class _ExpiredDefinition:
             enabled = True
@@ -103,15 +104,15 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
                 return False
 
         def lookup(provider_name: str, model: str):
-            if provider_name == "MIMO" and model == "mimo-v2.5":
+            if provider_name == "MIMO" and model == active_model:
                 return _ExpiredDefinition()
             return original(provider_name, model)
 
         with patch.object(runtime_policy, "model_definition", side_effect=lookup):
-            with self.assertRaisesRegex(ValueError, "modelo indisponível para MIMO: mimo-v2.5"):
+            with self.assertRaisesRegex(ValueError, f"modelo indisponível para MIMO: {active_model}"):
                 build_semantic_provider(
                     "mimo",
-                    model_override="mimo-v2.5",
+                    model_override=active_model,
                     env={"MIMO_API_KEY": "x"},
                 )
 
