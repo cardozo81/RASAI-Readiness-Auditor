@@ -8,6 +8,7 @@ same browser session, regulatory authorization or legal compliance.
 from __future__ import annotations
 
 from contextlib import closing
+from datetime import date, datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 import sqlite3
@@ -43,8 +44,22 @@ def _ref_file(root: Path, reference: object) -> Path | None:
     return current
 
 
+def _utc_capture_day(value: object) -> date | None:
+    """Reject unzoned timestamps; never infer a historical local timezone."""
+    if not isinstance(value, str) or not value or value != value.strip():
+        return None
+    try:
+        captured = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if captured.tzinfo is None or captured.utcoffset() is None:
+            return None
+        return captured.astimezone(timezone.utc).date()
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 def bind_claim_texts(
     audit_dir: Path, audit_id: str, observations: Sequence[Mapping[str, Any]],
+    *, expected_at_date: date | None = None,
 ) -> dict[str, Any]:
     """Bind manifest claims to observed text in one immutable physical AUD.
 
@@ -65,7 +80,9 @@ def bind_claim_texts(
             or db.is_symlink() or not db.is_file()
             or any(Path(str(db) + suffix).exists() for suffix in (
                 "-wal", "-shm", "-journal"))
-            or len(observations) > 50):
+            or len(observations) > 50
+            or (expected_at_date is not None and type(expected_at_date) is not date)):
+        # An untrusted manifest cannot replace the snapshot capture date.
         return unavailable
     try:
         before, before_size = _audit_digest(db)
@@ -79,7 +96,8 @@ def bind_claim_texts(
             snap_cols = {r[1] for r in con.execute("PRAGMA table_info(page_snapshots)")}
             if (not {"audit_id", "status", "completion_status"} <= audit_cols
                     or not {"page_id", "audit_id"} <= page_cols
-                    or not {"snapshot_id", "page_id", "main_content_ref"} <= snap_cols):
+                    or not {"snapshot_id", "page_id", "main_content_ref"} <= snap_cols
+                    or (expected_at_date is not None and "captured_at" not in snap_cols)):
                 return unavailable
             aud = con.execute(
                 "SELECT audit_id,status,completion_status FROM audits LIMIT 2"
@@ -109,10 +127,15 @@ def bind_claim_texts(
                     continue
                 # Global census prevents a snapshot reused by other AUDs
                 # from satisfying the operator's chosen physical identity.
+                capture_column = (
+                    "s.captured_at" if expected_at_date is not None else "NULL"
+                )
                 matches = con.execute(
-                    "SELECT s.page_id,p.audit_id,s.main_content_ref "
-                    "FROM page_snapshots s JOIN pages p ON p.page_id=s.page_id "
-                    "WHERE s.snapshot_id=? LIMIT 2", (snapshot_id,)
+                    "SELECT s.page_id,p.audit_id,s.main_content_ref, "
+                    + capture_column
+                    + " FROM page_snapshots s JOIN pages p ON p.page_id=s.page_id "
+                      "WHERE s.snapshot_id=? LIMIT 2",
+                    (snapshot_id,),
                 ).fetchall()
                 count = con.execute(
                     "SELECT COUNT(*) FROM page_snapshots WHERE snapshot_id=?",
@@ -120,6 +143,12 @@ def bind_claim_texts(
                 ).fetchone()[0]
                 if len(matches) != 1 or count != 1 or matches[0][1] != audit_id:
                     outcomes[claim_id] = denied
+                    continue
+                if (expected_at_date is not None
+                        and _utc_capture_day(matches[0][3]) != expected_at_date):
+                    outcomes[claim_id] = {
+                        **denied, "reason": "SNAPSHOT_CAPTURE_DATE_NOT_ATTESTED",
+                    }
                     continue
                 path = _ref_file(root, matches[0][2])
                 if path is None:

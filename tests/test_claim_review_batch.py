@@ -230,14 +230,16 @@ def _aud_with_claim_snapshot(tmp_path, packet):
             );
             CREATE TABLE pages (page_id TEXT, audit_id TEXT);
             CREATE TABLE page_snapshots (
-                snapshot_id TEXT, page_id TEXT, main_content_ref TEXT
+                snapshot_id TEXT, page_id TEXT, main_content_ref TEXT,
+                captured_at TEXT
             );
             INSERT INTO audits VALUES (
                 'AUD-OPERATOR-LABEL','COMPLETED','COMPLETE'
             );
             INSERT INTO pages VALUES ('PAGE-1','AUD-OPERATOR-LABEL');
             INSERT INTO page_snapshots VALUES (
-                'SNP-SIGNED','PAGE-1','artifacts/capture/main.txt'
+                'SNP-SIGNED','PAGE-1','artifacts/capture/main.txt',
+                '2026-10-14T15:30:00+00:00'
             );
         """)
     manifest_file = packet / "manifest.json"
@@ -650,3 +652,92 @@ def test_documentary_advisory_rejects_wal_created_after_batch_binding(
     )
     assert projected["status"] == "NOT_VERIFIABLE"
     assert "claims_observed_in_aud" not in projected
+
+
+def test_603_capture_time_bound_to_aud_prevents_manifest_backdating(tmp_path):
+    folder = _fixture(tmp_path)
+    aud, artifact = _aud_with_claim_snapshot(tmp_path, folder)
+    manifest_file = folder / "manifest.json"
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    before_db = (aud / "audit.db").read_bytes()
+    before_artifact = artifact.read_bytes()
+    for wrong_date in ("2026-09-14", "2026-10-15"):
+        manifest["at_date"] = wrong_date
+        manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
+        result = inspect_claim_review_batch(
+            manifest_file, trusted_key=KEY, trusted_reviewer_ids=REVIEWERS,
+            audit_directory=aud, require_collection_date=True,
+        )
+        assert result["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
+        assert all(row["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+                   for row in result["claims"])
+        assert all(row["audit_binding"]["reason"] == "SNAPSHOT_CAPTURE_DATE_NOT_ATTESTED"
+                   for row in result["claims"])
+    assert (aud / "audit.db").read_bytes() == before_db
+    assert artifact.read_bytes() == before_artifact
+
+
+def test_603_unsigned_snapshot_timestamp_refused_and_offset_normalized(tmp_path):
+    import sqlite3
+    folder = _fixture(tmp_path)
+    aud, _ = _aud_with_claim_snapshot(tmp_path, folder)
+    for invalid in ("2026-10-14T15:30:00", "", "invalid"):
+        with sqlite3.connect(aud / "audit.db") as con:
+            con.execute("UPDATE page_snapshots SET captured_at=?", (invalid,))
+        result = inspect_claim_review_batch(
+            folder / "manifest.json", trusted_key=KEY,
+            trusted_reviewer_ids=REVIEWERS, audit_directory=aud,
+        )
+        assert all(row["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
+                   for row in result["claims"])
+    with sqlite3.connect(aud / "audit.db") as con:
+        con.execute("UPDATE page_snapshots SET captured_at=?",
+                    ("2026-10-14T12:30:00-03:00",))
+    result = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, audit_directory=aud,
+    )
+    assert result["claims"][0]["state"] == "CLAIM_CORROBORATED"
+
+
+def test_603_capture_timestamp_column_required_for_optin_aud(tmp_path):
+    import sqlite3
+    folder = _fixture(tmp_path)
+    aud, _ = _aud_with_claim_snapshot(tmp_path, folder)
+    with sqlite3.connect(aud / "audit.db") as con:
+        con.execute("ALTER TABLE page_snapshots DROP COLUMN captured_at")
+    result = inspect_claim_review_batch(
+        folder / "manifest.json", trusted_key=KEY,
+        trusted_reviewer_ids=REVIEWERS, audit_directory=aud,
+    )
+    assert result["status"] == "NOT_VERIFIABLE"
+    assert result["reason"] == "AUD_BINDING_NOT_VERIFIABLE"
+    assert result["claims"] == []
+
+
+def test_603_one_command_physical_gate_is_redacted_and_readonly(tmp_path, monkeypatch, capsys):
+    from rasai.claim_review_physical_gate import main as gate_main
+    folder = _fixture(tmp_path)
+    aud, artifact = _aud_with_claim_snapshot(tmp_path, folder)
+    before_db = (aud / "audit.db").read_bytes()
+    before_artifact = artifact.read_bytes()
+    monkeypatch.setenv("RASAI_CLAIM_REVIEW_HMAC_KEY_HEX", KEY.hex())
+    monkeypatch.setenv("RASAI_CLAIM_REVIEWER_ALLOWLIST", "reviewer-1")
+    assert gate_main(["--audit-directory", str(aud),
+                      "--manifest", str(folder / "manifest.json")]) == 0
+    output = capsys.readouterr().out
+    public = json.loads(output)
+    assert public["status"] == "AUTHENTICATED_REVIEW_AND_AUD_LINK_VERIFIED"
+    assert public["promoted_documentary_decisions"] == 2
+    assert public["official_source_authenticated_by_this_tool"] is False
+    assert public["legal_compliance_certified"] is False
+    assert public["audit_writes"] == public["provider_requests"] == 0
+    assert "Life cover" not in output
+    assert KEY.hex() not in output
+    assert (aud / "audit.db").read_bytes() == before_db
+    assert artifact.read_bytes() == before_artifact
+    monkeypatch.delenv("RASAI_CLAIM_REVIEW_HMAC_KEY_HEX")
+    assert gate_main(["--audit-directory", str(aud),
+                      "--manifest", str(folder / "manifest.json")]) == 2
+    rejected = json.loads(capsys.readouterr().out)
+    assert rejected["status"] == "NOT_VERIFIABLE"

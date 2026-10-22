@@ -144,3 +144,45 @@ respectivos hashes e a proveniencia da extracao em registro privado;
 nao declarar que hash de texto derivado autentica por si o PDF
 oficial. Nao assinar um recibo sobre bytes diferentes dos fornecidos
 para a verificacao. Ausencia de cadeia confiavel => N/D.
+
+## 5. Gate automatizado de aceitacao documental e data fisica
+
+O `manifest.at_date` nao e mais autoridade isolada quando o operador
+exige `--audit-directory`. O verificador confronta **cada**
+`snapshot_id` com `page_snapshots.captured_at` em UTC. A data do
+manifesto deve ser igual a data UTC efetiva daquela captura M3;
+falta de timestamp, timezone ausente, data de outra amostra e
+coluna inexistente impedem promocao de corroboração/contradição.
+Uma assinatura de revisor valida nao contorna esta verificacao.
+
+Quando houver documento oficial versionado e recibo realmente assinado
+pelo revisor externo, a homologacao de **integracao tecnica** pode
+ser executada em uma unica chamada focal (offline, somente leitura):
+
+```powershell
+git pull --ff-only
+& ".\.venv\Scripts\python.exe" -m rasai.claim_review_physical_gate `
+    --audit-directory "C:\AUDS_PRIVADOS\AUD-ID" `
+    --manifest "C:\REVISAO_PRIVADA\manifest.json"
+```
+
+Credenciais obrigatorias continuam restritas ao ambiente privado
+(`RASAI_CLAIM_REVIEW_HMAC_KEY_HEX` e
+`RASAI_CLAIM_REVIEWER_ALLOWLIST`); este comando nao assina em nome do
+revisor e nao imprime claim literal, arquivo de origem, URL,
+`reviewer_id` ou segredo. Estado
+`AUTHENTICATED_REVIEW_AND_AUD_LINK_VERIFIED` so ocorre com
+ao menos uma decisao assinada por revisor allowlisted, documento
+versionado e texto literal vinculado a snapshot existente, data
+de coleta obrigatoria e verificacao da integridade fisica apos o
+consumo. Decisoes sem documento e sem recibo sao contadas como
+nao verificadas, nunca como falsas. `NOT_VERIFIABLE` ou
+`REVIEW_PACKET_OBSERVATIONS_ONLY_NOT_HOMOLOGATED` retornam exit 2.
+
+**Limites:** este gate prova integracao dos contratos e a assinatura
+do relato do revisor; nao certifica por si so identidade real do
+emissor, documento oficial em portal ou capacidade juridica do
+revisor. A autenticacao externa oficial, a fundamentacao e o aceite
+independente precisam estar documentados fora do RASAi antes de
+declarar homologacao regulatoria. Nenhum GET/SUSEP/API/IA, nenhum
+reprocessamento de AUD historica e nenhum dado privado no GitHub.

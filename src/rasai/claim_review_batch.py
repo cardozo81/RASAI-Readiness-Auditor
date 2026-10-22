@@ -193,8 +193,12 @@ def inspect_claim_review_batch(
         binding_mode = "NOT_REQUESTED"
         aud_digest = None
         if audit_directory is not None:
+            # A signed reviewer receipt does not authenticate the operator's
+            # unsigned manifest date. The actual M3 snapshot timestamp is
+            # authoritative for documentary version applicability.
             linked = bind_claim_texts(
                 audit_directory, manifest["audit_id"], observed_claims,
+                expected_at_date=reference_date,
             )
             if linked["status"] != "OBSERVATIONAL_BINDING_CHECKED":
                 # With opt-in linkage explicitly required, a valid signed
