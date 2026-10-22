@@ -253,3 +253,30 @@ device, periodo/mercado, a consulta SERP original e a verificacao
 autorizada de recursos faltantes permanecem gates separados.
 A ausencia de recursos da SPA gera abstencao e **nao** autorizacao
 para adquiri-los por novos GETs.
+
+
+## Inventario lexical offline do DOM produzido no OCI (22/10/2026)
+
+Quando o replay de SPA ja autorizado retorna `INLINE_DOM_STABLE_IN_OCI`,
+o mesmo resultado JSON inclui `offline_js_advisory.isolated_lexical_inventory`.
+O processamento reutiliza os **mesmos bytes HTML** e o DOM retornado pelo
+worker isolado, sem browser extra, DNS, fetch de assets, nova amostra, coleta
+de provedor, escrita na AUD ou persistencia do DOM. Dois inventarios
+delimitados (`static_html` e `isolated_dom`) exibem contagem de palavras
+do HTML observado, title, descricao, amostra de headings e tipos JSON-LD,
+com marcadores de truncamento. A diferenca `observed_word_count_delta`
+representa **apenas a alteracao lexical nesta reproducao local**.
+
+O contrato `RASAI-COBS-NETWORKLESS-LEXICAL-INVENTORY-1` retorna explicitamente
+`content_readiness_proven=false`, `live_site_hydration_proven=false`,
+`primary_content_proven=false`, `semantic_or_editorial_gap_proven=false`
+e `same_serp_population_proven=false`. O DOM OCI nao comprova a pagina
+ao vivo, o conteudo principal de crawler, equivalencia por locale/device,
+ranking ou citacao gerativa. Se o replay estiver bloqueado, inconclusivo ou
+nao habilitado, `isolated_lexical_inventory=null`. Os mecanismos de
+consentimento, robots, no-redirect, isolamento, CSP e abstencao continuam
+inalterados.
+
+Esta entrega reduz a lacuna de **interpretacao do replay ja disponivel**;
+nao encerra o requisito maior de captura SPA fisica autorizada e comparacao
+de fontes em coorte externa equivalente da #330.

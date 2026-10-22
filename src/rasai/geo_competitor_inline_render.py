@@ -43,7 +43,8 @@ def _outcome(status: str, *, source_sha256: str | None = None,
              device: str | None = None, rendered_sha256: str | None = None,
              rendered_bytes: int | None = None,
              bundle_sha256: str | None = None,
-             supplied_assets: int = 0) -> dict[str, Any]:
+             supplied_assets: int = 0,
+             lexical_inventory: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "contract_version": "RASAI-COBS-NETWORKLESS-INLINE-REPLAY-1",
         "status": status, "source_html_sha256": source_sha256,
@@ -58,6 +59,8 @@ def _outcome(status: str, *, source_sha256: str | None = None,
         "live_primary_content_proven": False,
         "same_serp_device_or_population_proven": False,
         "rendered_html_persisted": False,
+        "isolated_lexical_inventory": lexical_inventory,
+        "isolated_lexical_inventory_is_live_evidence": False,
         "additional_public_http_requests": 0,
         "audit_writes": 0, "score_changed": False,
         "limitations": (
@@ -66,6 +69,63 @@ def _outcome(status: str, *, source_sha256: str | None = None,
             "nao atesta hidratacao live, conteudo editorial, equivalencia "
             "locale/device, indexacao, citacoes ou ranking."
         ),
+    }
+
+
+
+def _bounded_lexical_inventory(
+    url: str, source_html: bytes, rendered_html: bytes, *,
+    source_content_type: str,
+) -> dict[str, Any]:
+    """Compare text features of the SAME bytes before and after OCI replay.
+
+    This is a lexical, offline experiment, not primary-content, crawl,
+    accessibility, audience, editorial-quality or Search-provider evidence.
+    Never persist the rendered DOM or raw source text.
+    """
+    from rasai.search_intelligence.content import extract_rendered_page_features
+
+    domain = urlsplit(url).hostname or ""
+    before = extract_rendered_page_features(
+        source_html, requested_url=url, final_url=url,
+        domain=domain, query="", content_type=source_content_type,
+    )
+    after = extract_rendered_page_features(
+        rendered_html, requested_url=url, final_url=url,
+        domain=domain, query="", content_type="text/html; charset=utf-8",
+    )
+
+    def bounded(value: Any, max_chars: int) -> str | None:
+        return value[:max_chars] if isinstance(value, str) else None
+
+    def snapshot(features: Any) -> dict[str, Any]:
+        headings = tuple(features.headings)
+        types = tuple(features.jsonld_types)
+        return {
+            "word_count_observed_html": features.word_count,
+            "title": bounded(features.title, 300),
+            "meta_description": bounded(features.meta_description, 300),
+            "headings_sample": [bounded(item, 240) for item in headings[:20]],
+            "headings_truncated": len(headings) > 20
+                or any(len(item) > 240 for item in headings[:20]),
+            "jsonld_types_sample": [bounded(item, 120) for item in types[:20]],
+            "jsonld_types_truncated": len(types) > 20
+                or any(len(item) > 120 for item in types[:20]),
+        }
+
+    return {
+        "contract_version": "RASAI-COBS-NETWORKLESS-LEXICAL-INVENTORY-1",
+        "method": "SAME_SOURCE_HTML_VS_OCI_DOM_OFFLINE",
+        "static_html": snapshot(before),
+        "isolated_dom": snapshot(after),
+        "observed_word_count_delta": after.word_count - before.word_count,
+        "content_readiness_proven": False,
+        "live_site_hydration_proven": False,
+        "primary_content_proven": False,
+        "semantic_or_editorial_gap_proven": False,
+        "same_serp_population_proven": False,
+        "raw_html_persisted": False,
+        "additional_public_http_requests": 0,
     }
 
 
@@ -202,12 +262,17 @@ def inspect_inline_spa_replay(
                 if len(rendered) > _MAX_HTML_BYTES:
                     status = "OCI_OUTPUT_UNVERIFIABLE"
                 else:
+                    lexical = _bounded_lexical_inventory(
+                        url, html, rendered,
+                        source_content_type=lower_headers["content-type"],
+                    )
                     return _outcome(
                         "INLINE_DOM_STABLE_IN_OCI", source_sha256=source_sha,
                         device=device, rendered_sha256=sha256(rendered).hexdigest(),
                         rendered_bytes=len(rendered),
                         bundle_sha256=asset_bundle_sha256,
                         supplied_assets=len(resource_entries),
+                        lexical_inventory=lexical,
                     )
             elif (finished.returncode == 2 and result["rendered_html"] is None
                   and result["reason"] in _WORKER_REASONS):

@@ -134,3 +134,66 @@ def test_worker_timeout_is_inconclusive(monkeypatch):
         (_ for _ in ()).throw(subprocess.TimeoutExpired(cmd=["docker"], timeout=40))
     ))
     assert replay.inspect_inline_spa_replay(URL, HTML, device="desktop")["status"] == "OCI_WORKER_TIMEOUT"
+
+
+def test_successful_replay_exposes_only_bounded_offline_lexical_differences(monkeypatch):
+    """A real source-to-OCI DOM difference is observable, but not live content."""
+    rendered = (
+        "<html><head><title>Produto de exemplo</title></head>"
+        "<body><main><h1>Conteudo carregado no OCI</h1>"
+        "<p>Descricao detalhada apos JavaScript.</p></main></body></html>"
+    )
+    _isolated(monkeypatch, SimpleNamespace(
+        returncode=0,
+        stdout=json.dumps({"rendered_html": rendered, "reason": None}),
+    ))
+    result = replay.inspect_inline_spa_replay(URL, HTML, device="desktop")
+    inventory = result["isolated_lexical_inventory"]
+    assert result["status"] == "INLINE_DOM_STABLE_IN_OCI"
+    assert inventory["contract_version"] == "RASAI-COBS-NETWORKLESS-LEXICAL-INVENTORY-1"
+    assert inventory["method"] == "SAME_SOURCE_HTML_VS_OCI_DOM_OFFLINE"
+    assert inventory["static_html"]["word_count_observed_html"] == 0
+    assert inventory["isolated_dom"]["word_count_observed_html"] > 0
+    assert inventory["observed_word_count_delta"] > 0
+    assert inventory["isolated_dom"]["title"] == "Produto de exemplo"
+    assert "Conteudo carregado no OCI" in inventory["isolated_dom"]["headings_sample"]
+    assert not inventory["content_readiness_proven"]
+    assert not inventory["live_site_hydration_proven"]
+    assert not inventory["primary_content_proven"]
+    assert not inventory["semantic_or_editorial_gap_proven"]
+    assert result["isolated_lexical_inventory_is_live_evidence"] is False
+    assert result["rendered_html_persisted"] is False
+    assert result["additional_public_http_requests"] == 0
+
+
+def test_lexical_inventory_is_bounded_and_never_exposes_raw_dom(monkeypatch):
+    """Bound labels and headings; raw HTML must not appear in advisory metadata."""
+    secret_marker = "DO_NOT_PERSIST_RAW_HTML"
+    rendered = "<html><head><title>" + "T" * 900 + "</title></head><body>"
+    rendered += "".join(f"<h2>{'A' * 270} {i}</h2>" for i in range(28))
+    rendered += "<script>const private = '" + secret_marker + "';</script></body></html>"
+    _isolated(monkeypatch, SimpleNamespace(
+        returncode=0,
+        stdout=json.dumps({"rendered_html": rendered, "reason": None}),
+    ))
+    result = replay.inspect_inline_spa_replay(URL, HTML, device="mobile")
+    inventory = result["isolated_lexical_inventory"]["isolated_dom"]
+    assert len(inventory["title"]) == 300
+    assert len(inventory["headings_sample"]) == 20
+    assert all(len(value) <= 240 for value in inventory["headings_sample"])
+    assert inventory["headings_truncated"] is True
+    assert secret_marker not in json.dumps(result)
+    assert result["score_changed"] is False
+
+
+def test_inconclusive_replay_has_no_lexical_inventory(monkeypatch):
+    _isolated(monkeypatch, SimpleNamespace(
+        returncode=2,
+        stdout=json.dumps({
+            "rendered_html": None, "reason": "ISOLATED_RESOURCES_BLOCKED",
+        }),
+    ))
+    result = replay.inspect_inline_spa_replay(URL, HTML, device="mobile")
+    assert result["status"] == "ISOLATED_RESOURCES_BLOCKED"
+    assert result["isolated_lexical_inventory"] is None
+    assert result["isolated_dom_materiality_observed"] is False
