@@ -144,12 +144,13 @@ def bind_claim_texts(
                 if len(matches) != 1 or count != 1 or matches[0][1] != audit_id:
                     outcomes[claim_id] = denied
                     continue
-                if (expected_at_date is not None
-                        and _utc_capture_day(matches[0][3]) != expected_at_date):
-                    outcomes[claim_id] = {
-                        **denied, "reason": "SNAPSHOT_CAPTURE_DATE_NOT_ATTESTED",
-                    }
-                    continue
+                capture_date_match = (
+                    None if expected_at_date is None else
+                    _utc_capture_day(matches[0][3]) == expected_at_date
+                )
+                # Observation is a separate physical fact from applicability
+                # of a documentary version on the snapshot's date. A bad
+                # operator manifest date must not erase observed page text.
                 path = _ref_file(root, matches[0][2])
                 if path is None:
                     outcomes[claim_id] = denied
@@ -176,6 +177,11 @@ def bind_claim_texts(
                     "page_id": matches[0][0],
                     "source_artifact_ref": matches[0][2],
                     "main_content_sha256": digest,
+                    "capture_date_matches_manifest": capture_date_match,
+                    "capture_date_reason": (
+                        "SNAPSHOT_CAPTURE_DATE_NOT_ATTESTED"
+                        if capture_date_match is False else None
+                    ),
                     "interpretation": "LITERAL_TEXT_ONLY_NOT_SOURCE_AUTHENTICITY",
                 }
         # Verify both physical sources *after* using their contents. No

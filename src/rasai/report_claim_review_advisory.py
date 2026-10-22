@@ -167,6 +167,7 @@ def inspect_documentary_claim_advisory(
             state = row["state"]
             if state in _PROMOTED:
                 if (not is_bound or row.get("source_version_verified") is not True
+                        or binding.get("capture_date_matches_manifest") is not True
                         or not isinstance(row.get("collected_on"), str)
                         or not row["collected_on"]):
                     return denied

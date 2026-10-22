@@ -219,6 +219,22 @@ def inspect_claim_review_batch(
                     == "TEXT_PRESENT_IN_SNAPSHOT_MAIN_CONTENT"
                     else "NOT_VERIFIED"
                 )
+                if (isinstance(binding, Mapping)
+                        and binding.get("status")
+                        == "TEXT_PRESENT_IN_SNAPSHOT_MAIN_CONTENT"
+                        and binding.get("capture_date_matches_manifest") is not True
+                        and claim_entry["state"] in {
+                            "CLAIM_CORROBORATED",
+                            "CLAIM_CONTRADICTED_WITH_VERSIONED_SOURCE",
+                        }):
+                    # Physical observation remains CLAIM_OBSERVED. Only
+                    # documentary applicability to this AUD is unverified.
+                    claim_id = claim_entry["claim_id"]
+                    claim_entry.clear()
+                    claim_entry.update(_unverified(claim_id))
+                    claim_entry["basis"] = "SNAPSHOT_CAPTURE_DATE_NOT_ATTESTED"
+                    claim_entry["audit_binding"] = binding
+                    claim_entry["audit_observation_state"] = "CLAIM_OBSERVED"
                 if (not isinstance(binding, Mapping)
                         or binding.get("status")
                         != "TEXT_PRESENT_IN_SNAPSHOT_MAIN_CONTENT"):

@@ -671,7 +671,11 @@ def test_603_capture_time_bound_to_aud_prevents_manifest_backdating(tmp_path):
         assert result["status"] == "DOCUMENTARY_REVIEW_BATCH_OBSERVED"
         assert all(row["state"] == "CLAIM_UNVERIFIED_EXTERNAL"
                    for row in result["claims"])
-        assert all(row["audit_binding"]["reason"] == "SNAPSHOT_CAPTURE_DATE_NOT_ATTESTED"
+        assert all(row["audit_observation_state"] == "CLAIM_OBSERVED"
+                   for row in result["claims"])
+        assert all(row["audit_binding"]["capture_date_matches_manifest"] is False
+                   for row in result["claims"])
+        assert all(row["audit_binding"]["capture_date_reason"] == "SNAPSHOT_CAPTURE_DATE_NOT_ATTESTED"
                    for row in result["claims"])
     assert (aud / "audit.db").read_bytes() == before_db
     assert artifact.read_bytes() == before_artifact
@@ -698,6 +702,7 @@ def test_603_unsigned_snapshot_timestamp_refused_and_offset_normalized(tmp_path)
         trusted_reviewer_ids=REVIEWERS, audit_directory=aud,
     )
     assert result["claims"][0]["state"] == "CLAIM_CORROBORATED"
+    assert result["claims"][0]["audit_binding"]["capture_date_matches_manifest"] is True
 
 
 def test_603_capture_timestamp_column_required_for_optin_aud(tmp_path):

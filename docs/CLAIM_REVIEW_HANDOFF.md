@@ -153,6 +153,10 @@ exige `--audit-directory`. O verificador confronta **cada**
 manifesto deve ser igual a data UTC efetiva daquela captura M3;
 falta de timestamp, timezone ausente, data de outra amostra e
 coluna inexistente impedem promocao de corroboração/contradição.
+Texto literalmente presente continua `CLAIM_OBSERVED`, mesmo com
+`capture_date_matches_manifest=false`: o erro temporal nao apaga
+o que foi realmente observado, mas impede atribuir a esta captura
+um parecer documental de vigencia nao conferida.
 Uma assinatura de revisor valida nao contorna esta verificacao.
 
 Quando houver documento oficial versionado e recibo realmente assinado
