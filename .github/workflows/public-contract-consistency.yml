@@ -50,3 +50,72 @@ jobs:
           tests/test_prepublication_documentation_contract.py
           tests/test_repository_filename_policy.py
           tests/test_rasai_sari_branding.py::test_public_documentation_uses_current_contract
+
+      - name: Architecture advisory context tests
+        run: pytest -q tests/test_architecture_discovery.py tests/test_architecture_acquisition_service.py tests/test_architecture_acquisition_preferences.py tests/test_architecture_probe.py tests/test_architecture_live_capture.py tests/test_architecture_offline_worker.py tests/test_architecture_isolated_capture.py tests/test_console_architecture_discovery.py tests/test_architecture_context.py tests/test_architecture_context_policy_matrix.py tests/test_console_registry_new_process_roundtrip.py tests/test_architecture_observation_reader.py tests/test_architecture_choice.py tests/test_architecture_choice_precedence.py tests/test_architecture_choice_snapshot.py tests/test_architecture_choice_audit_adapter.py tests/test_architecture_choice_runtime.py tests/test_architecture_choice_console_restore.py tests/test_architecture_m6_evidence.py tests/test_m24_architecture.py
+
+      - name: Opt-in isolated OCI end-to-end probe
+        if: github.event_name == 'pull_request'
+        shell: bash
+        timeout-minutes: 15
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          msg="$(git show -s --format=%s "$PR_HEAD_SHA")"
+          if [[ "$msg" != *"[oci-architecture-smoke]"* ]]; then
+            echo "OCI_E2E_SKIPPED: explicit one-commit marker absent"
+            exit 0
+          fi
+          echo "OCI_E2E_ENABLED: synthetic and public-site smoke; no audit, keys or third-party providers"
+          docker build -f Dockerfile.architecture-offline -t rasai-architecture-offline:local .
+          RASAI_ARCH_PROBE_OFFLINE_CONTAINER=1 python - <<'PY'
+          from rasai.architecture_isolation_smoke import verify_isolation, verify_browser_canary
+          from rasai.architecture_isolated_capture import inspect_local_image
+          from rasai.architecture_live_capture import capture_public_architecture
+          from rasai.architecture_discovery import assess_architecture
+          from rasai.domain import DeviceContext
+          import shutil
+
+          digest = inspect_local_image()
+          docker = shutil.which("docker")
+          if digest is None or docker is None:
+              raise SystemExit("OCI_E2E_NOT_ATTESTED: missing verified local image/daemon")
+          checks = verify_isolation(digest=digest, docker=docker)
+          if len(checks) != 11 or not all(checks.values()):
+              raise SystemExit("OCI_E2E_NOT_ATTESTED: isolation")
+          print("OCI_E2E_NETWORK_BLOCKED: 11/11", flush=True)
+          verify_browser_canary(digest=digest, docker=docker)
+          print("OCI_E2E_BROWSER_CANARY_PASSED", flush=True)
+          from tests.architecture_offline_classification_matrix import run_matrix
+          run_matrix(docker=docker, digest=digest)
+          print("OCI_MATRIX_ALL_8_PASSED", flush=True)
+          # Two fixed, public, unauthenticated references; this opt-in gate
+          # exercises the exact offline favicon policy and four-class matrix.
+          # The second reference contains static HTML with no external assets.
+          complete = 0
+          for label, address in (
+              ("REFERENCE_EXAMPLE", "https://example.org/"),
+              ("REFERENCE_HTML_FIXTURE", "https://httpbin.org/html"),
+          ):
+              evidence = capture_public_architecture(address, DeviceContext.MOBILE)
+              assessment = assess_architecture(
+                  raw_html=evidence.raw_html,
+                  rendered_html=evidence.rendered_html,
+                  quality_reason=evidence.quality_reason,
+              )
+              print(label + "_RAW_AVAILABLE:", evidence.raw_html is not None, flush=True)
+              print(label + "_RENDER_AVAILABLE:", evidence.rendered_html is not None, flush=True)
+              print(label + "_REASON:", evidence.quality_reason or "NONE", flush=True)
+              print(label + "_CLASSIFICATION:", assessment.architecture.value, flush=True)
+              print(label + "_LIMITATION:", assessment.limitation or "NONE", flush=True)
+              if label == "REFERENCE_EXAMPLE" and (
+                  evidence.quality_reason is not None or evidence.rendered_html is None
+              ):
+                  raise SystemExit("OCI_E2E_EXAMPLE_RENDER_REGRESSION")
+              if evidence.quality_reason is None and evidence.rendered_html is not None:
+                  complete += 1
+          if complete < 1:
+              raise SystemExit("OCI_E2E_NO_CONCLUSIVE_PUBLIC_REFERENCE")
+          print("OCI_E2E_AT_LEAST_ONE_PUBLIC_RENDER_PASSED", flush=True)
+          PY

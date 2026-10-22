@@ -2,6 +2,9 @@
 
 The consumer does not click, navigate or run a browser. A signed receipt only
 attests the explicitly authorized collector's claim about an isolated action.
+For **optional offline** matching to a persisted AUD rendered DOM, use the
+separate faq_aud_receipt_binding.inspect_faq_receipt_aud_binding. Byte matching
+cannot attest the same browser session or independently authenticate the AUD.
 It never proves Googlebot visibility, editorial absence or score eligibility.
 """
 from __future__ import annotations
@@ -13,7 +16,9 @@ import json
 from typing import Any, Mapping
 
 from rasai.faq_observation import _MAX_HTML_BYTES
-from rasai.faq_transition_policy import compare_faq_dom_views
+from rasai.faq_transition_policy import (
+    compare_faq_dom_views, eligible_isolated_faq_disclosure,
+)
 
 _FIELDS = frozenset({
     "receipt_id", "collector_id", "target_id", "document_url",
@@ -69,13 +74,14 @@ def verify_faq_interaction_receipt(
         or not isinstance(trusted_key, bytes) or len(trusted_key) < 32
         or not isinstance(permitted_collector_ids, frozenset)
         or not isinstance(receipt.get("collector_id"), str)
+        or not receipt["collector_id"].strip()
         or receipt["collector_id"] not in permitted_collector_ids
         or receipt.get("target_opt_in") is not True
         or receipt.get("isolated_unauthenticated_context") is not True
         or receipt.get("network_blocked_after_load") is not True
         or receipt.get("action") != _ACTION
         or not isinstance(receipt.get("receipt_id"), str)
-        or not receipt["receipt_id"]
+        or not receipt["receipt_id"].strip()
         or not isinstance(before_html, str) or not isinstance(later_html, str)
     ):
         return unverified
@@ -110,6 +116,10 @@ def verify_faq_interaction_receipt(
             return unverified
     except (ValueError, TypeError, UnicodeError):
         return unverified
+    # A valid signature cannot make a submit button, link, form, event
+    # handler or ambiguous target safe for an isolated FAQ interaction.
+    if not eligible_isolated_faq_disclosure(before_html, receipt["target_id"]):
+        return {**unverified, "reason": "UNSAFE_OR_AMBIGUOUS_FAQ_ACTION_TARGET"}
     observed = compare_faq_dom_views(
         before_html, later_html,
         target_id=receipt.get("target_id"),

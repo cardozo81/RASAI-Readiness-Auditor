@@ -261,3 +261,72 @@ O recurso não altera:
 - regra de que apenas AUD final e elegível participa da consolidação geral.
 
 Falha ou ausência de snapshot não altera o resultado analítico já persistido do AUD. Ela apenas impede que aquele AUD seja usado como fonte de configuração.
+
+## Rollback em falha de restauração
+
+No console, a restauração da configuração de AUD é transacional quanto às
+atribuições da sessão e às projeções de variáveis de ambiente **do processo**:
+uma exceção durante a reidratação ou sincronização restaura os valores anteriores.
+Campos opcionais rejeitados com avisos continuam seguindo a política vigente de
+avisos e não representam rejeição integral. A operação não grava INI nem modifica
+a AUD de origem. Os testes usam estado e ambiente sintéticos; a conferência do
+Windows/User Registry continua com aceite separado.
+
+## Campos textuais do snapshot histórico
+
+A restauração de Search Intelligence valida os tipos de dispositivo,
+região e classificação YMYL antes de atribuir os valores da sessão.
+Objetos, listas e números não são convertidos implicitamente em strings;
+regiões acima de 200 caracteres são recusadas com aviso, preservando
+o valor vigente. A validação não altera a política de consentimento.
+
+## Consentimento e ativação no snapshot reutilizado
+
+A opção `search_intelligence.enabled` é interpretada somente quando é
+booleana ou um literal textual reconhecido de verdadeiro/falso. Objetos,
+números e valores ambiguamente representados não alteram queries da sessão
+nem ativam buscas por coerção. A escolha explícita `false` continua
+suprimindo queries do snapshot. `content_timeout_seconds` recusa booleanos
+e valores não finitos, preservando a configuração anterior com aviso.
+
+## Regressão integrada de configuração
+
+O contrato de aceite deve exercitar `save_console_config`, reabertura por
+`load_console_config`, exportação do snapshot de uma AUD e restauração
+explícita em outra sessão. Termos de busca de execução não são gravados no
+INI, mas são parte do snapshot reutilizável não secreto; não ativam Perplexity.
+Snapshot sem seção `console` válida é rejeitado antes de alterar a sessão.
+A regressão automatizada não substitui o smoke do console Windows.
+
+## Compatibilidade com snapshots históricos sem seção console
+
+Snapshots legados que não gravaram a seção `settings.console` continuam
+reutilizáveis. A ausência dessa seção não é classificada como corrupção;
+quando presente com tipo inválido, a restauração falha antes de mutar a
+sessão. A compatibilidade preserva a precedência de configuração selada
+e mantém separada a exigência de um round-trip completo nas novas AUDs.
+
+## Flags booleanas na restauração histórica
+
+As flags `competitive`, `compare_content` e `ai_competitive`
+exigem valores booleanos ou literais textuais reconhecidos. Entradas
+numéricas e objetos não são convertidos em políticas de execução; produzem
+aviso e preservam a configuração da sessão. A regra evita que um snapshot
+histórico inválido ative comparação de conteúdo ou análise assistida por IA.
+
+## Reconciliação de snapshots legados incompletos
+
+Um bloco `search_intelligence` histórico sem a chave `queries` não
+apaga as consultas explicitamente presentes na sessão nem fabrica opt-in.
+A escolha explícita `enabled=false` continua desabilitando consultas,
+mesmo sem lista; outros campos válidos continuam restaurados. O contrato
+distingue ausência histórica de informação de uma instrução deliberada
+para apagar estado, preservando o funcionamento independente dos catálogos.
+
+## Regresso focal Windows de caracteres de controle
+
+Uma sequência de escape textual e o byte/caractere de controle correspondente
+não são equivalentes. A regressão exercita um NUL real, gerado sem gravá-lo no
+arquivo-fonte, e confirma a preservação da consulta do operador. Uma sequência
+literal de barra invertida e letras continua sendo texto normal. Este check
+não substitui os gates de console Windows nem altera consentimento de busca.

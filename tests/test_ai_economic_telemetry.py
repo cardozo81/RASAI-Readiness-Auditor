@@ -98,3 +98,126 @@ def test_price_provider_usage_is_the_operational_delegate(monkeypatch) -> None:
         "runtime_conditions": {"region": "GLOBAL", "service_tier": "STANDARD"},
         "surface": "SEMANTIC",
     }
+
+
+def test_invalid_money_never_becomes_numeric_aggregate_or_falls_back() -> None:
+    """Malformed provider observations cannot be replaced by a lower-priority estimate."""
+    for invalid in (float("nan"), float("inf"), float("-inf"), -0.1, True, "not-money"):
+        amount, currency, basis = economic.attempt_monetary_cost({
+            "input_tokens": 7,
+            "observed_cost": invalid,
+            "observed_cost_currency": "USD",
+            "estimated_cost": 0.25,
+            "cost_currency": "USD",
+        })
+        assert amount is None
+        assert currency == "USD"
+        assert basis == "INVALID"
+        aggregate = economic.aggregate_attempt_costs([{
+            "input_tokens": 7, "observed_cost": invalid,
+            "observed_cost_currency": "USD", "estimated_cost": 0.25,
+        }])
+        assert aggregate.totals == ()
+        assert aggregate.unpriced_attempts == 1
+
+
+def test_corrupt_estimated_and_legacy_costs_abstain_but_real_zero_is_allowed() -> None:
+    for field in ("estimated_cost", "estimated_cost_usd"):
+        for invalid in (float("nan"), float("inf"), -1, "bad"):
+            amount, _currency, basis = economic.attempt_monetary_cost({
+                field: invalid, "cost_currency": "USD",
+            })
+            assert amount is None
+            assert basis == "INVALID"
+        assert economic.attempt_monetary_cost({
+            field: 0.0, "cost_currency": "USD",
+        })[0] == 0.0
+
+
+def test_token_counters_do_not_truncate_fractional_or_clamp_negative_usage():
+    """Invalid physical token observations cannot be silently rewritten."""
+    for invalid in (-3, 2.5, True, float("nan"), float("inf"), "-1", "2.5"):
+        assert economic.canonical_total_tokens({
+            "total_tokens": invalid, "input_tokens": None, "output_tokens": None,
+        }) is None
+    assert economic.canonical_total_tokens({
+        "total_tokens": None, "input_tokens": -3, "output_tokens": 7,
+    }) is None
+    assert economic.canonical_total_tokens({
+        "total_tokens": "12", "input_tokens": 3, "output_tokens": 4,
+    }) == 12
+    assert economic.canonical_total_tokens({
+        "total_tokens": 0, "input_tokens": 3, "output_tokens": 4,
+    }) == 0
+
+
+def test_excessive_numeric_token_text_abstains_before_integer_conversion():
+    """Untrusted provider usage cannot exhaust Python's integer conversion budget."""
+    massive = "9" * 5000
+    assert economic.canonical_total_tokens({
+        "total_tokens": massive, "input_tokens": None, "output_tokens": None,
+    }) is None
+    assert economic.canonical_total_tokens({
+        "input_tokens": massive, "output_tokens": "3",
+    }) is None
+
+
+def test_malformed_currency_is_not_aggregated_as_a_monetary_total():
+    for currency in ("USD\\rINJECT", "USDD", "12A", "€UR", True, {"code": "USD"}):
+        summary = economic.aggregate_attempt_costs([{
+            "input_tokens": 1, "output_tokens": 1,
+            "observed_cost": 0.2, "observed_cost_currency": currency,
+        }])
+        assert summary.totals == ()
+        assert summary.unpriced_attempts == 1
+    assert economic.aggregate_attempt_costs([{
+        "observed_cost": 0.2, "observed_cost_currency": "usd",
+    }]).totals == (("USD", 0.2),)
+
+
+def test_unbounded_integer_token_usage_also_abstains():
+    assert economic.canonical_total_tokens({
+        "total_tokens": 10 ** 100, "input_tokens": None, "output_tokens": None,
+    }) is None
+    assert economic.canonical_total_tokens({
+        "input_tokens": 10 ** 100, "output_tokens": 3,
+    }) is None
+
+
+def test_explicit_invalid_total_never_falls_back_to_partial_provider_components():
+    for invalid in (-1, 1.5, True, "not-a-number", "9" * 5000):
+        assert economic.canonical_total_tokens({
+            "total_tokens": invalid, "input_tokens": 4, "output_tokens": 5,
+        }) is None
+    # An actual absent total may be derived from both valid components.
+    assert economic.canonical_total_tokens({
+        "total_tokens": None, "input_tokens": 4, "output_tokens": 5,
+    }) == 9
+
+
+def test_derived_token_total_abstains_when_valid_components_exceed_joint_budget():
+    maximum = 999_999_999_999_999_999
+    assert economic.canonical_total_tokens({
+        "total_tokens": None, "input_tokens": maximum, "output_tokens": 1,
+    }) is None
+    assert economic.canonical_total_tokens({
+        "input_tokens": maximum - 1, "output_tokens": 1,
+    }) == maximum
+    assert economic.canonical_total_tokens({
+        "input_tokens": 0, "output_tokens": 0,
+    }) == 0
+
+
+def test_currency_bucket_overflow_never_publishes_infinite_or_partial_total():
+    attempts = [
+        {"input_tokens": 1, "observed_cost": 1e308, "observed_cost_currency": "USD"},
+        {"input_tokens": 1, "observed_cost": 1e308, "observed_cost_currency": "USD"},
+        {"input_tokens": 1, "observed_cost": 0.5, "observed_cost_currency": "EUR"},
+        {"input_tokens": 1, "observed_cost": 2.0, "observed_cost_currency": "USD"},
+    ]
+    aggregate = economic.aggregate_attempt_costs(attempts)
+    assert aggregate.totals == (("EUR", 0.5),)
+    assert aggregate.unpriced_attempts == 3
+    assert economic.aggregate_attempt_costs([
+        {"observed_cost": 0.0, "observed_cost_currency": "USD"}
+    ]).totals == (("USD", 0.0),)

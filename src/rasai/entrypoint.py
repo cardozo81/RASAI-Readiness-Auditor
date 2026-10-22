@@ -162,6 +162,11 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
     # fingerprint observes the final, stable audit.db.
     executions = consume_all_ai_executions()
     if not captured:
+        from rasai.m3_experimental_faq_runtime import abort_pending_faq, discard_private_witness
+        from rasai.m25_experimental_probe_runtime import clear_pending_readiness
+        abort_pending_faq()
+        discard_private_witness()
+        clear_pending_readiness()
         return code
 
     result = captured[-1]
@@ -172,6 +177,11 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         return code
 
     if code != 0:
+        from rasai.m3_experimental_faq_runtime import abort_pending_faq, discard_private_witness
+        from rasai.m25_experimental_probe_runtime import forget_experimental_readiness
+        abort_pending_faq()
+        discard_private_witness(result.audit_id)
+        forget_experimental_readiness(result.audit_id)
         if mutable_workspace is not None:
             finish_execution_session(
                 mutable_workspace,
@@ -262,6 +272,40 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         )
         return _REPORT_PROJECTION_INCOMPLETE_EXIT
 
+    # Verify the opt-in worker collector MAC against immutable M3 bytes
+    # before writing any derived evidence outside the sealed AUD.
+    try:
+        from rasai.m3_experimental_faq_runtime import publish_faq_after_seal
+        faq_sidecar = publish_faq_after_seal(
+            audit_id=result.audit_id, aud_dir=workspace.root,
+        )
+        if faq_sidecar["eligible"]:
+            print(
+                "FAQ experimental: "
+                f"{faq_sidecar['published']} recibo(s) publicados; "
+                f"{faq_sidecar['rejected']} recusados."
+            )
+            if faq_sidecar["rejected"]:
+                print("FAQ_REJECTION_CODES=" + ",".join(
+                    faq_sidecar.get("rejection_reasons", ["UNCLASSIFIED"])
+                ))
+    except Exception:
+        _LOGGER.exception("Experimental FAQ physical sidecar unavailable")
+
+    # Publish independent optional readiness evidence after the sealed AUD
+    # source/manifest freshness gate; do not modify canonical report bytes.
+    try:
+        from rasai.m25_experimental_probe_runtime import publish_after_seal
+        experiment = publish_after_seal(audit_id=result.audit_id, aud_dir=workspace.root)
+        if experiment["eligible"]:
+            print(
+                "Prontidão experimental: "
+                f"{experiment['published']} sidecar(s) publicados; "
+                f"{experiment['rejected']} recusados."
+            )
+    except Exception:
+        _LOGGER.exception("Experimental readiness sidecar unavailable")
+
     print("Report-catalog: materializado e validado contra o audit.db final.")
     if renderer_errors:
         print(
@@ -318,6 +362,117 @@ def _install_audit_runtime() -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     effective = list(argv) if argv is not None else list(sys.argv[1:])
+    # Explicit audit-only opt-in. Remove flags before canonical parser;
+    # the standard console and CLI paths remain unchanged by default.
+    if effective and effective[0] == "audit":
+        opt = "--experimental-readiness-architecture"
+        window_opt = "--experimental-readiness-window-ms"
+        if any(x == opt or x.startswith(opt+"=") for x in effective[1:]):
+            def pop_option(name: str) -> str:
+                indices = [i for i,x in enumerate(effective)
+                           if x == name or x.startswith(name+"=")]
+                if len(indices) != 1:
+                    raise ValueError("experimental opt-in needs exactly one value")
+                idx = indices[0]
+                if effective[idx] == name:
+                    if idx+1 >= len(effective):
+                        raise ValueError("experimental opt-in value required")
+                    value = effective[idx+1]
+                    del effective[idx:idx+2]
+                else:
+                    value = effective[idx].split("=", 1)[1]
+                    del effective[idx]
+                return value
+            arch = pop_option(opt)
+            window = 1200
+            if any(x == window_opt or x.startswith(window_opt+"=")
+                   for x in effective[1:]):
+                try:
+                    window = int(pop_option(window_opt))
+                except ValueError as exc:
+                    raise ValueError("invalid experimental window") from exc
+            from rasai.m25_experimental_probe_runtime import configure_one_shot_readiness
+            configure_one_shot_readiness(
+                architecture=arch, window_ms=window, operator_opt_in=True,
+            )
+        elif any(x == window_opt or x.startswith(window_opt+"=")
+                 for x in effective[1:]):
+            raise ValueError("experimental readiness window requires architecture opt-in")
+    # Only audit-mode, exact-scope, one-shot operator consent can activate
+    # the optional M3 FAQ gesture inside the trusted isolated worker.
+    if effective and effective[0] == "audit":
+        consent_flag = "--experimental-faq-explicit-consent"
+        boundary_flag = "--experimental-faq-network-boundary-ack"
+        if effective.count(boundary_flag) > 1:
+            raise ValueError("FAQ network-boundary acknowledgment must appear exactly once")
+        network_acknowledged = boundary_flag in effective
+        if network_acknowledged:
+            effective.remove(boundary_flag)
+        names = (
+            "--experimental-faq-requested-url",
+            "--experimental-faq-allowed-final-url",
+            "--experimental-faq-device",
+            "--experimental-faq-target-id",
+            "--experimental-faq-collector-id",
+            "--experimental-faq-trusted-key-file",
+        )
+        if consent_flag in effective:
+            if effective.count(consent_flag) != 1:
+                raise ValueError("FAQ gesture consent must appear exactly once")
+            if not network_acknowledged:
+                raise ValueError("FAQ gesture requires separate network-boundary acknowledgment")
+            effective.remove(consent_flag)
+            supplied = {}
+            for name in names:
+                matches = [i for i, x in enumerate(effective)
+                           if x == name or x.startswith(name + "=")]
+                if len(matches) != 1:
+                    raise ValueError("FAQ gesture requires all explicit scope values")
+                i = matches[0]
+                if effective[i] == name:
+                    if i + 1 >= len(effective):
+                        raise ValueError("FAQ gesture argument has no value")
+                    supplied[name] = effective[i + 1]
+                    del effective[i:i + 2]
+                else:
+                    supplied[name] = effective[i].split("=", 1)[1]
+                    del effective[i]
+            from rasai.m3_experimental_faq_runtime import configure_one_shot_faq
+            configure_one_shot_faq(
+                requested_url=supplied[names[0]],
+                allowed_final_url=supplied[names[1]],
+                device=supplied[names[2]],
+                target_id=supplied[names[3]],
+                collector_id=supplied[names[4]],
+                trusted_key_file=Path(supplied[names[5]]),
+                explicit_operator_consent=True,
+                operator_network_boundary_acknowledged=network_acknowledged,
+            )
+        elif network_acknowledged:
+            raise ValueError("FAQ network-boundary acknowledgment requires explicit FAQ consent")
+        elif any(x == name or x.startswith(name + "=")
+                 for x in effective[1:] for name in names):
+            raise ValueError("FAQ gesture requires explicit consent")
+    if effective and effective[0] == "experimental-report":
+        # A read-only supplemental report never activates provider secrets,
+        # collector bootstraps or mutates an existing AUD.
+        from rasai.experimental_observation_report import main as experiment_main
+        return experiment_main(effective[1:])
+    # A separate same-host CDOM comparison is not an AUD/CONS-3 operation.
+    # Dispatch before activating persisted provider secrets or installing
+    # the audit/IA runtime. Both argparse forms are accepted.
+    if effective and effective[0] in {"consolidate", "consolidated-report"}:
+        params = effective[1:]
+        domain_mode = any(
+            (part == "--comparison-mode" and index + 1 < len(params)
+             and params[index + 1] == "SAME_DOMAIN_COMPARATIVE")
+            or part == "--comparison-mode=SAME_DOMAIN_COMPARATIVE"
+            for index, part in enumerate(params)
+        )
+        if domain_mode:
+            from rasai.consolidation_cli import main as consolidated_domain_main
+            return consolidated_domain_main(params)
+
     scheduled_surface = bool(
         effective
         and (

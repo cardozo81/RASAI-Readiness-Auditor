@@ -432,3 +432,131 @@ SARI/SCORE-GEO ou auditorias existentes. Como antes,
 o hash local verifica reproducibilidade de bytes, nao
 autenticidade de provedor, consentimento ou
 mesmo universo de observacao temporal.
+
+
+## Escopo consultivo 007 - recorrência entre consultas da mesma execução
+
+A projeção 007 acrescenta métricas de recorrência determinísticas **apenas
+entre duas ou mais consultas pertencentes ao mesmo run Search API**.
+Cada consulta precisa ter mapeamento físico inequívoco por fonte, denominadores
+SERP e Search API completos, URL HTTP(S) canônica, relógio verificável e
+escopo SERP idêntico (engine/country/region/language/device). Se qualquer
+consulta do conjunto faltar, a recorrência inteira é **N/D**; o overlap
+pontual de outra query íntegra continua disponível sem ser extrapolado.
+
+São contabilizadas URLs exatas e hostnames exatos presentes em pelo menos
+duas queries distintas por fonte; interseções recorrentes exigem a mesma
+identidade nos dois conjuntos. Hostname www e apex permanecem distintos.
+Sem uma URL-alvo única da AUD, a quantidade de hostnames recorrentes
+externos ao alvo é **N/D**, nunca concorrentes supostos. Uma query única
+produz **NOT_APPLICABLE_SINGLE_QUERY**, não 0%.
+
+O resultado é estritamente descritivo, limitado a um run e a um escopo SERP
+uniforme; a equivalência de mercado, idioma, dispositivo e intenção
+externos permanece não comprovada. Não representa tendência histórica,
+frequência de inclusão em respostas generativas, ranking, share de mercado
+ou causalidade. O novo painel HTML recusa métricas numéricas se o selo
+físico SQLite ou as consultas não forem integralmente admissíveis.
+A versão 006 permanece somente para leitura compatível de projeções
+previamente materializadas; o produtor publica 007.
+
+
+## Contrato consultivo 008  -  coerência temporal e classes explícitas (19/10/2026)
+
+O contrato `RASAI-GEO-PER-QUERY-304-ADVISORY-008` preserva a comparação
+individual e as versões anteriores do renderer 005/006/007. Há um defeito de comparabilidade
+em recorrência multiquery: duas observações SERP podem estar ambas até 24h
+da mesma execução Search API e, ainda assim, quase 48h separadas entre si.
+Agora a recorrência exige, além dos denominadores e cinco campos de escopo
+já verificados, **relógio de cada SERP** e amplitude máxima de **24 horas**
+entre todas as observações selecionadas. Sem relógio comprovado,
+`SERP_INTER_QUERY_CLOCK_UNVERIFIABLE`; acima de 24h,
+`SERP_INTER_QUERY_SPAN_EXCEEDS_24H`. Ambas são `NOT_COMPARABLE` e têm
+contagens nulas (N/D). Os resultados de cada consulta íntegra continuam
+descritivos e independentes. Uma coorte válida expõe
+`serp_inter_query_span_seconds`, além de `serp_collected_at` e
+`external_run_started_at` por linha.
+
+A opção `--declared-nonbranded-query "seguro de vida"` permite
+classificação editorial `NONBRANDED_DECLARED`, mas não trata ausência de
+marca `BRANDED_DECLARED` como prova de non-branded. A mesma query
+não pode receber ambas as classes; consultas não persistidas, duplicatas,
+espaços periféricos e controles são recusados. O campo
+`query_class_source=EXPLICIT_OPERATOR_DECLARATION` atesta somente
+origem editorial, **não intenção/mercado equivalentes entre provedores**.
+
+Tudo permanece offline e read-only; nenhuma fonte comercial foi chamada,
+nenhuma AUD ou score foi alterado e não há hipótese de participação de
+mercado ou citação gerativa. Novos testes sintéticos exigem execução
+direcionada no HEAD final; teste adicionado não constitui teste aprovado.
+
+## Distribuição dos grupos de URLs por fonte (#304, observacional)
+
+O ledger atual acrescenta `serp_target_url_distribution` e
+`external_target_url_distribution` exclusivamente quando já existem
+**dois conjuntos de URLs fisicamente atribuídos à mesma consulta** e
+**uma única URL-alvo física e canônica da AUD**. Dentro de cada fonte,
+o denominador é o conjunto de **URLs distintas retornadas**, nunca
+número de posições solicitadas, impressões ou volume de buscas.
+
+A partição disjunta informa: (1) presença da URL exata da AUD (0 ou 1),
+(2) outras URLs do hostname exato, (3) URLs de outros hostnames.
+Há contagens e proporções de cada grupo, arredondadas a quatro casas.
+A soma das contagens precisa coincidir com o denominador. `www` e
+domínio raiz não são equivalentes; sem fonte, alvo ou selo físico o
+relatório publica **N/D**, não percentuais falsos.
+
+Os percentuais são uma **distribuição descritiva dos resultados recebidos**.
+Não são ranking, probabilidade de citação generativa, participação de
+mercado, tráfego, indexação ou equivalência de país/idioma/device/intent
+entre SERP e Perplexity. O contrato de coleta e o score não mudam;
+o acréscimo é compatível com o formato consultivo 008 existente.
+
+
+## Integração canônica de relatório - #304 / GEO por consulta
+
+O consumidor `src/rasai/geo_query_ledger_report.py` expõe em `geo.html`,
+na mesma seção de interpretação GEO da AUD, uma matriz limitada a 10 consultas
+com SERP escopo/horário, denominadores físicos SERP e Search API, URLs em comum,
+taxas descritivas e presença exata da URL auditada. A projeção chama o
+`inspect_geo_per_query` existente **somente sobre a AUD local correspondente**
+(`AUD-ID/audit.db`), preservando selo duplo SHA256 e regras de abstenção.
+Há também rótulos declarativos branded/non-branded, quando efetivamente
+presentes no contrato do ledger. O HTML escapa dados não confiáveis.
+
+Não altera a comparação histórica já apresentada em `geo.html`: a tabela
+adicional mostra uma população **observacional por consulta**, não prova
+equivalência de mercado/região/idioma/dispositivo/intenção entre provedores,
+citação generativa, frequência de consultas, score ou rank. Se o SQLite,
+identidade da AUD, per-result query ou amostra não estiver verificável,
+apresenta N/D explícito, sem zeros fabricados. A integração não cria
+atividade de rede, não persistente novos resultados, não muda schema nem
+reprocessa histórico. Em AUD física grande, o selo atual faz duas leituras
+locais completas do SQLite, exigência que deliberadamente prioriza
+integridade à inferência baseada em snapshot mutável.
+
+Regressões direcionadas: `tests/test_geo_query_ledger_report.py` cobrem
+renderização efetiva por `geo_body`, escape, denominadores, multi-query
+sem atribuição, AUD divergente e supressão de taxas com selo inválido.
+**Testes novos não executados neste ciclo pelo agente**; validar somente
+se o gate de conclusão deste lote exigir.
+
+
+## Hostnames das fontes físicas por consulta (#304)
+
+A projeção passou a expor quais **hostnames exatos** são efetivamente
+observados nos resultados SERP e Search API de cada consulta, não somente
+as contagens agregadas de hostnames. O inventário opcional
+host_source_inventory identifica hostname, URLs distintas por fonte e URLs
+exatamente comuns, preservando www distinto de apex, sem associação
+semântica a competidores de mercado. O algoritmo usa os conjuntos de URLs
+já canonizados e atribuídos fisicamente por query, relógio e scope SERP.
+
+Apenas 12 hostnames são exibidos por consulta, em ordem determinística
+de contagem agregada decrescente e hostname; o denominador e o total de
+hostnames continuam completos. O inventário é exibido como detalhe
+expansível tanto no relatório GEO canônico quanto no HTML consultivo.
+Amostras não atribuídas, sem selo SHA duplo ou de origem ambígua dão N/D
+sem promover resultados. Hostnames externos não comprovam concorrência
+comercial, ranking, share de mercado ou presença em respostas generativas.
+Sem nova coleta, alteração de SQLite/AUD, API, SARI/SCORE ou workflows.

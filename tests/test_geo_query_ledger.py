@@ -331,7 +331,7 @@ def test_v2_exact_aud_target_is_visible_per_query_in_both_observed_url_sets(
     )
     original = (folder / "audit.db").read_bytes()
     result = inspect_geo_per_query(folder)
-    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-008"
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert result["aud_target_scope"] == "SINGLE_EXACT_AUD_TARGET"
     assert result["aud_target_exact_url"] == "https://example.org/shared"
@@ -709,7 +709,7 @@ def test_v5_reads_real_repository_per_result_query_metadata_only_when_explicit(
     _provider_source_metadata(folder)
     original = (folder / "audit.db").read_bytes()
     result = inspect_geo_per_query(folder)
-    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-008"
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert result["per_query_attribution_status"] == "PHYSICALLY_ATTRIBUTABLE"
     assert len(result["queries"]) == 2
@@ -1016,7 +1016,7 @@ def test_public_cli_geo_query_ledger_and_html_do_not_bootstrap_audit_or_ai(
     ]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["contract_version"] == (
-        "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
+        "RASAI-GEO-PER-QUERY-304-ADVISORY-008"
     )
     assert payload["provider_requests"] == payload["audit_writes"] == 0
     assert source.read_bytes() == initial
@@ -1262,7 +1262,7 @@ def test_v10_per_query_exact_hostname_overlap_is_observed_not_market_equivalence
     db = folder / "audit.db"
     before = db.read_bytes()
     result = inspect_geo_per_query(folder)
-    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-006"
+    assert result["contract_version"] == "RASAI-GEO-PER-QUERY-304-ADVISORY-008"
     assert result["status"] == "DESCRIPTIVE_ONLY"
     assert len(result["queries"]) == 2
     for row in result["queries"]:
@@ -1559,3 +1559,448 @@ def test_host_overlap_preserves_separate_hostname_denominators() -> None:
 def test_304_host_overlap_rejects_invalid_url_identity(bad) -> None:
     with pytest.raises(ValueError, match="canonical HTTP"):
         ledger._host_overlap({"https://valid.test/a"}, {bad})
+
+
+
+@pytest.mark.parametrize("malformed", [
+    "javascript:window.open('x')",
+    "https://user:password@example.test/",
+    " https://example.test/a",
+    "not-a-url",
+])
+def test_304_host_group_abstains_for_uncanonical_target_and_members(malformed):
+    """No invalid URL should contribute to a hostname denominator."""
+    with pytest.raises(ValueError, match="canonical HTTP"):
+        ledger._host_group({"https://valid.test/a"}, malformed)
+    with pytest.raises(ValueError, match="canonical HTTP"):
+        ledger._host_group({malformed, "https://valid.test/a"}, "https://valid.test/")
+
+
+def test_304_host_group_keeps_www_distinct_from_apex_without_fabricated_alias():
+    result = ledger._host_group(
+        {"https://example.test/a", "https://www.example.test/a", "https://other.test/a"},
+        "https://example.test/",
+    )
+    assert result == {
+        "same_host_alternative_urls": 1,
+        "other_host_distinct_urls": 2,
+        "other_distinct_hosts": 2,
+    }
+
+
+def test_query_metadata_controls_and_padding_abstain_before_attribution():
+    """Only a physical canonical per-result query may join a SERP cohort."""
+    from rasai.geo_query_ledger import _explicit_source_query, _INVALID_METADATA
+
+    for raw in (" padded", "padded ", "a" + chr(10) + "b", "a" + chr(9) + "b", chr(0) + "query", ""):
+        payload = __import__("json").dumps({"query": raw})
+        assert _explicit_source_query(payload) is _INVALID_METADATA
+    assert _explicit_source_query('{"query":"brand coverage"}') == "brand coverage"
+
+
+@pytest.mark.parametrize("bad_query", [
+    " seguro de vida", "seguro de vida ", "seguro\nvida",
+    "seguro\tvida", "seguro\x00vida",
+])
+def test_persisted_query_cohort_rejects_padding_and_controls(tmp_path, bad_query):
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_runs SET query_json=?",
+            (json.dumps([bad_query]),),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "EXTERNAL_QUERY_SET_AMBIGUOUS"
+    assert result["queries"] == []
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == before
+
+@pytest.mark.parametrize("bad_query", [
+    " seguro de vida", "seguro de vida ", "seguro\\nvida",
+    "seguro\\tvida", "seguro\\x00vida",
+])
+def test_per_source_direct_query_rejects_padding_and_controls(tmp_path, bad_query):
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET query=?",
+            (bad_query,),
+        )
+    original = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["per_query_attribution_status"] == "MULTI_QUERY_SOURCE_MAPPING_MISSING"
+    assert result["queries"][0]["reason"] == "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == original
+
+
+@pytest.mark.parametrize("bad_query", [
+    " seguro de vida", "seguro de vida ", "seguro\nvida", "seguro\tvida",
+])
+def test_serp_noncanonical_query_identity_abstains_without_cherry_picking(tmp_path, bad_query):
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_observations SET query=?",
+            (bad_query,),
+        )
+    original = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "NOT_COMPARABLE"
+    # A malformed same-cohort observation cannot be used for URL intersection.
+    assert result["queries"][0]["status"] == "NOT_COMPARABLE"
+    if bad_query.strip().casefold() == "seguro de vida":
+        assert result["queries"][0]["reason"] == "SERP_QUERY_IDENTITY_UNVERIFIABLE"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == original
+
+
+
+def test_304_multiquery_recurrence_is_only_observed_within_one_search_run(tmp_path):
+    """New metric has a real per-query source denominator, never a GEO share."""
+    folder = _audit(tmp_path)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE audit_targets (audit_id TEXT, input_url TEXT)"
+        )
+        con.execute(
+            "INSERT INTO audit_targets VALUES (?,?)",
+            ("AUD-GEO304", "https://example.org/shared"),
+        )
+    before = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["contract_version"].endswith("ADVISORY-008")
+    recurrent = result["recurrence"]
+    assert recurrent["status"] == "OBSERVED_WITHIN_ONE_RUN"
+    assert recurrent["verified_queries"] == 2
+    assert recurrent["serp_recurrent_exact_urls"] == 3
+    assert recurrent["external_recurrent_exact_urls"] == 1
+    assert recurrent["cross_source_recurrent_exact_urls"] == 1
+    assert recurrent["serp_recurrent_exact_hosts"] == 3
+    assert recurrent["external_recurrent_exact_hosts"] == 1
+    assert recurrent["cross_source_recurrent_exact_hosts"] == 1
+    assert recurrent["other_recurrent_cross_source_hosts"] == 0
+    assert recurrent["external_market_language_device_equivalence_proven"] is False
+    assert recurrent["intent_equivalence_proven"] is False
+    assert recurrent["longitudinal_recurrence_proven"] is False
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    html = render_geo_query_ledger_html(result)
+    assert "Recorrência dentro do conjunto de consultas" in html
+    assert "Hostnames recorrentes externos ao hostname auditado" in html
+    assert "recorrência longitudinal" in html
+    assert db.read_bytes() == before
+
+
+def test_304_recurrence_abstains_when_a_query_lacks_physical_source(tmp_path):
+    folder = _audit(tmp_path)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE perplexity_search_sources SET url='javascript:unsafe' "
+            "WHERE run_id='PX-A' AND position=0"
+        )
+    physical = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"  # other query is still valid
+    assert result["recurrence"]["status"] == "NOT_COMPARABLE"
+    assert result["recurrence"]["verified_queries"] is None
+    assert result["recurrence"]["cross_source_recurrent_exact_urls"] is None
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    assert "N/D — todas as consultas" in render_geo_query_ledger_html(result)
+    assert db.read_bytes() == physical
+
+
+def test_304_recurrence_different_serp_population_is_not_comparable(tmp_path):
+    folder = _audit(tmp_path)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_observations SET device='desktop' "
+            "WHERE observation_id='SERP-1'"
+        )
+    before = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert all(row["status"] == "DESCRIPTIVE_ONLY" for row in result["queries"])
+    assert result["recurrence"]["status"] == "NOT_COMPARABLE"
+    assert result["recurrence"]["reason"] == "SERP_SCOPE_DIFFERS_ACROSS_QUERIES"
+    assert result["recurrence"]["serp_recurrent_exact_urls"] is None
+    assert db.read_bytes() == before
+
+
+def test_304_single_query_recurrence_not_applicable_without_false_zero(tmp_path):
+    folder = _audit(tmp_path, multi=False)
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["recurrence"]["status"] == "NOT_APPLICABLE_SINGLE_QUERY"
+    assert result["recurrence"]["verified_queries"] is None
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    assert "Não aplicável: somente uma consulta" in render_geo_query_ledger_html(result)
+
+
+def test_304_recurrence_invalid_canonical_identity_abstains_pure_helper():
+    from rasai.geo_query_ledger import _query_recurrence
+    trusted = (
+        ("google", "BR", "São Paulo", "pt-BR", "mobile"),
+        {"https://example.org/a"},
+        {"https://example.org/a"},
+    )
+    malformed = (
+        trusted[0], {"https://user:secret@example.org/a"},
+        {"https://example.org/a"},
+    )
+    result = _query_recurrence(
+        {"a": trusted, "b": malformed},
+        expected_queries=2, target="https://example.org/a",
+    )
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "URL_IDENTITY_UNVERIFIABLE"
+    assert result["cross_source_recurrent_exact_hosts"] is None
+
+
+def test_304_nonbranded_only_by_operator_and_rejects_conflict(tmp_path):
+    folder = _audit(tmp_path)
+    db = folder / "audit.db"
+    original = db.read_bytes()
+    unknown = inspect_geo_per_query(folder)
+    assert all(row["declared_query_class"] == "UNCLASSIFIED"
+               for row in unknown["queries"])
+    result = inspect_geo_per_query(
+        folder, declared_branded_queries=("seguro bradesco",),
+        declared_nonbranded_queries=("seguro de vida",),
+    )
+    assert [row["declared_query_class"] for row in result["queries"]] == [
+        "BRANDED_DECLARED", "NONBRANDED_DECLARED",
+    ]
+    assert result["queries"][1]["intent_equivalence_proven"] is False
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    assert "Non-branded (declaração do operador)" in render_geo_query_ledger_html(result)
+    with pytest.raises(ValueError, match="conflicting"):
+        inspect_geo_per_query(
+            folder, declared_branded_queries=("seguro de vida",),
+            declared_nonbranded_queries=("seguro de vida",),
+        )
+    with pytest.raises(ValueError, match="not in persisted run"):
+        inspect_geo_per_query(folder, declared_nonbranded_queries=("não existe",))
+    for invalid in (" seguro de vida", "seguro de vida ", "seguro\nvida"):
+        with pytest.raises(ValueError, match="invalid explicit"):
+            inspect_geo_per_query(folder, declared_nonbranded_queries=(invalid,))
+    assert db.read_bytes() == original
+
+
+@pytest.mark.parametrize(("first", "second", "valid", "reason", "span"), [
+    ("2026-10-09T13:00:00Z", "2026-10-11T11:00:00Z", False,
+     "SERP_INTER_QUERY_SPAN_EXCEEDS_24H", None),
+    ("2026-10-10T00:00:00Z", "2026-10-11T00:00:00Z", True, None, 86400),
+    ("2026-10-10T12:10:00Z", "2026-10-10T12:10:00Z", True, None, 0),
+])
+def test_304_recurrence_requires_coherent_serp_cohort(
+    tmp_path, first, second, valid, reason, span,
+):
+    folder = _audit(tmp_path)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE serp_observations SET collected_at=? WHERE observation_id='SERP-0'",
+            (first,),
+        )
+        con.execute(
+            "UPDATE serp_observations SET collected_at=? WHERE observation_id='SERP-1'",
+            (second,),
+        )
+    physical = db.read_bytes()
+    output = inspect_geo_per_query(folder)
+    assert output["contract_version"].endswith("-008")
+    assert [row["status"] for row in output["queries"]] == [
+        "DESCRIPTIVE_ONLY", "DESCRIPTIVE_ONLY",
+    ]
+    recurrence = output["recurrence"]
+    assert recurrence["status"] == ("OBSERVED_WITHIN_ONE_RUN" if valid
+                                    else "NOT_COMPARABLE")
+    assert recurrence["reason"] == reason
+    assert recurrence["serp_inter_query_span_seconds"] == span
+    assert recurrence["cross_source_recurrent_exact_urls"] == (1 if valid else None)
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    html = render_geo_query_ledger_html(output)
+    if valid:
+        assert "Amplitude temporal entre observações SERP" in html
+        assert f"{span:.3f} s" in html
+    else:
+        assert "N/D — todas as consultas" in html
+        assert "URLs recorrentes nas duas fontes" not in html
+    assert "Coletas físicas: SERP" in html
+    assert db.read_bytes() == physical
+
+
+def test_304_pure_helper_does_not_assume_cross_query_clocks():
+    from rasai.geo_query_ledger import _query_recurrence
+    observation = (
+        ("google", "BR", "São Paulo", "pt-BR", "mobile"),
+        {"https://example.org/a"}, {"https://example.org/a"},
+    )
+    result = _query_recurrence(
+        {"one": observation, "two": observation}, expected_queries=2,
+        target="https://example.org/a",
+    )
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["reason"] == "SERP_INTER_QUERY_CLOCK_UNVERIFIABLE"
+    assert result["cross_source_recurrent_exact_urls"] is None
+
+
+def test_304_public_cli_nonbranded_readonly(tmp_path, capsys):
+    folder = _audit(tmp_path, multi=False)
+    before = (folder / "audit.db").read_bytes()
+    assert main([
+        str(folder), "--declared-nonbranded-query", "seguro de vida",
+        "--format", "json",
+    ]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["contract_version"].endswith("-008")
+    assert result["queries"][0]["declared_query_class"] == "NONBRANDED_DECLARED"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert (folder / "audit.db").read_bytes() == before
+
+
+
+def test_304_target_url_distribution_reports_real_distinct_url_denominators(tmp_path):
+    """Returned-source composition is not SERP rank, market share or citations."""
+    folder = _audit(tmp_path, multi=False)
+    _set_physical_aud_targets(folder, [
+        ("AUD-GEO304", "https://example.org/shared"),
+    ])
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-0", 10, "https://example.org/other-product"),
+        )
+        con.execute(
+            "INSERT INTO serp_results VALUES (?,?,?)",
+            ("SERP-0", 11, "https://www.example.org/shared"),
+        )
+        con.execute(
+            "INSERT INTO perplexity_search_sources VALUES (?,?,?,?)",
+            ("PX-A", 88, "https://example.org/alternative", "seguro de vida"),
+        )
+    db = folder / "audit.db"
+    before = db.read_bytes()
+    report = inspect_geo_per_query(folder)
+    row = report["queries"][0]
+    assert row["status"] == "DESCRIPTIVE_ONLY"
+    s = row["serp_target_url_distribution"]
+    assert s == {
+        "denominator_distinct_urls": 5,
+        "exact_target_urls": 1,
+        "same_host_alternative_urls": 1,
+        "other_host_urls": 3,
+        "exact_target_url_rate": 0.2,
+        "same_host_alternative_url_rate": 0.2,
+        "other_host_url_rate": 0.6,
+        "interpretation": "OBSERVED_DISTINCT_RETURNED_URLS_ONLY",
+    }
+    e = row["external_target_url_distribution"]
+    assert e["denominator_distinct_urls"] == 3
+    assert e["exact_target_urls"] == 1
+    assert e["same_host_alternative_urls"] == 1
+    assert e["other_host_urls"] == 1
+    assert e["exact_target_url_rate"] == 0.3333
+    assert e["other_host_url_rate"] == 0.3333
+    assert row["ranking_or_generative_citation_proven"] is False
+    assert row["external_market_language_device_equivalence_proven"] is False
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    rendered = render_geo_query_ledger_html(report)
+    assert "Distribuição proporcional das URLs retornadas por fonte" in rendered
+    assert "SERP: Denominador de URLs distintas</td><td>5" in rendered
+    assert "SERP: Taxa de URL exata da AUD</td><td>20.00%" in rendered
+    assert "Search API: Taxa de URL exata da AUD</td><td>33.33%" in rendered
+    assert db.read_bytes() == before
+
+
+def test_304_target_distribution_fails_closed_for_missing_target_or_source_seal(tmp_path):
+    """Missing physical target and a failed source seal cannot become zero rates."""
+    folder = _audit(tmp_path, multi=False)
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    result = inspect_geo_per_query(folder)
+    assert result["queries"][0]["serp_target_url_distribution"] is None
+    assert result["queries"][0]["external_target_url_distribution"] is None
+    html = render_geo_query_ledger_html(result)
+    section = html.split("Distribuição proporcional das URLs retornadas por fonte")[1].split("</table>")[0]
+    assert "<td>N/D</td>" in section
+
+    _set_physical_aud_targets(folder, [
+        ("AUD-GEO304", "https://example.org/shared"),
+    ])
+    positive = inspect_geo_per_query(folder)
+    assert positive["queries"][0]["serp_target_url_distribution"] is not None
+    positive["source_audit_db_integrity_guard"] = "UNVERIFIED"
+    masked = render_geo_query_ledger_html(positive)
+    section = masked.split("Distribuição proporcional das URLs retornadas por fonte")[1].split("</table>")[0]
+    assert "<td>N/D</td>" in section
+    assert "20.00%" not in section
+
+
+def test_304_partition_does_not_merge_www_and_apex_or_bad_urls():
+    source = {
+        "https://example.test/a",
+        "https://example.test/b",
+        "https://www.example.test/a",
+    }
+    result = ledger._target_source_distribution(source, "https://example.test/a")
+    assert result["denominator_distinct_urls"] == 3
+    assert result["exact_target_urls"] == 1
+    assert result["same_host_alternative_urls"] == 1
+    assert result["other_host_urls"] == 1
+    for invalid in (
+        set(),
+        {"https://example.test/a", " https://example.test/b"},
+    ):
+        with pytest.raises(ValueError):
+            ledger._target_source_distribution(invalid, "https://example.test/a")
+
+def test_304_request_query_validation_matches_offline_ledger_identity():
+    """A provider request must not create query_json the #304 ledger will reject."""
+    from rasai.search_intelligence.perplexity import _validate_queries
+    assert _validate_queries(("  Brand   Insurance ", "generic insurance")) == (
+        "Brand Insurance", "generic insurance",
+    )
+    for bad in (("Brand", "brand"), ("A", ""), ("A", "A "), ("A", "b\nc")):
+        with pytest.raises(ValueError):
+            _validate_queries(bad)
+
+def test_304_hostname_roster_from_physically_attributed_per_query_sources(tmp_path):
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    folder = _audit(tmp_path, multi=False)
+    with sqlite3.connect(folder / "audit.db") as con:
+        con.execute("INSERT INTO serp_results VALUES (?,?,?)", (
+            "SERP-0", 45, "https://www.example.org/a",
+        ))
+    before = (folder / "audit.db").read_bytes()
+    projection = inspect_geo_per_query(folder)
+    row = projection["queries"][0]
+    roster = row["host_source_inventory"]
+    assert roster["status"] == "OBSERVED_RETURNED_HOSTNAMES_ONLY"
+    assert roster["distinct_hostnames"] == 5
+    hosts = {h["hostname"]: h for h in roster["entries"]}
+    assert hosts["example.org"]["common_distinct_urls"] == 1
+    assert hosts["www.example.org"]["serp_distinct_urls"] == 1
+    assert hosts["www.example.org"]["external_distinct_urls"] == 0
+    page = render_geo_query_ledger_html(projection)
+    assert "Hosts observados por consulta:" in page
+    assert "www.example.org" in page
+    assert (folder / "audit.db").read_bytes() == before
+
+
+def test_304_hostname_roster_abstains_when_multisearch_source_query_unknown(tmp_path):
+    from rasai.geo_query_ledger_html import render_geo_query_ledger_html
+    folder = _audit(tmp_path, multi=True, source_query_column=False)
+    projection = inspect_geo_per_query(folder)
+    assert all(row["host_source_inventory"] is None for row in projection["queries"])
+    page = render_geo_query_ledger_html(projection)
+    assert "Hosts observados por consulta: N/D" in page
+

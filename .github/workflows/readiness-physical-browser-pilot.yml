@@ -5,21 +5,62 @@ on:
     branches: [main]
     paths:
       - 'src/rasai/readiness_probe_cost_pilot.py'
+      - 'src/rasai/faq_existing_page_pilot.py'
+      - 'src/rasai/m3_experimental_faq_runtime.py'
+      - 'src/rasai/m25_experimental_probe_runtime.py'
+      - 'src/rasai/apdex_readiness_review.py'
+      - 'src/rasai/apdex_readiness_review_html.py'
+      - 'tests/test_apdex_readiness_review.py'
+      - 'src/rasai/experimental_observation_report.py'
+      - 'tests/test_experimental_observation_report.py'
+      - 'src/rasai/m3_render_deadline_runtime.py'
+      - 'src/rasai/m3.py'
+      - 'src/rasai/entrypoint.py'
+      - 'tests/test_m3_experimental_faq_runtime.py'
+      - 'tests/test_m25_experimental_probe_runtime.py'
       - 'src/rasai/readiness_matched_pilot.py'
       - 'tests/test_readiness_matched_pilot.py'
       - 'src/rasai/playwright_primary_content_probe.py'
+      - 'src/rasai/same_sample_observation.py'
+      - 'src/rasai/m3_faq_capture_provenance.py'
+      - 'src/rasai/m25_apdex_experience.py'
+      - 'src/rasai/device_context_capture.py'
+      - 'tests/test_same_sample_observation.py'
+      - 'tests/test_m3_faq_capture_provenance.py'
+      - 'tests/test_m25_advisory_sample_bridge.py'
       - 'tests/test_readiness_probe_cost_pilot.py'
+      - 'tests/test_faq_existing_page_pilot.py'
       - 'tests/test_playwright_real_browser_readiness.py'
+      - 'tests/test_real_browser_matched_readiness.py'
       - '.github/workflows/readiness-physical-browser-pilot.yml'
   push:
     branches: [main]
     paths:
       - 'src/rasai/readiness_probe_cost_pilot.py'
+      - 'src/rasai/faq_existing_page_pilot.py'
+      - 'src/rasai/m3_experimental_faq_runtime.py'
+      - 'src/rasai/m25_experimental_probe_runtime.py'
+      - 'src/rasai/experimental_observation_report.py'
+      - 'tests/test_experimental_observation_report.py'
+      - 'src/rasai/m3_render_deadline_runtime.py'
+      - 'src/rasai/m3.py'
+      - 'src/rasai/entrypoint.py'
+      - 'tests/test_m3_experimental_faq_runtime.py'
+      - 'tests/test_m25_experimental_probe_runtime.py'
       - 'src/rasai/readiness_matched_pilot.py'
       - 'tests/test_readiness_matched_pilot.py'
       - 'src/rasai/playwright_primary_content_probe.py'
+      - 'src/rasai/same_sample_observation.py'
+      - 'src/rasai/m3_faq_capture_provenance.py'
+      - 'src/rasai/m25_apdex_experience.py'
+      - 'src/rasai/device_context_capture.py'
+      - 'tests/test_same_sample_observation.py'
+      - 'tests/test_m3_faq_capture_provenance.py'
+      - 'tests/test_m25_advisory_sample_bridge.py'
       - 'tests/test_readiness_probe_cost_pilot.py'
+      - 'tests/test_faq_existing_page_pilot.py'
       - 'tests/test_playwright_real_browser_readiness.py'
+      - 'tests/test_real_browser_matched_readiness.py'
       - '.github/workflows/readiness-physical-browser-pilot.yml'
   workflow_dispatch:
 
@@ -47,6 +88,10 @@ jobs:
           tests/test_readiness_matched_pilot.py
           tests/test_playwright_primary_content_probe.py
           tests/test_apdex_content_readiness.py
+          tests/test_m25_advisory_sample_bridge.py
+          tests/test_m25_experimental_probe_runtime.py
+          tests/test_apdex_readiness_review.py
+          tests/test_experimental_observation_report.py
 
   physical-browser-pilot:
     runs-on: ubuntu-latest
@@ -57,10 +102,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: python -m pip install -e . pytest
+      # Worker Ed25519 is an explicit opt-in extra, never a mandatory
+      # dependency for the default audit/canonical snapshot path.
+      - run: python -m pip install -e ".[attestation]" pytest
       - name: Verify preinstalled GitHub runner Chrome (no browser downloads)
         run: google-chrome --version
       - name: Run offline same-browser-sample DOM tests (no site/network/provider)
         env:
           RASAI_322_CHROME_CHANNEL: chrome
-        run: python -m pytest -q tests/test_playwright_real_browser_readiness.py
+        run: python -m pytest -q -s tests/test_real_browser_matched_readiness.py tests/test_playwright_real_browser_readiness.py tests/test_faq_existing_page_pilot.py tests/test_same_sample_observation.py tests/test_m3_experimental_faq_runtime.py tests/test_m3_faq_capture_provenance.py

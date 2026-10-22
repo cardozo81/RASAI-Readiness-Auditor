@@ -14,6 +14,7 @@ from rasai.domain import Audit, AuditTarget, DeviceContext, DiscoverySource, Pag
 from rasai.m21_reporting import enrich_m21_report_site
 from rasai.m21_web_performance import ExternalServiceError, HttpJsonResult, WebPerformanceConfig, execute_m21
 from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.score_geo import SCORING_VERSION
 
 _NOW = datetime(2026, 9, 3, 15, 0, tzinfo=timezone.utc)
 
@@ -357,7 +358,7 @@ class M21WebPerformanceTests(unittest.TestCase):
             (report / "ai-usage.html").write_text(shell, encoding="utf-8")
             path = enrich_m21_report_site(audit_id="AUD-M21", workspace=workspace)
             html = path.read_text(encoding="utf-8")
-            self.assertIn("SCORE-GEO-004", html)
+            self.assertIn(SCORING_VERSION, html)
             self.assertIn("Core Web Vitals", html)
             self.assertIn("Lighthouse", html)
             self.assertIn("Nenhuma dessas pontuações é convertida automaticamente", html)

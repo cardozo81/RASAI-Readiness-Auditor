@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 import os
+from dataclasses import fields, is_dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Mapping
@@ -12,12 +13,14 @@ from rasai.audit_configuration_reuse import (
     KIND_CONSOLE,
     ReusableAuditConfiguration,
     changed_fields,
+    configuration_hash,
     load_reusable_audit_configuration,
 )
 from rasai.audit_configuration_reuse_runtime import configuration_context
 
 _INSTALLED = False
 _SESSION_SOURCE: dict[int, ReusableAuditConfiguration] = {}
+_ARCHITECTURE_SELECTION: dict[int, object] = {}
 
 
 def _search_execution_settings(state: Any) -> dict[str, Any] | None:
@@ -53,6 +56,46 @@ def _restore_environment(snapshot: Mapping[str, tuple[bool, str | None]]) -> Non
             os.environ.pop(name, None)
 
 
+def _validate_reused_environment(environment: Mapping[str, Any]) -> dict[str, str]:
+    """Bound nonsecret reusable environment inputs before *any* state mutation.
+
+    Sealed historical configurations predate today's stricter INI validators.
+    A snapshot is evidence of former preferences, not authorization to
+    bypass the GSC policy, transport credentials, or import malformed URL
+    scopes in the current process. The operator's live secrets stay untouched.
+    """
+    from rasai import console_settings
+    from rasai.console_config import is_secret
+
+    allowed = set(console_settings._known_nonsecret_environment_names())
+    gsc_names = console_settings._gsc_nonsecret_names()
+    accepted: dict[str, str] = {}
+    for name, raw in environment.items():
+        if not isinstance(name, str) or is_secret(name):
+            # Never echo a potentially secret-bearing original key/value.
+            raise ValueError("snapshot de AUD contém variável sensível ou inválida")
+        if name not in allowed:
+            # Older snapshots may legitimately contain removed *nonsecret*
+            # knobs: ignore them, never promote to executable inputs.
+            continue
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            continue
+        if not isinstance(raw, str):
+            raise ValueError(
+                f"environment.{name}: valor histórico não textual; conteúdo omitido"
+            )
+        candidate = raw.strip()
+        if name in gsc_names:
+            try:
+                candidate = console_settings._canonical_gsc_value(name, candidate)
+            except (ValueError, TypeError, OverflowError):
+                raise ValueError(
+                    f"environment.{name}: valor GSC inválido; conteúdo omitido"
+                ) from None
+        accepted[name] = candidate
+    return accepted
+
+
 def _export_settings(state: Any, targets: tuple[str, ...] | list[str]) -> dict[str, Any]:
     """Export one effective secret-free execution snapshot without changing the session.
 
@@ -73,6 +116,10 @@ def _export_settings(state: Any, targets: tuple[str, ...] | list[str]) -> dict[s
             section: {name: value for name, value in parser.items(section, raw=True)}
             for section in parser.sections()
         }
+        # Apply exactly the same GSC bounds as operator-INI restoration to a
+        # *new* reusable AUD snapshot. A malformed policy cannot become a
+        # sealed source for a future run just because it was in os.environ.
+        _validate_reused_environment(settings.get("environment", {}))
     finally:
         _restore_environment(environment_snapshot)
 
@@ -134,6 +181,24 @@ def _as_bool(value: Any, *, default: bool) -> bool:
     return default
 
 
+def _strict_nonnegative_integer(value: Any) -> int:
+    """Reject bool, fractional values and non-finite numbers on AUD restore."""
+    if isinstance(value, bool):
+        raise ValueError("boolean is not an integer")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value) or not value.is_integer():
+            raise ValueError("non-integral numeric value")
+        return int(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped or not stripped.isascii() or not stripped.isdecimal():
+            raise ValueError("invalid decimal integer")
+        return int(stripped)
+    raise ValueError("unsupported integer type")
+
+
 def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warnings: list[str]) -> None:
     search = configuration.get("search_intelligence")
     if search is None:
@@ -145,75 +210,112 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
         warnings.append("search_intelligence: console atual não expõe Search Intelligence")
         return
 
+    has_queries = "queries" in search
     raw_queries = search.get("queries", [])
-    if not isinstance(raw_queries, list):
+    if (has_queries and (not isinstance(raw_queries, list)
+            or len(raw_queries) > 100
+            or any(not isinstance(value, str) or len(value) > 500
+                   or any(ord(ch) < 32 and ch not in "\t\n\r" for ch in value)
+                   for value in raw_queries))):
         warnings.append("search_intelligence.queries: lista inválida")
-        raw_queries = []
-    queries = tuple(
-        dict.fromkeys(
-            " ".join(str(value).strip().split())
-            for value in raw_queries
-            if str(value).strip()
-        )
-    )
-    enabled = _as_bool(search.get("enabled"), default=bool(queries))
-    state.search_queries = queries if enabled else ()
+        # An invalid historical payload must never erase the current session's
+        # explicit search inputs or convert arbitrary objects into paid queries.
+    else:
+        queries = tuple(dict.fromkeys(
+            " ".join(value.strip().split()) for value in raw_queries
+            if value.strip()
+        ))
+        raw_enabled = search.get("enabled", bool(queries))
+        if isinstance(raw_enabled, bool):
+            enabled = raw_enabled
+        elif isinstance(raw_enabled, str) and raw_enabled.strip().casefold() in {
+            "1", "true", "yes", "on", "sim", "s", "0", "false", "no", "off", "nao", "não", "n"
+        }:
+            enabled = _as_bool(raw_enabled, default=False)
+        else:
+            warnings.append("search_intelligence.enabled: valor inválido")
+            enabled = None
+        if enabled is False and (has_queries or "enabled" in search):
+            state.search_queries = ()
+        elif enabled is True and has_queries:
+            state.search_queries = queries
+        # Legacy snapshots with no query list must not invent an opt-in or
+        # erase explicit operator queries merely because other fields exist.
 
     try:
-        depth = int(search.get("depth", getattr(state, "search_depth", 20)))
+        candidate = search.get("depth", getattr(state, "search_depth", 20))
+        depth = _strict_nonnegative_integer(candidate)
         if depth <= 0:
             raise ValueError
         state.search_depth = depth
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         warnings.append("search_intelligence.depth: use inteiro > 0")
 
-    device = str(search.get("device", getattr(state, "search_device", "mobile"))).strip().casefold()
-    if device in {"mobile", "desktop"}:
-        state.search_device = device
+    raw_device = search.get("device", getattr(state, "search_device", "mobile"))
+    if isinstance(raw_device, str) and raw_device.strip().casefold() in {"mobile", "desktop"}:
+        state.search_device = raw_device.strip().casefold()
     else:
         warnings.append("search_intelligence.device: use mobile ou desktop")
-    state.search_region = str(search.get("region", "") or "").strip()
-    state.search_competitive = _as_bool(
-        search.get("competitive"),
-        default=bool(getattr(state, "search_competitive", True)),
-    )
-    state.search_compare_content = _as_bool(
-        search.get("compare_content"),
-        default=bool(getattr(state, "search_compare_content", False)),
-    )
-    state.search_ai_competitive = _as_bool(
-        search.get("ai_competitive"),
-        default=bool(getattr(state, "search_ai_competitive", False)),
-    )
+    raw_region = search.get("region", "")
+    if isinstance(raw_region, str) and len(raw_region) <= 200:
+        state.search_region = raw_region.strip()
+    else:
+        warnings.append("search_intelligence.region: use texto até 200 caracteres")
+    # Explicit historical booleans never coerce arbitrary numeric or object
+    # values into a new execution policy.
+    for field, attribute, default in (
+        ("competitive", "search_competitive", True),
+        ("compare_content", "search_compare_content", False),
+        ("ai_competitive", "search_ai_competitive", False),
+    ):
+        raw = search.get(field, getattr(state, attribute, default))
+        if isinstance(raw, bool):
+            parsed = raw
+        elif isinstance(raw, str) and raw.strip().casefold() in {
+            "1", "true", "yes", "on", "sim", "s",
+            "0", "false", "no", "off", "nao", "não", "n",
+        }:
+            parsed = _as_bool(raw, default=default)
+        else:
+            warnings.append(f"search_intelligence.{field}: valor booleano inválido")
+            continue
+        setattr(state, attribute, parsed)
     try:
-        value = int(search.get("max_content_pages", getattr(state, "search_max_content_pages", 3)))
+        candidate = search.get("max_content_pages", getattr(state, "search_max_content_pages", 3))
+        value = _strict_nonnegative_integer(candidate)
         if value < 0:
             raise ValueError
         state.search_max_content_pages = value
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         warnings.append("search_intelligence.max_content_pages: use inteiro >= 0")
     try:
-        value = float(search.get("content_timeout_seconds", getattr(state, "search_content_timeout_seconds", 10.0)))
+        raw_timeout = search.get("content_timeout_seconds", getattr(state, "search_content_timeout_seconds", 10.0))
+        if isinstance(raw_timeout, bool):
+            raise ValueError
+        value = float(raw_timeout)
         if not math.isfinite(value) or value <= 0:
             raise ValueError
         state.search_content_timeout_seconds = value
     except (TypeError, ValueError):
         warnings.append("search_intelligence.content_timeout_seconds: use número finito > 0")
     try:
-        value = int(search.get("content_max_bytes", getattr(state, "search_content_max_bytes", 2_000_000)))
+        candidate = search.get("content_max_bytes", getattr(state, "search_content_max_bytes", 2_000_000))
+        value = _strict_nonnegative_integer(candidate)
         if value <= 0:
             raise ValueError
         state.search_content_max_bytes = value
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         warnings.append("search_intelligence.content_max_bytes: use inteiro > 0")
     try:
-        value = int(search.get("content_max_redirects", getattr(state, "search_content_max_redirects", 5)))
+        candidate = search.get("content_max_redirects", getattr(state, "search_content_max_redirects", 5))
+        value = _strict_nonnegative_integer(candidate)
         if value < 0:
             raise ValueError
         state.search_content_max_redirects = value
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         warnings.append("search_intelligence.content_max_redirects: use inteiro >= 0")
-    ymyl_mode = str(search.get("ymyl_mode", getattr(state, "search_ymyl_mode", "AUTO")) or "AUTO").strip().upper()
+    raw_ymyl = search.get("ymyl_mode", getattr(state, "search_ymyl_mode", "AUTO"))
+    ymyl_mode = raw_ymyl.strip().upper() if isinstance(raw_ymyl, str) else None
     if ymyl_mode in {"AUTO", "ON", "OFF"}:
         state.search_ymyl_mode = ymyl_mode
     else:
@@ -238,7 +340,16 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     raw_targets = configuration.get("targets")
     if not isinstance(raw_settings, Mapping) or not isinstance(raw_targets, list) or not raw_targets:
         raise ValueError("snapshot de console incompleto: settings/targets ausentes")
-    targets = tuple(str(value).strip() for value in raw_targets if str(value).strip())
+    # A historical snapshot must not silently restore a partial typed section.
+    # Its explicit keys are applied independently below, but unknown sections
+    # must not be treated as proof that the operator's current state was saved.
+    # Legacy snapshots may omit a typed console section entirely. Reject an
+    # explicitly malformed section without breaking historical reuse.
+    if "console" in raw_settings and not isinstance(raw_settings["console"], Mapping):
+        raise ValueError("snapshot de console sem seção console válida")
+    if any(not isinstance(value, str) for value in raw_targets):
+        raise ValueError("snapshot de console possui target não textual")
+    targets = tuple(value.strip() for value in raw_targets if value.strip())
     if not targets:
         raise ValueError("snapshot de console não possui targets válidos")
     if len(targets) != 1:
@@ -247,40 +358,110 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
             "novas AUDs exigem exatamente uma URL. Selecione uma URL explicitamente antes de executar."
         )
 
+    # Restore only the audited, canonical architecture choice. Historical
+    # configurations without the field never invent an operator preference.
+    from rasai.architecture_choice import CHOICE_KEY
+    choice = None
+    if CHOICE_KEY in configuration:
+        from rasai.architecture_choice_audit_adapter import read_sealed_audit_choice
+        choice = read_sealed_audit_choice(
+            configuration, expected_hash=configuration_hash(configuration)
+        ).choice
+    # Do not mutate the selected policy until the rest of the restore succeeds.
+
     warnings: list[str] = []
     allowed_environment = set(console_settings._known_nonsecret_environment_names())
     environment = raw_settings.get("environment", {})
     if not isinstance(environment, Mapping):
         raise ValueError("snapshot de console possui seção environment inválida")
 
-    # Historical non-secret settings override the current non-secret session only after
-    # the operator explicitly chooses to load that AUD. Secrets remain outside this
-    # allowlist and continue resolved from the current OS/session.
-    for name in allowed_environment:
-        raw = environment.get(name)
-        if raw is None or not str(raw).strip():
-            os.environ.pop(name, None)
-        else:
-            os.environ[name] = str(raw).strip()
-
-    for section, known_values in console_settings._state_values(state).items():
-        values = raw_settings.get(section, {})
+    # Historical payloads may predate the current anti-secret INI schema.
+    # Never treat an unexpected typed key as proof of executable settings or
+    # carry credential-bearing offline Dynatrace JSON to the next AUD.
+    from rasai.console_config import is_secret
+    for section, values in raw_settings.items():
+        if not isinstance(section, str):
+            raise ValueError("snapshot possui seção com identificador inválido")
         if not isinstance(values, Mapping):
+            # Let the documented per-section legacy adapters decide whether
+            # the malformed but nonsecret section may be ignored.
             continue
-        for option in known_values:
-            if option == "config_version" or option not in values:
+        if any(not isinstance(key, str) or is_secret(key) for key in values):
+            raise ValueError("snapshot de AUD contém variável sensível ou inválida")
+        if section == "synthetic_apdex_experience":
+            raw_json = values.get("dynatrace_config_json")
+            if raw_json is not None:
+                try:
+                    console_settings._reject_secret_bearing_dynatrace_json(raw_json)
+                except (ValueError, TypeError, OverflowError):
+                    raise ValueError(
+                        "synthetic_apdex_experience.dynatrace_config_json: "
+                        "configuração histórica não reutilizável"
+                    ) from None
+
+    # Preflight historical environment *before* mutating the current state.
+    # Legacy snapshots with GSC limits/URL values outside the current policy
+    # must be explicitly reconciled, not silently resumed under new defaults.
+    checked_environment = _validate_reused_environment(environment)
+
+    # Preserve the process-session projection until all steps succeed.
+    # No second persistence source is created, and secrets stay in memory.
+    previous_environment = dict(os.environ)
+    previous_state = {}
+    if is_dataclass(state):
+        previous_state.update({item.name: getattr(state, item.name)
+                               for item in fields(state)})
+    if hasattr(state, "__dict__"):
+        previous_state.update(vars(state))
+
+    try:
+        # Historical non-secret settings override the current non-secret session only after
+        # the operator explicitly chooses to load that AUD. Secrets remain outside this
+        # allowlist and continue resolved from the current OS/session.
+        for name in allowed_environment:
+            if name not in checked_environment:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = checked_environment[name]
+
+        for section, known_values in console_settings._state_values(state).items():
+            values = raw_settings.get(section, {})
+            if not isinstance(values, Mapping):
                 continue
-            try:
-                console_settings._assign(state, section, option, str(values[option]))
-            except (TypeError, ValueError) as exc:
-                warnings.append(f"{section}.{option}: {exc}")
+            for option in known_values:
+                if option == "config_version" or option not in values:
+                    continue
+                try:
+                    console_settings._assign(state, section, option, str(values[option]))
+                except (TypeError, ValueError, OverflowError):
+                    # Historic text/JSON may contain operator values in int(),
+                    # URL or adapter exception messages. Expose coordinates,
+                    # not the rejected value, credential or file path.
+                    warnings.append(
+                        f"{section}.{option}: valor histórico inválido; conteúdo omitido"
+                    )
 
-    _apply_search_settings(state, configuration, warnings)
+        _apply_search_settings(state, configuration, warnings)
 
-    state.input_mode = "url"
-    state.target = targets[0]
+        state.input_mode = "url"
+        state.target = targets[0]
 
-    console_settings.sync_nonsecret_runtime_environment(state)
+        console_settings.sync_nonsecret_runtime_environment(state)
+        if choice is None:
+            _ARCHITECTURE_SELECTION.pop(id(state), None)
+        else:
+            _ARCHITECTURE_SELECTION[id(state)] = choice
+    except BaseException:
+        # A rejected restore must not leave a mixture of two AUD configurations.
+        for name in set(previous_environment) | set(os.environ):
+            if os.environ.get(name) != previous_environment.get(name):
+                if name in previous_environment:
+                    os.environ[name] = previous_environment[name]
+                else:
+                    os.environ.pop(name, None)
+        for name, value in previous_state.items():
+            setattr(state, name, value)
+        raise
     return tuple(warnings)
 
 
@@ -374,6 +555,22 @@ def _load_source(state: Any, console_module: ModuleType | None = None) -> None:
     load_source_configuration(state, audit_id, console_module=console_module)
 
 
+def describe_session_architecture_choice(state: Any) -> str:
+    """Visible session selection; never present a declaration as measured fact."""
+    from rasai.architecture_choice import ArchitectureChoice
+
+    selected = _ARCHITECTURE_SELECTION.get(id(state))
+    if selected is None:
+        return "NÃO SELECIONADA (padrão anterior; sem aplicação automática)"
+    if not isinstance(selected, ArchitectureChoice):
+        raise ValueError("Invalid session architecture selection")
+    if selected.mode == "UNFORCED":
+        return "SEM FORÇAR (escolha explícita; sem aplicação automática)"
+    if selected.mode == "AUTO":
+        return "AUTOMÁTICA (depende de evidência e consumidor autorizado)"
+    return f"DECLARADA: {selected.declared_architecture} (informada, não descoberta)"
+
+
 def install(interactive_console: ModuleType) -> None:
     """Install a top-level reuse shortcut and bind the final console execution state."""
     global _INSTALLED
@@ -393,6 +590,8 @@ def install(interactive_console: ModuleType) -> None:
         def input_with_hint(prompt: str = "") -> str:
             if prompt == "Escolha: ":
                 print("L. Carregar configuração de AUD [NOVA EXECUÇÃO]")
+                print("Y. Arquitetura para esta auditoria [SEM ALTERAR OS ÍNDICES]")
+                print("   Atual: " + describe_session_architecture_choice(state))
             return original_input(prompt)
 
         builtins.input = input_with_hint
@@ -402,6 +601,44 @@ def install(interactive_console: ModuleType) -> None:
             builtins.input = original_input
 
     def configure_with_reuse(state: Any, choice: str) -> None:
+        if choice == "Y":
+            from rasai.architecture_choice import ArchitectureChoice
+            # Present the editor as its own console screen, not appended to HOME.
+            interactive_console.render_header(state)
+            print("INÍCIO > ARQUITETURA PARA ESTA AUDITORIA\n")
+            print("Arquitetura da auditoria (opção consultiva; não modifica pontuação)")
+            print("Seleção atual: " + describe_session_architecture_choice(state))
+            print("1. Sem forçar arquitetura")
+            print("2. Automática, baseada na descoberta")
+            print("3. Definida por você")
+            selected = builtins.input("Opção (V para voltar): ").strip().upper()
+            if selected in {"V", ""}:
+                return
+            if selected == "1":
+                selection = ArchitectureChoice("UNFORCED")
+            elif selected == "2":
+                selection = ArchitectureChoice("AUTO")
+            elif selected == "3":
+                options = {
+                    "1": "STATIC_OR_SSR", "2": "HYDRATED",
+                    "3": "CSR_SPA", "4": "MIXED",
+                }
+                print("1. Estática ou renderizada no servidor")
+                print("2. Renderizada com hidratação")
+                print("3. Aplicação de página única (SPA)")
+                print("4. Arquitetura mista")
+                arch = options.get(builtins.input("Tipo (V para voltar): ").strip())
+                if arch is None:
+                    return
+                selection = ArchitectureChoice("DECLARED", arch)
+            else:
+                return
+            _ARCHITECTURE_SELECTION[id(state)] = selection
+            from rasai.console_session import mark_dirty
+            mark_dirty(state)
+            state.error = ""
+            print("Preferência de arquitetura registrada para esta sessão; os índices não foram alterados.")
+            return
         if choice == "L":
             _load_source(state, console_module=interactive_console)
             return
@@ -416,10 +653,36 @@ def install(interactive_console: ModuleType) -> None:
             return original_run(state)
 
         source = _SESSION_SOURCE.get(id(state))
-        differences = changed_fields(source.configuration, effective) if source else ()
+        # The provenance diff must describe the same effective payload that
+        # is sealed for execution, including explicit architecture selection.
+        from rasai.architecture_choice_audit_adapter import prepare_audit_choice_configuration
+        choice = _ARCHITECTURE_SELECTION.get(id(state))
+        sealed_effective = prepare_audit_choice_configuration(effective, choice=choice)
+        # Advisory AUTO discovery is a separate operation: never part of the
+        # sealed configuration, scoring, audit capture, RPR or complements.
+        if getattr(choice, "mode", None) == "AUTO" and len(targets) == 1:
+            from rasai.architecture_acquisition_preferences import read_mode, SKIP
+            acquisition_mode = read_mode()
+            if acquisition_mode != SKIP:
+                from rasai.domain import DeviceContext
+                from rasai.architecture_choice_audit_adapter import observe_auto_architecture_before_audit
+                try:
+                    device = DeviceContext(str(getattr(state, "device", "MOBILE")).upper())
+                    observed = observe_auto_architecture_before_audit(
+                        targets[0], device, mode=acquisition_mode,
+                        consent=lambda _: False,  # AUD must never install Docker.
+                    )
+                    print("Descoberta consultiva na nova AUD: "
+                          + observed.assessment.architecture.value)
+                    if observed.assessment.limitation:
+                        print("Limitação da descoberta: " + observed.assessment.limitation)
+                except (OSError, RuntimeError, ValueError):
+                    print("Descoberta consultiva indisponível; AUD independente preservada.")
+        differences = changed_fields(source.configuration, sealed_effective) if source else ()
         with configuration_context(
             kind=KIND_CONSOLE,
             configuration=effective,
+            architecture_choice=choice,
             source_audit_id=source.audit_id if source else None,
             source_configuration_hash=source.configuration_hash if source else None,
             changed_fields=differences,

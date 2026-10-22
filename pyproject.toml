@@ -25,6 +25,9 @@ web = [
 copilot = [
     "github-copilot-sdk>=1,<2",
 ]
+attestation = [
+    "cryptography>=42,<50",
+]
 
 [project.scripts]
 rasai = "rasai.entrypoint:main"

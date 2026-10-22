@@ -18,7 +18,7 @@ from rasai.score_geo import SCORING_VERSION
 from rasai.score_geo_cli import main as scoring_cli_main
 
 
-EXPECTED_SCORING_VERSION = "SCORE-GEO-004"
+EXPECTED_SCORING_VERSION = "SCORE-GEO-005"
 EXPECTED_CATALOG_REPORT_CONTRACT = "CATALOG-REPORT-002"
 EXPECTED_CATALOG_REPORT_DIR = "report-catalog"
 
@@ -36,7 +36,7 @@ CURRENT_METHOD_DOCS = (
     "docs/specification/08_TECHNICAL_ARCHITECTURE.md",
 )
 
-_OLD_VERSION_RE = re.compile(r"SCORE-GEO-(?!004)\d{3}", re.I)
+_OLD_VERSION_RE = re.compile(r"SCORE-GEO-(?!004\b|005\b)\d{3}", re.I)
 _MILESTONE_PUBLIC_RE = re.compile(r"(?i)(?<![A-Za-z0-9])m\d{1,3}")
 _STALE_EQUAL_WEIGHT_RE = re.compile(r"m[eé]dia\s+de\s+igual\s+peso", re.I)
 _SCORING_SCAN_SUFFIXES = frozenset({
@@ -117,7 +117,7 @@ def _check_runtime(errors: list[str]) -> None:
         return
     text = output.getvalue()
     if code != 0 or EXPECTED_SCORING_VERSION not in text:
-        errors.append("rasai scoring inspect não expõe SCORE-GEO-004 corretamente")
+        errors.append("rasai scoring inspect não expõe o contrato vigente corretamente")
 
 
 def _check_docs(root: Path, errors: list[str]) -> None:
@@ -178,6 +178,11 @@ def _check_single_scoring_contract(root: Path, errors: list[str]) -> None:
         if not path.is_file() or path.suffix.lower() not in _SCORING_SCAN_SUFFIXES:
             continue
         if any(part in {".git", ".venv", "venv", "__pycache__"} for part in path.parts):
+            continue
+        # Unit tests intentionally contain invalid version strings as negative
+        # fixtures. Only version declarations in delivered code/docs/workflows
+        # are actionable public contract surfaces.
+        if path.relative_to(root).parts[0] == "tests":
             continue
         try:
             text = path.read_text(encoding="utf-8")

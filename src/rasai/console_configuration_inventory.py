@@ -232,6 +232,68 @@ def _declared_console_core_surface() -> dict[str, str]:
     })
     return declared
 
+def _declared_security_and_improvement_surface() -> dict[str, str]:
+    """Declare real adapter inputs; do not imply security feed or AI execution."""
+    from rasai import passive_security, improvement_intelligence as improvement
+
+    security = (
+        passive_security.ENABLED_ENV,
+        passive_security.HEADERS_ENV,
+        passive_security.COOKIES_ENV,
+        passive_security.RESOURCES_ENV,
+        passive_security.THIRD_PARTY_ENV,
+        passive_security.RUNTIME_ENV,
+        passive_security.OSV_ENV,
+        passive_security.KEV_ENV,
+        passive_security.EXTERNAL_TIMEOUT_ENV,
+    )
+    result = {
+        name: "PASSIVE_SECURITY_INPUT_DECLARED_NOT_COLLECTION_PROOF"
+        for name in security
+    }
+    improvement_inputs = (
+        improvement.ENABLED_ENV,
+        improvement.PROVIDER_ENV,
+        improvement.MODEL_ENV,
+        improvement.REASONING_ENV,
+        improvement.DOMAINS_ENV,
+        improvement.MAX_RECOMMENDATIONS_ENV,
+        improvement.TIMEOUT_ENV,
+    )
+    result.update({
+        name: "IMPROVEMENT_INPUT_DECLARED_NOT_PROVIDER_EXECUTION_PROOF"
+        for name in improvement_inputs
+    })
+    result[improvement.AI_ANALYSIS_LANGUAGE_ENV] = (
+        "IMPROVEMENT_LANGUAGE_INPUT_NOT_PROVIDER_EXECUTION_PROOF"
+    )
+    return result
+
+
+def _declared_ai_catalog_surface() -> dict[str, str]:
+    """Only canonical AI catalog selectors, never provider-use evidence."""
+    from rasai import ai_model_catalog, ai_pricing_catalog, ai_task_profiles
+
+    return {
+        ai_model_catalog.MODEL_SOURCE_ENV: "MODEL_SOURCE_DECLARED_NOT_PROVIDER_USE",
+        ai_model_catalog.MODEL_FILE_ENV: "MODEL_FILE_DECLARED_NOT_PROVIDER_USE",
+        ai_pricing_catalog.PRICING_SOURCE_ENV: "PRICING_SOURCE_DECLARED_NOT_BILLING",
+        ai_pricing_catalog.PRICING_FILE_ENV: "PRICING_FILE_DECLARED_NOT_BILLING",
+        ai_task_profiles.PROFILE_SOURCE_ENV: "PROFILE_SOURCE_DECLARED_NOT_AI_USE",
+        ai_task_profiles.PROFILE_FILE_ENV: "PROFILE_FILE_DECLARED_NOT_AI_USE",
+    }
+
+
+def _declared_presentation_surface() -> dict[str, str]:
+    """The presentation timezone consumer cannot mutate persisted AUD clocks."""
+    from rasai.time_contract import PRESENTATION_TIMEZONE_ENV
+
+    return {
+        PRESENTATION_TIMEZONE_ENV:
+        "PRESENTATION_FORMAT_INPUT_NOT_PERSISTED_CLOCK_CHANGE"
+    }
+
+
 def inventory(
     *,
     path: Path | None = None,
@@ -254,7 +316,13 @@ def inventory(
     search_affinities = _declared_search_consumer_surface()
     gsc_affinities = _declared_gsc_consumer_surface()
     console_core_affinities = _declared_console_core_surface()
+    security_improvement_affinities = _declared_security_and_improvement_surface()
+    ai_catalog_affinities = _declared_ai_catalog_surface()
+    presentation_affinities = _declared_presentation_surface()
     consumer_affinities = {
+        **presentation_affinities,
+        **ai_catalog_affinities,
+        **security_improvement_affinities,
         **console_core_affinities, **gsc_affinities,
         **search_affinities, **apdex_affinities,
     }
@@ -390,6 +458,21 @@ def inventory(
             "real_provider_request_coverage_proven": False,
             "source": "SERP_RUNTIME_CONFIG_AND_PERPLEXITY_READINESS_DECLARATIONS",
         },
+        "ai_catalog_adapter_surface_coverage": {
+            "mapped_registry_variables": sum(
+                item["name"] in ai_catalog_affinities for item in variables
+            ),
+            "catalog_load_or_provider_use_proven": False,
+            "pricing_or_bill_proven": False,
+        },
+        "security_improvement_adapter_surface_coverage": {
+            "mapped_registry_variables": sum(
+                item["name"] in security_improvement_affinities for item in variables
+            ),
+            "external_security_feeds_or_ai_provider_calls_proven": False,
+            "security_snapshot_or_improvement_execution_proven": False,
+            "source": "PASSIVE_SECURITY_AND_IMPROVEMENT_CONFIG_DECLARATIONS",
+        },
         "console_core_adapter_surface_coverage": {
             "mapped_registry_variables": sum(
                 item["name"] in console_core_affinities for item in variables
@@ -437,8 +520,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--ini", type=Path, help="optional configuration file for metadata inspection")
     parser.add_argument(
+        "--acceptance-523", action="store_true",
+        help="one offline acceptance gate: typed state, Perplexity draft, Apdex, core, SERP, GSC",
+    )
+    parser.add_argument(
         "--verify-apdex", action="store_true",
         help="offline M23/M25 adapter validation on an isolated INI copy; no audit or APIs",
+    )
+    parser.add_argument(
+        "--verify-gsc", action="store_true",
+        help="check Google Search Console scope/OAuth/policy from INI offline; never authenticate",
+    )
+    parser.add_argument(
+        "--verify-core", action="store_true",
+        help="verify core AI/Web console INI -> real audit CLI consumer offline",
+    )
+    parser.add_argument(
+        "--verify-search", action="store_true",
+        help="check SERP console INI -> governed AUD argv -> real CLI parser offline",
+    )
+    parser.add_argument(
+        "--reconcile-typed", action="store_true",
+        help="inspect declared typed INI adapters without loading it into the OS environment",
     )
     args = parser.parse_args(argv)
     report = inventory(path=args.ini)
@@ -446,8 +549,31 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.console_apdex_effective_validation import inspect_apdex_consumers
         selected = args.ini if args.ini is not None else canonical_console_config_path()
         report["apdex_offline_consumer_preflight"] = inspect_apdex_consumers(selected)
+    if args.verify_gsc:
+        from rasai.console_gsc_consumer_preflight import inspect_gsc_consumers
+        selected = args.ini if args.ini is not None else canonical_console_config_path()
+        report["gsc_offline_consumer_preflight"] = inspect_gsc_consumers(selected)
+    if args.verify_core:
+        from rasai.console_core_consumer_preflight import inspect_core_consumers
+        selected = args.ini if args.ini is not None else canonical_console_config_path()
+        report["core_offline_consumer_preflight"] = inspect_core_consumers(selected)
+    if args.verify_search:
+        from rasai.console_search_consumer_preflight import inspect_search_consumers
+        selected = args.ini if args.ini is not None else canonical_console_config_path()
+        report["search_offline_consumer_preflight"] = inspect_search_consumers(selected)
+    if args.reconcile_typed:
+        from rasai.console_typed_reconciliation import inspect_typed_configuration
+        selected = args.ini if args.ini is not None else canonical_console_config_path()
+        report["typed_adapter_reconciliation"] = inspect_typed_configuration(selected)
+    if args.acceptance_523:
+        from rasai.console_acceptance_contract import inspect_console_acceptance
+        selected = args.ini if args.ini is not None else canonical_console_config_path()
+        gate = inspect_console_acceptance(selected, prior=report)
+        report["acceptance_523"] = gate
     print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
-    return 0
+    return 2 if args.acceptance_523 and report["acceptance_523"]["status"] not in {
+        "OFFLINE_CONTRACTS_VERIFIED", "OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES",
+    } else 0
 
 
 if __name__ == "__main__":

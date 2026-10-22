@@ -1,6 +1,6 @@
 # Avaliação futura - Runner gerenciado, persistência SaaS e relatórios dinâmicos
 
-**Estado:** pendência arquitetural para revisão futura.
+**Estado:** avaliação arquitetural concluída; decisão MANTER PENDENTE (20/10/2026), sem autorização de implementação.
 **Rastreabilidade:** GitHub Issue #1 - https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/1
 **Natureza:** levantamento de premissas, estado atual, gaps, requisitos candidatos e decisões em aberto.
 **Efeito no produto atual:** nenhum. Este documento não cria endpoint, contrato público, licença, entitlement, storage remoto ou obrigação de implementação.
@@ -379,3 +379,86 @@ Quando houver conflito, prevalece o contrato implementado e documentado como vig
 
 - Issue de acompanhamento: https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/1
 - O encerramento da issue deve registrar a decisão arquitetural final e, quando aplicável, apontar para os documentos que substituírem esta avaliação.
+
+## 20. ADR-RUNNER-001 - decisão de arquitetura da avaliação #1 (20/10/2026)
+
+**Decisão da avaliação: MANTER PENDENTE.**
+**Classe:** governança arquitetural e definição de fronteiras - não é entrega de
+Runner gerenciado, storage central nem relatório dinâmico.
+**Referência decisória:** revisão técnica da issue #1 sob o mandato do
+operador para reduzir o backlog sem modificar motores homologados;
+decisão conservadora de adiar a adoção, e não homologação de um desenho
+ou aprovação de orçamento. A decisão é reversível por novo requisito
+com escopo funcional e autorização expressa. Esta ADR não atribui ao
+operador escolha de fornecedor, modelo comercial ou consentimento
+para credenciamento remoto.
+
+### Reconciliação do que existe e do que não foi autorizado
+
+| Fronteira | Capacidade confirmada por contrato/código | Gap que impede uma migração segura |
+| --- | --- | --- |
+| Execução local | CLI/console operam sobre AUD local independente | Sem identidade de Runner nem autorização central obrigatória para a CLI |
+| Control plane | API, identidade, tenancy e persistência relacional PostgreSQL possuem contratos próprios | Autorização Web/API não é licença de execução local nem entitlement |
+| Console remoto | Cliente remoto usa token e API conforme configuração explícita | Um bearer de console não pode ser reutilizado como identidade S2S de Runner |
+| Evidência | AUD possui SQLite, `artifacts/` e `report-catalog/` locais | Registro de AUD no índice não prova upload integral ou armazenamento remoto |
+| Relatórios | HTML é projeção sobre dados da AUD, sem reexecutar scoring | Não existe contrato end-to-end de read model central e renderer dinâmico |
+| Integração Orqetia | Existe trilha independente de migração de LLM (#192) | Integração/readiness do Orqetia não autentica Runners nem bundles de AUD |
+
+**Alternativas avaliadas:**
+
+- **IMPLEMENTAR agora:** rejeitada nesta revisão, porque o contrato de
+  identidade, revogação, autorização pré-execução, persistência remota
+  comprovada e operação offline não está homologado. Exigiria serviços
+  remotos, políticas comerciais e provas físicas não incluídas na PR #647.
+- **SUBSTITUIR por um serviço já existente:** rejeitada por falta de
+  prova de equivalência de tenant, segredo, bytes completos, cadeia de
+  custódia e autorização. Um catálogo PostgreSQL não equivale a object storage,
+  e o Orqetia não é um storage de evidência do RASAi.
+- **DESCONTINUAR:** rejeitada: a necessidade de um histórico consultável
+  fora do executor local e de Runners gerenciáveis continua válida em SaaS.
+- **MANTER PENDENTE:** escolhida nesta avaliação; preserva o core
+  homologado, evita dependência artificial com Orqetia e impede
+  introduzir uma autenticação parcial que só aparente controle comercial.
+
+### Arquitetura candidata não ativada
+
+A próxima decisão, se o produto efetivamente necessitar de Runner
+gerenciado, deverá respeitar uma sequência de contratos independentes:
+
+1. identidade de instalação/Runner, registro, owner de tenant, revogação
+   e token efêmero, segregados de sessão de usuário e de provider de IA;
+2. autorização explícita de execução gerenciada, entitlements e política
+   offline, sem impedir testes locais independentes nem acrescentar
+   bypass trivial a uma eventual distribuição comercial;
+3. manifesto e SHA-256 com identidade do bundle, sincronização de
+   evidência autenticada, reenvio idempotente após falhas e atestado
+   independente da persistência recebida;
+4. estado transacional e metadados no PostgreSQL; bytes de evidência em
+   object storage sob políticas de tenant, retenção e residência aprovadas;
+5. leitura versionada de evidência e renderer somente leitura, sem alterar
+   coleta, índices, fórmulas, IA, resultados históricos ou AUDs seladas.
+
+**Critérios para retomar:** caso de negócio patrocinado; responsável
+funcional, limites comerciais, ameaça/segurança e privacidade; decisão
+sobre storage/região e custo; protocolos, versões, políticas offline,
+teste negativo de revogação; prova de não alteração de AUD; paridade de
+renderer com manifestos históricos; autorização do proprietário para
+implementar em escopo próprio. Não ativar novos endpoints, serviços,
+credenciais, quotas ou licenças com esta ADR.
+
+### Resultado de encerramento da avaliação
+
+O objetivo e o critério específico da issue #1 são uma **decisão
+arquitetural documentada**, incluindo expressamente `MANTER PENDENTE`
+como estado conclusivo da **avaliação**. A issue #1 pode, portanto,
+ser encerrada como avaliação concluída, sem representar qualquer
+implementação do Runner. As lacunas acima permanecem registradas neste
+documento e só retornam ao backlog executável quando um projeto futuro
+tiver decisão funcional específica. A #192 continua independente e
+bloqueada por seus próprios gates.
+
+**Prova e limitações:** análise estática de módulos e documentação da
+branch `feat/acceptance-and-architecture-governance`, sem workflow,
+integração SaaS, serviços comerciais nem teste físico. Estado de
+implementação **NÃO AUTORIZADO**; não presumir satisfação do roadmap
+funcional por esta decisão.

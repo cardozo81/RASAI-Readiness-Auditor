@@ -74,3 +74,99 @@ def test_governed_search_uses_execution_closure_with_slotted_state(monkeypatch) 
     assert state.search_queries == ("seguro de vida", "previdencia privada")
     assert not hasattr(state, "_governed_search_queries")
     assert console_runtime.build_command is base_build
+
+
+def test_523_governed_search_result_readonly_and_terminal_distinction(tmp_path):
+    import sqlite3
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_governed_search_runtime import _project_result
+
+    state = SearchConsoleState()
+    state.audits_root = str(tmp_path)
+    state.audit_id = "AUD-SEARCH-523"
+    root = tmp_path / state.audit_id
+    root.mkdir()
+    db = root / "audit.db"
+    # No DB may be created merely by reading the post-run status.
+    _project_result(state)
+    assert not db.exists()
+
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE audit_fulfillment_work_items("
+            "audit_id TEXT, component TEXT, status TEXT, "
+            "updated_at TEXT, last_error_message TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?,?,?)",
+            [
+                ("AUD-OTHER", "SEARCH_INTELLIGENCE", "SUCCESS", "2026-10-20", ""),
+                (state.audit_id, "SEARCH_INTELLIGENCE", "RUNNING", "2026-10-21",
+                 "PRIVATE_TOKEN_SHOULD_NOT_DISPLAY"),
+            ],
+        )
+    before = db.read_bytes()
+    _project_result(state)
+    assert state.search_last_status == "PENDING"
+    assert state.search_last_report == ""
+    assert "PRIVATE_TOKEN_SHOULD_NOT_DISPLAY" not in state.search_last_detail
+    assert db.read_bytes() == before
+
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE audit_fulfillment_work_items SET status='FAILED_RETRYABLE'"
+            " WHERE audit_id=?", (state.audit_id,),
+        )
+    before = db.read_bytes()
+    _project_result(state)
+    assert state.search_last_status == "COMPLETE_WITH_LIMITATIONS"
+    assert db.read_bytes() == before
+
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE audit_fulfillment_work_items SET status='SUCCESS'"
+            " WHERE audit_id=?", (state.audit_id,),
+        )
+    _project_result(state)
+    assert state.search_last_status == "COMPLETE"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "DELETE FROM audit_fulfillment_work_items WHERE audit_id=?",
+            (state.audit_id,),
+        )
+    _project_result(state)
+    assert state.search_last_status == "NOT_REQUESTED"
+    assert "PRIVATE_TOKEN_SHOULD_NOT_DISPLAY" not in state.search_last_detail
+
+
+def test_523_governed_search_rejects_symlink_schema_error_and_path_traversal(tmp_path):
+    import sqlite3
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_governed_search_runtime import _project_result
+
+    state = SearchConsoleState()
+    state.audits_root = str(tmp_path)
+    state.audit_id = "AUD-SEARCH-523"
+    folder = tmp_path / state.audit_id
+    folder.mkdir()
+    source = tmp_path / "other.db"
+    with sqlite3.connect(source) as con:
+        con.execute("CREATE TABLE unrelated(value TEXT)")
+    linked = folder / "audit.db"
+    try:
+        linked.symlink_to(source)
+    except (OSError, NotImplementedError):
+        pass
+    else:
+        _project_result(state)
+        assert state.search_last_status == "NOT_REQUESTED"
+        assert source.is_file()
+        linked.unlink()
+    linked.write_bytes(source.read_bytes())
+    _project_result(state)
+    assert state.search_last_status == "UNAVAILABLE"
+    assert "não verificável" in state.search_last_detail
+    assert source.read_bytes() == linked.read_bytes()
+    state.audit_id = "../../other"
+    _project_result(state)
+    assert source.is_file()

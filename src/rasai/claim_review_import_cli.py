@@ -54,6 +54,7 @@ def inspect_local_claim_receipt(
     at_date: date,
     trusted_key: bytes,
     trusted_reviewer_ids: frozenset[str],
+    require_collection_date: bool = False,
 ) -> dict[str, Any]:
     """Verify three bounded independent local files, no network or writes."""
     fallback = {
@@ -66,7 +67,7 @@ def inspect_local_claim_receipt(
     }
     try:
         raw_claim = _read_local(claim_file, limit=_MAX_TEXT)
-        claim = raw_claim.decode("utf-8").strip()
+        claim = raw_claim.decode("utf-8")
         document = _read_local(document_file, limit=_MAX_DOCUMENT)
         raw_receipt = _read_local(receipt_file, limit=_MAX_RECEIPT)
         loaded = json.loads(
@@ -75,7 +76,7 @@ def inspect_local_claim_receipt(
             parse_constant=_nonstandard_number,
         )
         if (
-            not claim or not isinstance(loaded, dict)
+            not claim or claim != claim.strip() or not isinstance(loaded, dict)
             or set(loaded) != {"review", "mac"}
             or not isinstance(loaded["review"], dict)
             or not isinstance(loaded["mac"], str)
@@ -88,6 +89,7 @@ def inspect_local_claim_receipt(
         primary_bytes=document, receipt=loaded["review"],
         receipt_mac=loaded["mac"], trusted_key=trusted_key,
         trusted_reviewer_ids=trusted_reviewer_ids,
+        require_collection_date=require_collection_date,
     )
     return {**fallback, **reviewed}
 
@@ -101,6 +103,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--receipt-file", type=Path, required=True)
     parser.add_argument("--product-scope", required=True)
     parser.add_argument("--at-date", required=True)
+    parser.add_argument("--require-collection-date", action="store_true",
+                        help="Abster sem data de coleta autenticada no recibo")
     args = parser.parse_args(argv)
     # Secret material must originate from a separate trusted operator
     # environment. Never accept signing keys on the CLI or in review JSON.
@@ -125,6 +129,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         at_date=verified_date,
         trusted_key=key,
         trusted_reviewer_ids=reviewers,
+        require_collection_date=args.require_collection_date,
     )
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0

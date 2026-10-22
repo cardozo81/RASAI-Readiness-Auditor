@@ -183,6 +183,8 @@ class BrowserIdentityRenderer(BrowserRenderer):
             browser_version=self._browser.version,
             device=device,
         )
+        if callable(getattr(self, "_rasai_optin_faq_observer", None)):
+            options = {**options, "service_workers": "block"}
         first = self._render_once(url=url, profile=profile, options=options, identity=identity)
         if first.succeeded:
             return first
@@ -242,6 +244,35 @@ class BrowserIdentityRenderer(BrowserRenderer):
             assert self._browser is not None
             context = self._browser.new_context(**options)
             page = context.new_page()
+
+            # Acceptance-only #652 fixture: fulfill the exact loopback URL in
+            # this existing Chromium page, before navigation, with all other
+            # browser requests denied. Disabled outside explicit FAQ opt-in.
+            fixture_url = os.environ.get("RASAI_652_FIXTURE_URL", "")
+            fixture_path = os.environ.get("RASAI_652_FIXTURE_PATH", "")
+            if (
+                callable(getattr(self, "_rasai_optin_faq_observer", None))
+                and fixture_url == url
+                and urlsplit(url).scheme == "http"
+                and urlsplit(url).hostname == "127.0.0.1"
+                and fixture_path
+            ):
+                from pathlib import Path
+                local_fixture = Path(fixture_path)
+                if local_fixture.is_symlink() or not local_fixture.is_file():
+                    raise ValueError("FAQ 652 local fixture is missing or unsafe")
+                body = local_fixture.read_bytes()
+                if len(body) > 65536 or not body:
+                    raise ValueError("FAQ 652 local fixture size invalid")
+
+                def _fixture_route(route: Any) -> None:
+                    if route.request.url == fixture_url:
+                        route.fulfill(status=200, body=body,
+                                      content_type="text/html; charset=utf-8")
+                    else:
+                        route.abort("blockedbyclient")
+
+                context.route("**/*", _fixture_route)
 
             def _on_response(response: Any) -> None:
                 try:

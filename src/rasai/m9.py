@@ -11,7 +11,7 @@ from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.score_geo import OVERALL_AGGREGATION_VERSION, SCORING_VERSION
 from rasai.scoring import ScoringResult
 from rasai.scoring_persistence import ScoringPersistence
-from rasai.scoring_v004 import ScoreGeo004Engine
+from rasai.scoring_v005 import ScoreGeo005Engine
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,7 +54,7 @@ def execute_m9(
             raise ValueError(f"Content Value RuleExecution is not re-openable: {execution_id}")
         executions.append(execution)
 
-    engine = ScoreGeo004Engine()
+    engine = ScoreGeo005Engine()
     active_devices = tuple(dict.fromkeys(
         execution.device for execution in executions if execution.device is not None
     ))
@@ -120,8 +120,8 @@ def _reproducibility_check(
     scoring: ScoringPersistence,
 ) -> dict[str, object]:
     # Recalculate from the original persisted RuleExecutions. Version-specific
-    # applicability is owned by ScoreGeo004Engine, not by this audit-runner layer.
-    recalculated = ScoreGeo004Engine().score(
+    # applicability is owned by ScoreGeo005Engine, not by this audit-runner layer.
+    recalculated = ScoreGeo005Engine().score(
         audit_id=audit_id,
         executions=executions,
         devices=tuple(original.overall_by_device),
@@ -166,4 +166,5 @@ def _reproducibility_check(
         "recalculation_equal": expected == actual,
         "content_value_baseline": "CONTENT-VALUE-BASELINE-001",
         "structured_data_absence_policy": "NOT_APPLICABLE_WHEN_ABSENT",
+        "optional_seo_absence_policy": "OPTIONAL_SEO_OMISSION_NOT_APPLICABLE_V1",
     }

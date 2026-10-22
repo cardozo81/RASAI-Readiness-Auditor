@@ -94,6 +94,47 @@ def _resolve_m24_config(argv: list[str]) -> M24Config | None:
     return None
 
 
+def _search_resume_configuration(args, search_runtime) -> dict[str, object]:
+    """Build the frozen Search AUD input without erasing explicit zero budgets.
+
+    A user-configured 0 has real bounded semantics for competitor pages and
+    redirects. Using `or default` here would silently opt in to new HTTP
+    work after the CLI parser accepted 0, including later reprocesses.
+    Invalid zeros in positive-only fields must remain visible to validation,
+    not be repaired silently by snapshot construction.
+    """
+    queries = [
+        " ".join(str(value).split())
+        for value in (getattr(args, "search_queries", ()) or ())
+        if str(value).strip()
+    ]
+    return {
+        "enabled": bool(queries),
+        "queries": list(dict.fromkeys(queries)),
+        "depth": int(getattr(args, "search_depth", 20)),
+        "region": str(getattr(args, "search_region", "") or ""),
+        "device": str(getattr(args, "search_device", "mobile") or "mobile"),
+        "competitive": bool(getattr(args, "search_competitive", True)),
+        "compare_content": bool(getattr(args, "search_compare_content", False)),
+        "max_content_pages": int(getattr(args, "search_max_content_pages", 3)),
+        "content_timeout_seconds": float(getattr(args, "search_content_timeout_seconds", 10.0)),
+        "content_max_bytes": int(getattr(args, "search_content_max_bytes", 2_000_000)),
+        "content_max_redirects": int(getattr(args, "search_content_max_redirects", 5)),
+        "ai_competitive": bool(getattr(args, "search_ai_competitive", False)),
+        "ymyl_mode": str(getattr(args, "search_ymyl_mode", "AUTO") or "AUTO").upper(),
+        "mode": str(search_runtime.mode),
+        "provider": str(search_runtime.provider),
+        "fixture_path": str(search_runtime.fixture_path) if search_runtime.fixture_path else "",
+        "max_queries": int(search_runtime.max_queries),
+        "max_requests": int(search_runtime.max_requests),
+        "max_depth": int(search_runtime.max_depth),
+        "max_competitors": int(search_runtime.max_competitors),
+        "timeout_seconds": float(search_runtime.timeout_seconds),
+        "retries": int(search_runtime.retries),
+        "min_interval_seconds": float(search_runtime.min_interval_seconds),
+    }
+
+
 def _execute_experience_stage(
     *,
     experience_config: ExperienceApdexConfig,
@@ -152,41 +193,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         "experience_apdex": experience_config.as_dict(),
     }
-    if resume_args is not None:
-        queries = [
-            " ".join(str(value).split())
-            for value in (getattr(resume_args, "search_queries", ()) or ())
-            if str(value).strip()
-        ]
-        if queries:
-            from rasai.search_intelligence.config import SerpRuntimeConfig
+    if resume_args is not None and getattr(resume_args, "search_queries", ()):
+        from rasai.search_intelligence.config import SerpRuntimeConfig
 
-            search_runtime = SerpRuntimeConfig.from_environment(validate=False)
-            resume_options["search_intelligence"] = {
-                "enabled": True,
-                "queries": list(dict.fromkeys(queries)),
-                "depth": int(getattr(resume_args, "search_depth", 20) or 20),
-                "region": str(getattr(resume_args, "search_region", "") or ""),
-                "device": str(getattr(resume_args, "search_device", "mobile") or "mobile"),
-                "competitive": bool(getattr(resume_args, "search_competitive", True)),
-                "compare_content": bool(getattr(resume_args, "search_compare_content", False)),
-                "max_content_pages": int(getattr(resume_args, "search_max_content_pages", 3) or 3),
-                "content_timeout_seconds": float(getattr(resume_args, "search_content_timeout_seconds", 10.0) or 10.0),
-                "content_max_bytes": int(getattr(resume_args, "search_content_max_bytes", 2_000_000) or 2_000_000),
-                "content_max_redirects": int(getattr(resume_args, "search_content_max_redirects", 5) or 5),
-                "ai_competitive": bool(getattr(resume_args, "search_ai_competitive", False)),
-                "ymyl_mode": str(getattr(resume_args, "search_ymyl_mode", "AUTO") or "AUTO").upper(),
-                "mode": str(search_runtime.mode),
-                "provider": str(search_runtime.provider),
-                "fixture_path": str(search_runtime.fixture_path) if search_runtime.fixture_path else "",
-                "max_queries": int(search_runtime.max_queries),
-                "max_requests": int(search_runtime.max_requests),
-                "max_depth": int(search_runtime.max_depth),
-                "max_competitors": int(search_runtime.max_competitors),
-                "timeout_seconds": float(search_runtime.timeout_seconds),
-                "retries": int(search_runtime.retries),
-                "min_interval_seconds": float(search_runtime.min_interval_seconds),
-            }
+        search_runtime = SerpRuntimeConfig.from_environment(validate=False)
+        resume_options["search_intelligence"] = _search_resume_configuration(
+            resume_args, search_runtime,
+        )
 
     original_build_parser = _audit_cli.build_parser
     original_provider_builder = _audit_cli.build_semantic_provider

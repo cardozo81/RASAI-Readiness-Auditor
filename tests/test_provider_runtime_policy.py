@@ -95,6 +95,7 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
         import rasai.provider_runtime_policy as runtime_policy
 
         original = runtime_policy.model_definition
+        active_model = SIMPLE_DEFAULT_MODELS["MIMO"]
 
         class _ExpiredDefinition:
             enabled = True
@@ -103,17 +104,38 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
                 return False
 
         def lookup(provider_name: str, model: str):
-            if provider_name == "MIMO" and model == "mimo-v2.5":
+            if provider_name == "MIMO" and model == active_model:
                 return _ExpiredDefinition()
             return original(provider_name, model)
 
         with patch.object(runtime_policy, "model_definition", side_effect=lookup):
-            with self.assertRaisesRegex(ValueError, "modelo indisponível para MIMO: mimo-v2.5"):
+            with self.assertRaisesRegex(ValueError, f"modelo indisponível para MIMO: {active_model}"):
                 build_semantic_provider(
                     "mimo",
-                    model_override="mimo-v2.5",
+                    model_override=active_model,
                     env={"MIMO_API_KEY": "x"},
                 )
+
+    def test_expired_model_does_not_supply_public_reasoning_default(self) -> None:
+        from rasai import provider_runtime_policy as policy
+
+        original = policy.model_definition
+        active_model = SIMPLE_DEFAULT_MODELS["MIMO"]
+
+        class _ExpiredDefinition:
+            enabled = True
+
+            def is_effective(self) -> bool:
+                return False
+
+        def lookup(provider_name: str, model: str):
+            if provider_name == "MIMO" and model == active_model:
+                return _ExpiredDefinition()
+            return original(provider_name, model)
+
+        with patch.object(policy, "model_definition", side_effect=lookup):
+            result = environment_with_public_defaults({"RASAI_MIMO_MODEL": active_model})
+        self.assertNotIn("RASAI_MIMO_REASONING_EFFORT", result)
 
     def test_ai_none_ignores_configured_mistral(self) -> None:
         provider = build_semantic_provider(

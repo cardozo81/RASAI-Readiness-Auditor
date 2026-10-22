@@ -604,3 +604,709 @@ Resultados automatizados verdes não devem ser rotulados como homologação
 Windows real; por outro lado, a inexistência desse smoke não invalida os
 round-trips entre processos já executados com sucesso. Reportar as duas
 provas como estados distintos até o aceite final.
+
+## Gate adicional de restauração completa e atomicidade da sessão
+
+A suíte `tests/test_console_registry_new_process_roundtrip.py` verifica em
+**processo Python independente** todos os nomes públicos do catálogo vivo
+`refresh_specs()`. Ela compara a cardinalidade do catálogo com todas as
+chaves de `[environment]` persistidas, carrega novo estado sem herdar
+variáveis RASAI/chaves de provedor da sessão anterior, confirma igualdade dos
+valores públicos não vazios, restaura o input tipado CAT-07
+`CSR_SPA/DYNATRACE_GUIDED` e mantém queries Perplexity somente como
+rascunho **sem autorização de execução**. A fonte INI deve permanecer
+inalterada em bytes. As variáveis de bootstrap do Python/Windows são
+preservadas para evitar falsear falhas de importação no subprocesso.
+
+A gravação `save_console_config` também passa a tratar a projeção do
+**ambiente do próprio processo** como parte da operação de salvamento:
+se a preparação, temporário ou `os.replace` falhar, a sessão restaura
+cada variável projetada ao valor original, inclusive ausências anteriores.
+O INI antigo permanece intacto e o arquivo temporário é removido. Isso
+não afirma transação distribuída com Windows Registry, ambiente global
+ou processos externos: somente `os.environ` no processo atual e escrita
+atômica de um INI são cobertos.
+
+**Fronteiras do aceite:** a prova integral do registro demonstra
+`save -> new process -> load` e seus valores tipados, não invocação de
+todos os consumidores reais: SERP, CAT-06/07 e demais adaptadores possuem
+gates separados. Não inferir consentimento de integração paga nem
+homologação de Dynatrace live a partir de uma variável em INI. O
+inventário `console_configuration_inventory` deve continuar
+indicando `NOT_PROVEN_BY_REGISTRY` onde não há teste de consumidor.
+
+## Gate integrado de APDEX no novo processo
+
+A regressão do registro público também compara os valores serializados de
+todos os campos tipados `synthetic_apdex` e `synthetic_apdex_experience`
+com os valores reconstituídos no processo Python isolado. A única exclusão
+é `device_mix`, derivado do dispositivo canônico em vez de ser fonte de
+verdade independente. A prova cobre save/load e integridade de valores, não
+atesta a execução física de Dynatrace, navegador ou provedor externo.
+
+## Aceite CAT-06/CAT-07 com parâmetros não-default
+
+Um teste end-to-end isolado prepara uma sessão com valores não-default de
+Web Performance e Apdex, grava INI temporário, inicia estado novo com ambiente
+limpo e confronta integralmente seções tipadas de CAT-06/CAT-07 e a projeção
+de ambiente do runner. Verifica que leitura não reescreve INI e que não
+surge token de integração paga. Isso elimina a lacuna de testar só valores
+default ou só alguns campos APDEX, sem alegar executar Dynatrace real.
+
+## Prova adicional: consumo offline efetivo CAT-06/CAT-07 (#523)
+
+A regressão em tests/test_console_registry_new_process_roundtrip.py
+compara valores não-default restaurados do INI com objetos finais dos
+adaptadores reais m23_cli.configured_apdex e m25_cli.configured_experience:
+limites, tentativas, timeouts, concorrência, thresholds, dispositivo canônico,
+flags de captura, impactos de erro e seus escopos. A única substituição é
+o handoff global M25, capturado em memória para não modificar AUD real.
+
+Um cenário independente desativa CAT-06 e confirma que CAT-07 permanece
+configurável e ativo. Arquitetura declarada e modo de perfil permanecem
+consultivos, sem alteração automática de fórmulas e metodologia do Apdex.
+
+Escopo comprovável: resolução offline real dos adaptadores após save/load
+em fixture temporária, sem navegação, serviço pago, IA, Dynatrace live ou
+artefatos do operador. A execução física e o smoke Windows permanecem
+gates distintos; não tratá-los como resultados já obtidos.
+
+## Regressão de precedência no bootstrap real do console (#523)
+
+O smoke Windows de 19/10/2026 evidenciou `DEVICE=mobile` no INI
+temporário após a escolha anterior de `desktop`, enquanto CAT-06
+`samples_per_context=7` e CAT-07 `architecture=CSR_SPA` foram gravados
+corretamente. Essa evidência **reprova o gate de dispositivo Windows**;
+não estabelece, isoladamente, em qual save o valor foi alterado.
+
+Na análise do bootstrap, `interactive_console.main` detectava overrides
+a partir de `os.environ` **depois** de `load_console_config`, que
+materializa a seção `[environment]` do próprio INI nesse dicionário.
+Assim, entradas antigas do inventário podiam ser tratadas incorretamente
+como overrides explícitos de Windows/processo e substituir campos tipados
+já restaurados de `[console]`, CAT-06 e CAT-07. Um save posterior
+perpetuava os valores substituídos.
+
+A correção captura a relação de variáveis externas **antes** do loader:
+valores de ambiente efetivamente preexistentes continuam prioritários,
+mas valores originados apenas do inventário do INI não sobrescrevem o
+estado tipado. Os testes `tests/test_console_bootstrap_ini_precedence.py`
+exercitam o bootstrap real com defaults de sistema, divergência física
+controlada entre seções, ausência de override externo e override externo
+explícito; não iniciam nenhuma AUD nem tráfego de rede.
+
+**Aceite residual:** reiniciar o RASAi no Windows com INI temporário,
+selecionar `desktop`, salvar, reabrir e confirmar persistência
+(`[console] device=desktop`). Não classificar o smoke Windows como
+aprovado até observar esse novo resultado.
+
+## Correção do bloqueio Windows de save por device_mix derivado (#523, 19/10/2026)
+
+A evidência do operador registrou um `ValueError` ao escolher salvar
+o dispositivo `desktop` no INI temporário. O guard canônico impediu
+substituir um INI que continha opções ausentes do schema corrente.
+
+Foi identificado um mecanismo reproduzível na compatibilidade do
+`synthetic_apdex_experience.device_mix`: o primeiro save podia conter
+o campo de transporte; após a edição de device, `_ensure_mix` marca
+o valor como derivado e o serializador deixa de gravá-lo. O guard
+anterior tratava esse único campo conhecido como desconhecido e
+bloqueava a transição. A inspeção física do arquivo Windows é
+necessária somente se houver outros campos inesperados.
+
+A correção reconhece **exclusivamente** `device_mix` na seção
+`[synthetic_apdex_experience]`, valida o valor pelo parser canônico
+e permite a migração no próximo save explícito. Device pertence apenas
+a `[console].device`, e o mix da próxima AUD é recalculado em runtime.
+Se houver outros campos/seções sem contrato, ou `device_mix` inválido,
+a gravação continua bloqueada e a origem permanece intacta.
+
+O esquema de compatibilidade do **primeiro save** é mantido para
+não quebrar consumidores que inspecionam INIs de estado inicial.
+O fluxo após a edição já não persiste `device_mix` como opção
+operacional independente.
+
+Cobertura focal: `tests/test_console_device_mix_migration.py`.
+Não há execução de AUD, navegação, Dynatrace ou APIs. O smoke real
+Windows deverá comprovar save de `desktop`, reabertura, CAT-06=7 e
+CAT-07=CSR_SPA; até lá o gate #523 permanece pendente.
+
+## Inventário de compatibilidade entre INI tipado e adapters (19/10/2026)
+
+O inventário offline recebe agora o sinal `--reconcile-typed`, que compara
+campos de `[console]`, `[ai]`, `[web_performance]`,
+`[synthetic_apdex]` e `[synthetic_apdex_experience]` contra o
+parser de estado tipado e a projeção declarativa de ambiente do console.
+A inspeção **não carrega o INI no ambiente do processo** e não modifica o
+arquivo do operador, nenhum secret store ou AUD. Exemplo:
+
+```powershell
+& ".\\.venv\\Scripts\\python.exe" -m rasai.console_configuration_inventory --ini ".\\rasai-console.ini" --reconcile-typed
+```
+
+A resposta acrescenta `typed_adapter_reconciliation`, com o contrato
+`RASAI-CONSOLE-TYPED-RECONCILIATION-523-001`; cada campo tipado recebe
+`DECLARED_RUNTIME_PROJECTION`, `ADAPTER_PARSED`,
+`RUNTIME_PROJECTION_ABSENT`, `INVALID_TYPED_VALUE`,
+`DERIVED_FROM_DEVICE`, `METADATA_NOT_RUNTIME_INPUT` ou
+`NOT_PERSISTED`. Registros não reconhecidos são contabilizados apenas
+em conjunto, sem divulgar seu nome ou conteúdo. Valor de URL, arquivo,
+query, JSON, token e modelo jamais é impresso. Campos de execução
+tarifável continuam sem herdar consentimento de uma AUD anterior.
+
+A projeção em memória **não demonstra** passagem ao subprocesso dos
+coletores, sucesso de navegação nem aceite do operador. Para isso permanece
+o contrato de configuração efetiva e a prova existente de
+save/novo processo/load/ambiente, incluindo o smoke Windows de
+`SMOKE_523_INI_PASS` já reportado. O diagnóstico deste modo não solicita
+reteste desse smoke. A presença de campo no registry não significa
+consumo comprovado no motor; não alterar M23/M25 por causa de uma
+divergência de preenchimento.
+
+
+## Limpeza efetiva de opções tipadas opcionais (#523)
+
+Ao limpar um threshold opcional de CAT-06/CAT-07, um campo Dynatrace
+não secreto ou o modelo/reasoning do **provedor IA selecionado**, o console
+passa a projetar um valor vazio intencional. A sincronização remove o
+override residual de `os.environ`, em vez de deixar o valor da sessão
+anterior disponível ao executor. A alteração não remove credenciais, nem
+modifica configurações de outros provedores, contratos de scoring ou
+parâmetros da AUD já persistidos.
+
+No boot do console, os overrides externos reais devem ser aplicados ao
+estado tipado via `apply_environment_defaults` e
+`apply_m23_environment_defaults` antes da sincronização; o inventário
+`[environment]` originado do INI não substitui essa precedência. O
+diagnóstico `--reconcile-typed` diferencia uma chave vazia
+(`RUNTIME_PROJECTION_EMPTY`) de projeção preenchida. Nenhuma dessas
+classificações comprova uma medição real ou autoriza uma chamada paga.
+
+### Diagnóstico de INI inválido sem eco do valor
+
+Erros de conversão de campos tipados incluem apenas a identificação estável
+da seção e da opção, sem expor o texto recebido ou a mensagem bruta de
+`int()`/`float()` em avisos de console. A sessão permanece marcada para
+reconciliação quando um campo é rejeitado. O leitor não altera a fonte.
+
+### Transação do salvamento pelo menu do console
+
+A ação interativa `_save_configuration` delega toda a sincronização ao
+`save_console_config` canônico. Sincronizar o ambiente **antes** do writer
+invalidava a proteção de rollback deste em caso de falha de gravação:
+valores não salvos podiam ficar ativos no processo. O writer agora é o
+único responsável por aplicar a projeção de runtime durante a transação,
+restaurando o ambiente anterior se a escrita atômica falhar. O teste
+focal injeta falha de disco usando INI descartável e verifica ambiente
+inalterado, bytes preservados e mensagem de erro no menu.
+
+
+### Paridade entre serialização CLI e consumidores M23/M25 (#523, 19/10/2026)
+
+O diagnóstico opt-in `python -m rasai.console_configuration_inventory
+--ini <caminho> --verify-apdex` agora, além de inspecionar o INI físico
+em cópia descartável e invocar os adapters reais M23/M25, serializa
+**em memória** o estado restabelecido via `console_m23.append_m23_command`.
+O vetor de argumentos produzido é decodificado novamente pelo
+`m23_cli.register_apdex_arguments` e `configured_apdex` efetivos;
+as configurações tipadas resultantes de M23 e M25 devem coincidir
+integralmente com as resolvidas apenas pelo ambiente da execução.
+`cli_argv_parity_verified=true` prova somente esta paridade contratual.
+Uma divergência retorna `CLI_ARGV_CONTRACT_MISMATCH` e não silencia o erro.
+
+Parâmetros e argv potencialmente sensíveis (Dynatrace/base URL,
+JSON e caminhos) ficam em memória e nunca são impressos. O handoff
+global M25 continua intocado por captura local de `set_pending_config`,
+e `os.environ` é restaurado integralmente. Nenhum collector, Playwright,
+AUD, fornecedor nem processo de auditoria é executado. Portanto
+`cli_argv_is_real_execution=false` e `collector_execution_verified=false`
+continuam obrigatórios, mesmo com paridade positiva. O smoke Windows
+`SMOKE_523_SAVE_REOPEN_PASS` já aprovado não foi repetido.
+
+
+### Status pós-AUD da Search Intelligence sem criar ou editar SQLite (#523)
+
+O adaptador de apresentação `console_governed_search_runtime._project_result`
+passou a usar exclusivamente `sqlite3.connect(...?mode=ro, uri=True)` e
+`PRAGMA query_only=ON`, recusando caminho symlink, AUD ID não canônico,
+base inexistente ou desproporcional. A projeção pós-subprocesso pode ocorrer
+antes do checkpoint WAL; **não** afirmar fonte congelada nem bloquear WAL
+ativo, mas jamais solicitar permissão de escrita. Não há mais risco de
+`sqlite3.connect(path)` recriar a base numa corrida entre `is_file()`
+e o `connect()`. Erro de schema/conexão significa `UNAVAILABLE`, não
+`NOT_REQUESTED` enganoso.
+
+Estados não terminais (RUNNING, PENDING, desconhecidos) permanecem
+`PENDING`, em vez de virar `COMPLETE_WITH_LIMITATIONS` por falta de
+condição de término. Apenas SUCCESS ou estados terminais do contrato
+fulfillment são concluídos. Mensagens brutas de erro armazenadas no banco
+não são repassadas ao console, prevenindo vazamento acidental de token,
+URL ou payload. O status do catálogo permanece ligado à mesma AUD.
+
+Regras e testes sintéticos verificam banco ausente sem criação, estado
+externo de outra AUD, RUNNING versus falha terminal versus SUCCESS,
+symlink/caminho não canônico, erro de schema e imutabilidade. Não há
+nova coleta, provedor, atualização de índice ou alteração do runtime
+Search Intelligence do subprocesso.
+
+
+### Gate offline de consumo Search + preservação de zero no snapshot (#523, 19/10/2026)
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.console_configuration_inventory `
+  --ini "caminho\rasai-console.ini" --verify-search
+```
+
+O preflight opcional lê o INI físico regular com limite de 2 MiB e selo
+SHA-256/identidade antes e depois, cria cópia descartável, recarrega
+estado real pelo adapter tipado e monta o vetor de argumentos do console
+via `console_governed_search_runtime._append_search_args`. O parser real
+de `search_audit_runtime`/`cli_extensions` reinterpreta **localmente**
+todos os campos: queries, profundidade, dispositivo, região, competitivo,
+comparação HTTP, limites, IA competitiva e YMYL. Exige paridade integral
+dos valores restaurados ou retorna `CLI_ARGUMENTS_MISMATCH`. Uma
+combinação impossível (IA competitiva com comparação desligada) retorna
+`SEMANTIC_CONFIGURATION_CONFLICT`. Quando não há query salva, informa
+`NO_SEARCH_QUERY_INPUT`, não inventa intenção de Search API.
+`state_to_cli_parity_verified` **não** comprova chamada, autorização
+financeira, coleta, observações, reprocessamento nem resultados reais.
+
+Foi corrigida também a geração do snapshot `resume_options.search_intelligence`
+em `cli_extensions`: o padrão `int(value or default)` perdia os zeros
+explicitamente configurados em `search_max_content_pages=0` e
+`search_content_max_redirects=0`, convertendo-os indevidamente em
+3 páginas adicionais e 5 redirects no plano de recuperação. Agora os
+dois campos respeitam exatamente os zeros do CLI e preservam zeros
+inválidos de outros knobs positivos para validação, em vez de reparar
+silenciosamente. Isso evita ampliar o escopo de requests após um
+complemento/reprocessamento; não modifica o motor Search nem habilita
+recoleção. As fixtures cobrem zeros, flags, divergência deliberada de
+serializador, INI inconsistente, confidencialidade e ausência de escrita.
+
+
+### Gate isolado de consumo dos adaptadores centrais IA/Web (#523)
+
+Com o mesmo INI físico de consulta da auditoria, sem reabrir menu nem
+realizar nova AUD, o inventário passa a oferecer:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.console_configuration_inventory `
+  --ini "caminho\rasai-console.ini" --verify-core
+```
+
+O adaptador `console_core_consumer_preflight.inspect_core_consumers`
+lê bytes com identidade/SHA-256 limitados, hidrata um estado de console
+na cópia descartável, aplica sua projeção de variáveis **não secretas**,
+serializa o comando canônico por `console_config.build_command` e compara
+os campos AI/Web/escopo com `cli_extensions.build_parser`. Verifica
+o consumer real `cli._configured_web_performance` sem chamar PageSpeed,
+CrUX, navegador ou servidor; com IA selecionada, confirma somente a
+interpretação do timeout no adapter `cli._configured_ai_timeout_seconds`,
+**não a escolha efetiva de provider, modelo ou custo**.
+
+Quando Web=ON e field_source=crux sem chave externa de CrUX, informa
+`EXTERNAL_WEB_PREREQUISITE_UNVERIFIED`; não inventa chave API para
+satisfazer o teste. Uma configuração sem URL de destino é validável
+somente na camada CLI e retorna `CLI_PARITY_TARGET_NOT_SET` em vez de
+fingir autorização para nova AUD. Os resultados não contêm modelo,
+projeto, URL, argumentos do CLI, paths nem segredos; o INI original,
+a AUD e o ambiente do processo são preservados. Para execução humana,
+é possível compor `--verify-core --verify-search --verify-apdex` em um
+único inventário offline; não há necessidade de repetir o smoke real
+de save/reopen já aprovado. Testes novos cobrem Web/IA não-default,
+CrUX sem credencial, destino não informado, mutação negativa de
+serializador, INI ilegível e symlink. Nenhuma fixture constitui por si
+prova de execução física de AI/M21/GSC ou contrato de consentimento.
+
+
+### Gate de configuração GSC e política de amostragem (#523, 19/10/2026)
+
+O inventário aceita `--verify-gsc`, opcional e combinável com
+`--verify-core --verify-search --verify-apdex`. Lê o INI em cópia
+descartável com identidade/digest físico, restabelece as entradas não
+secretas do operador e chama as funções **reais** de
+`gsc_scope.gsc_request_mode`, `gsc_scope.gsc_property_covers_url`,
+`gsc_oauth.credential_state` e limites de
+`standards_gsc_policy`. A conferência distingue configuração GSC
+REQUIRED/AUTO/DISABLED, cobertura estrutural da property frente à URL,
+OAuth bearer presente versus refresh credentials completos, e flags
+de amostragem Search Analytics. O default do target ausente não é
+promovido a escopo de property.
+
+Uma property `sc-domain:` ou URL-prefix compatível **não prova**
+a legitimidade do token ou que a conta possui aquela propriedade.
+`LOCAL_SCOPE_AND_OAUTH_CONFIG_VERIFIED` significa **somente paridade
+de configuração local**: `authenticated_property_access_verified=false`,
+`real_gsc_api_usage_verified=false`, `gsc_data_finality_verified=false`
+e `provider_requests=0` por contrato. Nenhum refresh token é trocado;
+nenhuma credencial, URL de alvo, property ou valor específico de
+configuração sai no JSON. A fonte e `os.environ` são preservados.
+
+O gate `--verify-core` também testa agora as entradas
+`RASAI_AI_MAX_CYCLES` e `RASAI_AI_CYCLE_DELAY_SECONDS` contra o
+construtor canônico `AiExecutionPolicy`, não apenas timeout de IA.
+Confirma validação do tipo/faixa, sem chamar provider nem esperar delay.
+Fixtures com source GSC/OAuth sintéticos e política IA fora do default
+foram adicionadas. Não requer nova AUD nem repetir smokes de 523.
+
+
+### Correção do registro de entrada GSC e aderência real ao INI (#523)
+
+A inspeção da implementação identificou uma lacuna concreta: o inventário
+documentava `RASAI_GSC_ENABLED`, `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL`
+e os três limites da Search Analytics como consumidores GSC, mas
+`console_provider_environment.refresh_specs()` não os incluía entre as
+variáveis **não secretas persistíveis**. Assim, a seção `[environment]`
+do INI ignorava esses ajustes durante a restauração e gerava avisos de
+variável não reconhecida; o preflight GSC publicado anteriormente não
+tinha como passar com um INI válido contendo essas chaves.
+
+O mesmo contrato canônico agora inclui os **cinco nomes** e usa
+diretamente os validadores de `standards_gsc_policy` para os limites
+0 - 31 dias de análise, 1 - 50.000 linhas e 0 - 30 dias de atraso.
+O valor zero permanece válido onde definido, sem ser convertido em
+default positivo. A propriedade `sc-domain:` ou URL-prefix HTTP(S)
+é verificada estruturalmente e seu campo não aceita userinfo,
+querystrings ou fragments que poderiam conter tokens.
+
+O `--verify-gsc` compara explicitamente as atribuições GSC do INI
+com as que foram realmente restauradas no ambiente do adapter, recusando
+`GSC_REGISTRY_INCOMPLETE` e `GSC_INI_ENV_NOT_RESTORED` quando cabível.
+São provas de serialização/consumo **local**, nunca prova de OAuth válido
+do lado Google, autorização de chamada, escopo de dados ou frescor GSC.
+Fixtures novas verificam cobertura de registro, limites exatos,
+segredos em URL rejeitados, gravação e restauração sem perda de zeros
+e imutabilidade física do INI em cópia temporária.
+
+
+### Validação fail-closed também na leitura/gravação INI real (#523)
+
+O adapter `console_settings.load_console_config` agora reaproveita,
+**somente para as cinco chaves GSC não secretas**, a validação canônica
+do menu/consumer. Uma edição direta de INI fora dos limites (por
+exemplo 50.001 linhas ou atraso de 31 dias), ou uma URL de propriedade
+com userinfo/query/fragment, é recusada **antes da projeção no ambiente**,
+com warning por nome técnico sem divulgar valor. O console fica com
+`config_dirty=true` e não declara que a configuração foi restaurada
+completamente. O operador pode reconciliar explicitamente o arquivo,
+sem sobrescrever origem durante a leitura.
+
+O adapter `save_console_config` verifica os overrides GSC presentes
+na sessão **antes da transação de gravação**: valores inválidos não
+apagam nem reserializam o INI original. Essa barreira não é aplicada
+genericamente aos demais catálogos sem prova de necessidade e não
+altera o modo de execução do GSC, tokens OAuth ou os motores.
+Testes com SQLite inexistente não são necessários: o escopo é apenas
+arquivo temporário INI, ambiente de processo e restauração segura.
+
+
+### Aplicação coesa das preferências GSC durante o load (#523)
+
+Se o INI contiver um conjunto de configurações GSC novo com qualquer
+valor inválido (por exemplo, `REQUIRED=true` + propriedade válida
+mas teto de linhas fora dos limites), a restauração deixa **todo o
+grupo GSC novo inaplicado**, e não somente o campo recusado. Isso
+evita ativação parcial de coleta que não corresponde à intenção salva.
+É emitido warning por chave sem valores e aviso do grupo; outras
+variáveis reconhecidas são processadas normalmente.
+
+Overrides de sessão explicitamente presentes continuam prioritários:
+um valor existente para determinada chave não é rebaixado pelo INI
+anterior, e não participa da pré-validação do valor de INI que seria
+ignorado. O preflight GSC segue sendo um diagnóstico **offline**, não
+um autorizador de OAuth/Google. Testes incluem grupo inválido sem
+ativação parcial, restauração física intacta, e override de sessão
+preexistente, sem rede nem auditoria.
+
+
+## Gate único offline por issue #523  -  abrangência + sem consentimento implícito
+
+O inventário possui agora um modo consolidado **opt-in**, evitando
+repetir manualmente os cinco diagnósticos independentes:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.console_configuration_inventory `
+  --ini "C:\caminho\rasai-console.ini" --acceptance-523
+```
+
+Em **uma única invocação** o comando executa a reconciliação tipada,
+confere o round-trip do rascunho Perplexity em estado fresco
+(sem jamais reativar `perplexity_queries` ou STATUS de execução),
+e chama os validadores reais dos adapters CAT-06/07, core AI/Web, SERP
+e GSC. São utilizadas exclusivamente cópias INI efêmeras verificadas,
+sem gravar AUD, chamar Search API/GSC/IA/CrUX ou transportar tokens.
+Se também forem solicitados `--verify-core`, `--verify-search` etc.,
+o resultado já calculado é reutilizado em vez de executar o mesmo
+adapter duas vezes.
+
+`acceptance_523.status` distingue
+`OFFLINE_CONTRACTS_VERIFIED`,
+`OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES`,
+`EXTERNAL_PREREQUISITE_OR_TARGET_MISSING` e
+`CONFIGURATION_CONTRACT_FAILURE`. Não se interpreta SERP sem queries
+ou Perplexity sem rascunho como regressão; GSC REQUIRED sem credencial
+continua dependente de decisão/configuração externa. O comando retorna
+exit code **2** se houver erro contratual ou pré-requisito pendente;
+caso contrário, **0** apenas para o gate **offline**. Em todos os casos,
+`issue_523_final_acceptance_proven=false` e
+`runner_execution_verified_by_this_run=false`: o smoke Windows real
+anterior não é refeito automaticamente nem é falsamente atestado.
+
+Foi corrigida outra perda efetiva de precedência no serializador
+completo: uma variável pública **explicitamente limpa** no ambiente
+da sessão (string vazia) não deve ressuscitar o default do registry
+ao salvar. O campo persiste vazio no INI; seu consumidor pode decidir
+o default no novo processo, mas o console não finge que o operador
+salvou o valor antigo. Ausência e reset explícito são diferenciados,
+mantendo defaults de knobs jamais configurados. Fixtures cobrem reset,
+override não vazio, rascunho WEB/FAST restaurado sem pesquisa, falhas
+reais vs pré-requisitos opcionais e exit code do gate isolado.
+
+
+### Fonte física única e cobertura legada no gate #523
+
+O comando opt-in `--acceptance-523` exige agora que **todos os
+diagnósticos do lote** sejam atribuíveis à mesma geração de arquivo
+INI: verifica antes e depois a identidade física/tempo/tamanho e
+SHA-256 dos bytes originais, rejeitando `INI_SOURCE_CHANGED_DURING_GATE`
+mesmo que cada adapter isolado tenha retornado um status de sucesso.
+Symlink/arquivo ausente ou fora do limite retorna
+`INI_SOURCE_UNVERIFIABLE` antes de qualquer adapter.
+
+O inventário existente distingue valores legados ausentes de
+configuração inválida. Se um arquivo antigo omite campos tipados
+não derivados (ainda que os parsers apliquem defaults e não haja
+falha funcional), o gate registra a quantidade e
+`OFFLINE_LEGACY_TYPED_COVERAGE_PARTIAL` em vez de declarar cobertura
+**completa** de round-trip. Os estados antigos continuam executáveis
+conforme suas políticas; o diagnóstico não grava defaults no INI nem
+ativa catálogos para forçar aprovação. Essa abstenção retorna exit 2,
+solicitando reconciliação operacional se o objetivo é homologar toda a
+matriz de inputs, sem confundir anterior com erro de parser.
+
+Os identificadores das variáveis ou valores faltantes não são
+serializados no bloco de aceite, apenas contagem e classificação.
+Compatibilidade com `--verify-*` foi preservada; resultados já
+calculados na mesma invocação são reutilizados, não repetidos.
+
+
+### Correlação dos checks de fonte e política de secrets no lote (#523)
+
+A checagem do **mesmo INI físico** inclui agora o inventário, e não
+apenas os adaptadores. O digest/identidade final é conferido **depois**
+da inspeção de completude e da política de secrets, evitando declarar
+sucesso se um arquivo foi alterado durante a própria varredura.
+
+Um campo de credencial indevidamente presente em `[environment]`,
+inclusive nome não registrado no registry atual, impede o status de
+sucesso do gate (**`CONFIGURATION_CONTRACT_FAILURE`**), mesmo quando
+um consumidor isolado foi aprovado. A saída revela apenas o booleano
+`secret_ini_policy_violations_detected` e o identificador estático do
+tipo de falha; jamais inclui chave desconhecida ou seu valor.
+Conferência de fonte ausente foi alinhada a
+`INI_SOURCE_UNVERIFIABLE`. O diagnóstico não apaga, migra nem exibe
+o segredo, para preservar o arquivo do operador até reconciliação.
+
+
+### Correção crítica: a segunda interpretação M23/M25 não pode afetar AUD pendente (#523)
+
+A revisão do adapter `console_apdex_effective_validation.inspect_apdex_consumers`
+encontrou uma regressão anterior: a primeira chamada de
+`m23_cli.configured_apdex` usava captura local de
+`set_pending_config`, mas a segunda chamada, que repetia o
+parsing do vetor CLI, ocorria **após sair da proteção**. Além de
+produzir falso `CLI_ARGV_CONTRACT_INVALID` (lista de capturas vazia),
+a segunda execução podia atualizar a configuração pendente
+process-global do CAT-07. Essa é uma violação do contrato read-only.
+
+As **duas interpretações do mesmo consumo M23/M25** passaram a ficar
+no **mesmo contexto temporário de interceptação** e cada uma exige
+duas capturas (reset e experiência efetiva). O handoff global original
+não é lido, consumido ou substituído. A alteração fica restrita ao
+diagnóstico; não modifica os motores homologados nem o protocolo de
+execução real. Um teste de regressão instala um setter global
+deliberadamente proibido e confirma que tanto o parsing por
+ambiente quanto o replay por argv terminam com paridade, sem
+tocar a configuração pendente no processo.
+
+Este ajuste é pré-requisito para confiar no agregado
+`--acceptance-523`; nenhum resultado anterior do preflight
+CAT-06/CAT-07 deve ser chamado de PASS sem a validação focal
+desta correção.
+
+
+### CAT-07 habilitado com limiares não informados: defaults canônicos (#523)
+
+O smoke focal Windows da #523 registrou **13 PASS e 3 FAIL**,
+todos em cenários CAT-07 habilitado com limiares de satisfação/frustração
+não configurados no estado do console. O runtime `m25_cli.configured_experience`
+aceita esse estado e aplica `DEFAULT_UX_SATISFIED_SECONDS` /
+`DEFAULT_UX_FRUSTRATED_SECONDS`, porém
+`console_m23.experience_from_state` ainda enviava `None` diretamente
+para `ExperienceApdexConfig.validate()`, disparando exceção antes
+da serialização dos argumentos. O diagnóstico mascarava a causa sob
+`CONFIG_OR_ADAPTER_INVALID`. Isso representa **divergência operacional
+de configuração**, não deficiência do pytest ou da instalação Windows.
+
+O serializador do console agora utiliza os **mesmos valores canônicos
+de defaults do CLI** quando os dois campos estão explicitamente
+`None`, sem gravar esses defaults no INI, sem alterar valores
+escolhidos pelo operador e sem habilitar o CAT-06. O handoff M25 segue
+inteiramente interceptado durante os dois passes do preflight; nenhuma
+chamada externa, navegação ou coleta é executada. A nova regressão
+valida `experience_from_state`, argv e um INI real em cópia
+temporária, comparando o resultado de M25 e a identidade do handoff
+original. É necessária somente a repetição dos **três FAIL** do
+smoke focal, não dos testes previamente aprovados.
+
+
+### Estado válido PREPARAR sem URL: não bloquear aceite offline (#523)
+
+O smoke humano de 19/10/2026 do **INI real**, usando
+`--acceptance-523`, registrou `source_generation_consistent=true`,
+`legacy_typed_fields_unavailable=0`, nenhum consumidor em
+`failed_consumer_names`, mas `core=CLI_PARITY_TARGET_NOT_SET` e
+`gsc=TARGET_NOT_PREPARED`. Os dois códigos resultam do **mesmo**
+estado do operador: a URL de entrada ainda não foi informada.
+Não demonstram perda de configuração nem exigem nova URL fictícia,
+OAuth GSC ou chamadas comerciais para aprovar a persistência.
+
+O classificador do gate distingue agora os dois estados em
+`target_not_prepared_consumer_names=["core","gsc"]` e trata-os como
+**preparação intencional incompleta**, em vez de
+`external_prerequisite_consumer_names`. Isso permite
+`OFFLINE_CONTRACTS_WITH_INTENTIONAL_ABSENCES` (exit 0) quando
+todos os demais consumidores persistidos estão coerentes, inclusive
+Search/Perplexity não solicitados. Não altera os estados brutos
+dos consumidores, nem atribui `target_scope_execution_verified`,
+`issue_523_final_acceptance_proven` ou autorização de uso pago:
+esses campos continuam false. Se uma URL existir e GSC REQUIRED
+não tiver autenticação/property, o estado **continua bloqueante**;
+`EXTERNAL_WEB_PREREQUISITE_UNVERIFIED` também permanece pendente.
+Testes específicos exercitam tanto a classificação sem URL quanto
+os adapters físicos sobre INI temporário sem URL, sem rede ou AUD.
+
+Essa correção é metodológica no diagnóstico do save/load; não
+adiciona requisito artificial de configurar o alvo antes de salvar.
+
+
+### #523  -  Gate dos snapshots de AUD reaproveitados e impossibilidade de reativar GSC inválido
+
+A trilha `audit_configuration_reuse_console._apply_settings` permitia
+aplicar integralmente a seção `[environment]` de uma AUD histórica
+**sem os limites que já são exigidos no arquivo INI do console**.
+Por exemplo, uma AUD antiga com `RASAI_GSC_ENABLED=true` e
+`RASAI_GSC_SEARCH_MAX_ROWS=50001` poderia modificar a sessão antes
+de consultar o verdadeiro policy consumer, apesar de o save/load
+corrente rejeitar esse valor. O defeito só ocorria no caminho de
+reuso de configuração, complementar à issue #523.
+
+Agora `_validate_reused_environment` atua **antes de qualquer
+mutação da sessão**: declarações secretas não podem ser importadas
+de AUD anterior, os cinco inputs GSC reutilizáveis passam pelos
+mesmos validadores do INI/menu, valores não textuais deixam de ser
+coagidos silenciosamente e campos legados não reconhecidos permanecem
+inertes. A geração de snapshots futuros (`_export_settings`) aplica
+o mesmo gate antes de devolver o payload, com restauração do ambiente
+de processo em `finally`. Na falha, erro mostra apenas coordenada
+técnica de campo, nunca valores sensíveis ou o conteúdo de URLs.
+
+Foi eliminada ainda a possibilidade de `warnings` de campos
+tipados inválidos reproduzirem mensagens de `int()/float()/JSON`
+que incluíam valores brutos da AUD histórica; avisos agora são
+coordenadas de schema sem os valores. Inputs não secretos válidos
+continuam reaproveitáveis sob escolha explícita, inclusive os
+parâmetros CAT-07 `CSR_SPA`, Guided, limiares, captura de erros e
+os limites GSC com zeros canônicos. Nenhum consentimento faturável
+ou token histórico é transportado, e nenhum scorer, engine M23/M25,
+SQLite canônico ou AUD antiga foi alterado.
+
+O lote inclui regressões sintéticas para cinco GSC malformados,
+três segredos históricos, export fail-closed, rollback da sessão,
+arquitetura CAT-07 e GSC legítimo; **testes foram criados, ainda não
+executados**. Mantida prioridade exclusiva da #523 e a estratégia
+de executar somente o lote focal que acrescente evidência real
+devido à alteração de contratos.
+
+
+### Fail-closed de credenciais aninhadas no histórico de AUD (#523)
+
+Além de chaves secretas indevidamente guardadas no grupo
+`environment`, o reuso de uma AUD anterior também verifica **nomes
+sensíveis em seções tipadas** e configurações Dynatrace JSON com
+campos aninhados de credencial. A inspeção ocorre antes de tocar
+a nova sessão, usando a mesma barreira
+`console_settings._reject_secret_bearing_dynatrace_json` usada
+na escrita INI. Se a fonte antiga contiver um token em JSON, não se
+replica nem registra seu valor na nova AUD: erro de contrato
+com coordenada estática, sem dados sensíveis.
+
+Arquivos de auditoria selados e conteúdo histórico não são alterados.
+O comportamento legítimo de `profile_mode=DYNATRACE_IMPORTED`
+e arquivo JSON offline sem segredos permanece permitido; esta proteção
+não faz chamada à API Dynatrace e não obriga o operador a instalar
+pré-requisitos para outros catálogos.
+
+
+### Diferença de representação e shadowing legítimo GSC (#523)
+
+O gate `--verify-gsc` anteriormente comparava diretamente cada
+texto do INI com a variável efetiva do adapter após a restauração.
+Isso produzia falsa falha `GSC_INI_ENV_NOT_RESTORED` para limites
+legítimos como `00042` linhas (normalizado para `42`) ou `00`
+dias (normalizado para `0`), bem como quando o operador possuía
+um **override explícito de sessão** com precedência sobre o INI.
+
+A paridade GSC passa a comparar a saída efetiva com o valor que o
+próprio validador canônico do menu/INI efetivamente reidrata,
+respeitando overrides já presentes por chave. Os valores de origem
+não são publicados; a auditoria, propriedade GSC e OAuth remoto não
+são executados. Os status `GSC_DISABLED_BY_CONFIGURATION` e os
+avisos de valores inválidos continuam preservados. Fixtures com
+normalização numérica, propriedade sombreada e zero requests
+foram acrescentadas, sem repetir os smokes anteriores.
+
+
+
+### #523  -  Caminho canônico INI e abrangência de campos desconhecidos
+
+A resolução de `RASAI_CONSOLE_INI` agora normaliza somente o diretório-pai:
+o último componente preserva sua identidade física para os guards já
+existentes de leitura e gravação recusarem tanto *symlink* válido quanto
+link pendente. Antes, o `Path.resolve()` implícito podia seguir o link
+antes da inspeção, neutralizando a política de não modificar fontes do
+operador. Não há migração nem edição de INIs anteriores.
+
+A reconciliação `--reconcile-typed`, consumida por `--acceptance-523`,
+deixa de limitar o schema a cinco seções: também avalia as seções
+`presentation`, `search_intelligence` e `perplexity_draft` já
+registradas pelo console, além das futuras seções declaradas por
+`_state_values`. A validação de timezone é pura, sem tocar o ambiente
+do processo. Entradas físicas sem owner em seções reconhecidas,
+`environment`, `DEFAULT` ou seções desconhecidas bloqueiam o aceite
+offline, sem ecoar nomes arbitrários nem valores. Campos opcionais
+ausentes continuam tratados separadamente da divergência contratual.
+
+Foram adicionadas regressões focais de symlink via resolução implícita,
+cobertura SERP/rascunho/horário e recusa secret-safe de entradas
+desconhecidas. A evidência de execução pertence ao registro do teste
+focal, não a esta descrição de contrato. Nenhum smoke Windows
+anteriormente aprovado deve ser repetido por rotina.
+
+
+### #523  -  Equivalência entre load parcial, save e estado 'alterações não salvas'
+
+O leitor de INI mantém sua política de não aplicar entradas desconhecidas e
+valores de `[DEFAULT]`, mas **não pode rotular a configuração como integralmente
+salva** se o escritor subsequente recusaria reserializar a mesma fonte.
+A restauração agora marca `config_dirty` e emite aviso seguro quando existem
+seções não reconhecidas (mesmo sem campo com nome parecido com segredo) ou
+opções herdadas `[DEFAULT]`; o parser já não ativava tais valores. Segredos em
+nomes de seções/chaves desconhecidas são omitidos dos avisos. Chaves não
+secretas conhecidas e opções tipadas válidas continuam restauradas sem alteração.
+
+Regressões: presença de extensão inócua porém não persistível, seção com
+nome sensível, parâmetros em `[DEFAULT]`, campos secret-like desconhecidos,
+precedência física de campos válidos e preservação exata de bytes do INI.
+Nenhuma AUD, chamada externa, credencial nem motor M23/M25 é envolvido.
+Esta correção não muda a política de migração nem prova execução de provedor.

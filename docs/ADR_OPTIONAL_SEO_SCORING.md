@@ -1,6 +1,42 @@
 # ADR - sinais SEO opcionais, evidências e efeito no SCORE-GEO (#602)
 
-Status: **avaliação metodológica aberta; nenhum novo contrato de pontuação aprovado neste documento**.
+Status: **decisão de implementação pré-produção aplicada ao SCORE-GEO-005 em 19/10/2026**. Os registros históricos abaixo documentam a avaliação anterior; não são o status vigente.
+
+## Decisão implementada: método prospectivo SCORE-GEO-005
+
+Aprovação de continuidade da estratégia de execução, no ciclo atual sem PRD,
+adotando a decisão técnica conservadora **NOT_APPLICABLE para ausência opcional
+comprovada**, nunca PASS automático. O método permanece privado e
+determinístico, não pretende replicar algoritmo do Google.
+
+| Regra | Evidência suficiente | Consequência no SCORE-GEO-005 |
+| --- | --- | --- |
+| BR-GEO-003 | somentes sitemaps convencionalmente consultados ausentes e nenhuma falha de aquisição | NOT_APPLICABLE; nenhum crédito por ausência |
+| BR-GEO-013 | nenhuma canonical presente no snapshot válido | NOT_APPLICABLE; nenhum crédito por ausência |
+| BR-GEO-017 | robots.txt fisicamente ausente, sem erro de rede | NOT_APPLICABLE; nenhum crédito por ausência |
+| As três | conflito/erro material documentado | preservar FAIL/WARNING/UNKNOWN conforme M5 |
+| BR-GEO-018 | bloqueio efetivo de crawler | contrato separado, sem neutralização |
+
+O adaptador `scoring_v005.ScoreGeo005Engine` reinterpreta a evidência
+imutável na memória **somente para scoring**. `RuleExecution` de M5
+não é alterada; não reescrever AUD de testes em SCORE-GEO-004. O
+adapter `ScoreGeo004Engine` continua reabrível com versão 004 para
+verificação histórica e golden before/after. Pesos de dimensões, grupos,
+gates e classes de evidência permanecem exatamente os mesmos: apenas o
+universo de regras aplicáveis muda, com efeitos próprios em Coverage,
+Confidence, Consolidation e condições de readiness.
+
+**Golden diferencial:** o replay `optional_seo_audit_replay` permanece
+canônico em 004 e compara à alternativa `SENSITIVITY_OPTIONAL_ABSENCE_NOT_APPLICABLE`.
+O novo scorer deve reproduzir os mesmos valores, coberturas e estados
+dessa alternativa, sem alterar o baseline físico. A AUD de referência
+teve 86,484962 no método 004 e 89,800752 no cenário N/A apenas como
+comparativo previamente executado; não assumir equivalência para outras AUDs.
+
+**Gate proporcional:** esta alteração modifica a interpretação numérica
+do scoring; executar testes focais do novo scorer, o teste determinístico
+SCORE-GEO-004 e o teste de paridade antes de declarar homologação.
+Uma execução de CI só deve ser atribuída ao SHA em que realmente ocorreu.
 
 ## Evidência física de 14/10/2026
 
@@ -86,3 +122,60 @@ O **gate de replay físico da amostra de 14/10 está cumprido** para o código e
 ## Regra conservadora de consistência física
 
 A classificação read-only agora exige que a evidência de `ABSENT` em `robots.txt`/`sitemap` não contenha falha simultânea de aquisição. Ausência canônica com `canonicals=[]` tampouco pode coexistir com `invalid`, `normalized` ou `declared` não vazios e ser promovida a ausência opcional confirmada. Registros contraditórios ficam `UNKNOWN` para avaliação posterior; não são interpretados como prova de indisponibilidade global nem como defeito confirmado. O comportamento preserva o contrato SCORE-GEO-004 e impede que o laboratório de simulação inclua fatos ambíguos na coorte de ausência opcional.
+
+
+## Inventário observacional sem alteração de versão - 19/10/2026
+
+A visão geral do relatório incorpora agora, além dos descontos isolados
+historicamente persistidos, uma matriz independente que discrimina as três
+regras em quatro classes exclusivamente interpretativas: sinal disponível,
+ausência opcional, conflito material observável e UNKNOWN. Cada linha traz
+a versão vigente SCORE-GEO-004, a AUD/RuleExecution fisicamente ligada e
+o resultado persistido da regra, sem copiar raw provider payload nem
+inventar desfecho de indexação ou frequência de URLs.
+
+O relatório não retira automaticamente pontos nem converte WARNING em
+PASS/NOT_APPLICABLE. A decisão normativa sobre neutralizar a ausência
+isolada permanece um gate explícito, pois mudaria pesos, coverage,
+confidence, readiness gates e SARI. O inventário não toma esse lugar,
+e não constitui aprovação de novo contrato de pontuação.
+
+Há fixture SQLite de múltiplos resultados/categorias e AUD cruzada, com
+prova de imutabilidade do arquivo de origem e abstenção com journaling
+pendente. Nada executa requisições externas.
+
+
+## Pacote de decisão comparativa offline  -  19/10/2026
+
+O replay físico/paridade já implementado pode emitir uma **matriz comparativa
+não normativa** sem executar novamente coletores nem gravar AUDs:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.optional_seo_audit_replay `
+  .\audits\AUD-EXEMPLO --device MOBILE --format decision-matrix
+```
+
+O padrão do comando permanece `--format scenarios` para compatibilidade.
+A opção `decision-matrix` somente reorganiza o replay local, após o gate
+de integridade de origem SQLite e paridade exata com SCORE-GEO-004, em um
+contrato consultivo `RASAI-SEO-POLICY-DECISION-602-001`. Cada dimensão e
+`OVERALL_READINESS` apresentam a pontuação canônica e do cenário extremo,
+`delta_points`, coberturas e `delta_coverage_fraction`, confiança,
+consolidação e alterações dos marcadores de readiness/gates. Valores
+não finitos, fora do domínio e sem prova ficam N/D (`null`), jamais 0.
+Coortes e dimensões discrepantes, replay não paritário e selo físico ausente
+produzem recusa em vez de resultado parcialmente confiável.
+
+**Cuidado metodológico:** cenários PASS e NOT_APPLICABLE são apenas extremos
+de sensibilidade. Uma elevação de SARI em simulação não justifica aprovar
+penalizações novas, alterar a versão atual ou comparar historicamente notas
+como se usassem a mesma régua. Deltas por dimensão são não aditivos e
+normalizações/coverage/readiness gates podem alterar o agregado. A decisão
+de mudar classificação, pesos e contrato continua pendente de tabela
+normativa formal e aprovação específica. A matriz **não** é atualização de
+SCORE-GEO-004, nem evidência de eficácia SEO ou citação generativa.
+
+Fixtures sintéticas cobrem delta, cobertura/qualidade, mudança de gate,
+negação de fontes não paritárias e compatibilidade do CLI anterior.
+Testes incluídos não são considerados executados sem validação focal no
+SHA correspondente.

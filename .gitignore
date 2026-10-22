@@ -1,5 +1,6 @@
 # Local Python/runtime artifacts
 .venv/
+.venv-backup-*/
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -29,3 +30,6 @@ secrets/
 # Common local tooling
 .pytest_cache/
 .coverage
+
+# Managed RASAi runtime state (machine-specific, never versioned)
+.rasai-runtime/

@@ -54,9 +54,36 @@ Se futuramente uma integração passar a exigir biblioteca adicional, ela deve s
 
 ### Ambiente incompatível
 
-Se uma `.venv` existente usar uma versão incompatível de Python, o launcher não a remove silenciosamente. Ele interrompe e orienta a renomear/remover `.venv` antes de tentar novamente.
+Se uma `.venv` existente estiver incompleta ou não executar CPython 3.13, o launcher interrompe **sem excluí-la**. A mensagem de erro corresponde a uma verificação real da pasta local; isoladamente, não demonstra falha do console, da opção 8 nem da auditoria.
 
-Se Python 3.13 estiver ausente e `winget` não estiver disponível, a instalação automática do Python não é possível; instale CPython 3.13 manualmente e execute `abrir-rasai-console.cmd` novamente.
+**Recuperação conservadora no PowerShell (Windows):** confirme primeiro que não há execução do console ou Python usando `.venv`, que está na pasta correta e que alterações locais não serão perdidas. Não rode `git switch` ou `git pull` com trabalho local não salvo.
+
+```powershell
+Set-Location 'C:\IA-PROJETOS\github\RASAI-Readiness-Auditor'
+git status --short
+py -0p
+py -3.13 --version
+```
+
+Se o `git status --short` exibir modificações, interrompa e reconcilie-as antes de trocar de branch/atualizar. Se `py -3.13` não estiver disponível, instale o **CPython 3.13** apropriado para o Windows e confirme novamente a versão antes de mexer na `.venv`. Se necessário, investigue separadamente a arquitetura do Windows e do executável; a caixa `Este aplicativo não pode ser executado em seu PC` não prova, sozinha, sua causa.
+
+Com Python 3.13 confirmado e o diretório sem processos em uso, preserve o ambiente antigo e recrie um novo:
+
+```powershell
+if (Test-Path -LiteralPath '.venv') {
+    $backup = '.venv-backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff')
+    Rename-Item -LiteralPath '.venv' -NewName $backup
+}
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe --version
+.\abrir-rasai-console.cmd
+```
+
+A versão exibida deve ser `Python 3.13.x`. O launcher oficial instala/reconcilia os extras declarados no projeto e o Chromium quando necessário; não é necessário executar duas instalações redundantes por padrão. O backup `.venv-backup-*/` é ignorado pelo Git, mas **não é apagado automaticamente**; preserve-o até concluir o smoke. Se o launcher falhar, capture a mensagem textual completa em vez de remover arquivos adicionais.
+
+Para validar a opção 8 em **smoke sem rede**, não habilite `RASAI_ARCH_PROBE_EGRESS_GUARDED`: o diagnóstico deve permanecer inconclusivo e não iniciar DNS/HTTP/Chromium. A flag não configura isolamento de rede do Chromium; testes externos exigem proteção de egress efetiva e atestada, conforme `docs/ARCHITECTURE_DISCOVERY_ACCEPTANCE.md`.
+
+Se Python 3.13 estiver ausente e `winget` não estiver disponível, o launcher não poderá instalá-lo automaticamente.
 
 ## Instalação manual
 

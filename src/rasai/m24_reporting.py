@@ -118,7 +118,10 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             if "no such column" not in str(exc).casefold():
                 raise
             architecture_rows = []
+        choice, choice_status = _read_report_architecture_choice(connection, audit_id)
         return {
+            "architecture_choice": choice,
+            "architecture_choice_status": choice_status,
             "run": run,
             "diagnostics": diagnostics,
             "ai": ai,
@@ -129,6 +132,44 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
     finally:
         connection.close()
 
+
+
+def _read_report_architecture_choice(
+    connection: sqlite3.Connection, audit_id: str,
+) -> tuple[Any | None, str]:
+    """Read only the versioned, hash-checked selection of this exact AUD.
+
+    Missing/legacy config is not guessed from session or global INI. Corrupted
+    records are never projected as a user-declared fact; no config is persisted.
+    """
+    try:
+        row = _one(
+            connection,
+            "SELECT configuration_json,configuration_hash "
+            "FROM audit_execution_configurations WHERE audit_id=?",
+            (audit_id,),
+        )
+    except sqlite3.OperationalError as exc:
+        # Legacy/partially migrated tables cannot establish a valid hash.
+        if "no such column" not in str(exc).casefold():
+            raise
+        return None, "INTEGRITY_NOT_VERIFIED"
+    if row is None:
+        return None, "LEGACY_ABSENT"
+    try:
+        from rasai.architecture_choice_audit_adapter import read_sealed_audit_choice
+
+        config = json.loads(str(row["configuration_json"]))
+        if not isinstance(config, dict):
+            raise ValueError("configuration is not a record")
+        validated = read_sealed_audit_choice(
+            config, expected_hash=str(row["configuration_hash"]),
+        )
+    except (ValueError, TypeError, KeyError):
+        return None, "INTEGRITY_NOT_VERIFIED"
+    if not validated.explicitly_configured:
+        return None, "LEGACY_ABSENT"
+    return validated.choice, "SEALED_SELECTION"
 
 def _one(connection: sqlite3.Connection, sql: str, params: tuple[Any, ...]):
     try:
@@ -184,7 +225,8 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 {_metric("Sitemaps externos", str(external_count))}
 {_metric("Impacto desta camada", "NENHUM" if run and str(run["scoring_impact"]) == "NONE" else (str(run["scoring_impact"]) if run else "NENHUM"))}
 </div></header>
-{_architecture_section(data.get("architectures", []))}
+{_architecture_section(data.get("architectures", []), choice=data.get("architecture_choice"),
+                       choice_status=data.get("architecture_choice_status", "LEGACY_ABSENT"))}
 <section class='notice'><strong>Fronteira metodológica:</strong> GPTBot, OAI-SearchBot e Google-Extended possuem finalidades distintas. Bloqueio de GPTBot/Google-Extended não é convertido em penalidade de Search. <code>llms.txt</code> é tratado como proposta comunitária experimental, não como web standard obrigatório.</section>
 <section class='panel'><div class='kicker'>Resumo</div><h2>Universo técnico observado</h2>
 <div class='metric-grid'>{''.join(_metric(key, str(value)) for key,value in sorted(categories.items()))}</div>
@@ -206,7 +248,10 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 """
 
 
-def _architecture_section(rows: list[dict[str, Any]]) -> str:
+def _architecture_section(
+    rows: list[dict[str, Any]], *, choice: Any | None = None,
+    choice_status: str = "LEGACY_ABSENT",
+) -> str:
     """Read-only projection of the audited URL architecture from the persisted snapshot."""
     from rasai.catalog_report_presentation import _architecture_label
 
@@ -240,6 +285,49 @@ def _architecture_section(rows: list[dict[str, Any]]) -> str:
                 "<p class='intro'>Sem evidência suficiente para identificar "
                 "a arquitetura nesta captura.</p>" if raw == "UNKNOWN" else ""
             )
+            # This projects the persisted discovery observation only. Neither user-selected
+            # architecture nor effective consumer parameters are inferred here.
+            # A sealed declared value replaces N/D; it never replaces the
+            # physical architecture observation shown in the card title.
+            declaration = (
+                escape(str(choice.declared_architecture)) + " (informada pelo operador)"
+                if choice is not None and choice.mode == "DECLARED" else "N/D"
+            )
+            source_note = (
+                "<p class='intro'><strong>Origem:</strong> descoberta automática "
+                "registrada nesta captura. <strong>Aplicação:</strong> não "
+                "propagada a parâmetros de coleta ou índices. "
+                "<strong>Configuração declarada:</strong> " + declaration + ".</p>"
+            )
+            if choice_status == "INTEGRITY_NOT_VERIFIED":
+                source_note += (
+                    "<p class='intro'><strong>Seleção arquitetural da AUD:</strong> "
+                    "não verificável (integridade do registro não comprovada). "
+                    "Nenhum valor declarado foi inferido.</p>"
+                )
+            elif choice is not None:
+                # Declared information is already visible above: do not show
+                # a second duplicate card value or contradict N/D.
+                disagreement = (
+                    choice.mode == "DECLARED" and raw != "UNKNOWN"
+                    and raw != choice.declared_architecture
+                )
+                if disagreement:
+                    source_note += (
+                        "<p class='intro'>Divergência entre arquitetura informada "
+                        "e observada nesta captura; a declaração não substitui "
+                        "a evidência física.</p>"
+                    )
+                elif choice.mode != "DECLARED":
+                    selected = (
+                        "AUTO (consultiva)" if choice.mode == "AUTO"
+                        else "SEM FORÇAR"
+                    )
+                    source_note += (
+                        "<p class='intro'><strong>Seleção arquitetural desta AUD:</strong> "
+                        + escape(selected) + ". Sem aplicação automática "
+                        "em índices ou coletores.</p>"
+                    )
             cards.append(
                 "<article class='page-card'><div class='panel-head'><div>"
                 "<h3>" + escape(_architecture_label(raw)) + "</h3></div>"
@@ -248,7 +336,7 @@ def _architecture_section(rows: list[dict[str, Any]]) -> str:
                 + escape(requested) + "</p>" + detail
                 + "<p><strong>Identificador da captura:</strong> <code>"
                 + escape(str(row.get("snapshot_id") or "-"))
-                + "</code></p>" + limitation + "</article>"
+                + "</code></p>" + limitation + source_note + "</article>"
             )
         body = "".join(cards)
     return (

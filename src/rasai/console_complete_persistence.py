@@ -37,13 +37,13 @@ def _public_nonsecret_specs() -> tuple[Any, ...]:
 def _effective_text(spec: Any, projected: dict[str, str]) -> str:
     """Resolve the value that a newly saved INI should reproduce safely."""
     name = str(spec.name)
-    explicit_candidates = (os.environ.get(name), projected.get(name))
-    for candidate in explicit_candidates:
-        if candidate is None:
-            continue
-        text = str(candidate).strip()
-        if text:
-            return text
+    # A key explicitly present with an EMPTY value is a deliberate reset;
+    # falling through to a projection/default would silently restore an old
+    # nonsecret preference on save. Absence and explicit empty differ.
+    if name in os.environ:
+        return str(os.environ[name]).strip()
+    if name in projected:
+        return str(projected[name]).strip()
 
     if name in _EXPLICIT_ONLY_DEFAULTS:
         return ""

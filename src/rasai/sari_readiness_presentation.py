@@ -58,13 +58,18 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
     """Return persisted readiness status and critical-gate states for one Overall row."""
     status = "UNKNOWN"
     declared_statuses: set[str] = set()
+    saw_status_marker = False
+    malformed_status_marker = False
     gates: dict[str, str] = {}
     for item in _limitations(row):
         if item.startswith("READINESS_STATUS:"):
+            saw_status_marker = True
             candidate = item.split(":", 1)[1].strip().upper()
             if candidate in _VALID_READINESS:
                 declared_statuses.add(candidate)
                 status = candidate
+            else:
+                malformed_status_marker = True
         elif item.startswith("CRITICAL_GATE:"):
             parts = item.split(":", 2)
             if len(parts) == 3:
@@ -78,9 +83,12 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
                         else "UNKNOWN"
                     )
 
-    if len(declared_statuses) > 1:
+    # An explicit UNKNOWN (or malformed persisted marker) cannot be
+    # promoted to READY merely because all critical gates are PASS.
+    # Missing markers may still use the documented gate-only fallback.
+    conflicting_status = len(declared_statuses) > 1 or malformed_status_marker
+    if conflicting_status:
         status = "UNKNOWN"
-    conflicting_status = len(declared_statuses) > 1
 
     # A persisted critical gate takes precedence over the aggregate marker.
     # Only derive a missing aggregate state from complete, recognized gate states.
@@ -99,7 +107,7 @@ def readiness_state(row: Any) -> tuple[str, dict[str, str]]:
         elif status == "UNKNOWN" and not conflicting_status:
             if "WARNING" in values:
                 status = "ATTENTION"
-            elif values == {"PASS"}:
+            elif values == {"PASS"} and not saw_status_marker:
                 status = "READY"
     return status, gates
 
@@ -185,6 +193,23 @@ def _gate_detail(gates: dict[str, str]) -> str:
     return "; ".join(material)
 
 
+def _external_convergence_caveat() -> str:
+    """Explain the limits of SARI without inferring external measurements.
+
+    SARI scores cannot certify the independent M21/CrUX/SERP/Apdex cohorts.
+    This notice does not assert an unobserved performance or search failure.
+    """
+    return (
+        "<p class='notice warn' data-sari-nonconvergence='true'>"
+        "<strong>Convergência não garantida:</strong> a qualidade e confiança "
+        "do contrato SARI não comprovam desempenho Lighthouse, Core Web Vitals "
+        "em campo, Apdex representativo, posições orgânicas ou inclusão/citação "
+        "por mecanismos generativos. Evidências de laboratório, amostras, "
+        "ORIGIN versus URL e cobertura SERP precisam de leitura independente; "
+        "a ausência desses dados no SARI não os transforma em sucesso.</p>"
+    )
+
+
 def operational_readiness_panel(data: dict[str, Any]) -> str:
     scores = list(data.get("scores") or [])
     cards: list[str] = []
@@ -213,8 +238,8 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
             f"<h3>{escape(label)}</h3>"
             f"<p><strong>{escape(readiness_label)}</strong></p>"
             f"<p>Qualidade medida: <strong>{escape(score)}</strong> · {escape(quality_label)}</p>"
-            f"<p>Coverage {escape(coverage)} (fração canônica {coverage_raw}) · Confidence {escape(confidence)} · Consolidation {escape(consolidation)}</p>"
-            f"<p>Critical readiness: <strong>{escape(readiness)}</strong>"
+            f"<p>Cobertura {escape(coverage)} (fração canônica {coverage_raw}) · Confiança contratual {escape(confidence)} · Consolidação {escape(consolidation)}</p>"
+            f"<p>Gates críticos de prontidão: <strong>{escape(readiness)}</strong>"
             + (f" · {escape(gate_detail)}" if gate_detail else "")
             + "</p></article>"
         )
@@ -251,7 +276,8 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
         "readiness excelente quando a medição está parcial/não consolidada ou quando Discovery, Indexability ou Extraction "
         "estão BLOCKED/UNKNOWN.</p>"
         "<p class='notice'>Confiança e cobertura avaliam o contrato SARI, não representam intervalo estatístico, experiência real, desempenho de laboratório, posição SERP ou citação generativa. Métricas externas e dimensões de baixa cobertura devem ser analisadas separadamente.</p>"
-        "<div class='grid'>" + "".join(cards) + "</div>" + dimension_notice
+        + _external_convergence_caveat()
+        + "<div class='grid'>" + "".join(cards) + "</div>" + dimension_notice
         + "<div class='notice'><strong>Integrações externas:</strong> erro de provider/API/coleta não é defeito do website e "
         "não gera penalidade artificial no SARI. Um finding técnico externo só participa do score quando existe uma BR-GEO "
         "equivalente, mapeamento explícito e evidência persistida sem dupla pontuação.</div>"
@@ -307,7 +333,7 @@ def _reporting_overall_card(reporting: Any, scores: list[Any], device: str) -> s
         f"<div><small>Confiança</small><strong>{escape(confidence)}</strong></div>"
         f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
         f"<div><small>Readiness</small><strong>{escape(readiness)}</strong></div>"
-        "</div>" + qualifier + "</article>"
+        "</div>" + qualifier + _external_convergence_caveat() + "</article>"
     )
 
 
@@ -365,7 +391,7 @@ def _site_overall_card(report_site: Any, scores: list[Any], device: str) -> str:
         f"<div><small>Coverage</small><strong title='Canonical fraction: {coverage_raw}'>{escape(coverage)}</strong></div>"
         f"<div><small>Confidence</small><strong>{escape(confidence)}</strong></div>"
         f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
-        "</div>" + detail + "</article>"
+        "</div>" + detail + _external_convergence_caveat() + "</article>"
     )
 
 

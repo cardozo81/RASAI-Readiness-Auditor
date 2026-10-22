@@ -238,14 +238,35 @@ def _extract_error_shape(body: bytes) -> tuple[str | None, str | None]:
 
 
 def _validate_queries(query: str | Sequence[str]) -> tuple[str, ...]:
-    raw = (query,) if isinstance(query, str) else tuple(query)
-    normalized = tuple(" ".join(str(item).split()) for item in raw if str(item).strip())
-    if not normalized:
+    """Preserve the exact paid request cohort needed for #304 attribution.
+
+    Never drop an empty requested query or allow duplicate normalized members:
+    the persisted run would no longer identify a one-to-one physical search
+    population, while the provider call might already have been billed.
+    """
+    if isinstance(query, str):
+        raw = (query,)
+    elif isinstance(query, Sequence) and not isinstance(query, (bytes, bytearray)):
+        raw = tuple(query)
+    else:
+        raise ValueError("Perplexity queries must be a sequence of strings")
+    if not raw:
         raise ValueError("Perplexity Search API requires at least one query")
-    if len(normalized) > MAX_QUERIES_PER_REQUEST:
+    if len(raw) > MAX_QUERIES_PER_REQUEST:
         raise ValueError(
             f"Perplexity Search API accepts at most {MAX_QUERIES_PER_REQUEST} queries per request"
         )
+    if any(
+        not isinstance(item, str) or not item.strip()
+        or any(ord(char) < 32 or ord(char) == 127 for char in item)
+        for item in raw
+    ):
+        raise ValueError("Perplexity queries must contain only nonblank text")
+    normalized = tuple(" ".join(item.split()) for item in raw)
+    if any(len(item) > 300 for item in normalized):
+        raise ValueError("Perplexity query exceeds the canonical GEO ledger limit")
+    if len({item.casefold() for item in normalized}) != len(normalized):
+        raise ValueError("Perplexity query cohort contains duplicate normalized queries")
     return normalized
 
 
@@ -257,9 +278,17 @@ def _validate_search_type(search_type: str) -> str:
 
 
 def _source_from_payload(position: int, raw: Mapping[str, Any]) -> PerplexitySource:
-    url = str(raw.get("url") or "").strip()
+    # Preserve the provider's literal URL: trimming or coercing values may
+    # convert malformed source provenance into an apparent exact GEO match.
+    url = raw.get("url")
+    if (not isinstance(url, str) or not url or len(url) > 8192
+            or url != url.strip() or "\\" in url
+            or any(ord(ch) <= 32 or ord(ch) == 127 for ch in url)):
+        raise ValueError("Perplexity result contains an invalid source URL")
     parsed = urlsplit(url)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+            or parsed.port == 0):
         raise ValueError("Perplexity result contains an invalid source URL")
     metadata = {
         str(key): value
@@ -285,11 +314,29 @@ def _source_from_payload(position: int, raw: Mapping[str, Any]) -> PerplexitySou
     )
 
 
+def _unambiguous_provider_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Never select the last conflicting provider field as physical evidence."""
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("Perplexity response contains duplicate JSON keys")
+        value[key] = item
+    return value
+
+
+def _reject_provider_non_json_constant(token: str) -> None:
+    raise ValueError("Perplexity response contains a nonstandard JSON constant")
+
+
 def _parse_success_payload(
     body: bytes,
 ) -> tuple[str | None, tuple[PerplexitySource, ...]]:
     try:
-        payload = json.loads(body.decode("utf-8"))
+        payload = json.loads(
+            body.decode("utf-8"),
+            object_pairs_hook=_unambiguous_provider_object,
+            parse_constant=_reject_provider_non_json_constant,
+        )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Perplexity returned malformed JSON") from exc
     if not isinstance(payload, Mapping):

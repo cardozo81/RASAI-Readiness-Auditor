@@ -2,6 +2,7 @@
 from rasai.catalog_report_page import *  # noqa: F401,F403
 
 import sqlite3
+from contextlib import closing
 from math import isfinite
 
 from rasai.browser_render_failure import render_failure_public_detail
@@ -126,8 +127,19 @@ def _diagnostic_state_section(database: Path, data: _ReportData, integrity: str)
 
 def _overview_serp_depth(database: Path, audit_id: str) -> tuple[int, int] | None:
     """Scope a depth gap to precisely one persisted SERP observation."""
+    # Read-only report projection: never create missing SQLite, cross-join
+    # reused observation IDs, or trust a pending/uncheckpointed journal.
     try:
-        with sqlite3.connect(database) as con:
+        source = Path(database)
+        if (source.is_symlink() or not source.is_file() or any(
+            Path(str(source) + ending).exists()
+            for ending in ("-wal", "-shm", "-journal")
+        )):
+            return None
+        with closing(sqlite3.connect(
+            source.resolve().as_uri() + "?mode=ro", uri=True, timeout=2,
+        )) as con:
+            con.execute("PRAGMA query_only=ON")
             observed = con.execute(
                 "SELECT observation_id,requested_depth FROM serp_observations "
                 "WHERE audit_id=? LIMIT 2", (audit_id,),
@@ -138,13 +150,19 @@ def _overview_serp_depth(database: Path, audit_id: str) -> tuple[int, int] | Non
             expected = int(depth)
             if not observation_id or not 0 < expected <= 1000:
                 return None
+            identities = con.execute(
+                "SELECT audit_id FROM serp_observations "
+                "WHERE observation_id=? LIMIT 2", (observation_id,),
+            ).fetchall()
+            if len(identities) != 1 or identities[0][0] != audit_id:
+                return None
             measured = con.execute(
                 "SELECT COUNT(*) FROM serp_results WHERE observation_id=?",
                 (observation_id,),
             ).fetchone()
             returned = int(measured[0]) if measured else 0
             return (returned, expected) if 0 <= returned < expected else None
-    except (sqlite3.Error, TypeError, ValueError, OverflowError):
+    except (sqlite3.Error, OSError, TypeError, ValueError, OverflowError):
         return None
 
 
@@ -169,18 +187,24 @@ def _overview_measurement_scope_notice(
         )
     # A SARI score and a lab Lighthouse score measure different contracts.
     # Warn on a large documented divergence without changing either number.
-    try:
-        lab = float(web.get("performance_score")) if isinstance(web, Mapping) else float("nan")
-        high_sari = any(
-            str(row.get("dimension") or "") == "OVERALL_READINESS"
-            and float(row.get("value")) >= 75
-            for row in overall_scores
-            if row.get("value") is not None
-        )
-    except (TypeError, ValueError, OverflowError):
-        high_sari = False
-        lab = float("nan")
-    if isfinite(lab) and 0 <= lab <= 40 and high_sari:
+    def bounded_score(value: Any) -> float | None:
+        if value is None or isinstance(value, bool):
+            return None
+        try:
+            converted = float(value)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        return converted if isfinite(converted) and 0 <= converted <= 100 else None
+
+    lab = bounded_score(web.get("performance_score")) if isinstance(web, Mapping) else None
+    high_sari = any(
+        isinstance(row, Mapping)
+        and str(row.get("dimension") or "") == "OVERALL_READINESS"
+        and (score := bounded_score(row.get("value"))) is not None
+        and score >= 75
+        for row in overall_scores
+    )
+    if lab is not None and lab <= 40 and high_sari:
         details.append(
             "O SARI acima de 75/100 coexiste com desempenho Lighthouse de laboratório "
             "baixo (até 40/100). São indicadores distintos: nota elevada no método "
@@ -414,7 +438,7 @@ def _overview_body(database: Path, data: _ReportData) -> str:
             indexes.append((_Html(f"<a href='{CATALOG_PAGE_BY_ID[cid].filename}'>{escape(str(name))}</a>"),value,CATALOG_BY_ID[cid].label,kind,"-"))
     integrity="Íntegro" if data.config_hash and data.computed_hash==data.config_hash else "Plano não encontrado" if not data.config_hash else "Integridade divergente"
     diagnostic=_diagnostic_state_section(database,data,integrity)
-    outline=(("snapshot","Retrato da auditoria"),("catalogs","Catálogos"),("indices","Índices"),("integrity","Integridade"))
+    outline=(("snapshot","Retrato da auditoria"),("decision-matrix","Matriz decisória de evidências"),("architecture","Arquitetura observada e opção efetiva"),("catalogs","Catálogos"),("indices","Índices"),("integrity","Integridade"))
     if diagnostic:
         outline=(("diagnostic","Estado do diagnóstico"),)+outline
     body=_audit_hero(data,"Visão geral por catálogos","Resumo do plano congelado e dos resultados persistidos, mantendo coleta, análise e remediação em responsabilidades distintas.")
@@ -422,16 +446,45 @@ def _overview_body(database: Path, data: _ReportData) -> str:
     body+=diagnostic
     body+=_section("snapshot","O retrato da auditoria",_decision_snapshot_poc_633(database,data))
     body+=_section("experience","Explore a auditoria por objetivo",_experience_paths_633())
+    # #646: F3 allows one advisory-only consumer. No consumer inherits an
+    # architecture at runtime; historical M6 evidence is read, not re-run.
+    # Rendering the index must still work for incomplete/legacy SQLite
+    # fixtures that do not reside inside an AUD directory.
+    from rasai.architecture_audit_projection import inspect_audit_architecture_context
+    from rasai.architecture_audit_html import architecture_audit_context_html
+    if database.parent.name == data.audit_id:
+        arch_view = inspect_audit_architecture_context(database.parent.parent, data.audit_id)
+        body+=_section(
+            "architecture", "Arquitetura descoberta, declarada e efetiva",
+            architecture_audit_context_html(arch_view),
+        )
     body+=_section("catalogs","Catálogos da auditoria",_table(("Catálogo","Estado","Interpretação"),rows,sortable=True))
     from rasai.catalog_report_metrics import _web_observation
+    from rasai.report_decision_matrix import (
+        decision_evidence_matrix, decision_evidence_matrix_html,
+    )
+    web_observation = _web_observation(database, data.audit_id)
+    serp_depth = _overview_serp_depth(database, data.audit_id)
     body+=_overview_measurement_scope_notice(
-        _web_observation(database, data.audit_id), catalog_statuses,
-        overall_scores=data.scores,
-        serp_depth=_overview_serp_depth(database, data.audit_id),
+        web_observation, catalog_statuses,
+        overall_scores=data.scores, serp_depth=serp_depth,
+    )
+    from rasai.optional_seo_interpretation import optional_seo_penalties
+    scope_matrix = decision_evidence_matrix(
+        audit_id=data.audit_id, scores=data.scores,
+        web=web_observation, catalog_statuses=catalog_statuses,
+        serp_depth=serp_depth,
+        optional_seo_discounts=optional_seo_penalties(database, data.audit_id),
+    )
+    body+=_section(
+        "decision-matrix", "Matriz decisória de evidências",
+        decision_evidence_matrix_html(scope_matrix),
     )
     body+=_section("indices","Índices e métricas evidentes",_table(("Indicador","Valor","Contexto","Tipo","Confiança"),indexes,empty="Nenhum índice ou métrica reconhecido foi persistido.",sortable=bool(indexes))+"<p class='muted'>O inventário metodológico completo está em <a href='metrics.html'>Índices e métricas</a>.</p>")
     from rasai.optional_seo_interpretation import optional_seo_notice_html
     body+=optional_seo_notice_html(database, data.audit_id)
+    from rasai.optional_seo_evidence_matrix import optional_seo_evidence_matrix_html
+    body+=optional_seo_evidence_matrix_html(database, data.audit_id)
     body+=_section("integrity","Integridade e proveniência",f"<div class='metric-grid'>{_metric('Plano da execução',integrity)}{_metric('Fonte de verdade','Dados persistidos da auditoria')}{_metric('Contrato do relatório',CATALOG_REPORT_CONTRACT_VERSION)}</div><div class='notice'>O relatório organiza dados já persistidos. Ele não executa nova captura, integração, IA ou cálculo de pontuação.</div>")
     return body
 
@@ -453,6 +506,8 @@ def _sari_public_tone(row: Any) -> str:
 
 def _sari_coverage_public(value: Any) -> str:
     """Display SARI coverage in human units without changing the stored ratio."""
+    if value is None or isinstance(value, bool):
+        return "Não determinada"
     try:
         ratio = float(value)
     except (TypeError, ValueError, OverflowError):
@@ -473,13 +528,24 @@ def _sari_partial_dimension_notice(scores: Sequence[Mapping[str, Any]]) -> str:
             continue
         confidence = str(row.get("confidence") or "").upper()
         consolidation = str(row.get("consolidation_status") or "").upper()
-        if confidence != "LOW" and consolidation != "PARTIAL":
+        coverage = _sari_coverage_public(row.get("coverage"))
+        raw_coverage = row.get("coverage")
+        try:
+            fraction = (
+                float(raw_coverage)
+                if raw_coverage is not None and not isinstance(raw_coverage, bool)
+                else None
+            )
+        except (TypeError, ValueError, OverflowError):
+            fraction = None
+        full_coverage = fraction is not None and isfinite(fraction) and fraction == 1.0
+        if confidence != "LOW" and consolidation != "PARTIAL" and full_coverage:
             continue
         label = public_label(dimension) or _DIMENSION_LABELS.get(dimension, dimension)
         rows.append((
             label,
             _device_label(row.get("device")),
-            _sari_coverage_public(row.get("coverage")),
+            coverage,
             _confidence_label(confidence),
             _status_label(consolidation),
         ))
@@ -516,9 +582,23 @@ def _sari_body(data: _ReportData) -> str:
             limitations.append((_device_label(r.get("device")),public_contract_label(item)))
     versions=sorted({str(r.get("scoring_version")) for r in data.scores if r.get("scoring_version")})
     body=_audit_hero(data,"Search & AI Readiness Index - Índice de Prontidão Search & IA","Índice persistido de prontidão, versão pública 001, com cobertura, confiança, dimensões e limitações. ID técnico: SARI-001. O HTML não recalcula o índice.")
-    body+=_outline((("result","Resultado"),("composition","Composição"),("limitations","Limitações"),("method","Método")))
+    body+=_outline((("result","Resultado"),("composition","Composição"),("scope","Universo medido"),("limitations","Limitações"),("method","Método")))
     body+=_section("result","Resultado geral",f"<div class='metric-grid'>{cards or _metric('Índice de Prontidão','Sem pontuação persistida')}</div><div class='notice'>O SARI é um índice proprietário do RASAi, calculado sobre o escopo efetivamente auditado. A confiança expressa a força da avaliação no contrato de regras, não um intervalo de confiança estatística, nem certificação de indexação, posição no Google, inclusão em respostas generativas, desempenho, conformidade WCAG ou conformidade regulatória. O valor deve ser lido junto de cobertura, estados de cada dimensão e condições de validação persistidas.</div>")
     body+=_section("composition","Composição e dimensões",_sari_partial_dimension_notice(data.scores)+_score_table(data,include_overall=False))
+    from rasai.report_decision_matrix import (
+        decision_evidence_matrix, decision_evidence_matrix_html,
+    )
+    body+=_section(
+        "scope", "Universo medido e limites de comparação",
+        decision_evidence_matrix_html(decision_evidence_matrix(
+            audit_id=data.audit_id, scores=data.scores,
+            include_external=False,
+        ))
+        + "<p class='muted'>Para o confronto entre SARI, CrUX, Lighthouse, "
+        "Apdex, SERP e verificações externas, consulte a "
+        "<a href='index.html#decision-matrix'>matriz decisória na visão geral</a>."
+        "</p>",
+    )
     body+=_section("limitations","Limitações e critérios críticos persistidos",_table(("Contexto","Limitação / gate"),limitations,empty="Nenhuma limitação serializada foi encontrada."))
     body+=_section("method","Método aplicado",f"<div class='metric-grid'>{_metric('Versão pública','001')}{_metric('Contrato técnico',', '.join(versions) or '-')}{_metric('Fonte do valor','Pontuação persistida da auditoria')}{_metric('Recalcula no HTML?','Não')}</div><p>Pesos, fórmulas e condições de validação pertencem ao Método de Pontuação de Prontidão persistido. Consulte <a href='methodology.html'>Método de Pontuação de Prontidão</a>.</p>")
     return body

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from math import isfinite
 from typing import Any, Iterable, Mapping
 
 from rasai.ai_cost_policy import (
@@ -47,17 +48,21 @@ def _value(source: Any, key: str) -> Any:
 
 
 def _integer(value: Any) -> int | None:
-    if value is None or isinstance(value, bool):
-        return None
-    try:
-        return max(int(value), 0)
-    except (TypeError, ValueError):
-        return None
+    """Accept exact, nonnegative token counts; never truncate or clamp usage."""
+    if type(value) is int:
+        return value if 0 <= value <= 999_999_999_999_999_999 else None
+    if (isinstance(value, str) and 0 < len(value) <= 18
+            and value.isascii() and value.isdecimal()):
+        return int(value)
+    return None
 
 
 def _currency(value: Any) -> str | None:
-    text = str(value or "").strip()
-    return text.upper() or None
+    """Only canonical three-letter monetary denominations can be aggregated."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip().upper()
+    return text if len(text) == 3 and text.isascii() and text.isalpha() else None
 
 
 def canonical_total_tokens(source: Any) -> int | None:
@@ -68,14 +73,26 @@ def canonical_total_tokens(source: Any) -> int | None:
     and is never added again.
     """
 
-    total = _integer(_value(source, "total_tokens"))
-    if total is not None:
+    raw_total = _value(source, "total_tokens")
+    total = _integer(raw_total)
+    if raw_total is not None:
+        # A present but corrupt provider total is not permission to
+        # substitute a derived total from a different accounting basis.
         return total
-    input_tokens = _integer(_value(source, "input_tokens"))
-    output_tokens = _integer(_value(source, "output_tokens"))
+    raw_input = _value(source, "input_tokens")
+    raw_output = _value(source, "output_tokens")
+    input_tokens = _integer(raw_input)
+    output_tokens = _integer(raw_output)
+    # An explicit invalid count is not an absent count. Deriving a
+    # deceptively low total from the remaining field misstates usage.
+    if ((raw_input is not None and input_tokens is None)
+            or (raw_output is not None and output_tokens is None)):
+        return None
     if input_tokens is None and output_tokens is None:
         return None
-    return int(input_tokens or 0) + int(output_tokens or 0)
+    derived = int(input_tokens or 0) + int(output_tokens or 0)
+    # Two bounded fields can still overflow the canonical token budget.
+    return derived if derived <= 999_999_999_999_999_999 else None
 
 
 def price_usage(
@@ -168,9 +185,19 @@ def forecast_candidate_cost(
     )
 
 
+def _valid_monetary_amount(raw: Any) -> float | None:
+    """Reject corrupted costs rather than publishing negative or nonfinite totals."""
+    try:
+        if isinstance(raw, bool):
+            return None
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return value if isfinite(value) and value >= 0 else None
+
+
 def attempt_monetary_cost(attempt: Any) -> tuple[float | None, str | None, str]:
     """Return one persisted monetary value without inventing exchange rates."""
-
     observed = _value(attempt, "observed_cost")
     if observed not in (None, ""):
         currency = (
@@ -179,26 +206,26 @@ def attempt_monetary_cost(attempt: Any) -> tuple[float | None, str | None, str]:
             or _value(attempt, "currency")
         )
         normalized_currency = _currency(currency)
-        try:
-            return float(observed), normalized_currency, "PROVIDER_OBSERVED"
-        except (TypeError, ValueError):
-            return None, normalized_currency, "INVALID"
+        value = _valid_monetary_amount(observed)
+        return value, normalized_currency, (
+            "PROVIDER_OBSERVED" if value is not None else "INVALID"
+        )
 
     estimated = _value(attempt, "estimated_cost")
     if estimated not in (None, ""):
         currency = _value(attempt, "cost_currency") or _value(attempt, "currency")
         normalized_currency = _currency(currency)
-        try:
-            return float(estimated), normalized_currency, "USAGE_DERIVED_ESTIMATE"
-        except (TypeError, ValueError):
-            return None, normalized_currency, "INVALID"
+        value = _valid_monetary_amount(estimated)
+        return value, normalized_currency, (
+            "USAGE_DERIVED_ESTIMATE" if value is not None else "INVALID"
+        )
 
     legacy = _value(attempt, "estimated_cost_usd")
     if legacy not in (None, ""):
-        try:
-            return float(legacy), "USD", "LEGACY_USAGE_DERIVED_ESTIMATE"
-        except (TypeError, ValueError):
-            return None, "USD", "INVALID"
+        value = _valid_monetary_amount(legacy)
+        return value, "USD", (
+            "LEGACY_USAGE_DERIVED_ESTIMATE" if value is not None else "INVALID"
+        )
     return None, None, "UNPRICED"
 
 
@@ -220,6 +247,8 @@ def aggregate_attempt_costs(attempts: Iterable[Any]) -> MonetaryAggregate:
     """Aggregate attempt costs by currency and preserve unpriced observations."""
 
     totals: dict[str, float] = {}
+    priced_counts: dict[str, int] = {}
+    overflow_currencies: set[str] = set()
     unpriced = 0
     for attempt in attempts:
         amount, currency, _basis = attempt_monetary_cost(attempt)
@@ -228,7 +257,20 @@ def aggregate_attempt_costs(attempts: Iterable[Any]) -> MonetaryAggregate:
                 unpriced += 1
             continue
         code = currency.upper()
-        totals[code] = totals.get(code, 0.0) + float(amount)
+        if code in overflow_currencies:
+            unpriced += 1
+            continue
+        combined = totals.get(code, 0.0) + float(amount)
+        if not isfinite(combined):
+            # Do not publish a partial currency total after floating overflow.
+            # Every previously aggregated attempt in this currency loses its
+            # independently reportable total, including the overflowing one.
+            unpriced += priced_counts.pop(code, 0) + 1
+            totals.pop(code, None)
+            overflow_currencies.add(code)
+            continue
+        totals[code] = combined
+        priced_counts[code] = priced_counts.get(code, 0) + 1
     return MonetaryAggregate(
         totals=tuple((currency, round(amount, 10)) for currency, amount in sorted(totals.items())),
         unpriced_attempts=unpriced,

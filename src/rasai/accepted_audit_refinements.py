@@ -683,6 +683,20 @@ def _ymyl_analysis_context_html(database: Any, audit_id: str, a: Any) -> str:
         "<div class='subsection'><h3>Contexto YMYL aplicado à análise profunda</h3>"
         + a._table(("Leitura", "Resultado"), top_rows)
         + explanation
+        + (
+            "<div class='notice warn' data-claim-review-state='CLAIM_UNVERIFIED_EXTERNAL'>"
+            "<strong>Exatidão de alegações comerciais — "
+            "não validada contra documentação oficial vigente.</strong> "
+            "Nesta projeção YMYL, contexto, suporte editorial observado e "
+            "orientações de IA não comprovam condições contratuais, vigência "
+            "do documento primário ou conformidade regulatória. "
+            "A ausência dessa revisão não significa que a alegação seja falsa. "
+            "Corroboração ou contradição exigem fonte primária identificada, "
+            "versão, escopo do produto, datas, proveniência e revisão "
+            "independente autenticada; o exame jurídico depende de profissional "
+            "competente. Nenhuma verificação externa foi executada pelo relatório."
+            "</div>"
+        )
         + "<h4>Por que o conteúdo está aderente, parcial ou incoerente</h4>"
         + detail_html
         + "".join(detail_modals)

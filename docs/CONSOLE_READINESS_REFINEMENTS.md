@@ -97,3 +97,14 @@ O console não deve descobrir essa incompatibilidade somente depois de iniciar o
 A mensagem de blocker deve indicar a dependência/variável concreta quando conhecida. O usuário pode abrir a configuração canônica pelo ID exibido no submenu do catálogo e retornar ao mesmo contexto após salvar.
 
 Detalhes completos: [AUDIT_CATALOG_WORKFLOW.md](AUDIT_CATALOG_WORKFLOW.md).
+
+## Conferência offline do mapeamento INI tipado sem chamadas externas
+
+A CLI de inventário aceita `--reconcile-typed` para identificar campos
+efetivamente presentes e parseáveis pelos adapters atuais, especialmente
+perfil/arquitetura declarada, duração, flags de erro e captura dos CAT-06/07.
+O resultado expõe status por nome canônico e a chave de projeção declarada,
+sem valores ou segredos. A checagem é somente leitura, não executa
+navegação, fonte Dynatrace, Perplexity, provider IA, Apdex nem grava o INI.
+`DECLARED_RUNTIME_PROJECTION` não constitui garantia de utilização
+pelo coletor, apenas prova estática limitada ao adapter.

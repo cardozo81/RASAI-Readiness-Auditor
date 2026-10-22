@@ -410,12 +410,34 @@ def _index_summary(data: dict[str, Any]) -> str:
     observations = data["observations"]
     cwv_pass = sum(1 for row in observations if str(row.get("cwv_assessment")) == "PASS")
     cwv_valid = sum(1 for row in observations if str(row.get("cwv_assessment")) in {"PASS", "FAIL"})
+    # An origin-level CrUX pass is not evidence of a pass on the audited URL.
+    # Keep all-source historical totals, but expose the physically distinct
+    # populations and mark absent field_scope as unverified.
+    verified_cwv = [
+        row for row in observations
+        if str(row.get("cwv_assessment")) in {"PASS", "FAIL"}
+    ]
+    def scope_summary(scopes: frozenset[str]) -> str:
+        cohort = [
+            row for row in verified_cwv
+            if str(row.get("field_scope") or "").strip().upper() in scopes
+        ]
+        passed = sum(row.get("cwv_assessment") == "PASS" for row in cohort)
+        return f"{passed}/{len(cohort)}" if cohort else "N/D"
+
+    cwv_url = scope_summary(frozenset({"URL"}))
+    cwv_origin = scope_summary(frozenset({"ORIGIN", "ORIGIN_ONLY"}))
+    cwv_unverified = scope_summary(frozenset(
+        {str(row.get("field_scope") or "").strip().upper()
+         for row in verified_cwv}
+        - {"URL", "ORIGIN", "ORIGIN_ONLY"}
+    ))
     performance = _average_score(observations, "performance_score")
     accessibility = _average_score(observations, "accessibility_score")
     best_practices = _average_score(observations, "best_practices_score")
     seo = _average_score(observations, "seo_score")
     agentic = _average_score(observations, "agentic_browsing_score")
-    return f"""<section id='web-performance-summary' class='panel'><div class='kicker'>Qualidade Web · evidência externa</div><h2>Web Performance e Lighthouse</h2><p class='intro'>Os scores Lighthouse são evidências externas: Performance, Accessibility, Best Practices, SEO técnico e Agentic Browsing experimental. O RASAi coleta e contextualiza esses valores sem convertê-los em {SCORING_VERSION}. Core Web Vitals permanecem field data CrUX.</p><div class='metric-grid'>{_metric('Coleta', 'Habilitada' if enabled else 'Desabilitada')}{_metric('Status', status)}{_metric('CWV aprovados', f'{cwv_pass}/{cwv_valid}' if cwv_valid else 'NÃO DISPONÍVEL')}{_metric('Performance Lighthouse · média', _score(performance))}{_metric('Accessibility Lighthouse · média', _score(accessibility))}{_metric('Best Practices Lighthouse · média', _score(best_practices))}{_metric('SEO técnico Lighthouse · média', _score(seo))}{_metric('Agentic Browsing Lighthouse · média experimental', _score(agentic))}</div><p><a href='{PERFORMANCE_FILE}'>Abrir Web Performance →</a></p></section>"""
+    return f"""<section id='web-performance-summary' class='panel'><div class='kicker'>Qualidade Web · evidência externa</div><h2>Web Performance e Lighthouse</h2><p class='intro'>Os scores Lighthouse são evidências externas: Performance, Accessibility, Best Practices, SEO técnico e Agentic Browsing experimental. O RASAi coleta e contextualiza esses valores sem convertê-los em {SCORING_VERSION}. Core Web Vitals permanecem field data CrUX.</p><div class='metric-grid'>{_metric('Coleta', 'Habilitada' if enabled else 'Desabilitada')}{_metric('Status', status)}{_metric('CWV aprovados (todos escopos)', f'{cwv_pass}/{cwv_valid}' if cwv_valid else 'NÃO DISPONÍVEL')}{_metric('CWV URL (pass/avaliados)', cwv_url)}{_metric('CWV ORIGIN (pass/avaliados)', cwv_origin)}{_metric('CWV escopo N/D (pass/avaliados)', cwv_unverified)}{_metric('Performance Lighthouse · média', _score(performance))}{_metric('Accessibility Lighthouse · média', _score(accessibility))}{_metric('Best Practices Lighthouse · média', _score(best_practices))}{_metric('SEO técnico Lighthouse · média', _score(seo))}{_metric('Agentic Browsing Lighthouse · média experimental', _score(agentic))}</div><p class='notice warn'><strong>CrUX · população de campo:</strong> CWV ORIGIN representa a origem agregada, não esta URL; CWV URL é uma população distinta e escopo N/D não autoriza atribuição. Os indicadores CrUX são independentes dos scores Lighthouse de laboratório por página e da prontidão SARI. Os totais acima contam observações persistidas, não URLs únicas nem usuários.</p><p><a href='{PERFORMANCE_FILE}'>Abrir Web Performance →</a></p></section>"""
 
 
 def _references_section() -> str:

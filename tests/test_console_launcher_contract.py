@@ -41,3 +41,13 @@ def test_console_modules_do_not_carry_development_history_vocabulary() -> None:
         text = path.read_text(encoding="utf-8").casefold()
         assert "legacy" not in text, path
         assert "legado" not in text, path
+
+
+def test_incompatible_venv_has_nondestructive_recovery_contract() -> None:
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    guide = (ROOT / "docs" / "INSTALLATION.md").read_text(encoding="utf-8")
+    assert ".venv-backup-*/" in gitignore.splitlines()
+    assert "Rename-Item -LiteralPath '.venv'" in guide
+    assert "git status --short" in guide
+    assert "py -3.13 -m venv .venv" in guide
+    assert "não é apagado automaticamente" in guide

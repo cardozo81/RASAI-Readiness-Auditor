@@ -177,6 +177,62 @@ def _verify_physical_serp_pair(
         raise ValueError("COBS physical SERP/AUD source unreadable") from None
 
 
+
+def _offline_replay_summary(manifest: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Use structurally bound offline DOM extraction, never validate page truth."""
+    replay = manifest["capture"].get("offline_js_advisory")
+    if not isinstance(replay, Mapping):
+        return None
+    nd = {"status": "NOT_VERIFIABLE_OFFLINE_REPLAY"}
+    inv = replay.get("isolated_lexical_inventory")
+    if (replay.get("status") != "INLINE_DOM_STABLE_IN_OCI"
+            or replay.get("contract_version") != "RASAI-COBS-NETWORKLESS-INLINE-REPLAY-1"
+            or replay.get("source_html_sha256") != manifest["content_sha256"]
+            or not isinstance(replay.get("isolated_rendered_html_sha256"), str)
+            or not _SHA.fullmatch(replay["isolated_rendered_html_sha256"])
+            or replay.get("replay_device") not in {"desktop", "mobile"}
+            or any(replay.get(k) is not False for k in (
+                "live_site_hydration_proven", "live_primary_content_proven",
+                "same_serp_device_or_population_proven", "rendered_html_persisted",
+                "isolated_lexical_inventory_is_live_evidence",
+            ))
+            or not isinstance(inv, Mapping)
+            or inv.get("contract_version") != "RASAI-COBS-NETWORKLESS-LEXICAL-INVENTORY-1"
+            or inv.get("method") != "SAME_SOURCE_HTML_VS_OCI_DOM_OFFLINE"
+            or inv.get("additional_public_http_requests") != 0
+            or any(inv.get(k) is not False for k in (
+                "content_readiness_proven", "live_site_hydration_proven",
+                "primary_content_proven", "semantic_or_editorial_gap_proven",
+                "same_serp_population_proven", "raw_html_persisted",
+            ))):
+        return nd
+    counts = []
+    headings = []
+    for key in ("static_html", "isolated_dom"):
+        row = inv.get(key)
+        if not isinstance(row, Mapping):
+            return nd
+        count, sample = row.get("word_count_observed_html"), row.get("headings_sample")
+        if (type(count) is not int or not 0 <= count <= 1_000_000
+                or not isinstance(sample, list) or len(sample) > 20
+                or any(not isinstance(v, str) or len(v) > 240 for v in sample)):
+            return nd
+        counts.append(count)
+        headings.append(sample)
+    delta = inv.get("observed_word_count_delta")
+    if type(delta) is not int or delta != counts[1] - counts[0]:
+        return nd
+    return {
+        "status": "OFFLINE_LEXICAL_ONLY",
+        "replay_device": replay["replay_device"],
+        "rendered_html_sha256": replay["isolated_rendered_html_sha256"],
+        "static_word_count": counts[0], "oci_word_count": counts[1],
+        "observed_word_count_delta": delta, "oci_headings_sample": headings[1],
+        "live_primary_content_proven": False,
+        "semantic_or_editorial_gap_proven": False,
+    }
+
+
 def _facts(manifest: Mapping[str, Any]) -> dict[str, Any]:
     capture = manifest["capture"]
     count = capture.get("word_count")
@@ -194,6 +250,7 @@ def _facts(manifest: Mapping[str, Any]) -> dict[str, Any]:
         features[field] = sorted(set(items))
     return {
         "url": manifest["requested_url"],
+        "offline_replay_summary": _offline_replay_summary(manifest),
         "title": title,
         "word_count_observed_static": count,
         "content_sha256": capture["content_sha256"],

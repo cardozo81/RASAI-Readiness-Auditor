@@ -27,9 +27,29 @@ def _render_fallback(forecast: CostForecast, exposure: ExposureEstimate, *, stat
     )
     print(f"Exposição estimada   : {paint(exposure.level, YELLOW, bold=True)}")
     print(
-        f"Tentativas de IA     : {exposure.min_ai_attempts}-{exposure.max_ai_attempts} "
-        "potenciais, conforme páginas/contextos e retries elegíveis"
+        f"IA - ciclos modelados: {exposure.min_ai_attempts}-{exposure.max_ai_attempts} "
+        "tentativa(s) heurísticas; NÃO é teto global de IA"
     )
+    print(paint(
+        "Análises competitivas, Improvement, tarefas complementares e "
+        "Direcionada pós-AUD podem exigir chamadas e autorização próprias. "
+        "Uma única URL não equivale a uma única solicitação de IA.",
+        DIM,
+    ))
+    for reason in exposure.reasons:
+        if reason.startswith("Cobertura da contagem de IA:"):
+            print(paint("Cobertura            : " + reason, DIM))
+    if state is not None:
+        from rasai.audit_ai_workload_sensitivity import (
+            independent_ai_need_sensitivity,
+            format_independent_ai_need_sensitivity,
+        )
+        sensitivity = independent_ai_need_sensitivity(
+            state,
+            min_pages=exposure.min_pages, max_pages=exposure.max_pages,
+        )
+        for line in format_independent_ai_need_sensitivity(sensitivity):
+            print(paint(line, DIM))
     if exposure.pricing_lines:
         print("\nTarifas vigentes conhecidas para os providers/modelos elegíveis:")
         for line in exposure.pricing_lines:

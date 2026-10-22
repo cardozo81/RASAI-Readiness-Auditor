@@ -343,6 +343,8 @@ def test_optional_apdex_preflight_checks_real_m23_m25_without_starting_aud(tmp_p
         assert outcome["active_m23"] is True
         assert outcome["active_m25"] is True
         assert outcome["single_device_enforced"] is True
+        assert outcome["cli_argv_parity_verified"] is True
+        assert outcome["cli_argv_is_real_execution"] is False
         assert outcome["load_warning_count"] == 0
         assert outcome["external_requests"] == outcome["audit_writes"] == 0
         assert outcome["values_exposed"] is False
@@ -1042,6 +1044,7 @@ def test_rejected_environment_warning_reasons_are_non_disclosing():
         "unregistered_secret_pattern": 1,
         "unregistered_name": 1,
         "empty_name": 1,
+        "redacted_sensitive_environment": 0,
     }
     rendered = json.dumps(result)
     for forbidden in ("OPENAI_API_KEY", "LEGACY_PRIVATE_TOKEN", "RASAI_RETIRED_INPUT"):
@@ -1070,10 +1073,11 @@ def test_apdex_preflight_classifies_rejected_environment_without_read_write_leak
     assert result["load_warning_count"] == 3
     assert result["load_warning_categories"]["unknown_or_nonpersistible_environment"] == 3
     assert result["load_warning_environment_reasons"] == {
-        "registered_but_excluded": 1,
-        "unregistered_secret_pattern": 1,
+        "registered_but_excluded": 0,
+        "unregistered_secret_pattern": 0,
         "unregistered_name": 1,
         "empty_name": 0,
+        "redacted_sensitive_environment": 2,
     }
     assert sum(result["load_warning_environment_reasons"].values()) == 3
     assert result["external_requests"] == result["audit_writes"] == 0
@@ -1085,3 +1089,206 @@ def test_apdex_preflight_classifies_rejected_environment_without_read_write_leak
         "NEVER_ECHO",
     ):
         assert forbidden not in rendered
+
+
+def test_security_and_improvement_declared_adapters_are_not_runtime_proof(tmp_path):
+    """Contract inventory comes from actual constants; no external access is executed."""
+    from rasai import passive_security, improvement_intelligence as improvement
+
+    result = inventory(path=tmp_path / "no-operator.ini", environ={})
+    rows = {row["name"]: row for row in result["environment_variables"]}
+    for name in (
+        passive_security.ENABLED_ENV, passive_security.EXTERNAL_TIMEOUT_ENV,
+        passive_security.OSV_ENV, passive_security.KEV_ENV,
+        improvement.ENABLED_ENV, improvement.MAX_RECOMMENDATIONS_ENV,
+        improvement.TIMEOUT_ENV, improvement.AI_ANALYSIS_LANGUAGE_ENV,
+    ):
+        assert rows[name]["declared_adapter_surface"] != (
+            "NOT_MAPPED_NO_CONSUMER_INFERENCE"
+        )
+        assert rows[name]["runtime_consumer"] == "NOT_PROVEN_BY_REGISTRY"
+        assert rows[name]["declared_adapter_surface_is_execution_proof"] is False
+    status = result["security_improvement_adapter_surface_coverage"]
+    assert status["mapped_registry_variables"] >= 8
+    assert not status["external_security_feeds_or_ai_provider_calls_proven"]
+    assert not status["security_snapshot_or_improvement_execution_proven"]
+    assert not (tmp_path / "no-operator.ini").exists()
+
+
+def test_ai_catalog_runtime_selectors_are_declared_without_execution_proof(tmp_path):
+    from rasai import ai_model_catalog, ai_pricing_catalog, ai_task_profiles
+
+    result = inventory(path=tmp_path / "not-created.ini", environ={})
+    rows = {item["name"]: item for item in result["environment_variables"]}
+    names = (
+        ai_model_catalog.MODEL_SOURCE_ENV, ai_model_catalog.MODEL_FILE_ENV,
+        ai_pricing_catalog.PRICING_SOURCE_ENV, ai_pricing_catalog.PRICING_FILE_ENV,
+        ai_task_profiles.PROFILE_SOURCE_ENV, ai_task_profiles.PROFILE_FILE_ENV,
+    )
+    for name in names:
+        assert rows[name]["declared_adapter_surface"] != (
+            "NOT_MAPPED_NO_CONSUMER_INFERENCE"
+        )
+        assert rows[name]["runtime_consumer"] == "NOT_PROVEN_BY_REGISTRY"
+        assert rows[name]["declared_adapter_surface_is_execution_proof"] is False
+    assert result["ai_catalog_adapter_surface_coverage"][
+        "mapped_registry_variables"
+    ] == len(names)
+    assert result["ai_catalog_adapter_surface_coverage"][
+        "catalog_load_or_provider_use_proven"
+    ] is False
+    assert not (tmp_path / "not-created.ini").exists()
+
+
+def test_presentation_timezone_adapter_declared_without_clock_mutation_claim(tmp_path):
+    from rasai.time_contract import PRESENTATION_TIMEZONE_ENV
+
+    result = inventory(path=tmp_path / "none.ini", environ={})
+    row = next(item for item in result["environment_variables"]
+               if item["name"] == PRESENTATION_TIMEZONE_ENV)
+    assert row["declared_adapter_surface"] == (
+        "PRESENTATION_FORMAT_INPUT_NOT_PERSISTED_CLOCK_CHANGE"
+    )
+    assert row["runtime_consumer"] == "NOT_PROVEN_BY_REGISTRY"
+    assert row["declared_adapter_surface_is_execution_proof"] is False
+    assert not (tmp_path / "none.ini").exists()
+
+
+def test_523_apdex_cli_argv_parity_without_running_collector(tmp_path):
+    """CLI argv has to survive its real parser and resolve the same M23/M25 config."""
+    from unittest.mock import patch
+    from rasai import console_settings, console_m23
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
+
+    _install_search_persistence()
+    install()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.synthetic_apdex = False
+        state.apdex_experience = True
+        state.device = "mobile"
+        state.apdex_experience_kpm = "USER_ACTION_DURATION"
+        state.apdex_experience_satisfied = 2.5
+        state.apdex_experience_frustrated = 10.0
+        state.apdex_experience_xhr_capture = False
+        state.apdex_experience_fetch_capture = True
+        path = tmp_path / "safe.ini"
+        console_settings.save_console_config(state, path)
+        before = path.read_bytes()
+        os_before = dict(os.environ)
+        verified = inspect_apdex_consumers(path, environ={})
+        assert verified["status"] == "ADAPTERS_VALIDATED_OFFLINE"
+        assert verified["active_m23"] is False
+        assert verified["active_m25"] is True
+        assert verified["cli_argv_parity_verified"] is True
+        assert verified["cli_argv_is_real_execution"] is False
+        assert not verified["collector_execution_verified"]
+        assert os.environ == os_before
+        assert path.read_bytes() == before
+
+        real_append = console_m23.append_m23_command
+        def broken_serialization(command, current):
+            # A regression that drops the independent CAT-07 activation.
+            return ["--no-synthetic-apdex", "--no-apdex-experience"]
+        with patch.object(console_m23, "append_m23_command", broken_serialization):
+            rejected = inspect_apdex_consumers(path, environ={})
+        assert rejected["status"] == "CLI_ARGV_CONTRACT_MISMATCH"
+        assert rejected["cli_argv_parity_verified"] is False
+        assert rejected["active_m23"] is False
+        assert rejected["active_m25"] is True
+        assert not rejected["collector_execution_verified"]
+        assert path.read_bytes() == before
+        assert os.environ == os_before
+
+
+def test_523_both_apdex_cli_paths_must_stay_inside_shared_handoff_capture(
+    tmp_path, monkeypatch,
+):
+    """The local parser replay must never call the process-global M25 writer."""
+    from unittest.mock import patch
+    from rasai import console_settings, m23_cli
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
+    from rasai.m25_runtime import peek_pending_config
+
+    _install_search_persistence()
+    install()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.synthetic_apdex = False
+        state.apdex_experience = True
+        state.apdex_experience_samples = 7
+        state.apdex_experience_max_attempts = 9
+        source = tmp_path / "m25-protected.ini"
+        console_settings.save_console_config(state, source)
+        before = source.read_bytes()
+        previous_handoff = peek_pending_config()
+
+        def forbidden_global_write(_config):
+            raise AssertionError(
+                "A dry-run CLI replay must not set process-global M25 state"
+            )
+
+        # On entry m23_cli's writer is hostile; the inspector must capture
+        # BOTH calls. Its original binding is restored on exit.
+        with patch.object(m23_cli, "set_pending_config", forbidden_global_write):
+            result = inspect_apdex_consumers(source, environ={})
+        assert result["status"] == "ADAPTERS_VALIDATED_OFFLINE"
+        assert result["cli_argv_parity_verified"] is True
+        assert result["active_m23"] is False
+        assert result["active_m25"] is True
+        assert peek_pending_config() is previous_handoff
+        assert source.read_bytes() == before
+
+
+def test_523_apdex_default_thresholds_roundtrip_against_real_m25_cli(tmp_path):
+    """CAT-07 can be enabled without explicitly editing either time threshold.
+
+    Absence in console state is a request for the canonical CLI default,
+    not an invalid Time KPM. The command serializer must match the M25
+    configuration resolved from the runtime environment.
+    """
+    from unittest.mock import patch
+    from rasai import console_settings, m23_cli
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+    from rasai.console_m23 import experience_from_state, append_m23_command
+    from rasai.m25_cli import (
+        DEFAULT_UX_SATISFIED_SECONDS, DEFAULT_UX_FRUSTRATED_SECONDS,
+    )
+    from rasai.m25_runtime import peek_pending_config
+    from rasai.console_apdex_effective_validation import inspect_apdex_consumers
+
+    _install_search_persistence()
+    install()
+    with patch.dict(os.environ, {}, clear=True):
+        state = SearchConsoleState()
+        state.synthetic_apdex = False
+        state.apdex_experience = True
+        state.device = "mobile"
+        assert state.apdex_experience_satisfied is None
+        assert state.apdex_experience_frustrated is None
+        expected = experience_from_state(state)
+        assert expected.satisfied_threshold_seconds == DEFAULT_UX_SATISFIED_SECONDS
+        assert expected.frustrated_threshold_seconds == DEFAULT_UX_FRUSTRATED_SECONDS
+        args = append_m23_command([], state)
+        assert "--apdex-experience" in args
+        assert "--apdex-experience-satisfied-seconds" in args
+        assert "--apdex-experience-frustrated-seconds" in args
+        original_pending = peek_pending_config()
+        source = tmp_path / "m25-defaults.ini"
+        console_settings.save_console_config(state, source)
+        physical = source.read_bytes()
+        result = inspect_apdex_consumers(source, environ={})
+        assert result["status"] == "ADAPTERS_VALIDATED_OFFLINE"
+        assert result["cli_argv_parity_verified"] is True
+        assert result["active_m23"] is False
+        assert result["active_m25"] is True
+        assert peek_pending_config() is original_pending
+        assert physical == source.read_bytes()

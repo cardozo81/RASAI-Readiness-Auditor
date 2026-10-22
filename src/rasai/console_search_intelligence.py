@@ -42,6 +42,9 @@ from rasai.search_intelligence.runtime import (
 class SearchConsoleState(BaseState):
     """Add transient Search Intelligence input to the existing console state."""
 
+    # Explicitly tracks partial/invalid INI restores in this slotted state.
+    config_dirty: bool = False
+
     search_queries: tuple[str, ...] = ()
     search_depth: int = 20
     search_region: str = ""
@@ -1025,6 +1028,25 @@ def install(console_module: ModuleType) -> None:
                             f"soma {timeline.summed_duration_ms / 1000:.1f}s | "
                             "ativo não calculável (intervalos incompletos)"
                         )
+                        # #319: expose the already recorded per-stage cost/time,
+                        # without treating concurrent attempts as serial AUD wall time.
+                        for stage in timeline.stages:
+                            active_label = (
+                                f"{stage.union_active_ms / 1000:.1f}s"
+                                if stage.union_active_ms is not None else "N/D"
+                            )
+                            estimate_label = (
+                                f"{stage.priced_usd_estimate:.6f} USD"
+                                if stage.attempts - stage.observed_cost_attempts - stage.unpriced_attempts > 0
+                                else "N/D"
+                            )
+                            print(
+                                f"  Etapa {stage.name.replace('_', ' ').title()}: "
+                                f"{stage.attempts} tentativa(s) | "
+                                f"soma {stage.summed_duration_ms / 1000:.1f}s | "
+                                f"ativo {active_label} | "
+                                f"estimativa pós-uso {estimate_label}"
+                            )
                         provider_coverage = sum(
                             stage.observed_cost_attempts for stage in timeline.stages
                         )
@@ -1042,8 +1064,49 @@ def install(console_module: ModuleType) -> None:
                         )
                         print(
                             "  Nota               : tempos simultâneos não são aditivos; "
-                            "não inclui captura/PSI/Apdex; valores não são fatura."
+                            "tentativas IA não medem captura/PSI/Apdex; valores não são fatura."
                         )
+                    # #319: advisory telemetry must not turn the usage
+                    # screen into an unbounded DB reader or follow symlinks.
+                    db_path = Path(workspace.database)
+                    if db_path.is_symlink() or not db_path.is_file():
+                        print("  Performance HTTP   : N/D (fonte AUD indisponível)")
+                    else:
+                        from rasai.audit_duration_forecast import _m21_http_request_sums
+                        try:
+                            # sqlite3.Connection.__exit__ commits/rolls back but
+                            # does NOT close the file handle. Use closing() so
+                            # Windows can release the AUD database immediately.
+                            from contextlib import closing
+                            with closing(sqlite3.connect(
+                                db_path.resolve().as_uri() + "?mode=ro",
+                                uri=True, timeout=0.5,
+                            )) as stage_conn:
+                                stage_conn.execute("PRAGMA query_only=ON")
+                                http_sums = _m21_http_request_sums(stage_conn, state.audit_id)
+                        except (OSError, ValueError, sqlite3.Error):
+                            http_sums = {}
+                        if http_sums:
+                            print("  Performance HTTP   : durações observadas por serviço (não tempo total da fase)")
+                            for service, duration_ms in sorted(http_sums.items()):
+                                print(f"    {service}: {duration_ms / 1000:.1f}s acumulados em requests")
+                        else:
+                            print("  Performance HTTP   : N/D (sem tentativas físicas elegíveis)")
+                    # Independent operational log evidence remains available
+                    # even when the M21 SQLite source cannot be read.
+                    from rasai.audit_step_timer_inspection import inspect_pipeline_step_timers
+                    wrappers = inspect_pipeline_step_timers(Path(root), state.audit_id, None)
+                    if wrappers["status"] == "OBSERVED_UNSEALED_WRAPPER_TIMERS":
+                        print("  Pipeline operacional: intervalos de wrappers (log não selado)")
+                        for phase in wrappers["by_phase"]:
+                            print(
+                                f"    {phase['phase']}: {phase['wrapper_count']} wrapper(s), "
+                                f"mín {phase['min_observed_wrapper_ms'] / 1000:.1f}s, "
+                                f"máx {phase['max_observed_wrapper_ms'] / 1000:.1f}s; "
+                                "não representa wall-clock exclusivo"
+                            )
+                    else:
+                        print("  Pipeline operacional: N/D (cronômetros não verificáveis)")
             except (OSError, ValueError, sqlite3.Error):
                 pass
 

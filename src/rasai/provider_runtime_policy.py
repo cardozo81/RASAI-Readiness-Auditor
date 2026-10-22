@@ -235,7 +235,10 @@ def environment_with_public_defaults(env: Mapping[str, str] | None = None) -> di
         result.setdefault(registration.model_env, registration.public_default_model)
         reasoning_env = provider_reasoning_env(name)
         definition = model_definition(name, result[registration.model_env])
-        if reasoning_env and definition is not None:
+        # An expired or disabled catalog entry must not supply public defaults.
+        # The explicit model gate below reports the invalid override as ValueError.
+        if (reasoning_env and definition is not None
+                and definition.enabled and definition.is_effective()):
             result.setdefault(reasoning_env, definition.default_reasoning)
     result.setdefault(AI_TIMEOUT_ENV, f"{DEFAULT_AI_TIMEOUT_SECONDS:g}")
     result.setdefault(AI_MAX_CYCLES_ENV, str(DEFAULT_AI_MAX_CYCLES))

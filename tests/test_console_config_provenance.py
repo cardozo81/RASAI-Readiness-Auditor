@@ -298,3 +298,325 @@ def test_guarded_save_accepts_known_bom_ini(tmp_path):
     assert console_settings.save_console_config(loaded, path) == path
     reloaded = SearchConsoleState()
     assert not console_settings.load_console_config(reloaded, path).warnings
+
+
+def test_console_load_refuses_symlink_without_modifying_state_or_source(tmp_path, monkeypatch):
+    """A startup config cannot follow a symlink to unrelated operator data."""
+    from rasai.console_search_intelligence import SearchConsoleState
+    real = tmp_path / "real.ini"
+    real.write_text("[environment]\nRASAI_SERP_MAX_REQUESTS=37\n", encoding="utf-8")
+    link = tmp_path / "console.ini"
+    try:
+        link.symlink_to(real)
+    except (OSError, NotImplementedError):
+        import pytest
+        pytest.skip("symlinks unavailable on this platform")
+    source_before = real.read_bytes()
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    state = SearchConsoleState()
+    prior = state.device
+    result = console_settings.load_console_config(state, link)
+    assert not result.created
+    assert result.warnings
+    assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+    assert state.device == prior
+    assert real.read_bytes() == source_before
+    assert link.is_symlink()
+
+
+def test_console_load_refuses_oversized_ini_without_side_effects(tmp_path, monkeypatch):
+    """Reader rejects files beyond the existing 2MB source guard."""
+    from rasai.console_search_intelligence import SearchConsoleState
+    path = tmp_path / "too-large.ini"
+    path.write_bytes(b"[environment]\nRASAI_SERP_MAX_REQUESTS=4\n" +
+                     b";" * 2_000_001)
+    source_before = path.stat().st_size
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    state = SearchConsoleState()
+    original_device = state.device
+    result = console_settings.load_console_config(state, path)
+    assert result.warnings and result.created is False
+    assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+    assert state.device == original_device
+    assert path.stat().st_size == source_before
+
+
+def test_console_load_refuses_changed_source_before_any_environment_activation(
+    tmp_path, monkeypatch,
+):
+    """Source identity race on read fails closed instead of partially loading."""
+    from rasai.console_search_intelligence import SearchConsoleState
+    from unittest.mock import patch
+    path = tmp_path / "unstable.ini"
+    path.write_text("[environment]\nRASAI_SERP_MAX_REQUESTS=22\n", encoding="utf-8")
+    original = path.read_bytes()
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    state = SearchConsoleState()
+    with patch("rasai.console_settings._existing_ini_snapshot",
+               side_effect=ValueError("source changed during read")):
+        result = console_settings.load_console_config(state, path)
+    assert result.warnings and not result.created
+    assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+    assert path.read_bytes() == original
+
+
+
+def test_console_load_dangling_symlink_is_not_treated_as_missing_ini(tmp_path, monkeypatch):
+    """Reject even a broken link before the create-default path."""
+    from rasai.console_search_intelligence import SearchConsoleState
+    import pytest
+
+    link = tmp_path / "dangling.ini"
+    try:
+        link.symlink_to(tmp_path / "missing.ini")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable")
+    assert not link.exists() and link.is_symlink()
+    state = SearchConsoleState()
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    result = console_settings.load_console_config(state, link)
+    assert not result.created and result.warnings
+    assert link.is_symlink()
+    assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+    assert not (tmp_path / "missing.ini").exists()
+
+
+def test_explicit_empty_session_value_is_not_mistaken_for_absent_override(tmp_path):
+    """Provenance must distinguish an explicitly empty input from no input."""
+    path = tmp_path / "session-empty.ini"
+    path.write_text("[environment]\nRASAI_SERP_MAX_REQUESTS=12\n", encoding="utf-8")
+    original = path.read_bytes()
+    absent = inspect_configuration(path, env={})
+    empty = inspect_configuration(path, env={"RASAI_SERP_MAX_REQUESTS": ""})
+    assert absent.persisted_public == 1
+    assert absent.session_overrides == 0
+    assert empty.session_overrides == 1
+    assert "12" not in render_provenance(empty)
+    assert path.read_bytes() == original
+
+
+def test_ini_environment_precedence_preserves_explicit_empty_session_override(
+    tmp_path, monkeypatch,
+):
+    """#523: presence, not truthiness, decides session > INI precedence."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    path = tmp_path / "precedence.ini"
+    path.write_text(
+        "[environment]\nRASAI_SERP_MAX_REQUESTS=12\n",
+        encoding="utf-8",
+    )
+    for initial, expected in ((None, "12"), ("", ""), ("7", "7")):
+        if initial is None:
+            monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+        else:
+            monkeypatch.setenv("RASAI_SERP_MAX_REQUESTS", initial)
+        result = console_settings.load_console_config(SearchConsoleState(), path)
+        assert not result.warnings
+        assert os.environ.get("RASAI_SERP_MAX_REQUESTS") == expected
+
+
+def test_console_load_reports_unknown_ini_section_without_leaking_values(
+    tmp_path, monkeypatch,
+):
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    ini = tmp_path / "unknown-section.ini"
+    ini.write_text(
+        "[unexpected_private_section]\nTOKEN=DO_NOT_DISCLOSE_523\n"
+        "[environment]\nRASAI_SERP_MAX_REQUESTS=9\n", encoding="utf-8",
+    )
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS", raising=False)
+    result = console_settings.load_console_config(SearchConsoleState(), ini)
+    assert any(note.startswith("INI: seção não reconhecida") for note in result.warnings)
+    assert "unexpected_private_section" not in repr(result.warnings)
+    assert "DO_NOT_DISCLOSE_523" not in repr(result.warnings)
+    assert os.environ["RASAI_SERP_MAX_REQUESTS"] == "9"
+
+
+def test_invalid_restored_typed_value_marks_configuration_unsaved(tmp_path):
+    """#523: partial typed restoration must not claim a clean saved state."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    ini = tmp_path / "invalid-pages.ini"
+    ini.write_text("[console]\nmax_pages=not-a-number\n", encoding="utf-8")
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, ini)
+    assert any("console.max_pages" in note for note in result.warnings)
+    assert state.config_dirty is True
+
+    valid = tmp_path / "valid-pages.ini"
+    valid.write_text("[console]\nmax_pages=4\n", encoding="utf-8")
+    fresh = SearchConsoleState()
+    result = console_settings.load_console_config(fresh, valid)
+    assert result.warnings == ()
+    assert fresh.config_dirty is False
+
+
+def test_console_ini_rejects_nonfinite_runtime_delays_and_timeouts(tmp_path):
+    """#523/#357: NaN and infinity cannot enter runtime configuration."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    for section, option, invalid in (
+        ("ai", "timeout_seconds", "nan"),
+        ("ai", "cycle_delay_seconds", "nan"),
+        ("web_performance", "timeout_seconds", "inf"),
+        ("synthetic_apdex", "delay_seconds", "-inf"),
+        ("synthetic_apdex_experience", "delay_seconds", "nan"),
+        ("synthetic_apdex_experience", "settle_seconds", "inf"),
+    ):
+        ini = tmp_path / "nonfinite.ini"
+        ini.write_text(f"[{section}]\n{option}={invalid}\n", encoding="utf-8")
+        state = SearchConsoleState()
+        result = console_settings.load_console_config(state, ini)
+        assert any(note.startswith(f"{section}.{option}:") for note in result.warnings)
+        assert state.config_dirty is True
+
+
+def test_unknown_owned_ini_option_warns_and_marks_state_dirty(tmp_path):
+    """#523: typed options omitted by the registry cannot appear restored."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    ini = tmp_path / "unknown-typed.ini"
+    ini.write_text(
+        "[console]\nmax_pages=4\nobsolete_setting=DO_NOT_LEAK_523\n",
+        encoding="utf-8",
+    )
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, ini)
+    assert any(note.startswith("console.obsolete_setting:") for note in result.warnings)
+    assert "DO_NOT_LEAK_523" not in repr(result.warnings)
+    assert state.max_pages == 4
+    assert state.config_dirty is True
+
+
+def test_unpersistible_environment_input_marks_config_dirty_without_exposing_value(
+    tmp_path, monkeypatch,
+):
+    """#523: silently ignored environment fields must not look fully restored."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    path = tmp_path / "unsupported-environment.ini"
+    path.write_text(
+        "[environment]\nRASAI_UNKNOWN_RUNTIME_OPTION=private-fixture-523\n",
+        encoding="utf-8",
+    )
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, path)
+    assert any("environment.RASAI_UNKNOWN_RUNTIME_OPTION" in w for w in result.warnings)
+    assert "private-fixture-523" not in repr(result.warnings)
+    assert state.config_dirty is True
+
+
+def test_sensitive_unknown_ini_section_marks_config_dirty(tmp_path):
+    """#523: unsafe extension section requires reconciliation, not clean status."""
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    path = tmp_path / "secret-extension.ini"
+    path.write_text(
+        "[unknown_extension]\nAPI_TOKEN=synthetic-do-not-print\n",
+        encoding="utf-8",
+    )
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, path)
+    assert result.warnings
+    assert "synthetic-do-not-print" not in repr(result.warnings)
+    assert state.config_dirty is True
+
+
+
+def test_default_console_config_path_rejects_final_ini_symlink(tmp_path, monkeypatch):
+    """The implicit path must not resolve away the final symlink guard."""
+    import pytest
+    from unittest.mock import patch
+
+    for existing_target in (True, False):
+        target = tmp_path / ("present.ini" if existing_target else "missing.ini")
+        if existing_target:
+            target.write_text(
+                "[environment]\nRASAI_SERP_MAX_REQUESTS=37\n",
+                encoding="utf-8",
+            )
+        link = tmp_path / ("existing-link.ini" if existing_target else "dangling-link.ini")
+        try:
+            link.symlink_to(target)
+        except (OSError, NotImplementedError):
+            pytest.skip("symlinks unavailable on this platform")
+        before = target.read_bytes() if existing_target else None
+        assert canonical_console_config_path(
+            env={"RASAI_CONSOLE_INI": str(link)}, cwd=tmp_path
+        ) == link
+        fresh_env = {"RASAI_CONSOLE_INI": str(link)}
+        assert prepare_console_config(env=fresh_env, cwd=tmp_path) == link
+        assert fresh_env["RASAI_CONSOLE_INI"] == str(link)
+        with patch.dict(os.environ, {"RASAI_CONSOLE_INI": str(link)}, clear=True):
+            assert console_settings.resolve_config_path() == link
+            state = SearchConsoleState()
+            loaded = console_settings.load_console_config(state)
+            assert not loaded.created and loaded.warnings
+            assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+            with pytest.raises(ValueError):
+                console_settings.save_console_config(state)
+        assert link.is_symlink()
+        if existing_target:
+            assert target.read_bytes() == before
+        else:
+            assert not target.exists()
+
+
+
+def test_523_unowned_nonsecret_ini_section_marks_dirty_without_disclosing_name(tmp_path):
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    source = tmp_path / "section.ini"
+    source.write_text(
+        "[sensitive-section-name-DO_NOT_PRINT]\n"
+        "general_value=SECRET_DO_NOT_PRINT\n"
+        "[console]\nmax_pages=4\n", encoding="utf-8",
+    )
+    initial = source.read_bytes()
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, source)
+    assert state.max_pages == 4
+    assert state.config_dirty is True
+    assert any(note.startswith("INI: seção não reconhecida") for note in result.warnings)
+    assert "DO_NOT_PRINT" not in repr(result.warnings)
+    assert source.read_bytes() == initial
+
+
+def test_523_unknown_secret_key_name_never_appears_in_loader_warnings(tmp_path):
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    source = tmp_path / "bad-secret.ini"
+    source.write_text(
+        "[environment]\nANOTHER_API_KEY=DO_NOT_PRINT\n"
+        "[console]\nSOME_PASSWORD=DO_NOT_PRINT\n", encoding="utf-8",
+    )
+    initial = source.read_bytes()
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, source)
+    assert state.config_dirty is True
+    assert any(note.startswith("environment: variável sensível") for note in result.warnings)
+    assert any(note.startswith("console: campo sensível") for note in result.warnings)
+    assert "DO_NOT_PRINT" not in repr(result.warnings)
+    assert "ANOTHER_API_KEY" not in repr(result.warnings)
+    assert "SOME_PASSWORD" not in repr(result.warnings)
+    assert source.read_bytes() == initial
+
+
+def test_523_ini_default_section_is_unrestored_and_not_clean(tmp_path):
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    source = tmp_path / "default.ini"
+    source.write_text(
+        "[DEFAULT]\nRASAI_SERP_MAX_REQUESTS=999\n"
+        "[console]\nmax_pages=4\n", encoding="utf-8",
+    )
+    initial = source.read_bytes()
+    state = SearchConsoleState()
+    result = console_settings.load_console_config(state, source)
+    assert state.max_pages == 4
+    assert state.config_dirty is True
+    assert any(note.startswith("DEFAULT:") for note in result.warnings)
+    assert "999" not in repr(result.warnings)
+    assert source.read_bytes() == initial

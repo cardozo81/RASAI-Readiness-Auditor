@@ -176,3 +176,7 @@ A fórmula e a nomenclatura Apdex são baseadas na especificação pública do A
 - Apdex Technical Specification v1.1: <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
 - Chrome DevTools Protocol - Emulation: <https://chromedevtools.github.io/devtools-protocol/tot/Emulation/>
 - Chrome DevTools Protocol - Network: <https://chromedevtools.github.io/devtools-protocol/tot/Network/>
+
+## Projeção experimental fora do Apdex homologado
+
+Existe uma apresentação externa, estritamente consultiva e separada, para sidecars opcionais de prontidão de conteúdo de uma AUD completa: `python -m rasai.apdex_readiness_review_cli --audit-directory <AUD_DIR> --sidecar <SIDE_JSON> --format html`. O artefato precisa ter fonte SQLite e manifesto íntegros, além de checksum por sidecar. Indicadores de conteúdo pronto são declarados pelo produtor e **não substituem** duração do navegador, KPM, thresholds, amostras ou índice de navegação CAT-06. Nenhuma importação automática do sidecar para a auditoria é autorizada. Consulte `APDEX_CONTENT_READINESS_INVESTIGATION.md`.

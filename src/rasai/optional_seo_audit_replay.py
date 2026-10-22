@@ -23,20 +23,32 @@ _SUPPORTED_VERSION = "SCORE-GEO-004"
 
 
 def _read_hash(db: Path) -> str:
-    if db.is_symlink() or not db.is_file() or db.stat().st_size > _MAX_DB_BYTES:
+    """Require a physically stable immutable SQLite source for replay."""
+    import os
+
+    if db.is_symlink() or not db.is_file():
         raise ValueError("AUD SQLite source unavailable or exceeds budget")
     if any(Path(str(db) + suffix).exists() for suffix in ("-wal", "-shm", "-journal")):
         raise ValueError("unverified SQLite journal/sidecar")
-    size = db.stat().st_size
+    before = db.stat()
+    if before.st_size > _MAX_DB_BYTES:
+        raise ValueError("AUD SQLite source unavailable or exceeds budget")
     digest = sha256()
     count = 0
     with db.open("rb") as stream:
+        descriptor = os.fstat(stream.fileno())
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
             count += len(chunk)
             if count > _MAX_DB_BYTES:
                 raise ValueError("AUD SQLite source exceeds budget while reading")
-    if db.stat().st_size != size or count != size:
+    after = db.stat()
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if (
+        db.is_symlink() or count != before.st_size
+        or any(getattr(before, field) != getattr(item, field)
+               for item in (descriptor, after) for field in fields)
+    ):
         raise ValueError("AUD SQLite source changed")
     return digest.hexdigest()
 
@@ -164,10 +176,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Replay optional SEO policy scenarios offline")
     parser.add_argument("audit_dir", type=Path)
     parser.add_argument("--device", choices=("MOBILE", "DESKTOP"), default="MOBILE")
+    parser.add_argument("--format", choices=("scenarios", "decision-matrix"),
+                        default="scenarios")
     args = parser.parse_args(argv)
     result = replay_optional_seo_from_audit(
         args.audit_dir, device=DeviceContext(args.device),
     )
+    if args.format == "decision-matrix":
+        from rasai.optional_seo_policy_decision import build_optional_seo_decision_matrix
+        result = build_optional_seo_decision_matrix(result)
     print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 

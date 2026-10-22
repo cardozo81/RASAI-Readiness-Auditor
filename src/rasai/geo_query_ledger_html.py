@@ -12,6 +12,8 @@ from typing import Any, Mapping
 _SUPPORTED = {
     "RASAI-GEO-PER-QUERY-304-ADVISORY-005",
     "RASAI-GEO-PER-QUERY-304-ADVISORY-006",
+    "RASAI-GEO-PER-QUERY-304-ADVISORY-007",
+    "RASAI-GEO-PER-QUERY-304-ADVISORY-008",
 }
 _SCOPE = ("engine", "country", "region", "language", "device")
 
@@ -37,9 +39,18 @@ def _rate(value: object) -> str:
     return escape(f"{value * 100:.2f}%", quote=True)
 
 
+def _seconds(value: object) -> str:
+    return (
+        f"{value:.3f} s"
+        if type(value) in (int, float) and 0 <= value <= 86400
+        else "N/D"
+    )
+
+
 def _classification(value: object) -> str:
     return {
         "BRANDED_DECLARED": "Branded (declaração do operador)",
+        "NONBRANDED_DECLARED": "Non-branded (declaração do operador)",
         "UNCLASSIFIED": "Não classificada",
     }.get(value, "N/D")
 
@@ -158,6 +169,43 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             _table_row([escape(label, quote=True), host_value(key, formatter)])
             for label, key, formatter in host_metrics
         )
+
+        roster = entry.get("host_source_inventory") if row_admissible else None
+        roster_html = "<p>Hosts observados por consulta: N/D.</p>"
+        if (projection.get("contract_version") == "RASAI-GEO-PER-QUERY-304-ADVISORY-008"
+                and isinstance(roster, Mapping)
+                and roster.get("status") == "OBSERVED_RETURNED_HOSTNAMES_ONLY"
+                and type(roster.get("distinct_hostnames")) is int
+                and isinstance(roster.get("entries"), list)
+                and 0 < len(roster["entries"]) <= 12):
+            items = []
+            for member in roster["entries"]:
+                if not isinstance(member, Mapping):
+                    items = []
+                    break
+                numbers = [_count(member.get(field)) for field in (
+                    "serp_distinct_urls", "external_distinct_urls",
+                    "common_distinct_urls",
+                )]
+                host = member.get("hostname")
+                if (not isinstance(host, str) or not host or len(host) > 253
+                        or "N/D" in numbers):
+                    items = []
+                    break
+                items.append(_table_row([_safe(host), *numbers]))
+            if items:
+                roster_html = (
+                    "<details><summary>Hosts observados por consulta: "
+                    + str(roster["distinct_hostnames"]) + " hostnames exatos; "
+                    + str(len(items)) + " exibidos</summary><table>"
+                    "<thead><tr><th>Hostname</th><th>URLs SERP</th>"
+                    "<th>URLs Search API</th><th>URLs comuns</th>"
+                    "</tr></thead><tbody>" + "".join(items) + "</tbody></table>"
+                    "<p>Hostnames retornados, sem comprovar concorrência "
+                    "comercial, mercado, ranking ou citação generativa. "
+                    "Denominadores consideram todos os resultados, inclusive "
+                    "os hostnames além do limite de exibição.</p></details>"
+                )
         # Persisted host groups describe alternative URLs, not competitors.
         # A source integrity or row comparability failure must hide counts.
         group_rows = []
@@ -176,12 +224,45 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
                     _count(group.get(key)) if isinstance(group, Mapping) else "N/D",
                 ]))
         group_html = "".join(group_rows)
+        distribution_rows: list[str] = []
+        for source_label, field in (
+            ("SERP", "serp_target_url_distribution"),
+            ("Search API", "external_target_url_distribution"),
+        ):
+            distribution = entry.get(field) if row_admissible else None
+            for description, key, formatter in (
+                ("Denominador de URLs distintas", "denominator_distinct_urls", _count),
+                ("URL exata da AUD", "exact_target_urls", _count),
+                ("Taxa de URL exata da AUD", "exact_target_url_rate", _rate),
+                ("Alternativas do mesmo hostname", "same_host_alternative_urls", _count),
+                ("Taxa de alternativas do mesmo hostname", "same_host_alternative_url_rate", _rate),
+                ("URLs de outros hostnames", "other_host_urls", _count),
+                ("Taxa de URLs de outros hostnames", "other_host_url_rate", _rate),
+            ):
+                value = (
+                    formatter(distribution.get(key))
+                    if isinstance(distribution, Mapping)
+                    and distribution.get("interpretation")
+                    == "OBSERVED_DISTINCT_RETURNED_URLS_ONLY"
+                    else "N/D"
+                )
+                distribution_rows.append(_table_row([
+                    escape(f"{source_label}: {description}", quote=True), value,
+                ]))
+        distribution_html = "".join(distribution_rows)
         segments = [
             "<section class='query'>",
             f"<h2>{query}</h2>",
             f"<p class='meta'>{kind} · {result_label}</p>",
             reason,
             f"<p class='scope'>Escopo SERP observado: {scope_text}</p>",
+            (
+                "<p class='scope'>Coletas físicas: SERP "
+                + _safe(entry.get("serp_collected_at")) + " · Search API "
+                + _safe(entry.get("external_run_started_at")) + "</p>"
+                if row_admissible and projection.get("contract_version") == "RASAI-GEO-PER-QUERY-304-ADVISORY-008"
+                else ""
+            ),
             (
                 "<p class='missing' data-contract='GEO-MARKET-COMPARABILITY-304'>"
                 "<strong>Comparabilidade externa não comprovada:</strong> "
@@ -201,7 +282,14 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
             if row_admissible else "N/D",
             "</p></div></div>",
             "<h3>Interseção de hosts observados (sem inferir concorrência)</h3>",
+            roster_html,
             "<table>", host_metrics_html, "</table>",
+            "<h3>Distribuição proporcional das URLs retornadas por fonte</h3>",
+            "<table>", distribution_html, "</table>",
+            "<p class='muted'>Denominador: URLs distintas efetivamente retornadas "
+            "por cada fonte, não número de buscas, impressões ou posições. "
+            "Porcentagens descritivas: NÃO são participação de mercado, "
+            "posição, citações generativas nem prova de equivalência SERP/Search API.</p>",
             "<h3>Alternativas ao hostname da URL auditada</h3>",
             "<table>", group_html, "</table>",
             "<p class='muted'>Hostname exato: www e apex não são equivalentes; "
@@ -210,9 +298,68 @@ def render_geo_query_ledger_html(projection: Mapping[str, Any]) -> str:
         ]
         snippets.append("".join(segments))
 
-    body = "\n".join(snippets) if snippets else (
+    # New recurrence is only a within-run multi-query descriptor. No
+    # numerical field can be shown on failed global source authentication.
+    recurrence = projection.get("recurrence")
+    recurrence_html = ""
+    if projection.get("contract_version") in {
+        "RASAI-GEO-PER-QUERY-304-ADVISORY-007",
+        "RASAI-GEO-PER-QUERY-304-ADVISORY-008",
+    }:
+        state = recurrence.get("status") if isinstance(recurrence, Mapping) else None
+        if not admissible or state == "NOT_COMPARABLE" or state is None:
+            recurrence_html = (
+                "<section class='query' data-contract='GEO-RECURRENCE-304'>"
+                "<h2>Recorrência entre consultas</h2>"
+                "<p>N/D — todas as consultas e escopos precisam ter fontes "
+                "e integridade verificáveis.</p></section>"
+            )
+        elif state == "NOT_APPLICABLE_SINGLE_QUERY":
+            recurrence_html = (
+                "<section class='query' data-contract='GEO-RECURRENCE-304'>"
+                "<h2>Recorrência entre consultas</h2>"
+                "<p>Não aplicável: somente uma consulta foi observada.</p></section>"
+            )
+        elif state == "OBSERVED_WITHIN_ONE_RUN":
+            fields = (
+                ("Consultas fisicamente comparadas", "verified_queries"),
+                ("URLs exatas recorrentes em SERP", "serp_recurrent_exact_urls"),
+                ("URLs exatas recorrentes em Search API", "external_recurrent_exact_urls"),
+                ("URLs recorrentes nas duas fontes", "cross_source_recurrent_exact_urls"),
+                ("Hostnames exatos recorrentes em SERP", "serp_recurrent_exact_hosts"),
+                ("Hostnames exatos recorrentes em Search API", "external_recurrent_exact_hosts"),
+                ("Hostnames recorrentes nas duas fontes", "cross_source_recurrent_exact_hosts"),
+                ("Hostnames recorrentes externos ao hostname auditado",
+                 "other_recurrent_cross_source_hosts"),
+            )
+            recurrence_html = (
+                "<section class='query' data-contract='GEO-RECURRENCE-304'>"
+                "<h2>Recorrência dentro do conjunto de consultas</h2><table>"
+                + "".join(
+                    _table_row([escape(label, quote=True), _count(recurrence.get(key))])
+                    for label, key in fields
+                )
+                + (
+                    _table_row([
+                        "Amplitude temporal entre observações SERP",
+                        _seconds(recurrence.get("serp_inter_query_span_seconds")),
+                    ])
+                    if projection.get("contract_version") == "RASAI-GEO-PER-QUERY-304-ADVISORY-008"
+                    else ""
+                )
+                + "</table><p class='muted'>Recorrente significa presença da "
+                "mesma identidade URL ou hostname em pelo menos duas consultas "
+                "do mesmo run com escopo SERP uniforme, intervalo SERP até 24h "
+                "e fonte por consulta "
+                "verificada. Não é recorrência longitudinal, participação "
+                "de mercado, concorrência factual, posição SERP, nem citação "
+                "gerativa. Escopo externo Search API e intenção seguem "
+                "não comprovados como equivalentes.</p></section>"
+            )
+
+    body = recurrence_html + ("\n".join(snippets) if snippets else (
         "<p class='missing'>N/D - nenhuma consulta com proveniência suficiente.</p>"
-    )
+    ))
     summary = (
         "Somente observações descritivas. Não equivale a citação gerativa."
         if admissible else "N/D - comparabilidade não demonstrada."

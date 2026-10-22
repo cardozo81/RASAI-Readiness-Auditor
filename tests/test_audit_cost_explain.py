@@ -162,3 +162,59 @@ def test_unrepresentable_cost_deviation_is_not_reported_as_infinite() -> None:
     )
     assert "amplitude não representável" in html
     assert "+inf%" not in html.lower()
+
+
+def test_optional_attempt_count_exceeding_total_cannot_be_reported_as_valid():
+    html = forecast_readout(
+        {"expected_cost": 0.1, "likely_low": 0.05, "likely_high": 0.2},
+        observed_total=0.12, priced_attempts=2, total_attempts=2,
+        optional_attempts=3,
+    )
+    assert "Contagens de tentativas inválidas" in html
+    assert "Posição do custo na faixa histórica: N/D" in html
+    assert "Há 3 tentativa" not in html
+    assert "Desvio frente à estimativa pontual" not in html
+
+
+def test_report_ai_stage_monetary_amounts_expose_denominators():
+    from rasai.catalog_report_site import _timeline_monetary_coverage
+
+    assert _timeline_monetary_coverage(0.0, 2, 2) == "0.000000 (2/2 tentativas)"
+    assert _timeline_monetary_coverage(0.25, 1, 3) == "0.250000 (1/3 tentativas)"
+    assert _timeline_monetary_coverage(0.0, 0, 3).startswith("N/D")
+    assert _timeline_monetary_coverage(1.0, 4, 3).startswith("N/D")
+
+
+def test_report_stage_monetary_readout_abstains_on_invalid_numeric_values():
+    from rasai.catalog_report_site import _timeline_monetary_coverage
+
+    for amount in (float("nan"), float("inf"), float("-inf"), -0.1, True, "0.2", None):
+        assert _timeline_monetary_coverage(amount, 1, 2) == (
+            "N/D (valor monetario invalido)"
+        )
+    for count, total in ((True, 2), (1, True), (-1, 2), (3, 2), (1, 0)):
+        assert _timeline_monetary_coverage(0.1, count, total) == (
+            "N/D (cobertura monetaria inconsistente)"
+        )
+    assert _timeline_monetary_coverage(0.0, 1, 1) == "0.000000 (1/1 tentativas)"
+
+
+@pytest.mark.parametrize("malformed", [[], "invalid", 1, True, (1, 2)])
+def test_malformed_forecast_container_does_not_break_report_or_invent_price(malformed):
+    html = forecast_readout(
+        malformed, observed_total=0.15, priced_attempts=2, total_attempts=2,
+    )
+    assert "Sem previsão financeira prévia persistida" in html
+    assert "dentro da faixa histórica provável" not in html
+
+
+@pytest.mark.parametrize("unverified", [None, 1, "true", [], {}])
+def test_currency_equivalence_must_be_explicit_true(unverified):
+    html = forecast_readout(
+        {"expected_cost": 0.1, "likely_low": 0, "likely_high": 0.3},
+        observed_total=0.15, priced_attempts=1, total_attempts=1,
+        comparable_currency=unverified,
+    )
+    assert "Moedas dos custos" in html
+    assert "Posição do custo na faixa histórica: N/D" in html
+    assert "Desvio frente à estimativa pontual" not in html

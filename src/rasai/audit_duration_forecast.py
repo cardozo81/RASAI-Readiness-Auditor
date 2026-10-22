@@ -246,15 +246,20 @@ def _m21_http_request_sums(conn: sqlite3.Connection, audit_id: str) -> dict[str,
             # Without a physical attempt key, summing requests may count
             # the same operation multiple times. Do not infer uniqueness.
             return {}
+        # A pathological ledger must not turn an advisory console preview
+        # into unbounded work or publish a silently truncated total.
         rows = conn.execute(
             "SELECT attempt_id, service, duration_ms "
-            "FROM web_performance_attempts WHERE audit_id=?",
+            "FROM web_performance_attempts WHERE audit_id=? LIMIT 10001",
             (audit_id,),
         )
+        observations = rows.fetchall()
+        if len(observations) > 10000:
+            return {}
         totals: dict[str, float] = {}
         rejected: set[str] = set()
         seen: dict[str, str] = {}
-        for attempt_id, service, duration in rows:
+        for attempt_id, service, duration in observations:
             name = str(service or "").strip().upper()
             if name not in {"PAGESPEED_INSIGHTS", "CRUX_API"}:
                 continue
@@ -585,6 +590,25 @@ def format_duration_preview(projection: AuditDurationForecast) -> tuple[str, ...
         lines.append(
             f"HTTP {stage.label}: tempo acumulado de requests, mediana "
             f"{seconds(stage.median_ms)} ({stage.sample_runs} AUDs; nao wall-clock)"
+        )
+    # Do not fabricate per-stage estimates from the total AUD wall clock.
+    # These phases have no independently comparable physical duration samples
+    # in the current projection, even when a total forecast exists.
+    if projection.http_request_stages:
+        # HTTP request sums are measured, but are not PageSpeed stage wall time.
+        lines.append(
+            "PageSpeed/CrUX: requests HTTP medidos acima quando houver "
+            "coorte comparavel; duracao wall-clock da fase = N/D. "
+            "Captura, Apdex, analise competitiva e geracao do relatorio "
+            "= N/D por fase. Nao distribuir o tempo total proporcionalmente "
+            "nem somar chamadas paralelas como duracao sequencial."
+        )
+    else:
+        lines.append(
+            "Fases sem previsao fisica independente: captura, PageSpeed, Apdex, "
+            "analise competitiva e geracao do relatorio = N/D por fase. "
+            "Nao distribuir o tempo total proporcionalmente nem somar tempos "
+            "de chamadas paralelas como duracao sequencial."
         )
     lines.extend(projection.notes)
     return tuple(lines)

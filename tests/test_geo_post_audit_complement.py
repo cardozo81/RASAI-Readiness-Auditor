@@ -961,7 +961,7 @@ def test_ledger_unknown_estimated_cost_cannot_be_published_as_zero():
 def test_supplement_html_links_reject_untrusted_provider_url_authorities(
     tmp_path, monkeypatch,
 ):
-    """Untrusted Search API URLs remain in evidence but are never clickable."""
+    """Reject an invalid URL authority at ingestion, before it reaches HTML."""
     workspace, aud = source(tmp_path, monkeypatch)
     initial = workspace.database.read_bytes()
     calls = []
@@ -975,7 +975,7 @@ def test_supplement_html_links_reject_untrusted_provider_url_authorities(
                 "results": [
                     {"url": "https://user:secret@attacker.example/hijack",
                      "title": "Com credencial", "snippet": "não vincular"},
-                    {"url": "https://safe.example\\@attacker.example/path",
+                    {"url": "https://safe.example\\\\@attacker.example/path",
                      "title": "Backslash", "snippet": "não vincular"},
                     {"url": "https://safe.example/real?x=1&y=2",
                      "title": "<b>fonte válida</b>", "snippet": "texto & evidência"},
@@ -992,21 +992,20 @@ def test_supplement_html_links_reject_untrusted_provider_url_authorities(
         },
         transport=malicious_sources_transport,
     )
+    # The provider parser now fails closed for unsafe URLs; an earlier
+    # expectation of SUCCESS and links from the same response is obsolete.
+    # Preserve the stricter production boundary rather than weakening it.
     result = run(workspace, **kwargs)
-    assert result.status == "SUCCESS"
+    assert result.status == "INVALID_RESPONSE"
     assert len(calls) == 1
     html = (result.directory / "supplement.html").read_text(encoding="utf-8")
-    assert html.count("<li><a href=") == 1
-    assert "href='https://safe.example/real?x=1&amp;y=2'" in html
-    assert "&lt;b&gt;fonte válida&lt;/b&gt;" in html
-    assert "texto &amp; evidência" in html
-    assert "user:secret@" not in html
+    assert "<li><a href=" not in html
     assert "attacker.example" not in html
+    assert "user:secret@" not in html
     saved = json.loads(
         (result.directory / "result.json").read_text(encoding="utf-8")
     )
-    assert len(saved["sources"]) == 3  # no tampering with provider evidence
-    again = run(workspace, **kwargs)
-    assert again.status == "ALREADY_RECORDED"
-    assert len(calls) == 1
+    assert saved["status"] == "INVALID_RESPONSE"
+    assert saved["sources"] == []
     assert workspace.database.read_bytes() == initial
+

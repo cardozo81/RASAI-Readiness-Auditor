@@ -319,6 +319,26 @@ def test_m21_http_request_totals_are_separate_from_audit_wall_clock(tmp_path):
     assert "HTTP PAGESPEED_INSIGHTS" in content
     assert "nao wall-clock" in content
     assert "NAO sao wall-clock" in content
+    assert "requests HTTP medidos acima" in content
+    assert "duracao wall-clock da fase = N/D" in content
+    assert "Captura, Apdex, analise competitiva" in content
+
+
+def test_m21_http_request_census_abstains_when_population_exceeds_limit(tmp_path):
+    from rasai.audit_duration_forecast import _m21_http_request_sums
+
+    database = tmp_path / "attempts.db"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "CREATE TABLE web_performance_attempts "
+            "(attempt_id TEXT, audit_id TEXT, service TEXT, duration_ms REAL)"
+        )
+        connection.executemany(
+            "INSERT INTO web_performance_attempts VALUES (?, ?, ?, ?)",
+            ((f"REQ-{i}", "AUD-1", "PAGESPEED_INSIGHTS", 10)
+             for i in range(10001))
+        )
+        assert _m21_http_request_sums(connection, "AUD-1") == {}
 
 
 def test_m21_http_request_abstains_from_missing_or_invalid_cohort_timings(tmp_path):
@@ -1071,3 +1091,22 @@ def test_web_page_budget_uses_exact_integer_identity(tmp_path):
     assert _strictly_comparable(state, config) is False
     config["web_max_pages"] = "9007199254740992"
     assert _strictly_comparable(state, config) is True
+
+
+def test_duration_preview_discloses_missing_non_ai_stage_forecasts_without_guessing():
+    from rasai.audit_duration_forecast import (
+        AuditDurationForecast, DurationRange, format_duration_preview,
+    )
+
+    total = DurationRange("TOTAL", 5, 800000.0, 750000.0, 900000.0, 1000000.0)
+    projection = AuditDurationForecast(
+        sample_runs=5, total=total, ai_stages=(), http_request_stages=(),
+    )
+    lines = format_duration_preview(projection)
+    assert any("Duracao total histor." in line for line in lines)
+    assert any(
+        "captura" in line and "PageSpeed" in line
+        and "Apdex" in line and "N/D por fase" in line
+        for line in lines
+    )
+    assert not any("mediana 0.0s" in line for line in lines)

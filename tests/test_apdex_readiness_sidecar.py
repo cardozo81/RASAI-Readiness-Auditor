@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 from hashlib import sha256
 from pathlib import Path
 import sqlite3
@@ -14,6 +15,7 @@ from rasai.apdex_content_readiness_observation import (
 from rasai.apdex_readiness_sidecar import (
     read_readiness_sidecar, write_readiness_sidecar,
 )
+from rasai.readiness_probe_cost_pilot import PrimaryContentProbeCost, VERSION as COST_VERSION
 
 
 @pytest.fixture(autouse=True)
@@ -263,3 +265,58 @@ def test_322_rehashed_ambiguous_json_is_not_trusted_sidecar(tmp_path, alteration
     with pytest.raises(ValueError, match="invalid sidecar encoding"):
         read_readiness_sidecar(source, forged)
     assert original.read_bytes().decode("utf-8") == payload
+
+def cost_for(point, **updates):
+    values = dict(
+        contract_version=COST_VERSION, observation=point,
+        number_of_dom_evaluations=2, total_dom_evaluation_ms=10.0,
+        maximum_dom_evaluation_ms=5.0, elapsed_probe_wall_ms=135.0,
+        measured_sleep_ms=125.0, active_probe_wall_ms=10.0,
+        evaluation_budget_ms=30.0, local_evaluation_budget_met=True,
+        integration_gate="PILOT_ONLY_REQUIRES_MATCHED_BASELINE_AND_GATEWAY_IDENTITY",
+        identity_proof="CALLER_DECLARED_NOT_ATTESTED_BY_M25",
+        source_page_reused=True, provider_requests=0, audit_writes=0,
+        apdex_changed=False,
+    )
+    values.update(updates)
+    return PrimaryContentProbeCost(**values)
+
+
+def test_bounded_cost_is_persisted_with_same_sample_without_changing_aud(tmp_path):
+    root = aud(tmp_path)
+    old = (root / "audit.db").read_bytes()
+    point = observed()
+    path = write_readiness_sidecar(root, point, probe_cost=cost_for(point))
+    obj = read_readiness_sidecar(root, path)
+    assert obj["probe_cost"]["active_probe_wall_ms"] == 10.0
+    assert obj["probe_cost"]["sample_id"] == point.sample_id
+    assert obj["measurement_provenance"] == "PRODUCER_DECLARED_SAME_SAMPLE"
+    assert (root / "audit.db").read_bytes() == old
+    assert write_readiness_sidecar(root, point) != path
+
+
+@pytest.mark.parametrize("overrides", [
+    {"observation": observed(sample_id="FOREIGN")},
+    {"provider_requests": 1},
+    {"apdex_changed": True},
+    {"active_probe_wall_ms": float("nan")},
+    {"maximum_dom_evaluation_ms": 900.0},
+])
+def test_cost_attached_to_unrelated_sample_or_unbounded_refuses(tmp_path, overrides):
+    point = observed()
+    root = aud(tmp_path)
+    with pytest.raises(ValueError):
+        write_readiness_sidecar(root, point, probe_cost=cost_for(point, **overrides))
+
+
+def test_rehashed_cost_identity_is_not_trusted(tmp_path):
+    root = aud(tmp_path)
+    point = observed()
+    path = write_readiness_sidecar(root, point, probe_cost=cost_for(point))
+    obj = json.loads(path.read_text(encoding="utf-8"))
+    obj["probe_cost"]["sample_id"] = "FORGED"
+    raw = (json.dumps(obj, sort_keys=True) + "\n").encode()
+    forged = path.parent / (sha256(raw).hexdigest() + ".json")
+    forged.write_bytes(raw)
+    with pytest.raises(ValueError, match="invalid sidecar encoding"):
+        read_readiness_sidecar(root, forged)

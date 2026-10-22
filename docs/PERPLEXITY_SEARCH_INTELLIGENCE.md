@@ -795,3 +795,28 @@ A opção **Salvar configuração** agora grava `[perplexity_draft]` com `querie
 O menu **CAT-05 > P > 9** apresenta rascunho e permite (R) solicitar explicitamente seu uso na AUD corrente, seguido dos gates financeiros já existentes, ou (C) apagar o rascunho na sessão e salvar a exclusão posteriormente. O modo selecionado no rascunho só é transferido ao estado de execução após confirmação afirmativa. Em nenhum cenário a restauração do INI reexecuta uma consulta ou recupera uma autorização antiga. Queries não são secrets técnicos, mas podem conter informação sensível: o arquivo local requer proteção adequada.
 
 Este contrato substitui descrições históricas de queries WEB/FAST estritamente não persistíveis; o pedido de execução continua transitório por segurança.
+
+
+### Identidade das consultas e custo antes da requisição (#304)
+
+O adaptador da Perplexity Search API agora valida a **coorte de consultas
+explicitamente solicitada antes de abrir SQLite ou fazer uma chamada
+faturável**: nenhuma entrada vazia é descartada silenciosamente, todas
+precisam ser strings sem controles, o máximo por consulta é 300 caracteres
+na forma normalizada e consultas repetidas após colapsar whitespace e
+`casefold` são recusadas. A normalização usual de espaços é preservada,
+mas nunca mascara uma duplicação ou perde uma das consultas solicitadas.
+O contrato de rastreabilidade do ledger GEO #304 utiliza a mesma identidade
+case-insensitive, permanecendo N/D para ausência de atribuição
+**por fonte retornada**: a validação da entrada não é prova de equivalência
+de mercado, dispositivo ou intenção, nem justifica adicionar queries
+à resposta do provedor por inferência. Nenhuma pesquisa é iniciada
+por esta regra de pré-validação.
+
+### Proveniência literal de URLs devolvidas (#304)
+
+URLs retornadas pela Search API não são reparadas por `strip()` ou `str()` antes de serem persistidas. Campos não textuais, controles, espaços nas bordas, credenciais embutidas, backslash e porta inválida convertem a resposta em `INVALID_RESPONSE`, sem inventar correspondência entre fonte e URL auditada. Uma resposta HTTP 200 poderá continuar faturável; a correção não simula cobrança zero. Consultas válidas preservam URLs originais e sua interpretação GEO permanece observacional, sem alegar citação em resposta generativa.
+
+### JSON da resposta Search API sem ambiguidade (#304)
+
+O decodificador de resposta de sucesso rejeita chaves JSON repetidas em qualquer objeto (inclusive no item de URL individual e seus metadados) e constantes numéricas não conformes como NaN/Infinity. Não escolhe silenciosamente o último `url` ou `results` e não persiste citação inventada por um parser last-key-wins. Resposta HTTP 200 inválida continua classificada `INVALID_RESPONSE` com tentativa potencialmente faturada; nenhum índice ou AUD histórica é regravado.

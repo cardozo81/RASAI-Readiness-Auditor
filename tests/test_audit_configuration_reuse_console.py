@@ -155,3 +155,499 @@ def test_loaded_ai_configuration_warns_when_current_credential_is_missing(monkey
     warnings = _dependency_warnings(state)
 
     assert any("IA/openai" in warning and "não configurada" in warning for warning in warnings)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("depth", float("inf")), ("depth", True),
+    ("max_content_pages", float("nan")), ("max_content_pages", True),
+    ("content_max_bytes", float("inf")), ("content_max_bytes", True),
+    ("content_max_redirects", float("nan")), ("content_max_redirects", False),
+])
+def test_invalid_historical_search_integer_keeps_current_setting(field, value) -> None:
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    name = {"depth": "search_depth", "max_content_pages": "search_max_content_pages",
+            "content_max_bytes": "search_content_max_bytes",
+            "content_max_redirects": "search_content_max_redirects"}[field]
+    previous = getattr(state, name)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {field: value}}, warnings)
+    assert getattr(state, name) == previous
+    assert any(field in warning for warning in warnings)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("depth", 1.5), ("depth", "1.5"), ("depth", "-1"),
+    ("max_content_pages", 2.9), ("max_content_pages", object()),
+    ("content_max_bytes", "1e6"), ("content_max_bytes", 1.2),
+    ("content_max_redirects", 0.5), ("content_max_redirects", "2.0"),
+])
+def test_historical_search_integer_rejects_fractional_or_coerced_value(field, value) -> None:
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    name = {"depth": "search_depth", "max_content_pages": "search_max_content_pages",
+            "content_max_bytes": "search_content_max_bytes",
+            "content_max_redirects": "search_content_max_redirects"}[field]
+    prior = getattr(state, name)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {field: value}}, warnings)
+    assert getattr(state, name) == prior
+    assert any(field in message for message in warnings)
+
+
+def test_historical_search_integer_accepts_exact_decimal_strings() -> None:
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "depth": "27", "max_content_pages": 4.0,
+        "content_max_bytes": "2000000", "content_max_redirects": "0",
+    }}, warnings)
+    assert not warnings
+    assert (state.search_depth, state.search_max_content_pages,
+            state.search_content_max_bytes, state.search_content_max_redirects) == (
+                27, 4, 2_000_000, 0,
+            )
+
+
+@pytest.mark.parametrize("queries", [
+    ["válida", None], ["válida", {"q": "other"}],
+    ["válida", 42], ["x" * 501], ["q"] * 101,
+    ["input\x00hidden"],
+])
+def test_invalid_historical_query_payload_does_not_erase_session(queries) -> None:
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("consulta existente",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {"queries": queries}}, warnings)
+    assert state.search_queries == ("consulta existente",)
+    assert any("search_intelligence.queries" in warning for warning in warnings)
+
+
+def test_historical_queries_remain_opt_in_and_deduplicated() -> None:
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("consulta anterior",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": True, "queries": ["  seguro   auto  ", "seguro auto", " previdência "],
+    }}, warnings)
+    assert not warnings
+    assert state.search_queries == ("seguro auto", "previdência")
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": False, "queries": ["seguro auto"],
+    }}, warnings)
+    assert state.search_queries == ()
+
+
+def test_historical_console_rejects_nonstr_targets_without_mutating_session() -> None:
+    state = State()
+    state.target = "https://example.com/original"
+    state.max_pages = 17
+    configuration = _export_settings(state, ("https://example.com/target",))
+    configuration["targets"] = [42]
+    with pytest.raises(ValueError, match="target não textual"):
+        _apply_settings(state, configuration, "AUD-SOURCE")
+    assert state.target == "https://example.com/original"
+    assert state.max_pages == 17
+
+
+@pytest.mark.parametrize("field,malformed", [
+    ("device", ["mobile"]), ("device", 123),
+    ("region", {"value": "BR"}), ("region", "x" * 201),
+    ("ymyl_mode", ["ON"]), ("ymyl_mode", 1),
+])
+def test_restored_search_text_fields_do_not_coerce_arbitrary_types(field, malformed):
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    key = {"device": "search_device", "region": "search_region",
+           "ymyl_mode": "search_ymyl_mode"}[field]
+    before = getattr(state, key)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {field: malformed}}, warnings)
+    assert getattr(state, key) == before
+    assert any(field in item for item in warnings)
+
+
+def test_restored_search_text_fields_accept_valid_values():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "device": " DESKTOP ", "region": " BR-RS ", "ymyl_mode": " on ",
+    }}, warnings)
+    assert not warnings
+    assert state.search_device == "desktop"
+    assert state.search_region == "BR-RS"
+    assert state.search_ymyl_mode == "ON"
+
+
+@pytest.mark.parametrize("invalid", [None, 1, 0, [], {}, "maybe", "2"])
+def test_invalid_historical_search_enabled_never_changes_operator_queries(invalid):
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("operador",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": invalid, "queries": ["consulta externa"],
+    }}, warnings)
+    assert state.search_queries == ("operador",)
+    assert any("search_intelligence.enabled" in warning for warning in warnings)
+
+
+@pytest.mark.parametrize("invalid", [True, False, float("nan"), float("inf"), -2])
+def test_invalid_historical_search_timeout_preserves_current_value(invalid):
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    before = state.search_content_timeout_seconds
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "content_timeout_seconds": invalid,
+    }}, warnings)
+    assert state.search_content_timeout_seconds == before
+    assert any("content_timeout_seconds" in warning for warning in warnings)
+
+
+def test_valid_historical_search_enabled_false_remains_explicit_opt_out():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("sessão",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": " false ", "queries": ["outra consulta"],
+    }}, warnings)
+    assert not state.search_queries
+    assert not warnings
+
+
+def test_configuration_round_trip_ini_then_historical_aud_snapshot(tmp_path, monkeypatch):
+    """Save, reopen fresh session, seal nonsecret execution inputs and reuse."""
+    from rasai.console_settings import save_console_config, load_console_config
+    source = SearchConsoleState()
+    source.audits_root = str(tmp_path / "audits")
+    source.target = "https://example.org/original"
+    source.project = "Roundtrip"
+    source.max_pages = 7
+    source.search_queries = ("  seguro auto ", "previdência")
+    source.search_depth = 18
+    source.search_device = "desktop"
+    source.search_region = "BR-RS"
+    source.search_compare_content = True
+    source.search_ai_competitive = False
+    ini = tmp_path / "rasai-console.ini"
+    save_console_config(source, ini)
+    assert ini.is_file()
+    fresh = SearchConsoleState()
+    loaded = load_console_config(fresh, ini)
+    assert not loaded.created
+    assert fresh.target == source.target
+    assert fresh.project == source.project
+    assert fresh.max_pages == source.max_pages
+    # Search queries remain execution-only in the console INI.
+    assert not fresh.search_queries
+    frozen = _export_settings(source, ("https://example.org/original",))
+    replacement = SearchConsoleState()
+    _apply_settings(replacement, frozen, "AUD-SOURCE")
+    assert replacement.target == source.target
+    assert replacement.search_queries == ("seguro auto", "previdência")
+    assert replacement.search_depth == source.search_depth
+    assert replacement.search_region == source.search_region
+    assert replacement.search_device == source.search_device
+    assert replacement.search_compare_content is True
+
+
+def test_corrupt_historical_console_section_is_rejected_without_mutation():
+    state = SearchConsoleState()
+    state.target = "https://current.example/"
+    snapshot = _export_settings(state, ("https://source.example/",))
+    snapshot["settings"]["console"] = []
+    with pytest.raises(ValueError, match="seção console válida"):
+        _apply_settings(state, snapshot, "AUD-SOURCE")
+    assert state.target == "https://current.example/"
+
+
+def test_historical_snapshot_without_console_section_remains_compatible(monkeypatch):
+    from rasai import console_settings
+    from types import SimpleNamespace
+    monkeypatch.setattr(console_settings, "_known_nonsecret_environment_names", lambda: ())
+    monkeypatch.setattr(console_settings, "_state_values", lambda state: {})
+    monkeypatch.setattr(console_settings, "sync_nonsecret_runtime_environment", lambda state: None)
+    state = SimpleNamespace(target="https://current.example", input_mode="file")
+    assert _apply_settings(state, {"settings": {}, "targets": ["https://legacy.example"]},
+                           "AUD-LEGACY") == ()
+    assert state.target == "https://legacy.example"
+    assert state.input_mode == "url"
+
+
+def test_explicitly_malformed_console_section_still_rejected():
+    state = SearchConsoleState()
+    original = state.target
+    config = {"settings": {"console": []}, "targets": ["https://example.org"]}
+    with pytest.raises(ValueError, match="seção console válida"):
+        _apply_settings(state, config, "AUD-BAD")
+    assert state.target == original
+
+
+@pytest.mark.parametrize("field", ["competitive", "compare_content", "ai_competitive"])
+@pytest.mark.parametrize("invalid", [None, 2, [], {}, "maybe"])
+def test_historical_search_boolean_flags_reject_unsafe_coercion(field, invalid):
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    attribute = "search_" + field
+    previous = getattr(state, attribute)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {field: invalid}}, warnings)
+    assert getattr(state, attribute) is previous
+    assert any("search_intelligence." + field in note for note in warnings)
+
+
+def test_historical_search_boolean_flags_restore_only_explicit_values():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "competitive": "false", "compare_content": "true",
+        "ai_competitive": "true",
+    }}, warnings)
+    assert not warnings
+    assert state.search_competitive is False
+    assert state.search_compare_content is True
+    assert state.search_ai_competitive is True
+
+
+def test_legacy_search_snapshot_without_queries_preserves_operator_inputs():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("manual operator query",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "depth": 21, "region": "BR",
+    }}, warnings)
+    assert not warnings
+    assert state.search_queries == ("manual operator query",)
+    assert state.search_depth == 21
+    assert state.search_region == "BR"
+
+
+def test_legacy_explicit_disable_clears_queries_even_without_list():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("manual operator query",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": False, "depth": 16,
+    }}, warnings)
+    assert not warnings
+    assert state.search_queries == ()
+    assert state.search_depth == 16
+
+
+def test_legacy_enabled_true_without_queries_does_not_activate_old_queries():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ()
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": True, "device": "desktop",
+    }}, warnings)
+    assert state.search_queries == ()
+    assert state.search_device == "desktop"
+    assert not warnings
+
+
+def test_historical_query_validator_rejects_actual_nul_not_literal_escape():
+    from rasai.audit_configuration_reuse_console import _apply_search_settings
+    state = SearchConsoleState()
+    state.search_queries = ("operator value",)
+    warnings = []
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": True, "queries": ["unsafe" + chr(0) + "value"],
+    }}, warnings)
+    assert state.search_queries == ("operator value",)
+    assert any("queries" in item for item in warnings)
+    warnings.clear()
+    _apply_search_settings(state, {"search_intelligence": {
+        "enabled": True, "queries": [r"literal\\x00 is safe"],
+    }}, warnings)
+    assert not warnings
+    assert state.search_queries == (r"literal\\x00 is safe",)
+
+
+@pytest.mark.parametrize("bad_name,bad_value", [
+    ("RASAI_GSC_SEARCH_MAX_ROWS", "50001"),
+    ("RASAI_GSC_SEARCH_ANALYTICS_DAYS", "32"),
+    ("RASAI_GSC_FINAL_DATA_LAG_DAYS", "31"),
+    ("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL",
+     "https://operator:PRIVATE_SECRET@shop.example.org/?token=DO_NOT_SHOW"),
+    ("RASAI_GSC_ENABLED", "maybe"),
+])
+def test_523_reused_aud_gsc_policy_rejected_before_session_mutation(
+    bad_name, bad_value, monkeypatch,
+):
+    """A historical AUD cannot bypass the current saved-INI GSC policy."""
+    from rasai import console_settings
+    from rasai.audit_configuration_reuse_console import _apply_settings
+
+    monkeypatch.setenv("RASAI_GSC_ENABLED", "false")
+    monkeypatch.setenv("RASAI_GSC_SEARCH_MAX_ROWS", "7")
+    old_env = dict(__import__("os").environ)
+    state = SearchConsoleState()
+    state.target = "https://existing.example/"
+    state.project = "CURRENT"
+    state.max_pages = 11
+    snapshot = {
+        "settings": {
+            "console": {"max_pages": "99", "target": "https://bad.example/"},
+            "environment": {
+                "RASAI_GSC_ENABLED": "true",
+                bad_name: bad_value,
+            },
+        },
+        "targets": ["https://new.example/"],
+    }
+    with pytest.raises(ValueError, match="environment\\.|sensível"):
+        _apply_settings(state, snapshot, "AUD-HISTORICAL")
+    assert state.target == "https://existing.example/"
+    assert state.project == "CURRENT"
+    assert state.max_pages == 11
+    assert dict(__import__("os").environ) == old_env
+    assert "PRIVATE_SECRET" not in repr(snapshot["settings"]["console"])
+
+
+@pytest.mark.parametrize("secret_name", [
+    "PERPLEXITY_API_KEY", "DYNATRACE_API_TOKEN",
+    "RASAI_GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN",
+])
+def test_523_legacy_snapshot_secret_cannot_leak_into_new_session(
+    secret_name, monkeypatch,
+):
+    from rasai.audit_configuration_reuse_console import _apply_settings
+    import os
+    state = SearchConsoleState()
+    state.target = "https://current.example/"
+    old_environment = dict(os.environ)
+    snapshot = {
+        "settings": {
+            "environment": {secret_name: "PRIVATE_SNAPSHOT_TOKEN"},
+            "ai": {"provider": "none"},
+        },
+        "targets": ["https://new.example/"],
+    }
+    with pytest.raises(ValueError) as error:
+        _apply_settings(state, snapshot, "AUD-LEGACY")
+    assert "PRIVATE_SNAPSHOT_TOKEN" not in str(error.value)
+    assert secret_name not in str(error.value)
+    assert state.target == "https://current.example/"
+    assert dict(os.environ) == old_environment
+
+
+def test_523_valid_historical_gsc_configuration_restores_after_preview(
+    monkeypatch,
+):
+    import os
+    from rasai.audit_configuration_reuse_console import (
+        _apply_settings, _export_settings,
+    )
+    from rasai import console_settings
+
+    original = SearchConsoleState()
+    original.target = "https://shop.example.org/store"
+    original.apdex_experience_architecture = "CSR_SPA"
+    original.apdex_experience_profile_mode = "DYNATRACE_GUIDED"
+    original.apdex_experience_xhr_capture = False
+    original.apdex_experience_fetch_capture = True
+    original.apdex_experience_max_error_details = 9
+    original.apdex_experience_satisfied = 2.5
+    original.apdex_experience_frustrated = 9.0
+
+    with monkeypatch.context() as scope:
+        scope.setenv("RASAI_GSC_ENABLED", "true")
+        scope.setenv("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL", "sc-domain:example.org")
+        scope.setenv("RASAI_GSC_SEARCH_MAX_ROWS", "42")
+        scope.setenv("RASAI_GSC_SEARCH_ANALYTICS_DAYS", "0")
+        scope.setenv("RASAI_GSC_FINAL_DATA_LAG_DAYS", "0")
+        initial_environment = dict(os.environ)
+        snapshot = _export_settings(original, ("https://shop.example.org/store",))
+        assert dict(os.environ) == initial_environment
+        assert "PERPLEXITY_API_KEY" not in str(snapshot)
+        replacement = SearchConsoleState()
+        replacement.target = "https://unrelated.example/"
+        warnings = _apply_settings(replacement, snapshot, "AUD-SOURCE")
+        assert not warnings
+        assert replacement.target == "https://shop.example.org/store"
+        assert replacement.apdex_experience_architecture == "CSR_SPA"
+        assert replacement.apdex_experience_profile_mode == "DYNATRACE_GUIDED"
+        assert replacement.apdex_experience_xhr_capture is False
+        assert replacement.apdex_experience_fetch_capture is True
+        assert replacement.apdex_experience_max_error_details == 9
+        assert replacement.apdex_experience_satisfied == 2.5
+        assert replacement.apdex_experience_frustrated == 9.0
+        assert os.environ["RASAI_GSC_ENABLED"] == "true"
+        assert os.environ["RASAI_GSC_SEARCH_MAX_ROWS"] == "42"
+        assert os.environ["RASAI_GSC_SEARCH_ANALYTICS_DAYS"] == "0"
+        assert os.environ["RASAI_GSC_FINAL_DATA_LAG_DAYS"] == "0"
+        assert os.environ["RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL"] == "sc-domain:example.org"
+
+
+def test_523_invalid_gsc_export_cannot_become_new_aud_snapshot(monkeypatch):
+    import os
+    from rasai.audit_configuration_reuse_console import _export_settings
+
+    state = SearchConsoleState()
+    monkeypatch.setenv("RASAI_GSC_SEARCH_MAX_ROWS", "50001")
+    before = dict(os.environ)
+    with pytest.raises(ValueError, match="environment\\.RASAI_GSC_SEARCH_MAX_ROWS"):
+        _export_settings(state, ("https://example.org/",))
+    assert dict(os.environ) == before
+
+
+def test_523_reused_snapshot_rejects_nested_dynatrace_secret_before_mutation(
+    monkeypatch,
+):
+    """Sealed old snapshots must not restore credential-bearing offline JSON."""
+    import os
+    state = SearchConsoleState()
+    state.target = "https://still-current.example/"
+    state.apdex_experience_architecture = "AUTO"
+    initial_environment = dict(os.environ)
+    snapshot = {
+        "settings": {
+            "console": {"target": "https://source.example/"},
+            "synthetic_apdex_experience": {
+                "architecture": "CSR_SPA",
+                "dynatrace_config_json": json.dumps({
+                    "application": {"credential": {"api_key": "NEVER_ECHO"}},
+                }),
+            },
+        },
+        "targets": ["https://source.example/"],
+    }
+    with pytest.raises(ValueError) as err:
+        _apply_settings(state, snapshot, "AUD-SEALED-OLD")
+    assert "NEVER_ECHO" not in str(err.value)
+    assert "api_key" not in str(err.value)
+    assert state.target == "https://still-current.example/"
+    assert state.apdex_experience_architecture == "AUTO"
+    assert dict(os.environ) == initial_environment
+
+
+def test_523_reused_snapshot_rejects_secret_named_typed_field(monkeypatch):
+    import os
+    state = SearchConsoleState()
+    state.target = "https://current.example/"
+    prior = dict(os.environ)
+    payload = {
+        "settings": {
+            "synthetic_apdex_experience": {
+                "dynatrace_api_token": "HISTORICAL_CREDENTIAL",
+            }
+        },
+        "targets": ["https://source.example/"],
+    }
+    with pytest.raises(ValueError) as err:
+        _apply_settings(state, payload, "AUD-OLD")
+    assert "dynatrace_api_token" not in str(err.value)
+    assert "HISTORICAL_CREDENTIAL" not in str(err.value)
+    assert state.target == "https://current.example/"
+    assert dict(os.environ) == prior

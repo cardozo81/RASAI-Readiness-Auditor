@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from rasai.acquisition import HttpAcquisitionResult
 from rasai.discovery import DiscoveredPage, DiscoveryResult, RobotsResult, RobotsState
@@ -23,6 +24,7 @@ from rasai.domain import (
     new_id,
 )
 from rasai.javascript_spa import JavascriptSpaAnalyzer
+from rasai.architecture_discovery import assess_architecture
 from rasai.m2 import M2ExecutionResult
 from rasai.m3 import M3ExecutionResult
 from rasai.m4 import M4ExecutionResult
@@ -152,11 +154,15 @@ class M6JavascriptSpaTests(unittest.TestCase):
                     prior_ids.append(execution.rule_execution_id)
                 m5 = M5ExecutionResult(tuple(prior_ids), (), tuple(f"BR-GEO-{i:03d}" for i in range(1, 19)))
 
-                result = execute_m6(
-                    audit_id=audit_id, m2_result=m2, m3_result=m3, m4_result=m4,
-                    m5_result=m5, persistence=persistence, workspace=workspace,
-                    lazy_probe=lambda _url, _device: self.fail("lazy probe must not run without lazy signals"),
-                )
+                with patch("rasai.m6.assess_architecture", wraps=assess_architecture) as shared:
+                    result = execute_m6(
+                        audit_id=audit_id, m2_result=m2, m3_result=m3, m4_result=m4,
+                        m5_result=m5, persistence=persistence, workspace=workspace,
+                        lazy_probe=lambda _url, _device: self.fail("lazy probe must not run without lazy signals"),
+                    )
+                    shared.assert_called_once()
+                    self.assertEqual(shared.call_args.kwargs["raw_html"], raw)
+                    self.assertEqual(shared.call_args.kwargs["rendered_html"], rendered)
 
                 self.assertEqual(result.architecture_by_snapshot[snapshot.snapshot_id], ArchitectureClassification.CSR_SPA)
                 executions = [persistence.rule_executions.get(item) for item in result.rule_execution_ids]

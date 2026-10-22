@@ -61,6 +61,23 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertIn("<strong>Indisponível</strong>", rendered)
         self.assertIn("<span class='badge'>Concluído</span>", rendered)
 
+    def test_600_sari_public_acronym_survives_methodology_humanization(self) -> None:
+        raw = (
+            "<table><tr><td>SARI</td><td>NOT_CONSOLIDATED</td></tr></table>"
+            "<strong>SARI</strong><span>SARI</span>"
+            "<p>O SARI não equivale a nota Lighthouse.</p>"
+            "<td>UNMAPPED_INTERNAL_ENUM</td>"
+        )
+        visible = humanize_report_html(raw, page_name="methodology.html")
+        self.assertIn("<td>SARI</td>", visible)
+        self.assertIn("<strong>SARI</strong>", visible)
+        self.assertIn("<span>SARI</span>", visible)
+        self.assertIn("O SARI não equivale a nota Lighthouse.", visible)
+        self.assertIn("<td>Não consolidado</td>", visible)
+        # Do not relax unknown-enum presentation just to preserve this acronym.
+        self.assertIn("<td>Condição técnica não catalogada</td>", visible)
+        self.assertEqual(visible, humanize_report_html(visible, page_name="methodology.html"))
+
     def test_preserves_technical_identifiers_and_diagnostic_content(self) -> None:
         html = (
             "<p>Estado persistido: UNAVAILABLE.</p>"

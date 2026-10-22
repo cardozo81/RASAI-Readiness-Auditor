@@ -1,25 +1,40 @@
 # Método de Pontuação de Prontidão
 
 **Versão pública:** **001**  
-**Contrato técnico:** `SCORE-GEO-004`  
+**Contrato técnico vigente para novas auditorias:** `SCORE-GEO-005`  
 **Índice associado:** **Search & AI Readiness Index - Índice de Prontidão Search & IA** · ID técnico `SARI-001`
 
 O **Método de Pontuação de Prontidão** é a metodologia vigente do RASAi para transformar resultados de regras aplicáveis e evidências persistidas em grupos, dimensões e resultado agregado.
 
 ## Estado do contrato
 
-A apresentação pública deste método inicia na versão **001**. O identificador técnico `SCORE-GEO-004` permanece inalterado para reprodutibilidade, comparabilidade e rastreabilidade.
+A apresentação pública deste método inicia na versão **001**. O método `SCORE-GEO-005` aplica ausência opcional comprovada como `NOT_APPLICABLE`, sem bônus `PASS`. O replay da amostra de testes que usou `SCORE-GEO-004` mantém sua versão e seus valores; nenhuma AUD é reescrita.
 
 Contrato vigente:
 
 ```text
-SCORING_VERSION              SCORE-GEO-004
+SCORING_VERSION              SCORE-GEO-005
 OVERALL_AGGREGATION_VERSION HIERARCHICAL_WEIGHTED_READINESS_V1
 DIMENSION_WEIGHT_VERSION     SARI_DIMENSION_WEIGHTS_V1
 GROUP_WEIGHT_VERSION         SARI_GROUP_WEIGHTS_V1
 CRITICAL_GATE_VERSION        SARI_CRITICAL_GATES_V1
 MEASUREMENT_CONFIDENCE       WEIGHTED_MEASUREMENT_CONFIDENCE_V1
 ```
+
+## Mudança versionada #602: sinais SEO opcionais
+
+Em novas auditorias, ausência isolada e realmente observada de robots.txt,
+canonical ou sitemap consultado não é prova de deficiência de indexação.
+O SCORE-GEO-005 interpreta BR-GEO-003/013/017 como NOT_APPLICABLE
+**somente quando** `classify_seo_evidence` demonstra `OPTIONAL_ABSENCE`.
+Não concede PASS, não estima sucesso em busca e não neutraliza
+conflitos, sitemap inválido nem bloqueios BR-GEO-018.
+
+O resultado motor de regras deterministicas permanece prova original, com regra/versão própria.
+Pesos e agregação não mudam, mas a aplicabilidade altera denominador,
+cobertura e eventual readiness; scores da versão 004 não são comparáveis
+numericamente sem explicação metodológica. A política está registrada em
+[ADR_OPTIONAL_SEO_SCORING.md](ADR_OPTIONAL_SEO_SCORING.md).
 
 ## Objetivo
 

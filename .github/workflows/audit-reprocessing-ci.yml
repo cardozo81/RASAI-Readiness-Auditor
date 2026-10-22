@@ -5,6 +5,7 @@ on:
     branches:
       - main
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'src/rasai/audit_fulfillment.py'
       - 'src/rasai/audit_fulfillment_runtime.py'
@@ -111,8 +112,57 @@ on:
 permissions:
   contents: read
 
+# Cancel obsolete runs when several commits arrive in the same PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  change-scope:
+    name: Determine incremental regression scope
+    runs-on: ubuntu-latest
+    outputs:
+      run_full: ${{ steps.scope.outputs.run_full }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # PR default checkout is a synthetic merge commit; compare real head SHAs.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Determine whether this incremental update affects fulfillment
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          PREVIOUS_SHA: ${{ github.event.before }}
+        run: |
+          # Main, manual, newly opened/reopened and ready-for-review always
+          # run the full gate; only proven narrow PR synchronize edits skip.
+          echo "run_full=true" >> "$GITHUB_OUTPUT"
+          if [[ "$EVENT_NAME" != "pull_request" || "$EVENT_ACTION" != "synchronize" ]]; then
+            exit 0
+          fi
+          if [[ ! "$PREVIOUS_SHA" =~ ^[0-9a-f]{40}$ ]] || ! git cat-file -e "$PREVIOUS_SHA^{commit}" 2>/dev/null; then
+            exit 0
+          fi
+          git diff --name-only "$PREVIOUS_SHA" HEAD > "$RUNNER_TEMP/changed-files.txt"
+          if [[ ! -s "$RUNNER_TEMP/changed-files.txt" ]]; then
+            exit 0
+          fi
+          # The forecast is read-only and independent of fulfillment/RPR.
+          # Unrecognized files default to a full run, never a silent skip.
+          while IFS= read -r file; do
+            case "$file" in
+              src/rasai/audit_duration_forecast.py|tests/test_audit_duration_forecast.py)
+                ;;
+              *) exit 0 ;;
+            esac
+          done < "$RUNNER_TEMP/changed-files.txt"
+          echo "run_full=false" >> "$GITHUB_OUTPUT"
   windows-local-runtime:
+    needs: change-scope
+    if: needs.change-scope.outputs.run_full == 'true'
     name: Windows local runtime / console contract
     runs-on: windows-latest
     timeout-minutes: 30
@@ -141,6 +191,8 @@ jobs:
           python -m rasai.entrypoint reprocess --help
 
   linux-saas-runtime:
+    needs: change-scope
+    if: needs.change-scope.outputs.run_full == 'true'
     name: Linux SaaS / control-plane contract
     runs-on: ubuntu-latest
     timeout-minutes: 30

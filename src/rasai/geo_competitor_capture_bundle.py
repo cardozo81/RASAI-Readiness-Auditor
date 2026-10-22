@@ -18,6 +18,7 @@ import tempfile
 from typing import Any, Sequence
 
 from rasai.geo_competitor_fetch import inspect_consented_public_html
+from rasai.geo_competitor_consent import check_local_consent
 from rasai.geo_observation import _canonical_url
 from rasai.search_intelligence.content import PublicWebFetcher
 
@@ -25,21 +26,39 @@ _MAX_SOURCE_DB_BYTES = 256 * 1024 * 1024
 
 
 def _physical_digest(source: Path) -> str:
-    if source.stat().st_size > _MAX_SOURCE_DB_BYTES:
+    """Hash stable source bytes and reject same-size replacement during reading."""
+    if source.is_symlink() or not source.is_file():
+        raise ValueError("unsafe AUD source")
+    before = source.stat()
+    if before.st_size > _MAX_SOURCE_DB_BYTES:
         raise ValueError("AUD source exceeds bounded verification size")
-    hash_ = sha256()
+    digest = sha256()
     consumed = 0
     with source.open("rb") as handle:
+        try:
+            opened = os.fstat(handle.fileno())
+        except (OSError, ValueError, AttributeError):
+            # Synthetic input streams still undergo byte budgeting and size
+            # validation; they cannot attest descriptor identity.
+            opened = None
         for segment in iter(lambda: handle.read(1024 * 1024), b""):
             consumed += len(segment)
             if consumed > _MAX_SOURCE_DB_BYTES:
                 raise ValueError("AUD source grew beyond bounded verification size")
-            hash_.update(segment)
-    # A stat alone cannot attest a stable file: detect growth or truncation
-    # during either SHA-256 pass, not only a mismatch between the two passes.
-    if consumed != source.stat().st_size:
+            digest.update(segment)
+    after = source.stat()
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if os.name != "nt":
+        fields += ("st_ctime_ns",)
+    if consumed != before.st_size:
         raise ValueError("AUD source changed size during digest")
-    return hash_.hexdigest()
+    if (
+        opened is None or source.is_symlink()
+        or any(getattr(before, field) != getattr(observed, field)
+               for observed in (opened, after) for field in fields)
+    ):
+        raise ValueError("AUD source changed during digest")
+    return digest.hexdigest()
 
 
 def _assert_aud_still_sealed(source: Path, digest: str) -> None:
@@ -77,6 +96,10 @@ def capture_competitor_sidecar(
     consented_operations: Sequence[str] = (),
     fetcher: PublicWebFetcher | None = None,
     role: str = "COMPETITOR_CANDIDATE",
+    consent_registry: Path | None = None,
+    offline_inline_js_replay: bool = False,
+    replay_device: str | None = None,
+    offline_resource_bundle: Path | None = None,
 ) -> dict[str, Any]:
     """Produce immutable offline-review evidence from authorized public HTML.
 
@@ -84,6 +107,12 @@ def capture_competitor_sidecar(
     SERP result and exact observation. An in-flight AUD change invalidates
     provenance, including when the fetch itself is otherwise successful.
     """
+    if type(offline_inline_js_replay) is not bool:
+        raise ValueError("offline replay opt-in must be boolean")
+    if offline_inline_js_replay and replay_device not in {"desktop", "mobile"}:
+        raise ValueError("explicit replay device required for opt-in")
+    if offline_resource_bundle is not None and not offline_inline_js_replay:
+        raise ValueError("offline bundle requires isolated replay opt-in")
     if role not in {"CUSTOMER", "COMPETITOR_CANDIDATE"}:
         raise ValueError("explicit supported capture role required")
     audit_dir = Path(audit_dir)
@@ -223,6 +252,12 @@ def capture_competitor_sidecar(
         consent_purpose=consent_purpose,
         consented_operations=consented_operations,
         fetcher=fetcher,
+        **({"offline_inline_js_replay": True,
+            "replay_device": replay_device,
+            **({"offline_resource_bundle": offline_resource_bundle}
+               if offline_resource_bundle is not None else {})}
+           if offline_inline_js_replay else {}),
+        **({"consent_registry": consent_registry} if consent_registry is not None else {}),
     )
     # This check MUST run even if robots/HTTP returned an unobserved
     # status: otherwise an intervening AUD write is hidden as NOT_CAPTURED.
@@ -238,6 +273,17 @@ def capture_competitor_sidecar(
             "provider_requests": capture.get("provider_requests", 0),
             "content_comparison_eligible": False,
         }
+    if consent_registry is not None:
+        from urllib.parse import urlsplit
+        try:
+            active = check_local_consent(
+                consent_registry, hostname=urlsplit(candidate).hostname,
+                role=role, purpose=consent_purpose,
+            )
+        except (ValueError, OSError) as exc:
+            raise ValueError("local consent changed after HTML acquisition") from exc
+        if active is None or active != capture.get("local_consent_event_sha256"):
+            raise ValueError("local consent revoked before evidence publication")
     if capture.get("final_url") != candidate:
         raise ValueError("final fetched URL disagrees with authorized source")
     if (capture.get("requested_url") != candidate
@@ -344,8 +390,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--consent-operation", action="append",
         choices=("GET_ROBOTS_TXT", "GET_STATIC_HTML"),
     )
+    parser.add_argument("--consent-registry", type=Path,
+                        help="optional revocable local grant ledger")
     parser.add_argument("--allow-public-html-requests", action="store_true")
+    parser.add_argument("--offline-inline-js-replay", action="store_true",
+                        help="OCI sem rede, somente JS inline da pagina estatica")
+    parser.add_argument("--replay-device", choices=("desktop", "mobile"))
+    parser.add_argument("--offline-resource-bundle", type=Path,
+                        help="recursos locais ja obtidos; nunca nova coleta")
     args = parser.parse_args(argv)
+    if args.offline_inline_js_replay and args.replay_device is None:
+        parser.error("--replay-device required for offline inline JS replay")
+    if args.offline_resource_bundle is not None and not args.offline_inline_js_replay:
+        parser.error("--offline-resource-bundle requires replay opt-in")
     if not args.allow_public_html_requests:
         parser.error("explicit --allow-public-html-requests is required")
     expected_purpose = (
@@ -367,6 +424,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             role=args.capture_role,
             consent_purpose=args.consent_purpose,
             consented_operations=args.consent_operation,
+            **({"offline_inline_js_replay": True,
+                "replay_device": args.replay_device,
+                **({"offline_resource_bundle": args.offline_resource_bundle}
+                   if args.offline_resource_bundle is not None else {})}
+               if args.offline_inline_js_replay else {}),
+            **({"consent_registry": args.consent_registry}
+              if args.consent_registry is not None else {}),
         )
     except ValueError as exc:
         parser.error(str(exc))

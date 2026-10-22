@@ -16,6 +16,7 @@ import sqlite3
 from urllib.parse import urlsplit
 
 from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
+from rasai.geo_query_ledger_report import geo_query_advisory_html
 
 
 def _host(url: str) -> str:
@@ -711,6 +712,10 @@ def geo_body(database: Path, audit_id: str) -> str:
                         "com a busca externa (inclusive intenção): "
                         "<strong>não comprovada</strong>.</p>")
     summary += "</section>"
+    # #304: publish a bounded, sealed, query-attributed *observational* readout.
+    # The standalone ledger owns provenance and abstention; this report never
+    # makes a provider request or promotes overlap to market/intent equivalence.
+    summary += geo_query_advisory_html(database, audit_id)
     if comparison:
         target = comparison.get("target_observation") or {}
         status = str(target.get("status") or "UNAVAILABLE")

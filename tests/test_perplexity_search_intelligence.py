@@ -443,3 +443,106 @@ def test_scoped_search_rejects_invalid_options_without_transport(tmp_path) -> No
             transport=forbidden,
         )
 
+
+@pytest.mark.parametrize("query", [
+    ("brand", " BRAND "),
+    ("one", ""),
+    ("one", None),
+    ("one", 42),
+    "not\nvalid",
+    ("one", "two\tbad"),
+    "x" * 301,
+    (),
+])
+def test_perplexity_query_identity_rejects_noncanonical_cohort_before_cost_or_write(
+    tmp_path, query,
+):
+    """#304: reject ambiguous paid queries before repository or HTTP changes."""
+    workspace = _workspace(tmp_path)
+    original = workspace.database.read_bytes()
+    calls = []
+
+    def forbidden(*args):
+        calls.append(args)
+        raise AssertionError("No request is allowed for an invalid cohort")
+
+    with pytest.raises(ValueError, match="quer|query|Query|Perplexity"):
+        execute_perplexity_search(
+            workspace, audit_id=AUDIT_ID, query=query,
+            env={API_KEY_ENV: "TEST_ONLY_PERPLEXITY_KEY"},
+            transport=forbidden,
+        )
+    assert not calls
+    assert workspace.database.read_bytes() == original
+
+
+def test_perplexity_query_identity_preserves_distinct_explicit_queries(tmp_path):
+    workspace = _workspace(tmp_path)
+    queries_seen = []
+
+    def transport(_url, _headers, body, _timeout):
+        queries_seen.append(json.loads(body)["query"])
+        return PerplexityHttpResponse(200, {}, b'{"results":[]}')
+
+    run = execute_perplexity_search(
+        workspace, audit_id=AUDIT_ID,
+        query=("  brand   insurance  ", "nonbrand insurance"),
+        env={API_KEY_ENV: "TEST_ONLY_PERPLEXITY_KEY"},
+        transport=transport,
+    )
+    assert run.status == "SUCCESS"
+    assert run.queries == ("brand insurance", "nonbrand insurance")
+    assert queries_seen == [["brand insurance", "nonbrand insurance"]]
+    assert len(_db_rows(
+        workspace, "SELECT run_id FROM perplexity_search_runs "
+        "WHERE run_id='" + run.run_id + "'",
+    )) == 1
+
+
+@pytest.mark.parametrize("invalid_url", [
+    " https://example.org/a",
+    "https://example.org/a ",
+    "https://@example.org/a",
+    "https://user@example.org/a",
+    "https://exa\\mple.org/a",
+    "https://example.org:0/a",
+    "https://example.org:invalid/a",
+    "https://examp\nle.org/a",
+    42,
+])
+def test_304_provider_source_url_is_not_silently_repaired(tmp_path, invalid_url):
+    """A paid response may be invalid; never store a sanitized counterfeit URL."""
+    workspace = _workspace(tmp_path)
+    def response(*_args):
+        return PerplexityHttpResponse(200, {}, json.dumps({
+            "results": [{"url": invalid_url, "title": "provider result"}],
+        }).encode("utf-8"))
+    run = execute_perplexity_search(
+        workspace, audit_id=AUDIT_ID, query="legitimate query",
+        env={API_KEY_ENV: "TEST_ONLY_PERPLEXITY_KEY"}, transport=response,
+    )
+    assert run.status == "INVALID_RESPONSE"
+    assert run.sources == ()
+    assert run.native_usage[0].billable is True
+    assert _db_rows(workspace, "SELECT * FROM perplexity_search_sources") == []
+
+
+@pytest.mark.parametrize("provider_json", [
+    '{"results":[{"url":"https://example.org/a","url":"https://other.org/b"}]}',
+    '{"results":[],"results":[{"url":"https://other.org/b"}]}',
+    '{"results":[{"url":"https://example.org/a","metadata":{"scope":1,"scope":2}}]}',
+    '{"results":[{"url":"https://example.org/a","signal":NaN}]}',
+    '{"results":[{"url":"https://example.org/a","signal":Infinity}]}',
+])
+def test_304_provider_ambiguous_json_never_becomes_citable_source(tmp_path, provider_json):
+    workspace = _workspace(tmp_path)
+    def transport(*_args):
+        return PerplexityHttpResponse(200, {}, provider_json.encode("utf-8"))
+    run = execute_perplexity_search(
+        workspace, audit_id=AUDIT_ID, query="legitimate",
+        env={API_KEY_ENV: "TEST_ONLY_PERPLEXITY_KEY"}, transport=transport,
+    )
+    assert run.status == "INVALID_RESPONSE"
+    assert run.native_usage[0].billable is True
+    assert run.sources == ()
+    assert _db_rows(workspace, "SELECT * FROM perplexity_search_sources") == []

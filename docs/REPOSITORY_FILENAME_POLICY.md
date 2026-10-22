@@ -108,3 +108,86 @@ versionados do operador, imports dinâmicos de terceiros ou clientes externos.
 O inventário por padrão de nomes não comprova ausência de nomes opacos que
 não correspondam à regex. Uma issue de migração só poderá ser fechada após
 reconciliar expressamente essas fronteiras e os critérios de aceite integrais.
+
+## Estado verificável da árvore completa
+
+A verificação independente pela GitHub Git Trees API no HEAD
+`98c73e95f46fe68670ace6016979532e9a91404e` enumerou **1.509
+arquivos versionados**, sem truncamento, e encontrou **zero** ocorrências
+do padrão numérico anterior. A allowlist de exceções continua vazia.
+
+A partir desta reconciliação, a suíte
+`tests/test_repository_filename_policy.py` também varre
+**toda a árvore Git do HEAD** em execução normal do pytest, além do
+gate incremental já existente. Assim, uma futura introdução de um
+basename de issue/PR/data reprova a execução mesmo quando não houver
+uma comparação incremental disponível.
+
+**Limite da comprovação:** a regex protege tokens de tracking
+numéricos, prefixos issue/PR e datas. Não demonstra ausência de todos
+os nomes opacos alfanuméricos; consumidor externo não versionado e
+compatibilidade com scripts particulares exigem inventário separado.
+O requisito de conferir `main` após merge não pode ser satisfeito
+antes do próprio merge. Portanto, a issue de migração só deve ser
+encerrada quando a verificação pós-integração e a avaliação de
+compatibilidade externa estiverem concluídas.
+
+## Reconciliação de compatibilidade na branch de aceitação
+
+O gate estático de referências literais em GitHub Actions agora inclui
+ambas as extensões `.yml` e `.yaml`, evitando uma lacuna no inventário
+sem renomear arquivos ou importar módulos históricos artificialmente.
+O teste de política preserva identificadores curtos de módulos canônicos
+(`m23`, `m25`) e nomes funcionais, enquanto proíbe IDs de tracking
+nos basenames versionados. Isto é apenas reconciliação de CI/paths:
+não comprova compatibilidade de importadores externos ou scripts Windows
+não versionados, que permanecem como gates explícitos de #639.
+
+## Evidência de compatibilidade em runners Windows
+
+Na reconciliação do HEAD `27b9729`, os workflows Windows Console Navigation
+e Audit Fulfillment and Reprocessing reprovaram a mesma regressão de teste
+na validação de caracteres de controle de consultas históricas. A correção
+é tratada na issue de configuração, não como renomeação de arquivo: nenhum
+nome de módulo, entrypoint ou arquivo histórico precisa ser modificado.
+O aceite de #639 continua condicionado à inspeção das referências reais e
+à conclusão dos gates do HEAD final, e não a uma interpretação de 29 workflows
+verdes como aprovação integral.
+
+## Teste comportamental dos caminhos de workflows
+
+O inventário positivo de caminhos Python em Actions foi extraído para
+`missing_workflow_python_paths(root)`, permitindo validar em diretório
+isolado as duas extensões `.yml` e `.yaml`, arquivos realmente existentes
+e guardas negativos intencionais. Isso substitui a verificação anterior
+que apenas procurava literais no próprio código-fonte do teste.
+A inspeção não executa workflows, não cobre comandos construídos
+dinamicamente e não afirma compatibilidade de consumidores externos.
+
+## Reconciliação de falha no gate de contratos
+
+O primeiro teste comportamental de caminhos CI falhou no HEAD
+`9e92c5d`: os escapes de expressão regular foram serializados em dobro,
+e portanto o inventário retornou zero referências mesmo diante de arquivos
+inexistentes. A correção restaura o regex funcional, valida ambos formatos
+YAML, preserva somente a exceção de guarda negativa e acrescenta caso
+misturando referência positiva e guarda negativa para o mesmo arquivo.
+O sucesso dos demais workflows não torna esta falha dispensável: o scanner
+passa a ser testado contra fixtures reais em vez de inspecionar seu código.
+
+## Gate conclusivo das referências positivas
+
+Guardas negativas de existência não dispensam execuções positivas do mesmo
+arquivo em outra linha. O scanner foi reforçado com fixture de regressão
+real, mantendo cobertura de extensões YAML. Homologação humana Windows deve
+focar execução de CLI e persistência INI, não reproduzir testes de regex.
+
+## Pré-integração e gates finais
+
+O HEAD de trabalho `e580e2ec` foi verificado com 31 de 31 workflows
+SUCCESS em 19/10/2026. A conformidade de nomes, referências literais dos
+workflows e CLI/namespace protegidos pode ser aceita como evidência de
+pré-integração. A validação de `main` após merge continua condicionada à
+autorização do proprietário, e consumidores externos não versionados só
+podem ser afirmados compatíveis mediante evidência concreta. Não criar
+imports de compatibilidade hipotéticos nem reabrir nomes já estabilizados.

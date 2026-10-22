@@ -484,3 +484,30 @@ A mesma entrada persistida deve produzir o mesmo resultado sem reexecutar websit
 O SARI-001 é uma metodologia proprietária, transparente e reproduzível do RASAi. Os pesos vigentes são decisões metodológicas internas fundamentadas na arquitetura do problema e **não são pesos estatisticamente provados como causais**.
 
 Evidência empírica externa pode ser usada para avaliar associação entre readiness e resultados reais de Search/AI Search, desde que permaneça separada do cálculo operacional. Qualquer alteração de pesos, dimensões, grupos ou fórmulas que mude o significado do índice exige nova versão metodológica explícita e não pode reinterpretar silenciosamente auditorias persistidas.
+
+
+## Leitura decisória: cobertura verdadeira e identidade da fonte (#600)
+
+A apresentação do índice diferencia cobertura 100% comprovada de medição
+parcial, ausente, inválida ou indevidamente tipada como booleano. Somente
+frações numéricas finitas entre 0 e 1 viram percentuais. Uma dimensão com
+cobertura inferior a 100% é explicitada como limitada mesmo quando a
+confiança contratual é HIGH e a consolidação indica CONSOLIDATED;
+confiança agregada não certifica a dimensão individual. Nenhum número
+SCORE-GEO persistido é alterado por esta projeção.
+
+Avisos de contraste com desempenho Lighthouse somente são exibidos quando
+os números SARI e Lighthouse são finitos, válidos nos domínios 0-100 e
+estão de fato observados. Registros malformados não suprimem outros
+registros válidos nem causam aprovação indevida. Profundidade SERP é
+atribuída à AUD somente quando uma observação física possui identificador
+globalmente não ambíguo; bancos ausentes, fontes em mutação (WAL/SHM)
+ou identidades reutilizadas são abstenções, nunca contagem de posições.
+Isso não confirma a cobertura real das SERPs nem a experiência dos usuários.
+
+
+## Matriz executiva de universos de evidência
+
+O painel `Matriz decisória de evidências` na visão geral e o recorte metodológico da página SARI explicam por que um índice SARI elevado pode coexistir com Lighthouse baixo, métricas CrUX de ORIGIN, amostras Apdex parciais e SERP incompleta. Valores continuam físicos e independentes; nenhuma média cruzada ou recalibração do SCORE-GEO-004 é produzida. A confiança alta do método não comprova resultados externos de ranking, menção em IA ou conformidade regulatória.
+
+O diagnóstico read-only `python -m rasai.report_decision_matrix_cli /caminho/AUD-ID` permite confrontar a fonte SQLite selada e a apresentação. Contrato consultivo RASAI-DECISION-EVIDENCE-604-001; escopos e limites em [`REPORT_DECISION_MATRIX.md`](REPORT_DECISION_MATRIX.md).

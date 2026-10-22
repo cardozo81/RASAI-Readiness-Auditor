@@ -106,3 +106,85 @@ def test_save_materializes_search_inputs_and_all_safe_environment_settings(tmp_p
     assert restored.perplexity_queries == ()
     assert restored.perplexity_search_type == "web"
     assert "RASAI_CONFIG" not in os.environ
+
+
+def test_every_base_typed_setting_has_an_explicit_restore_consumer():
+    """#523: verify base serializer keys against the actual source dispatcher.
+
+    Optional console adapters wrap settings._assign at runtime. Inspecting the
+    currently installed callable is unstable and may inspect only a wrapper;
+    the base contract is owned by console_settings.py, not that wrapper.
+    Search/draft extension round trips are exercised by separate tests.
+    """
+    import ast
+    from pathlib import Path
+
+    root = Path(console_settings.__file__).resolve()
+    module = ast.parse(root.read_text(encoding="utf-8"))
+    dispatcher = next(
+        node for node in module.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "_assign"
+    )
+    base_sections = {
+        "console", "presentation", "ai", "web_performance",
+        "synthetic_apdex", "synthetic_apdex_experience",
+    }
+    persisted = {
+        (section, key)
+        for section, options in console_settings._state_values(SearchConsoleState()).items()
+        if section in base_sections
+        for key in options
+        if key != "config_version"
+    }
+    dispatched = set()
+    for node in ast.walk(dispatcher):
+        if not isinstance(node, ast.Compare):
+            continue
+        for expression in (node.left, *node.comparators):
+            if isinstance(expression, ast.Tuple) and len(expression.elts) == 2:
+                elements = expression.elts
+                if all(isinstance(part, ast.Constant) and isinstance(part.value, str)
+                       for part in elements):
+                    dispatched.add(tuple(part.value for part in elements))
+    assert persisted <= dispatched, (
+        "Base typed INI fields without a restore consumer: "
+        + repr(sorted(persisted - dispatched))
+    )
+
+
+def test_523_explicit_empty_public_override_survives_save_and_new_process(tmp_path, monkeypatch):
+    """An explicit cleared nonsecret key must not be restored from defaults."""
+    ui._install_search_persistence()
+    install_complete_persistence()
+    monkeypatch.setenv("RASAI_SERP_MAX_REQUESTS", "")
+    monkeypatch.setenv("RASAI_GSC_ENABLED", "")
+    state = SearchConsoleState()
+    path = tmp_path / "empty-overrides.ini"
+    console_settings.save_console_config(state, path)
+    parser = ConfigParser(interpolation=None)
+    parser.optionxform = str
+    parser.read(path, encoding="utf-8")
+    assert parser.get("environment", "RASAI_SERP_MAX_REQUESTS") == ""
+    assert parser.get("environment", "RASAI_GSC_ENABLED") == ""
+    saved_bytes = path.read_bytes()
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS")
+    monkeypatch.delenv("RASAI_GSC_ENABLED")
+    restored = SearchConsoleState()
+    outcome = console_settings.load_console_config(restored, path)
+    assert not outcome.warnings
+    assert "RASAI_SERP_MAX_REQUESTS" not in os.environ
+    assert "RASAI_GSC_ENABLED" not in os.environ
+    assert path.read_bytes() == saved_bytes
+
+
+def test_523_explicit_nonempty_overrides_still_win_and_unset_defaults_remain(tmp_path, monkeypatch):
+    ui._install_search_persistence()
+    install_complete_persistence()
+    monkeypatch.setenv("RASAI_SERP_MAX_REQUESTS", "17")
+    state = SearchConsoleState()
+    first = console_settings._persisted_environment_values(state)
+    assert first["RASAI_SERP_MAX_REQUESTS"] == "17"
+    monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS")
+    second = console_settings._persisted_environment_values(state)
+    assert second["RASAI_SERP_MAX_REQUESTS"] != ""

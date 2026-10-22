@@ -204,3 +204,195 @@ canônicos, native ledgers, critérios de elegibilidade, datas, tokens,
 orquestrador `AI=auto`, consentimento, motores SERP/Perplexity/GEO nem scoring.
 A comparabilidade entre previsto e observado continua condicionada ao
 fulfillment dos requisitos obrigatórios da auditoria.
+
+
+## Telemetria de tempo/custo por operação (#319)
+
+O relatório **IA e integrações > Tempos e custos por etapa** e a tela de
+consumo pós-AUD no console leem as duas tabelas físicas M18 e M20,
+sem executar nova auditoria e sem efetuar chamadas tarifáveis. São exibidas
+tentativas por operação (Improvement, Análise Direcionada opcional, análise
+semântica/técnica, conteúdo, concorrência e Search API opcional), custo USD
+quando integralmente precificado, duração acumulada e **união temporal ativa**.
+
+O leitor recusa arquivo ausente/symlink, WAL/SHM/journal pendente, tabela
+ilegível, IDs de tentativa duplicados, populações excedentes e estágio
+incontrolavelmente fragmentado. Nesse caso a interface exibe **N/D**;
+ausência de informação não é custo zero nem prova de conclusão.
+
+Os tempos de HTTP PageSpeed/CrUX apresentados são somas de requests, e
+**não** tempo exclusivo da fase. Captura, Apdex, extração e montagem do
+relatório continuam N/D para cronômetro exclusivo sem evidência física
+comparável. Uma chamada Direcionada posterior não integra por inferência
+o orçamento da auditoria inicial. Dados observados por provedor não
+equivalem à fatura. A previsão histórica ex ante mantém sua metodologia,
+incerteza e tratamento de tarefas opcionais.
+
+## Tempos físicos de atividades de fulfillment - sem cronômetro exclusivo (#319)
+
+A projeção financeira read-only mostra agora, quando houver registros atribuíveis,
+as durações de `audit_fulfillment_attempts` vinculadas fisicamente à AUD e a
+`audit_fulfillment_work_items`. Cada `component` apresenta a população de
+tentativas, quantidade de intervalos de tempo comprovados, tentativas de
+reprocessamento, soma de durações e união de intervalos simultâneos.
+
+Essa população **não constitui medição exclusiva das fases técnicas**.
+Um work-item pode ter englobado execução de IA, chamada HTTP, coleta ou
+recuperação posterior. A soma dos work-items NÃO é tempo não-IA nem deve ser
+somada ao total IA, duração HTTP ou wall-clock da AUD. Quando uma tentativa
+não tem `finished_at` verificável, o tempo do componente é N/D e não zero
+falso. O ledger pode estar ausente em AUDs antigas: a apresentação continua
+funcionando sem criar tabela, reprocessar ou simular cronologia ausente.
+
+Todos os dados são apresentados no mesmo bloco de telemetria existente,
+sem alterar o modelo de duração do forecast, o índice Apdex ou preços.
+Os registros têm identificação de AUD e work-item cruzada, leitura de
+SQLite selado somente-leitura, orçamento de 10.000 tentativas e limite
+de 32 componentes. O conjunto completo falha fechado se houver
+identidade de AUD incongruente ou população truncada. O relatório deixa
+a fronteira não exclusiva explícita no texto e no cabeçalho do resultado.
+
+
+## Reconciliação de identidade e estados das tentativas (#319)
+
+O leitor consultivo de atividades utiliza `LEFT JOIN` com a identidade
+da AUD e do work-item. Tentativas órfãs, referências a outra AUD e
+linhas multiplicadas por work-items duplicados invalidam o censo inteiro:
+nenhuma tentativa desaparece silenciosamente do denominador.
+
+Mesmo com `finished_at` presente, estados não terminais (`RUNNING`,
+`PENDING` ou desconhecidos) e intervalos de duração zero permanecem
+N/D, não prova de tempo físico. Somente estados terminais reconhecidos
+pelo contrato canônico de fulfillment e intervalos positivos podem contar.
+Uma falha terminal pode ter tempo medido sem equivaler a sucesso.
+A existência de um intervalo inválido torna a soma e união do componente
+N/D, com contadores de cobertura preservados.
+
+O console e o HTML passam a explicitar a abstenção por identidade,
+população ou schema; não a confundem com tempo zero. As regressões
+isoladas incluem órfãos, junção duplicada, caracteres de controle,
+estado não terminal com horário de fim e falha terminal. Nenhum
+serviço externo, nova AUD ou motor de score é acionado nesse diagnóstico.
+
+
+## Cobertura da estimativa inicial de chamadas IA (#319)
+
+A prévia sem histórico já informa faixa heurística de ciclos modelados
+por provider/contexto, mas **essa faixa não é limite global de tentativas
+nem de custo**: Improvement Intelligence, Competitive, análises
+direcionadas posteriores e operações de outras etapas podem gerar novas
+tentativas, sujeitas a decisões, findings, retries e controles próprios.
+O campo exibido passa a ser rotulado `IA - ciclos modelados`, em vez
+de um total genérico potencialmente interpretado como máximo da AUD.
+
+Como referência física **retrospectiva e não projeção para outros sites**,
+a AUD de 08/10/2026 descrita na issue #319 registrou sete tentativas
+`ai_provider_attempts` e uma `content_remediation_attempts` em uma
+URL: oito tentativas distintas. O resultado não autoriza transportar o
+mesmo número para outra URL, nem inferir tokens, tempo, custo ou
+consentimento de chamadas futuras. A prévia continua sem calcular
+custo total na ausência de consumo comparável, preservando o gate
+financeiro anterior à AUD. Nenhum orquestrador ou preço foi modificado.
+
+
+## Envelope temporal observado entre componentes fulfillment (#319, 19/10/2026)
+
+Além de durações por `component`, o leitor de
+`audit_fulfillment_attempts` monta um **envelope temporal único** sobre
+as tentativas válidas de trabalho da AUD, inclusive componentes distintos
+e RPR. Quando **todas** as tentativas possuem estados terminais e relógios
+positivos verificáveis, a união de intervalos evita somar tempo
+sobreposto; também informa soma física dos intervalos, sobreposição,
+amplitude do primeiro início ao último fim e lacunas sem tentativas
+registradas. Todos os indicadores dizem respeito **ao ledger de
+tentativas de trabalho**, não ao wall-clock completo da AUD.
+
+Se uma única tentativa é não terminal/sem relógio/duração inválida, o
+envelope inteiro apresenta `INCOMPLETE_ATTEMPT_COHORT` e métricas N/D
+(sem fabricar um total por subconjunto), enquanto a métrica própria
+dos componentes íntegros permanece. Lacunas entre tentativas podem conter
+HTTP, browser, relatório ou IA não registrada neste ledger e **não
+comprovam auditoria ociosa**. A sobreposição é interseção de tentativas,
+não concorrência exclusiva nem economia de tempo. O console e o HTML
+publicam essas ressalvas; nenhum motor, score ou token/custo é alterado.
+As fixtures físicas SQLite medem três intervalos (soma 4,25 s;
+união 3,75 s; sobreposição 0,50 s; amplitude 4,00 s;
+lacuna 0,25 s) e recusam cronologia parcial.
+
+
+## Gate de completude da cronometria de tentativas IA (#319, 19/10/2026)
+
+Uma etapa pode possuir custo estimado conhecido sem que exista intervalo
+físico de início/fim verificável. O leitor canônico continua preservando
+o subtotal bruto histórico das durações quando houver medição parcial;
+**o console/HTML não o apresenta como soma total**. A projeção de
+apresentação `inspect_stage_economics` passa a publicar
+`timing_complete=false`, `unknown_ai_intervals` e
+`total_summed_ms=null` quando **qualquer** tentativa IA de M18/M20
+carece de relógio válido. A mesma regra vale para cada etapa individual:
+`summed_ms=null`, `active_ms=null` e aviso de N/D. Para depuração
+estruturada, o subtotal aferido fica sob
+`partial_recorded_duration_ms` explicitamente nomeado, sem ser
+interpretado como tempo total nem como tempo não-IA.
+
+A cobertura monetária permanece independente do relógio: custo
+comprovadamente USD de tentativas sem timing não é descartado, tampouco
+é tratado como fatura ou execução adicional. Fixtures SQLite focais
+incluem uma coorte IA parcialmente cronometrada e outra integralmente
+medida. Nenhum ajuste em pricing, cronômetro de coletor, orquestrador,
+score ou previsão ex ante é realizado.
+
+
+## Separação econômica por coorte IA central versus análises opcionais (#319)
+
+A mesma projeção `inspect_stage_economics` soma custos pós-hoc
+**sem usar tokens de uma chamada duas vezes**, separando
+`CORE_RECORDED` (M18/M20 e demais operações com registro) de
+`OPTIONAL_DIRECTED_OR_SEARCH` (operações explícitas
+`DIRECTED_ANALYSIS` e tentativas rotuladas como `SEARCH_API`).
+Cada tentativa entra em exatamente uma coorte; uma análise que ocorreu
+na mesma AUD pode ser opcional e não constitui prova de inclusão
+ou exclusão no forecast originalmente congelado. As somas refletem
+apenas valores válidos em USD, provider-observed quando disponível,
+senão estimados retrospectivamente; **não são invoices**.
+
+Cada coorte apresenta número de tentativas, quantidade com custo e
+`amount_usd` somente se a cobertura de preços de todas as suas
+tentativas for integral. Caso contrário, publica N/D com denominador,
+sem apresentar soma parcial como custo total da coorte. Uma coorte
+sem tentativas não prova previsão de USD 0. HTML e console explicitam
+que o escopo da previsão inicial não foi comprovado. Fixtures SQLite
+demonstram 2 tentativas centrais (USD 0,10) e 2 opcionais (USD 0,04),
+com uma AUD estrangeira excluída, e caso de cobertura central parcial.
+Nenhum preço, política de cobranças ou autorização é alterado.
+
+
+## Sensibilidade de demanda IA para uma URL, sem inventar tokens (#319)
+
+Os dois caminhos da **prévia financeira** (com e sem histórico local)
+passam a apresentar um quadro consultivo quando o operador preparou
+**exatamente uma página conhecida**. São cenários **hipotéticos** de
+1, 8 e 16 necessidades independentes de IA. Uma execução com 8
+chamadas efetivas foi documentada em #319, mas a observação não torna
+8 uma média, piso, previsão nem frequência provável de auditorias.
+
+No provider **explícito**, a tela ilustra quantas tentativas poderiam
+ocorrer se *cada necessidade* consumisse todos os ciclos configurados;
+no provider AUTO, não inventa um teto porque o pool de candidatos e
+suas trocas pertencem ao estado de execução. Ambos preservam
+`future_token_total=null`, `future_cost_usd=null` e quantidades
+de findings/ações N/D. A simulação não concede autorização financeira,
+não ativa Comparative, Improvement, Directed Analysis ou Search API,
+e não altera o forecaster monetário, histórico, pricing, tokens,
+quantidade de ciclos ou seleção do motor.
+
+O resultado cobre a sensibilidade **operacional**, não uma nova
+calibração de intervalo P90. A fase com histórico insuficiente
+continua oferecendo escolha explícita executar com/sem IA/cancelar.
+A contagem de páginas de uso real no pós-AUD passa ainda a consultar
+somente linhas `pages.audit_id=nome da AUD` no banco da respectiva
+AUD, recusando registros anteriores sem atribuição e duplicatas físicas.
+Isso impede contabilização de páginas estrangeiras em comparações
+financeiras. Fixtures offline verificam single-URL, 8 necessidades,
+pool AUTO sem cap, múltiplas páginas, fontes SQLite ausentes e
+AUD estrangeira sem novas requisições.

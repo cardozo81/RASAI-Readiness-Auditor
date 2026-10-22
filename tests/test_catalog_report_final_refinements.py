@@ -154,7 +154,8 @@ def test_optional_seo_reconciliation_is_readonly_and_does_not_recompute_scores(t
             "score_id TEXT,audit_id TEXT,dimension TEXT,device TEXT,scoring_version TEXT)"
         )
         con.execute(
-            "CREATE TABLE rule_executions(rule_execution_id TEXT,observed_value TEXT)"
+            "CREATE TABLE rule_executions(rule_execution_id TEXT,audit_id TEXT,"
+            "rule_id TEXT,observed_value TEXT)"
         )
         con.execute(
             "CREATE TABLE score_contributions("
@@ -169,12 +170,12 @@ def test_optional_seo_reconciliation_is_readonly_and_does_not_recompute_scores(t
             ],
         )
         con.executemany(
-            "INSERT INTO rule_executions VALUES(?,?)",
+            "INSERT INTO rule_executions VALUES(?,?,?,?)",
             [
-                ("R3", '{"sitemaps":[{"state":"ABSENT","url":"https://example.test/sitemap.xml"}]}'),
-                ("R17", '{"state":"ABSENT","url":"https://example.test/robots.txt"}'),
-                ("R13", '{"canonicals":[]}'),
-                ("RX", '{"sitemaps":[{"state":"INVALID"}]}'),
+                ("R3", "AUD-1", "BR-GEO-003", '{"sitemaps":[{"state":"ABSENT","url":"https://example.test/sitemap.xml"}]}'),
+                ("R17", "AUD-1", "BR-GEO-017", '{"state":"ABSENT","url":"https://example.test/robots.txt"}'),
+                ("R13", "AUD-1", "BR-GEO-013", '{"canonicals":[]}'),
+                ("RX", "AUD-1", "BR-GEO-003", '{"sitemaps":[{"state":"INVALID"}]}'),
             ],
         )
         con.executemany(
@@ -1354,3 +1355,138 @@ def test_ai_semantic_session_fallback_is_projected_without_task_identity(tmp_pat
     assert "DEEPSEEK" in html
     assert "Quota ou crédito indisponível" in html
 
+
+
+
+def test_600_coverage_boolean_missing_and_partial_high_confidence_are_disclosed():
+    from rasai.catalog_report_governance import (
+        _sari_coverage_public, _sari_partial_dimension_notice,
+    )
+    for invalid in (True, False, "", "nan", "inf", -0.1, 1.1, None):
+        assert _sari_coverage_public(invalid) == "Não determinada"
+    assert _sari_coverage_public(0) == "0,0% (fração 0.000000)"
+    assert _sari_coverage_public(1) == "100,0% (fração 1.000000)"
+    rows = [
+        {
+            "dimension": "OVERALL_READINESS", "device": "MOBILE",
+            "coverage": 1.0, "confidence": "HIGH",
+            "consolidation_status": "CONSOLIDATED",
+        },
+        {
+            "dimension": "CONTENT_VALUE", "device": "MOBILE",
+            "coverage": 0.7, "confidence": "HIGH",
+            "consolidation_status": "CONSOLIDATED",
+        },
+        {
+            "dimension": "INDEXABILITY", "device": "MOBILE",
+            "coverage": True, "confidence": "HIGH",
+            "consolidation_status": "CONSOLIDATED",
+        },
+        {
+            "dimension": "DISCOVERY_ACCESS", "device": "MOBILE",
+            "coverage": 1.0, "confidence": "HIGH",
+            "consolidation_status": "CONSOLIDATED",
+        },
+    ]
+    html = _sari_partial_dimension_notice(rows)
+    assert "Valor do conteúdo" in html
+    assert "70,0% (fração 0.700000)" in html
+    assert "Indexabilidade" in html
+    assert "Não determinada" in html
+    assert "Acesso e descoberta" not in html
+
+
+def test_600_invalid_sari_rows_cannot_suppress_true_divergence_or_create_false_one():
+    from rasai.catalog_report_governance import _overview_measurement_scope_notice
+    valid = {"dimension": "OVERALL_READINESS", "value": 86.48}
+    invalid = {"dimension": "OVERALL_READINESS", "value": "invalid"}
+    bad = {"performance_score": 1}
+    observed = _overview_measurement_scope_notice(
+        bad, {}, overall_scores=(invalid, valid),
+    )
+    assert "SARI acima de 75/100 coexiste" in observed
+    for false_score in (True, False, -999, float("inf"), "NaN", 101):
+        assert _overview_measurement_scope_notice(
+            bad, {}, overall_scores=({"dimension": "OVERALL_READINESS",
+                                      "value": false_score},)
+        ) == ""
+    assert _overview_measurement_scope_notice(
+        {"performance_score": True}, {}, overall_scores=(valid,),
+    ) == ""
+
+
+def test_600_serp_depth_is_local_readonly_and_rejects_duplicate_foreign_identity(tmp_path):
+    from rasai.catalog_report_governance import _overview_serp_depth
+
+    db = tmp_path / "audit.db"
+    assert _overview_serp_depth(db, "AUD-MAIN") is None
+    assert not db.exists()
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE serp_observations("
+            "observation_id TEXT, audit_id TEXT, requested_depth INTEGER)"
+        )
+        con.execute(
+            "CREATE TABLE serp_results(observation_id TEXT, position INTEGER)"
+        )
+        con.execute(
+            "INSERT INTO serp_observations VALUES('SERP-COLLISION','AUD-MAIN',20)"
+        )
+        con.executemany(
+            "INSERT INTO serp_results VALUES('SERP-COLLISION',?)",
+            [(index,) for index in range(9)],
+        )
+    before = db.read_bytes()
+    assert _overview_serp_depth(db, "AUD-MAIN") == (9, 20)
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO serp_observations VALUES('SERP-COLLISION','AUD-FOREIGN',20)"
+        )
+    conflicting = db.read_bytes()
+    assert _overview_serp_depth(db, "AUD-MAIN") is None
+    assert db.read_bytes() == conflicting
+    (tmp_path / "audit.db-wal").write_bytes(b"unfinished")
+    assert _overview_serp_depth(db, "AUD-MAIN") is None
+    assert db.read_bytes() == conflicting
+    assert before != conflicting
+
+
+
+@pytest.mark.parametrize(
+    ("field_scope", "expected_source"),
+    [
+        ("ORIGIN", "CrUX de campo · ORIGIN (origem agregada; não é a URL específica)"),
+        ("URL", "CrUX de campo · URL (URL observada pela fonte)"),
+        (None, "CrUX de campo · escopo não verificado (não atribuir à URL)"),
+    ],
+)
+def test_600_final_metric_rows_do_not_attribute_origin_cwv_to_url(
+    tmp_path: Path, field_scope: str | None, expected_source: str,
+) -> None:
+    """#600: persisted CrUX scope is visible on every field summary row."""
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE web_performance_observations("
+            "audit_id TEXT, field_source TEXT, field_scope TEXT, "
+            "performance_score REAL, lcp_lab_ms REAL, lcp_p75_ms REAL, "
+            "inp_p75_ms REAL, cls_p75 REAL, cwv_assessment TEXT)"
+        )
+        con.execute(
+            "INSERT INTO web_performance_observations VALUES (?,?,?,?,?,?,?,?,?)",
+            ("AUD-600", "CRUX_API", field_scope, 1.0, 25015.0,
+             4357.0, 415.0, 0.89, "FAIL"),
+        )
+    values = {str(label): (str(value), str(source))
+              for label, value, source in _web_metric_rows(db, "AUD-600")}
+    for label in ("LCP de campo (p75)", "INP de campo (p75)",
+                  "CLS de campo (p75)", "Core Web Vitals"):
+        assert values[label][1] == expected_source
+    assert values["Lighthouse · Desempenho"][0] == "1 / 100"
+    assert values["Lighthouse · Desempenho"][1] == (
+        "Lighthouse · laboratório (execução pontual)"
+    )
+    assert values["LCP de laboratório"][1] == (
+        "Lighthouse · laboratório (execução pontual)"
+    )
+    assert values["Core Web Vitals"][0] == "Não aprovado"

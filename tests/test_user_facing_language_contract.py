@@ -34,6 +34,11 @@ _INTERNAL_ARCHITECTURE_DOCS = frozenset({
     "docs/PRE_SMOKE_READINESS_GATE.md",
     "docs/PUBLIC_LANGUAGE.md",
     "docs/READINESS_MATCHED_PILOT.md",
+    # Evidence/reviewer/method contracts name physical collectors by design.
+    "docs/ARCHITECTURE_DISCOVERY_ACCEPTANCE.md",
+    "docs/CLAIM_REVIEW_HANDOFF.md",
+    "docs/CLAIM_VERIFICATION.md",
+    "docs/REPORT_DECISION_MATRIX.md",
     "docs/REPORT_DESIGN_SYSTEM.md",
     "docs/REPORT_REMATERIALIZATION.md",
     "docs/RESIDUAL_IMPLEMENTATION_PLAN.md",
@@ -315,6 +320,26 @@ def test_console_operation_literals_have_explicit_public_labels() -> None:
             if value not in CONSOLE_OPERATION_LABELS:
                 missing.append(f"{path.relative_to(ROOT)}: {value}")
     assert not missing, "\n".join(sorted(set(missing)))
+
+
+def test_acceptance_abstention_literals_have_public_safe_labels() -> None:
+    from rasai.catalog_report_public_labels import public_label
+
+    expected = {
+            "AUD_OR_SIGNED_DOCUMENTARY_PACKET_NOT_ATTESTED": "Auditoria ou pacote documental assinado sem atestação verificável",
+            "CANDIDATE_LIMIT_EXCEEDED": "Quantidade de candidatos FAQ acima do limite seguro de inspeção",
+            "HTML_FILE_NOT_READABLE": "Arquivo HTML indisponível ou sem leitura confiável",
+            "SCOPE_OR_HTML_UNVERIFIABLE": "Escopo de URL ou HTML não verificável",
+            "PASSIVE_INVENTORY_ONLY": "Inventário passivo de candidatos, sem clique ou homologação",
+            "OCI_OUTPUT_UNVERIFIABLE": "Saída do isolamento OCI sem comprovação",
+            "OCI_PROCESS_UNVERIFIABLE": "Processo de isolamento OCI sem comprovação",
+            "SIDECAR_PUBLICATION_REJECTED": "Publicação do registro experimental recusada",
+            "SIGNED_WITNESS_INVALID": "Atestado assinado não verificável",
+            "DOCUMENTARY_PACKET_OR_AUD_BINDING_NOT_ATTESTED": "Pacote documental ou vínculo com auditoria não atestado",
+            "AUD_BOUND_DOCUMENTARY_REVIEW_OBSERVED": "Revisão documental observada e vinculada à auditoria; não certifica conformidade"
+    }
+    for raw, label in expected.items():
+        assert public_label(raw) == label
 
 
 def test_semantic_machine_literals_have_a_public_language_contract() -> None:

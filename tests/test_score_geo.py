@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from rasai.domain import DeviceContext, RuleExecution, RuleResult
-from rasai.score_geo import OVERALL_AGGREGATION_VERSION, SCORING_VERSION
+from rasai.score_geo import OVERALL_AGGREGATION_VERSION
 from rasai.scoring import ConsolidationStatus
 from rasai.scoring_v004 import ScoreGeo004Engine
 
@@ -61,7 +61,7 @@ def test_score_geo_004_consolidates_without_external_validation_artifact() -> No
         devices=(DeviceContext.MOBILE,),
     )
     overall = result.overall_by_device[DeviceContext.MOBILE]
-    assert all(score.scoring_version == SCORING_VERSION for score in result.scores)
+    assert all(score.scoring_version == "SCORE-GEO-004" for score in result.scores)
     assert overall.scoring_version == "SCORE-GEO-004"
     assert overall.value == 100.0
     assert overall.coverage == 1.0

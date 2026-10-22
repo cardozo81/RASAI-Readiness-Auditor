@@ -306,3 +306,123 @@ def test_final_report_explains_point_deviation_without_false_currency_conversion
     assert "Desvio frente à estimativa pontual persistida" not in directed
     assert database.read_bytes() == after_directed
     assert original_bytes != after_normalization
+
+
+
+def test_319_posthoc_phase_readout_uses_eight_ledger_attempts(tmp_path):
+    """Seven M18 + one M20: no missing eighth call or fake phase wall-time."""
+    from datetime import datetime, timedelta, timezone
+    from rasai.audit_stage_cost_presentation import (
+        inspect_stage_economics, stage_console_lines, stage_report_html,
+    )
+
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE ai_provider_attempts(
+                attempt_id TEXT, audit_id TEXT, operation TEXT, surface TEXT,
+                started_at TEXT, finished_at TEXT, duration_ms REAL,
+                estimated_cost REAL, cost_currency TEXT,
+                observed_cost REAL, observed_cost_currency TEXT
+            );
+            CREATE TABLE content_remediation_attempts(
+                attempt_id TEXT, audit_id TEXT, operation TEXT,
+                started_at TEXT, finished_at TEXT, duration_ms REAL,
+                estimated_cost REAL, cost_currency TEXT,
+                observed_cost REAL, observed_cost_currency TEXT
+            );
+            CREATE TABLE web_performance_attempts(
+                attempt_id TEXT, audit_id TEXT, service TEXT, duration_ms REAL
+            );
+        """)
+        durations = (122760, 173110, 229880, 25000, 20000, 30000, 10000)
+        operations = (
+            "IMPROVEMENT_INTELLIGENCE", "IMPROVEMENT_INTELLIGENCE",
+            "DIRECTED_ANALYSIS", "SEMANTIC_ANALYSIS",
+            "TECHNICAL_REMEDIATION", "COMPETITIVE_AI", "OTHER_AI",
+        )
+        for index, (duration, operation) in enumerate(zip(durations, operations)):
+            start = datetime(2026, 10, 8, 15, 0, tzinfo=timezone.utc)
+            start += timedelta(minutes=index)
+            finish = start + timedelta(milliseconds=duration)
+            con.execute(
+                "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (f"AI-{index}", "AUD-319", operation, None,
+                 start.isoformat(), finish.isoformat(), duration,
+                 .01, "USD", None, None),
+            )
+        con.execute(
+            "INSERT INTO content_remediation_attempts VALUES (?,?,?,?,?,?,?,?,?,?)",
+            ("M20-1", "AUD-319", "CONTENT_REMEDIATION",
+             "2026-10-08T15:07:00+00:00", "2026-10-08T15:07:30.470000+00:00",
+             30470, .02, "USD", None, None),
+        )
+        con.execute(
+            "INSERT INTO web_performance_attempts VALUES (?,?,?,?)",
+            ("WEB-1", "AUD-319", "PAGESPEED_INSIGHTS", 60050),
+        )
+        con.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            ("OTHER-AUD", "AUD-OTHER", "DIRECTED_ANALYSIS", None,
+             "2026-10-08T15:00:00+00:00", "2026-10-08T15:00:01+00:00",
+             1000, 9, "USD", None, None),
+        )
+    original = db.read_bytes()
+    result = inspect_stage_economics(db, "AUD-319")
+    assert result["status"] == "READ_ONLY_OBSERVED"
+    assert result["attempts"] == 8
+    assert round(result["total_summed_ms"]) == 641220
+    assert result["total_union_ms"] < result["total_summed_ms"]
+    assert len(result["stages"]) == 7
+    assert {r["operation"]: r["attempts"] for r in result["stages"]}[
+        "CONTENT_REMEDIATION"
+    ] == 1
+    assert result["http_requests"] == [
+        {"service": "PAGESPEED_INSIGHTS", "summed_ms": 60050.0},
+    ]
+    html = stage_report_html(result)
+    output = "\n".join(stage_console_lines(result))
+    assert "641.22 s" in html
+    assert "Análise Direcionada" in html
+    assert "Apdex navegação e experiência" in html
+    assert "não tempo de fase" in output
+    assert "M18+M20" in output
+    assert db.read_bytes() == original
+
+
+def test_319_stage_readout_abstains_on_missing_sqlite_or_pending_journal(tmp_path):
+    from rasai.audit_stage_cost_presentation import (
+        inspect_stage_economics, stage_report_html,
+    )
+    db = tmp_path / "audit.db"
+    assert inspect_stage_economics(db, "AUD-319")["status"] == "NOT_VERIFIABLE"
+    assert not db.exists()
+    db.write_bytes(b"not a database")
+    assert inspect_stage_economics(db, "AUD-319")["status"] == "NOT_VERIFIABLE"
+    before = db.read_bytes()
+    (tmp_path / "audit.db-wal").write_bytes(b"uncheckpointed")
+    result = inspect_stage_economics(db, "AUD-319")
+    assert result["reason"] == "AUD_DATABASE_NOT_CHECKPOINTED"
+    assert "N/D" in stage_report_html(result)
+    assert db.read_bytes() == before
+
+
+def test_319_stage_report_escapes_unknown_operation_name():
+    from rasai.audit_stage_cost_presentation import stage_report_html
+    projection = {
+        "status": "READ_ONLY_OBSERVED",
+        "attempts": 1, "total_summed_ms": 1000, "total_union_ms": 1000,
+        "stages": [{
+            "name": "<script>alert(1)</script>", "operation": "OTHER_AI",
+            "attempts": 1, "summed_ms": 1000, "active_ms": 1000,
+            "priced_attempts": 0, "usd_cost_comparable": False,
+            "observed_cost_attempts": 0, "usd_posthoc": 0.0,
+            "usd_provider_observed": 0.0,
+        }],
+        "http_requests": [],
+        "non_ai_stages": (),
+    }
+    result = stage_report_html(projection)
+    assert "&lt;script&gt;" in result
+    assert "<script>" not in result
+    assert "N/D (0/1 com preço USD)" in result

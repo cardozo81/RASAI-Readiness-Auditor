@@ -38,7 +38,7 @@ def forecast_readout(
     comparable_currency: bool = True,
 ) -> str:
     """Return only qualified, report-ready text from already persisted numbers."""
-    if not forecast:
+    if not isinstance(forecast, Mapping) or not forecast:
         return (
             "<p>Sem previsão financeira prévia persistida. Não é possível "
             "classificar precisão de estimativa.</p>"
@@ -51,9 +51,9 @@ def forecast_readout(
     count = _count(total_attempts)
     priced = _count(priced_attempts)
     optional = _count(optional_attempts)
-    counts_valid = count is not None and priced is not None and optional is not None and priced <= count
-    coverage_complete = bool(counts_valid and count > 0 and priced == count and comparable_currency)
-    has_optional = optional is not None and optional > 0
+    counts_valid = count is not None and priced is not None and optional is not None and priced <= count and optional <= count
+    coverage_complete = bool(counts_valid and count > 0 and priced == count and comparable_currency is True)
+    has_optional = bool(counts_valid and optional is not None and optional > 0)
     result = (
         "<div class='notice'><strong>Interpretação da previsão:</strong> "
         "a classe de desvio compara o realizado com a estimativa pontual; "
@@ -72,7 +72,7 @@ def forecast_readout(
     if not counts_valid:
         result += ("<div class='notice warn'>Contagens de tentativas inválidas ou "
                    "inconsistentes; comparação econômica indisponível.</div>")
-    if not comparable_currency:
+    if comparable_currency is not True:
         result += (
             "<div class='notice warn'>Moedas dos custos individuais e da "
             "previsão não são comprovadamente homogêneas; taxas de câmbio "

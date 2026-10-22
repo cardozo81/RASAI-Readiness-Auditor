@@ -17,7 +17,9 @@ def prepare_console_config(*, env: MutableMapping[str, str] | None = None, cwd: 
     path = Path(configured).expanduser() if configured else Path(CANONICAL_CONSOLE_INI)
     if not path.is_absolute():
         path = base / path
-    resolved = path.resolve()
+    # Keep the final INI component unresolved so load/save can reject an
+    # existing or dangling symlink rather than silently following its target.
+    resolved = path.parent.resolve() / path.name
     environment[CONSOLE_INI_ENV] = str(resolved)
     return resolved
 
@@ -30,4 +32,5 @@ def canonical_console_config_path(*, env: Mapping[str, str] | None = None, cwd: 
     path = Path(configured).expanduser() if configured else Path(CANONICAL_CONSOLE_INI)
     if not path.is_absolute():
         path = base / path
-    return path.resolve()
+    # Resolving the leaf here bypasses the INI symlink guard.
+    return path.parent.resolve() / path.name

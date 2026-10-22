@@ -46,6 +46,10 @@ _NON_PUBLIC_EXECUTION_ENV = frozenset(
         # One-RPR operator opt-in, never canonical/persistable configuration:
         # forcing a paid SerpApi refresh must be set for that session explicitly.
         "RASAI_SERP_NO_CACHE_RPR",
+        # Deployment-only, non-persistable security assertion; not an operator preference.
+        "RASAI_ARCH_PROBE_EGRESS_GUARDED",
+        # Explicit one-session OCI sandbox opt-in: never persist into operator INI.
+        "RASAI_ARCH_PROBE_OFFLINE_CONTAINER",
         # Compatibility fallbacks consumed by directed analysis. The public console
         # owns provider/model/reasoning through execution state and provider-specific
         # catalog settings rather than these generic environment aliases.
@@ -58,6 +62,10 @@ _NON_PUBLIC_EXECUTION_ENV = frozenset(
         # restore them into another audit's environment.
         "RASAI_CLAIM_REVIEW_HMAC_KEY_HEX",
         "RASAI_CLAIM_REVIEWER_ALLOWLIST",
+        # One-shot loopback FAQ fixtures used only by the isolated physical gate.
+        # Never publish or persist test fixture paths and URLs as operator settings.
+        "RASAI_652_FIXTURE_PATH",
+        "RASAI_652_FIXTURE_URL",
     }
 )
 _NON_PUBLIC_RUNTIME_ENV = _NON_PUBLIC_FEATURE_LOCAL_AI_ENV | _NON_PUBLIC_EXECUTION_ENV

@@ -6,6 +6,7 @@ changes, GEO snapshot backfills, or extrapolated query/intent attribution.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from contextlib import closing
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -67,7 +68,8 @@ def _explicit_source_query(metadata: object) -> str | None | object:
     raw = payload.get("query")
     if raw is None:
         return None
-    if not isinstance(raw, str) or not raw.strip() or len(raw) > 300:
+    if (not isinstance(raw, str) or not raw.strip() or len(raw) > 300
+            or raw != raw.strip() or any(ord(char) < 32 or ord(char) == 127 for char in raw)):
         return _INVALID_METADATA
     return raw
 _WINDOW = 86400
@@ -80,6 +82,12 @@ def _host_group(urls: set[str], target: str) -> dict[str, int]:
     A www host is NOT the same as its apex without a persisted redirect.
     The v8 URL canonicalizer already rejected ambiguous source identities.
     """
+    # Defensive contract for callers other than the current ledger adapter.
+    # An invalid or ambiguous hostname must never enter observed counts.
+    if _canonical_url(target) != target or not urlsplit(target).hostname:
+        raise ValueError("target URL identity is not canonical HTTP(S)")
+    if any(_canonical_url(url) != url or not urlsplit(url).hostname for url in urls):
+        raise ValueError("source URL identity is not canonical HTTP(S)")
     hostname = urlsplit(target).hostname
     same_host = {url for url in urls if urlsplit(url).hostname == hostname}
     competitors = {
@@ -90,6 +98,33 @@ def _host_group(urls: set[str], target: str) -> dict[str, int]:
         "same_host_alternative_urls": len(same_host - {target}),
         "other_host_distinct_urls": len(urls - same_host),
         "other_distinct_hosts": len(competitors),
+    }
+
+
+def _target_source_distribution(urls: set[str], target: str) -> dict[str, int | float | str]:
+    """Partition one verified distinct-URL set; never infer rank or market share.
+
+    Exactly one target URL may belong to the set, regardless of duplicate
+    physical result rows. All other URLs are split by *exact* hostname.
+    Observational percentages have the current returned-URL set as denominator.
+    """
+    host_counts = _host_group(urls, target)
+    if not urls:
+        raise ValueError("an observed source URL denominator is required")
+    exact = int(target in urls)
+    alternative = host_counts["same_host_alternative_urls"]
+    other = host_counts["other_host_distinct_urls"]
+    if exact + alternative + other != len(urls):
+        raise ValueError("target URL set partition is incomplete")
+    return {
+        "denominator_distinct_urls": len(urls),
+        "exact_target_urls": exact,
+        "same_host_alternative_urls": alternative,
+        "other_host_urls": other,
+        "exact_target_url_rate": round(exact / len(urls), 4),
+        "same_host_alternative_url_rate": round(alternative / len(urls), 4),
+        "other_host_url_rate": round(other / len(urls), 4),
+        "interpretation": "OBSERVED_DISTINCT_RETURNED_URLS_ONLY",
     }
 
 
@@ -120,6 +155,122 @@ def _host_overlap(serp_urls: set[str], external_urls: set[str]) -> dict[str, int
         "serp_host_overlap_rate": round(shared / len(serp_hosts), 4),
         "external_host_overlap_rate": round(shared / len(external_hosts), 4),
         "jaccard_host_rate": round(shared / union, 4),
+    }
+
+
+
+def _host_source_inventory(serp_urls: set[str], external_urls: set[str]) -> dict[str, Any]:
+    """Observed exact hostnames from two already verified per-query URL sets.
+
+    Hostnames are external sources, not validated commercial competitors.
+    URL denominators are complete; only the visible roster is capped.
+    """
+    serp = Counter(urlsplit(url).hostname for url in serp_urls)
+    external = Counter(urlsplit(url).hostname for url in external_urls)
+    ordered = sorted(
+        set(serp) | set(external),
+        key=lambda host: (-(serp[host] + external[host]), host),
+    )
+    return {
+        "status": "OBSERVED_RETURNED_HOSTNAMES_ONLY",
+        "distinct_hostnames": len(ordered),
+        "entries": [
+            {
+                "hostname": host,
+                "serp_distinct_urls": serp[host],
+                "external_distinct_urls": external[host],
+                "common_distinct_urls": sum(
+                    urlsplit(url).hostname == host for url in serp_urls & external_urls
+                ),
+            }
+            for host in ordered[:12]
+        ],
+        "display_limit": 12,
+        "truncated": len(ordered) > 12,
+    }
+
+
+def _query_recurrence(
+    observations: Mapping[str, tuple[tuple[str, ...], set[str], set[str]]],
+    *, expected_queries: int, target: str | None,
+    serp_clocks: Mapping[str, datetime] | None = None,
+) -> dict[str, Any]:
+    """Within ONE persisted run: URL/hostname repeated in distinct queries.
+
+    This is not longitudinal recurrence or evidence of equal external intent,
+    market, generative mention or competitors. No incomplete cohort may be
+    quietly ignored to inflate its recurrence denominator.
+    """
+    blank: dict[str, Any] = {
+        "status": "NOT_COMPARABLE",
+        "reason": "MULTI_QUERY_VERIFIED_COHORT_INCOMPLETE",
+        "verified_queries": None,
+        "serp_inter_query_span_seconds": None,
+        "serp_recurrent_exact_urls": None,
+        "external_recurrent_exact_urls": None,
+        "cross_source_recurrent_exact_urls": None,
+        "serp_recurrent_exact_hosts": None,
+        "external_recurrent_exact_hosts": None,
+        "cross_source_recurrent_exact_hosts": None,
+        "other_recurrent_cross_source_hosts": None,
+        "external_market_language_device_equivalence_proven": False,
+        "intent_equivalence_proven": False,
+        "longitudinal_recurrence_proven": False,
+    }
+    if expected_queries == 1:
+        return {**blank, "status": "NOT_APPLICABLE_SINGLE_QUERY",
+                "reason": "ONE_QUERY_CANNOT_PROVE_RECURRENCE"}
+    if expected_queries < 2 or len(observations) != expected_queries:
+        return blank
+    scopes = {scope for scope, _serp, _external in observations.values()}
+    if len(scopes) != 1:
+        return {**blank, "reason": "SERP_SCOPE_DIFFERS_ACROSS_QUERIES"}
+    serp_frequency: Counter[str] = Counter()
+    external_frequency: Counter[str] = Counter()
+    serp_hosts: Counter[str] = Counter()
+    external_hosts: Counter[str] = Counter()
+    for _scope, serp_urls, external_urls in observations.values():
+        if not serp_urls or not external_urls:
+            return blank
+        if any(_canonical_url(url) != url or not urlsplit(url).hostname
+               for url in serp_urls | external_urls):
+            return {**blank, "reason": "URL_IDENTITY_UNVERIFIABLE"}
+        serp_frequency.update(serp_urls)
+        external_frequency.update(external_urls)
+        serp_hosts.update({urlsplit(url).hostname for url in serp_urls})
+        external_hosts.update({urlsplit(url).hostname for url in external_urls})
+    s_urls = {url for url, count in serp_frequency.items() if count >= 2}
+    e_urls = {url for url, count in external_frequency.items() if count >= 2}
+    s_hosts = {host for host, count in serp_hosts.items() if count >= 2}
+    e_hosts = {host for host, count in external_hosts.items() if count >= 2}
+    shared_hosts = s_hosts & e_hosts
+    # Individually valid 24h gaps to a shared Search API run can conceal
+    # SERP observations nearly 48h apart. Fail closed for cross-query rates.
+    if (serp_clocks is None or set(serp_clocks) != set(observations)
+            or any(
+                not isinstance(clock, datetime)
+                or clock.tzinfo is None or clock.utcoffset() is None
+                for clock in serp_clocks.values()
+            )):
+        return {**blank, "reason": "SERP_INTER_QUERY_CLOCK_UNVERIFIABLE"}
+    chronological = tuple(serp_clocks.values())
+    span = (max(chronological) - min(chronological)).total_seconds()
+    if span > _WINDOW:
+        return {**blank, "reason": "SERP_INTER_QUERY_SPAN_EXCEEDS_24H"}
+    target_host = urlsplit(target).hostname if target else None
+    return {
+        **blank, "status": "OBSERVED_WITHIN_ONE_RUN", "reason": None,
+        "verified_queries": expected_queries,
+        "serp_inter_query_span_seconds": span,
+        "serp_recurrent_exact_urls": len(s_urls),
+        "external_recurrent_exact_urls": len(e_urls),
+        "cross_source_recurrent_exact_urls": len(s_urls & e_urls),
+        "serp_recurrent_exact_hosts": len(s_hosts),
+        "external_recurrent_exact_hosts": len(e_hosts),
+        "cross_source_recurrent_exact_hosts": len(shared_hosts),
+        "other_recurrent_cross_source_hosts": (
+            len(shared_hosts - {target_host}) if target_host else None
+        ),
     }
 
 
@@ -193,6 +344,7 @@ def _row(query: str, classification: str, reason: str) -> dict[str, Any]:
         "status": "NOT_COMPARABLE", "reason": reason,
         "serp_observation_id": None,
         "serp_scope": None, "observation_gap_seconds": None,
+        "serp_collected_at": None, "external_run_started_at": None,
         "perplexity_distinct_urls": None, "serp_distinct_urls": None,
         "common_urls": None, "serp_only_urls": None,
         "perplexity_only_urls": None,
@@ -202,8 +354,11 @@ def _row(query: str, classification: str, reason: str) -> dict[str, Any]:
         "target_url_exact_in_perplexity": None,
         "target_url_overlap_status": "N/D",
         "host_overlap": None,
+        "host_source_inventory": None,
         "serp_target_host_group": None,
         "external_target_host_group": None,
+        "serp_target_url_distribution": None,
+        "external_target_url_distribution": None,
         "external_market_language_device_equivalence_proven": False,
         "intent_equivalence_proven": False,
         "ranking_or_generative_citation_proven": False,
@@ -212,6 +367,7 @@ def _row(query: str, classification: str, reason: str) -> dict[str, Any]:
 
 def inspect_geo_per_query(
     audit_dir: Path, *, declared_branded_queries: Sequence[str] = (),
+    declared_nonbranded_queries: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Return descriptive URL-set overlaps only with physical per-query linkage.
 
@@ -229,15 +385,28 @@ def inspect_geo_per_query(
         for suffix in ("-wal", "-shm", "-journal")
     ):
         raise ValueError("read-only AUD database without sidecars required")
-    if isinstance(declared_branded_queries, (str, bytes)):
+    if (isinstance(declared_branded_queries, (str, bytes))
+            or isinstance(declared_nonbranded_queries, (str, bytes))):
         raise ValueError("operator query classes must be a sequence")
-    brands = [_query_key(s) for s in declared_branded_queries]
-    if (len(brands) > _MAX_QUERY_COUNT or any(not x for x in brands)
-            or len(brands) != len(set(brands))):
-        raise ValueError("invalid explicit branded-query declaration")
+    def declared_keys(values: Sequence[str]) -> list[str]:
+        if len(values) > _MAX_QUERY_COUNT or any(
+            not isinstance(s, str) or not s or len(s) > 300
+            or s != s.strip() or any(ord(ch) < 32 or ord(ch) == 127 for ch in s)
+            for s in values
+        ):
+            raise ValueError("invalid explicit query-class declaration")
+        keys = [_query_key(s) for s in values]
+        if len(keys) != len(set(keys)):
+            raise ValueError("invalid explicit query-class declaration")
+        return keys
+
+    brands = declared_keys(declared_branded_queries)
+    nonbrands = declared_keys(declared_nonbranded_queries)
+    if set(brands) & set(nonbrands):
+        raise ValueError("conflicting explicit branded/nonbranded query classes")
 
     out: dict[str, Any] = {
-        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-006",
+        "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-008",
         "audit_id": root.name, "status": "NOT_COMPARABLE",
         "reason": None, "queries": [],
         "per_query_attribution_status": "NOT_VERIFIED",
@@ -251,12 +420,13 @@ def inspect_geo_per_query(
         "source_audit_db_sha256": None,
         "source_audit_db_bytes_verified": None,
         "source_audit_db_integrity_guard": "UNVERIFIED",
+        "recurrence": _query_recurrence({}, expected_queries=0, target=None),
         "limitations": (
             "Comparação descritiva de conjuntos de URLs persistidas, não "
             "participação em respostas gerativas, rank, causalidade, "
             "representatividade ou mesma intenção/mercado/dispositivo "
-            "entre SERP e Perplexity. Classificação branded é declaração "
-            "do operador, não inferência do provedor. Presença da URL "
+            "entre SERP e Perplexity. Classificação branded/nonbranded "
+            "é declaração do operador, não inferência do provedor. Presença da URL "
             "auditada em fontes retornadas não prova menção ou citação "
             "na resposta generativa. Domínio alternativo significa "
             "somente mesmo hostname exato, não equivalência www/apex."
@@ -276,6 +446,9 @@ def inspect_geo_per_query(
         out["source_audit_db_sha256"] = None
         out["source_audit_db_bytes_verified"] = None
         out["source_audit_db_integrity_guard"] = "UNVERIFIED"
+        out["recurrence"] = _query_recurrence(
+            {}, expected_queries=0, target=None,
+        )
         return out
     try:
         # immutable=1 does not lock the physical SQLite bytes. A source may
@@ -360,11 +533,16 @@ def inspect_geo_per_query(
             if (not isinstance(declared, list)
                     or not 1 <= len(declared) <= _MAX_QUERY_COUNT
                     or any(not isinstance(q, str) or not q.strip()
-                           or len(q) > 300 for q in declared)
+                           or len(q) > 300 or q != q.strip()
+                           or any(ord(char) < 32 or ord(char) == 127 for char in q)
+                           for q in declared)
                     or len({_query_key(q) for q in declared}) != len(declared)):
                 return abstain("EXTERNAL_QUERY_SET_AMBIGUOUS")
-            if not set(brands) <= {_query_key(q) for q in declared}:
+            observed_query_keys = {_query_key(q) for q in declared}
+            if not set(brands) <= observed_query_keys:
                 raise ValueError("declared branded-query not in persisted run")
+            if not set(nonbrands) <= observed_query_keys:
+                raise ValueError("declared nonbranded-query not in persisted run")
             sources = con.execute(
                 "SELECT url, " + (
                     "query" if "query" in source_columns else "NULL AS query"
@@ -397,7 +575,8 @@ def inspect_geo_per_query(
                 if metadata is _INVALID_METADATA or (
                     direct is not None
                     and (not isinstance(direct, str) or not direct.strip()
-                         or len(direct) > 300)
+                         or len(direct) > 300 or direct != direct.strip()
+                         or any(ord(char) < 32 or ord(char) == 127 for char in direct))
                 ):
                     contradictory = True
                     break
@@ -441,9 +620,16 @@ def inspect_geo_per_query(
             ).fetchall()
             if len(serp) > _MAX_SERP_ROWS:
                 return abstain("SERP_OBSERVATION_VOLUME_EXCEEDED")
+            recurrence_sources: dict[
+                str, tuple[tuple[str, ...], set[str], set[str]]
+            ] = {}
+            recurrence_clocks: dict[str, datetime] = {}
             for query in declared:
                 qkey = _query_key(query)
-                class_name = "BRANDED_DECLARED" if qkey in brands else "UNCLASSIFIED"
+                class_name = (
+                    "BRANDED_DECLARED" if qkey in brands else
+                    "NONBRANDED_DECLARED" if qkey in nonbrands else "UNCLASSIFIED"
+                )
                 row = _row(query, class_name, "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN")
                 if not attributable:
                     out["queries"].append(row)
@@ -459,8 +645,17 @@ def inspect_geo_per_query(
                 candidates: list[tuple[float, datetime, sqlite3.Row]] = []
                 incomplete_scope_in_window = False
                 unverified_clock_same_query = False
+                unverified_identity_same_query = False
                 for obs in serp:
                     if _query_key(obs["query"]) != qkey:
+                        continue
+                    # A persisted SERP label with padding or controls is not
+                    # an exact physical member of the requested query cohort.
+                    observed_query = obs["query"]
+                    if (not isinstance(observed_query, str)
+                            or observed_query != observed_query.strip()
+                            or any(ord(ch) < 32 or ord(ch) == 127 for ch in observed_query)):
+                        unverified_identity_same_query = True
                         continue
                     gap = _temporal_gap_seconds(run["started_at"], obs["collected_at"])
                     when = _utc(obs["collected_at"])
@@ -476,6 +671,10 @@ def inspect_geo_per_query(
                         incomplete_scope_in_window = True
                         continue
                     candidates.append((gap, when, obs))
+                if unverified_identity_same_query:
+                    row["reason"] = "SERP_QUERY_IDENTITY_UNVERIFIABLE"
+                    out["queries"].append(row)
+                    continue
                 if unverified_clock_same_query:
                     row["reason"] = "SERP_CHRONOLOGY_UNVERIFIABLE_FOR_QUERY"
                     out["queries"].append(row)
@@ -513,7 +712,7 @@ def inspect_geo_per_query(
                     row["reason"] = "AMBIGUOUS_EQUIDISTANT_SERP_OBSERVATIONS"
                     out["queries"].append(row)
                     continue
-                gap, _, match = candidates[0]
+                gap, observed_at, match = candidates[0]
                 sid = match["observation_id"]
                 if con.execute(
                     "SELECT count(*) FROM serp_observations WHERE observation_id=?",
@@ -550,6 +749,8 @@ def inspect_geo_per_query(
                     serp_observation_id=sid,
                     serp_scope={s: str(match[s]).strip() for s in _SCOPE},
                     observation_gap_seconds=gap,
+                    serp_collected_at=match["collected_at"],
+                    external_run_started_at=run["started_at"],
                     perplexity_distinct_urls=len(px_urls),
                     serp_distinct_urls=len(serp_urls),
                     common_urls=common,
@@ -559,6 +760,7 @@ def inspect_geo_per_query(
                     perplexity_overlap_rate=round(common / len(px_urls), 4),
                     jaccard_url_rate=round(common / union, 4),
                     host_overlap=_host_overlap(serp_urls, px_urls),
+                    host_source_inventory=_host_source_inventory(serp_urls, px_urls),
                 )
                 if target is not None:
                     in_serp = target in serp_urls
@@ -568,6 +770,12 @@ def inspect_geo_per_query(
                         target_url_exact_in_perplexity=in_external,
                         serp_target_host_group=_host_group(serp_urls, target),
                         external_target_host_group=_host_group(px_urls, target),
+                        serp_target_url_distribution=_target_source_distribution(
+                            serp_urls, target,
+                        ),
+                        external_target_url_distribution=_target_source_distribution(
+                            px_urls, target,
+                        ),
                         target_url_overlap_status=(
                             "BOTH_SOURCE_SETS" if in_serp and in_external
                             else "SERP_SOURCE_SET_ONLY" if in_serp
@@ -575,6 +783,11 @@ def inspect_geo_per_query(
                             else "NEITHER_RETURNED_SOURCE_SET"
                         ),
                     )
+                recurrence_sources[qkey] = (
+                    tuple(str(match[field]).strip() for field in _SCOPE),
+                    serp_urls, px_urls,
+                )
+                recurrence_clocks[qkey] = observed_at
                 out["queries"].append(row)
             out["per_query_attribution_status"] = (
                 "PHYSICALLY_ATTRIBUTABLE" if attributable else
@@ -594,10 +807,16 @@ def inspect_geo_per_query(
             out["source_audit_db_sha256"] = digest_before
             out["source_audit_db_bytes_verified"] = size_before
             out["source_audit_db_integrity_guard"] = "DOUBLE_SHA256_MATCH"
+            out["recurrence"] = _query_recurrence(
+                recurrence_sources, expected_queries=len(declared), target=target,
+                serp_clocks=recurrence_clocks,
+            )
             return out
     except (sqlite3.Error, OSError, ValueError, OverflowError) as exc:
         # The source may be an old/corrupt SQLite package. Never mutate it.
-        if isinstance(exc, ValueError) and "declared branded-query" in str(exc):
+        if isinstance(exc, ValueError) and (
+                "declared branded-query" in str(exc)
+                or "declared nonbranded-query" in str(exc)):
             raise
         return abstain("SOURCE_SCHEMA_OR_READ_FAILURE")
 
@@ -608,6 +827,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("audit_dir", type=Path)
     parser.add_argument("--declared-branded-query", action="append", default=[])
+    parser.add_argument("--declared-nonbranded-query", action="append", default=[])
     parser.add_argument(
         "--format", choices=("json", "html"), default="json",
         help="Offline advisory output only; HTML does not modify GEO reports.",
@@ -616,6 +836,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         outcome = inspect_geo_per_query(
             args.audit_dir, declared_branded_queries=args.declared_branded_query,
+            declared_nonbranded_queries=args.declared_nonbranded_query,
         )
     except ValueError as exc:
         parser.error(str(exc))

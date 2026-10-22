@@ -258,6 +258,7 @@ class _Classified:
     kpm_value_ms: float | None
     error_forced: bool
     captured_at: str
+    experimental_sample_id: str | None = None
 
 
 class _OriginPacer:
@@ -288,6 +289,7 @@ class PlaywrightSyntheticUxGateway:
         fetch_capture: bool = True,
         console_error_capture: bool = False,
         max_error_details: int = 10,
+        advisory_same_page_observer: Callable[..., Any] | None = None,
     ) -> None:
         self.session_mode = session_mode
         self.executable_path = executable_path
@@ -296,10 +298,30 @@ class PlaywrightSyntheticUxGateway:
         self.fetch_capture = bool(fetch_capture)
         self.console_error_capture = bool(console_error_capture)
         self.max_error_details = max(0, min(int(max_error_details), 50))
+        # Opt-in only: never enabled by default M25 execution or scoring.
+        self.advisory_same_page_observer = advisory_same_page_observer
+        self.last_advisory_observation: Any = None
+        self._advisory_sample_scope: dict[str, str] | None = None
         self._playwright = None
         self._browser = None
         self._startup_error: str | None = None
         self._warm_contexts: dict[str, Any] = {}
+
+    def set_experimental_sample_scope(
+        self, *, audit_id: str, page_id: str, sample_id: str,
+        context_id: str,
+    ) -> None:
+        """Trusted runner provides the ID destined for M25 persistence."""
+        if (
+            not callable(self.advisory_same_page_observer)
+            or not all(isinstance(v, str) and bool(v.strip()) and len(v) <= 160
+                       for v in (audit_id, page_id, sample_id, context_id))
+        ):
+            raise ValueError("experimental physical sample not configured")
+        self._advisory_sample_scope = {
+            "audit_id": audit_id, "page_id": page_id,
+            "sample_id": sample_id, "context_id": context_id,
+        }
 
     def _start(self) -> None:
         if self._browser is not None or self._startup_error is not None:
@@ -549,6 +571,7 @@ class PlaywrightSyntheticUxGateway:
             if self.console_error_capture:
                 page.on("console", lambda msg: counters.__setitem__("console", counters["console"] + (1 if msg.type == "error" else 0)))
 
+            started_ns = time.monotonic_ns()
             started = time.monotonic()
             last_action_xhr_activity = started
             action_xhr_request_ids.clear()
@@ -630,7 +653,9 @@ class PlaywrightSyntheticUxGateway:
             last_action_xhr_end_ms = max((last_action_xhr_activity - started) * 1000.0, 0.0)
             user_action_ms = max(load_boundary_ms, last_action_xhr_end_ms)
 
-            return UxMeasurement(
+            # Metrics and error counts are frozen BEFORE the advisory hook.
+            # The hook acts on this same live page; it cannot supply a score.
+            frozen_measurement = UxMeasurement(
                 status=status,
                 user_action_duration_ms=user_action_ms,
                 navigation_duration_ms=navigation_duration_ms,
@@ -662,6 +687,28 @@ class PlaywrightSyntheticUxGateway:
                 cpu_method=cpu_method,
                 network_method=network_method,
             )
+
+            self.last_advisory_observation = None
+            if self.advisory_same_page_observer is not None:
+                try:
+                    if self._advisory_sample_scope is None:
+                        raise ValueError("sample scope absent")
+                    self.last_advisory_observation = self.advisory_same_page_observer(
+                        page=page, live_context=context, requested_url=url,
+                        final_url=page.url, device=device,
+                        navigation_started_monotonic_ns=started_ns,
+                        load_ms=load_boundary_ms,
+                        **self._advisory_sample_scope,
+                    )
+                except Exception:
+                    self.last_advisory_observation = {
+                        "status": "EXPERIMENTAL_OBSERVER_ERROR",
+                        "score_change_authorized": False,
+                    }
+                finally:
+                    self._advisory_sample_scope = None
+
+            return frozen_measurement
         except PlaywrightError as exc:
             return _invalid("MEASUREMENT_ERROR", exc, cpu_method, network_method)
         except Exception as exc:
@@ -891,6 +938,7 @@ def execute_m25_experience(
                         continue
                     items = _measure_device(
                         audit_id=audit_id,
+                        page_id=str(page["page_id"]),
                         workspace=workspace,
                         url=str(page["url"]),
                         device=device,
@@ -1070,6 +1118,7 @@ def _measure_device(
     factory: Callable[[], SyntheticUxGateway],
     profile: SyntheticProfile | None = None,
     start_index: int = 1,
+    page_id: str | None = None,
 ) -> list[_Classified]:
     profile = profile or _profile_for_device(device)
     start_index = max(int(start_index), 1)
@@ -1079,13 +1128,29 @@ def _measure_device(
         if callable(set_planning_ordinal):
             set_planning_ordinal(run_index)
         pacer.wait_for_slot()
+        allocated_id = None
+        configure_scope = getattr(runner, "set_experimental_sample_scope", None)
+        if (
+            page_id and callable(configure_scope)
+            and callable(getattr(runner, "advisory_same_page_observer", None))
+        ):
+            # Assign the SAME ID that will be persisted as the M25 sample.
+            # With the opt-in disabled, the original generation path remains.
+            allocated_id = new_id("UXA")
+            configure_scope(
+                audit_id=audit_id, page_id=page_id, sample_id=allocated_id,
+                context_id=new_id("UXC"),
+            )
         measurement = runner.measure(
             url=url, device=device, profile=profile,
             timeout_seconds=max(config.settle_seconds + calibration.frustrated_threshold_seconds + 5.0, 15.0),
             settle_seconds=config.settle_seconds,
         )
         classification, value, forced = classify_measurement(measurement, calibration, error_scope=config.error_scope)
-        item = _Classified(run_index, device, measurement, classification, value, forced, _utc_now())
+        item = _Classified(
+            run_index, device, measurement, classification, value, forced,
+            _utc_now(), allocated_id,
+        )
         _log_progress(workspace, audit_id, url, device, page_index, page_total, target, max_attempts, item)
         return item
 
@@ -1161,7 +1226,7 @@ def _persisted_sample(
 ) -> SyntheticUxSample:
     m = item.measurement
     return SyntheticUxSample(
-        sample_id=new_id("UXA"), audit_id=audit_id, page_id=page_id, url=url,
+        sample_id=item.experimental_sample_id or new_id("UXA"), audit_id=audit_id, page_id=page_id, url=url,
         device=item.device, run_index=item.run_index, task_id=TASK_SYNTHETIC_USER_ACTION,
         profile_id=profile.profile_id, session_mode=config.session_mode, status=m.status,
         classification=item.classification, kpm=calibration.kpm, kpm_value_ms=item.kpm_value_ms,

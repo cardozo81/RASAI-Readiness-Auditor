@@ -75,7 +75,7 @@ def test_executive_panel_preserves_canonical_fraction_and_limits_confidence_clai
     row = _row(value=86.484962, status="ATTENTION", discovery_gate="WARNING")
     row["coverage"] = 0.974737
     html = operational_readiness_panel({"scores": [row]})
-    assert "Coverage 97.5% (fração canônica 0.974737)" in html
+    assert "Cobertura 97.5% (fração canônica 0.974737)" in html
     assert "não representam intervalo estatístico" in html
     assert "posição SERP ou citação generativa" in html
     assert "86.5/100" in html
@@ -88,7 +88,7 @@ def test_executive_panel_does_not_silently_promote_partial_dimension() -> None:
     html = operational_readiness_panel({"scores": [overall, dimension]})
     assert "qualidade do universo efetivamente avaliado" in html
     assert "dimensões de baixa cobertura devem ser analisadas separadamente" in html
-    assert "Confidence HIGH" in html  # Stored global confidence is not rewritten.
+    assert "Confiança contratual HIGH" in html  # Stored global confidence is not rewritten.
 
 
 def test_blocked_readiness_remains_critical_with_partial_measurement() -> None:
@@ -192,7 +192,7 @@ def test_invalid_overall_coverage_never_renders_nan_or_crashes() -> None:
         row = _row()
         row["coverage"] = invalid
         html = operational_readiness_panel({"scores": [row]})
-        assert "Coverage N/D (fração canônica N/D)" in html
+        assert "Cobertura N/D (fração canônica N/D)" in html
         assert "nan%" not in html.lower()
 
 
@@ -200,7 +200,7 @@ def test_observed_zero_coverage_remains_distinct_from_invalid_coverage() -> None
     row = _row()
     row["coverage"] = 0.0
     html = operational_readiness_panel({"scores": [row]})
-    assert "Coverage 0.0% (fração canônica 0.000000)" in html
+    assert "Cobertura 0.0% (fração canônica 0.000000)" in html
 
 
 def test_device_cards_do_not_crash_on_nonfinite_coverage() -> None:
@@ -265,7 +265,7 @@ def test_boolean_coverage_is_unavailable_not_one_hundred_percent() -> None:
     row = _row()
     row["coverage"] = True
     html = operational_readiness_panel({"scores": [row]})
-    assert "Coverage N/D (fração canônica N/D)" in html
+    assert "Cobertura N/D (fração canônica N/D)" in html
 
 
 def test_high_score_with_partial_coverage_does_not_claim_ready() -> None:
@@ -297,3 +297,71 @@ def test_ready_claim_without_any_persisted_gate_does_not_certify() -> None:
     row["limitations"] = json.dumps(["READINESS_STATUS:READY"])
     assert readiness_state(row)[0] == "UNKNOWN"
     assert public_readiness_condition(row)[0] == "neutral"
+
+
+def test_sari_convergence_warning_does_not_invent_external_measurements() -> None:
+    """#600: 86.5/HIGH with partial dimension is not proof of real-world UX."""
+    overall = _row(value=86.484962, status="ATTENTION", discovery_gate="WARNING")
+    overall["coverage"] = 0.974737
+    partial = dict(overall, dimension="CONTENT_VALUE", coverage=0.7,
+                   confidence="LOW", consolidation_status="PARTIAL")
+    html = operational_readiness_panel({"scores": [overall, partial]})
+    assert "Convergência não garantida" in html
+    assert "Lighthouse" in html and "ORIGIN versus URL" in html
+    assert "cobertura 70.0%" in html
+    assert "86.5/100" in html
+    assert "Lighthouse ruim observado" not in html
+
+
+def test_sari_convergence_warning_reaches_executive_and_device_cards() -> None:
+    """#600: notices also appear when rendering cards independently."""
+    from types import SimpleNamespace
+    from rasai.sari_readiness_presentation import _reporting_overall_card, _site_overall_card
+
+    row = _row(value=86.484962)
+    reporting = SimpleNamespace(PUBLIC_METHOD_VERSION="SARI", _STATUS_LABELS={})
+    site = SimpleNamespace(
+        _STATUS_LABELS={}, _device_label=lambda _: "Mobile",
+        _confidence_badge=lambda _: "<span>Confidence</span>",
+    )
+    executive = _reporting_overall_card(reporting, [row], "MOBILE")
+    device = _site_overall_card(site, [row], "MOBILE")
+    for card in (executive, device):
+        assert "Convergência não garantida" in card
+        assert "Lighthouse" in card
+        assert "Core Web Vitals" in card
+        assert "86.5" in card
+
+def test_explicit_unknown_status_with_pass_gates_never_promotes_ready() -> None:
+    """#600: explicit uncertainty cannot be overwritten by gate-only inference."""
+    row = _row(status="UNKNOWN")
+    assert readiness_state(row)[0] == "UNKNOWN"
+    assert public_readiness_condition(row)[:2] == (
+        "neutral", "Readiness indeterminada",
+    )
+
+
+def test_unrecognized_status_marker_with_pass_gates_fails_closed() -> None:
+    row = _row()
+    for limitations in (
+        ["READINESS_STATUS:UNRECOGNIZED"],
+        ["READINESS_STATUS:READY", "READINESS_STATUS:UNRECOGNIZED"],
+    ):
+        row["limitations"] = json.dumps(limitations + [
+            "CRITICAL_GATE:DISCOVERY:PASS",
+            "CRITICAL_GATE:INDEXABILITY:PASS",
+            "CRITICAL_GATE:EXTRACTION:PASS",
+        ])
+        assert readiness_state(row)[0] == "UNKNOWN"
+        assert public_readiness_condition(row)[0] == "neutral"
+
+
+def test_missing_status_marker_keeps_gate_only_legacy_inference() -> None:
+    row = _row()
+    row["limitations"] = json.dumps([
+        "CRITICAL_GATE:DISCOVERY:PASS",
+        "CRITICAL_GATE:INDEXABILITY:PASS",
+        "CRITICAL_GATE:EXTRACTION:PASS",
+    ])
+    assert readiness_state(row)[0] == "READY"
+    assert public_readiness_condition(row)[1] == "Readiness pronta"

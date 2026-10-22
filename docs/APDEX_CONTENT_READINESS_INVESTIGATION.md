@@ -205,3 +205,13 @@ do custo de sondagem no orçamento de execução e homologação
 de produto/relatório. Sem esses dados, p75 e melhora percetível
 do site são `N/D`. Este piloto não altera históricos nem recomenda
 um novo limiar Apdex por arquitetura.
+
+## Consulta observacional de sidecar sem novos coletores (19/10/2026)
+
+Ferramenta auxiliar read-only para um sidecar físico experimental já publicado e associado à AUD:
+
+```powershell
+& ".\\.venv\\Scripts\\python.exe" -m rasai.apdex_readiness_review_cli --audit-directory "C:\\caminho\\AUD-ID" --sidecar "C:\\caminho\\.rasai-readiness-sidecars\\AUD-ID\\SHA256.json" --format json
+```
+
+A saída é JSON ou HTML (`--format html`), exclusivamente em stdout, sem escrita da AUD, rerun de Apdex, browser ou IA. O leitor reaproveita `read_readiness_sidecar`, incluindo validação do contrato, SHA do JSON, origem da AUD SQLite e manifesto de relatório canônico. A apresentação mostra separadamente `load_ms`, `primary_content_ms` e `post_load_delta_ms` **declarados pelo produtor**, com censura TIMEOUT/NOT_OBSERVED e método experimental. A assinatura do sidecar é um hash local, **não comprova** aquisição física de amostra Playwright nem equivalência a navegação sintética/experiência sintética. A CLI não injeta resultados nos relatórios CAT-06/CAT-07 e não cria série com score. A integração de medições no mesmo navegador do coletor homologado permanece dependente de aceite específico, sob #322.

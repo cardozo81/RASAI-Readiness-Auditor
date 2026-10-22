@@ -324,6 +324,73 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
 
 
 
+    def test_post_run_non_ai_observations_are_labeled_without_stage_wallclock(self):
+        import sqlite3
+        from rasai import console_search_intelligence as console_search
+        from rasai import audit_duration_forecast, audit_step_timer_inspection
+        from rasai import audit_attempt_timeline
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "AUD-TEST"
+            root.mkdir()
+            # The reader is mocked: no real SQLite connection or Windows
+            # file handle may survive fixture teardown.
+            db = root / "audit.db"
+            db.touch()  # Exists physically, but mock connection owns no file handle.
+            module = ModuleType("non_ai_usage_console")
+            module._menu = lambda state: "V"
+            module._configure = lambda state, choice: None
+            module._execution_readiness = lambda state: (True, "ok")
+            module.run_audit_from_console = lambda state: 0
+            module._render_actual_usage = lambda state: None
+            install(module)
+            state = SearchConsoleState(audit_id="AUD-TEST", audits_root=temp)
+            observed = {
+                "status": "OBSERVED_UNSEALED_WRAPPER_TIMERS",
+                "by_phase": [{
+                    "phase": "COLLECTION",
+                    "wrapper_count": 2,
+                    "min_observed_wrapper_ms": 1200,
+                    "max_observed_wrapper_ms": 2700,
+                }],
+            }
+            with patch.object(console_search, "audit_workspace", return_value=root), (
+                patch.object(console_search.AuditWorkspace, "open",
+                             return_value=SimpleNamespace(database=db))
+            ), patch.object(console_search.sqlite3, "connect"), patch.object(
+                audit_attempt_timeline, "read_audit_attempt_timeline",
+                return_value=SimpleNamespace(attempts=0),
+            ), patch.object(
+                audit_duration_forecast, "_m21_http_request_sums",
+                return_value={"PAGESPEED_INSIGHTS": 32000.0},
+            ), patch.object(
+                audit_step_timer_inspection, "inspect_pipeline_step_timers",
+                return_value=observed,
+            ), redirect_stdout(StringIO()) as output:
+                module._render_actual_usage(state)
+            rendered = output.getvalue()
+            self.assertIn("PAGESPEED_INSIGHTS: 32.0s acumulados em requests", rendered)
+            self.assertIn("COLLECTION: 2 wrapper(s), mín 1.2s, máx 2.7s", rendered)
+            self.assertIn("não representa wall-clock exclusivo", rendered)
+            self.assertIn("log não selado", rendered)
+            # M21 loss is not allowed to hide independent wrapper telemetry.
+            db.unlink()
+            with patch.object(console_search, "audit_workspace", return_value=root), (
+                patch.object(console_search.AuditWorkspace, "open",
+                             return_value=SimpleNamespace(database=db))
+            ), patch.object(
+                audit_attempt_timeline, "read_audit_attempt_timeline",
+                return_value=SimpleNamespace(attempts=0),
+            ), patch.object(
+                audit_step_timer_inspection, "inspect_pipeline_step_timers",
+                return_value=observed,
+            ), redirect_stdout(StringIO()) as fallback:
+                module._render_actual_usage(state)
+            self.assertIn("Performance HTTP   : N/D", fallback.getvalue())
+            self.assertIn("COLLECTION: 2 wrapper(s)", fallback.getvalue())
+
+
+
 class PerplexityExplicitCopy318Tests(unittest.TestCase):
     """#318: no SERP inheritance or charge without two operator choices."""
 

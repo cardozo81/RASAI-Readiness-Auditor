@@ -299,3 +299,24 @@ def test_audit_history_discovers_only_aud_workspaces_with_database(tmp_path: Pat
     discovered = {item.name for item in _audit_directories(tmp_path)}
 
     assert discovered == {"AUD-FIRST", "AUD-SECOND"}
+
+def test_home_eight_is_independent_and_returns_without_audit(monkeypatch) -> None:
+    from rasai import console_architecture_discovery
+    console = _console()
+    install(console)
+    state = _state()
+    calls = []
+
+    def independent_preview(console_module, current_state):
+        assert console_module is console
+        assert current_state is state
+        calls.append(current_state.target)
+
+    monkeypatch.setattr(console_architecture_discovery, "architecture_preview_menu", independent_preview)
+    answers = iter(["8", "Q"])
+    monkeypatch.setattr(builtins, "input", lambda prompt="": next(answers))
+    with redirect_stdout(StringIO()) as output:
+        assert console._menu(state) == "Q"
+    assert calls == ["https://example.com/"]
+    assert "8. Descobrir arquitetura da aplicação" in output.getvalue()
+    assert state.audit_id == ""

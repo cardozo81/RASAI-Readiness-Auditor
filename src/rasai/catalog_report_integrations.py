@@ -571,11 +571,18 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
     arithmetic_ok=(not forecast) or (abs(stored_deviation-computed_deviation)<=0.00000001 and (computed_percent is None or abs(stored_percent-computed_percent)<=0.0001))
 
     body=_audit_hero(data,"IA e integrações","Auditoria das comunicações externas: finalidade, dados envolvidos, tentativas, volume, custo, resultado e solicitações/respostas persistidas, com credenciais removidas.")
-    body+=_outline((("summary","Resumo"),("ai","Requisições de IA"),("integrations","Outras integrações"),("cost","Custos"),("principles","Leitura")))
+    body+=_outline((("summary","Resumo"),("stages","Tempos e custos por etapa"),("ai","Requisições de IA"),("integrations","Outras integrações"),("cost","Custos"),("principles","Leitura")))
     input_display=_no_cost_value(f"{input_tokens:,}".replace(","," ")) if zero_cost_confirmed else f"{input_tokens:,}".replace(","," ")
     output_display=_no_cost_value(f"{output_tokens:,}".replace(","," ")) if zero_cost_confirmed else f"{output_tokens:,}".replace(","," ")
     native_metric=_metric('Uso nativo',native_usage_text,'unidades comerciais do provedor; não convertidas em tokens') if native_usage_text else ""
     body+=_section("summary","Resumo do consumo",f"<div class='metric-grid'>{_metric('Tentativas de IA',len(attempts),f'{success} concluída(s)')}{_metric('Tokens de entrada',input_display)}{_metric('Entrada em cache',f'{cached_tokens:,}'.replace(',',' '))}{_metric('Tokens de saída',output_display)}{_metric('Tokens de raciocínio',f'{reasoning_tokens:,}'.replace(',',' '), 'incluídos nos tokens de saída; não somados novamente')}{_metric('Tokens totais',f'{total_tokens:,}'.replace(',',' '),'entrada + saída')}{native_metric}{_metric('Custo técnico observado',_money_display(total_cost,currency),'soma dos custos individuais persistidos')}</div>")
+    from rasai.audit_stage_cost_presentation import (
+        inspect_stage_economics, stage_report_html,
+    )
+    body+=_section(
+        "stages", "Tempos e custos por etapa",
+        stage_report_html(inspect_stage_economics(database, data.audit_id)),
+    )
     body+=_section("ai","Requisições de IA",_table(("Finalidade","Aplicação no relatório","Provedor","Modelo","Data/hora","Origem da execução","Resultado","Tokens entrada / saída","Uso nativo","Custo","Detalhe"),rows,empty="Nenhuma tentativa de IA persistida.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals))
     body+=_section("integrations","Outras integrações",_table(("Serviço","Data/hora","Origem da execução","Resultado","Tentativas","Sucessos","Duração","Detalhe"),int_rows,empty="Nenhuma integração externa reconhecida foi persistida.",sortable=bool(int_rows),page_size=10 if len(int_rows)>10 else None)+"".join(int_modals))
 
@@ -610,12 +617,28 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
         )
     ]
     if directed:
-        directed_value = sum(float(attempt_costs[i] or 0) for i in directed)
+        # Missing cost must not become a false USD 0.000000 for an optional
+        # post-AUD operation. Mixed/unknown currencies also abstain.
+        from rasai.audit_cost_explain import _number
+        directed_prices = [_number(attempt_costs[i]) for i in directed]
+        directed_currencies = {
+            str(attempts[i].get("observed_cost_currency")
+                or attempts[i].get("cost_currency") or "").upper()
+            for i in directed
+        }
+        directed_covered = sum(value is not None for value in directed_prices)
+        if directed_covered == len(directed) and directed_currencies == {"USD"}:
+            directed_label = "USD " + f"{sum(directed_prices):.6f}"
+        else:
+            directed_label = (
+                f"N/D (preços observados em {directed_covered}/{len(directed)} "
+                "tentativas; moeda homogênea USD não comprovada)"
+            )
         cost_html += (
             "<div class='notice'>Desagregação de análises direcionadas: "
-            + str(len(directed)) + " tentativa(s), USD "
-            + f"{directed_value:.6f}"
-            + " em custos técnicos já incluídos no total; "
+            + str(len(directed)) + " tentativa(s), "
+            + directed_label
+            + " em custos técnicos já considerados no total quando contabilizados; "
             "não somar novamente. A previsão original pode ter escopo distinto.</div>"
         )
     forecast_currency = str(forecast.get("currency") or "USD").upper() if forecast else "USD"

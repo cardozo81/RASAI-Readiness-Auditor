@@ -310,3 +310,261 @@ def test_timeline_abstains_before_materializing_unbounded_attempt_population(tmp
     with pytest.raises(ValueError, match="population exceeded"):
         read_audit_attempt_timeline(db, "AUD-MANY")
     assert db.read_bytes() == original
+
+
+@pytest.mark.parametrize("nonphysical_duration", [True, False])
+def test_boolean_duration_never_counts_as_elapsed_milliseconds(nonphysical_duration):
+    """An invalid ledger clock cannot silently become one millisecond."""
+    from rasai.audit_attempt_timeline import _stage
+
+    stage = _stage("OTHER_AI", [{
+        "started_at": None, "finished_at": None,
+        "duration_ms": nonphysical_duration,
+        "observed_cost": None, "estimated_cost": None,
+    }])
+    assert stage.attempts == 1
+    assert stage.unknown_intervals == 1
+    assert stage.summed_duration_ms == 0
+    assert stage.union_active_ms is None
+    assert stage.unpriced_attempts == 1
+
+
+def test_eight_physical_ai_attempts_include_content_remediation_without_extra_aud(tmp_path):
+    """#319: seven general AI attempts plus one remediation equals eight, not seven."""
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as con:
+        con.executescript("""
+            CREATE TABLE ai_provider_attempts (
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT, operation TEXT,
+                surface TEXT, started_at TEXT, finished_at TEXT, duration_ms INTEGER,
+                estimated_cost REAL, cost_currency TEXT,
+                observed_cost REAL, observed_cost_currency TEXT
+            );
+            CREATE TABLE content_remediation_attempts (
+                attempt_id TEXT PRIMARY KEY, audit_id TEXT, operation TEXT,
+                started_at TEXT, finished_at TEXT, duration_ms INTEGER,
+                estimated_cost REAL, cost_currency TEXT,
+                observed_cost REAL, observed_cost_currency TEXT
+            );
+        """)
+        rows = [
+            (f"AI{i}", "AUD-319", "IMPROVEMENT_INTELLIGENCE", None,
+             f"2026-10-08T11:{i:02d}:00+00:00",
+             f"2026-10-08T11:{i:02d}:10+00:00",
+             10000, .01, "USD", None, None)
+            for i in range(7)
+        ]
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?)", rows
+        )
+        con.execute(
+            "INSERT INTO content_remediation_attempts VALUES (?,?,?,?,?,?,?,?,?,?)",
+            ("R1", "AUD-319", "CONTENT_REMEDIATION",
+             "2026-10-08T11:07:00+00:00", "2026-10-08T11:07:10+00:00",
+             10000, .02, "USD", None, None),
+        )
+        con.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            ("OTHER", "AUD-OTHER", "DIRECTED_ANALYSIS", None,
+             "2026-10-08T11:08:00+00:00", "2026-10-08T11:08:10+00:00",
+             10000, .99, "USD", None, None),
+        )
+    original = database.read_bytes()
+    result = read_audit_attempt_timeline(database, "AUD-319")
+    assert result.attempts == 8
+    assert result.summed_duration_ms == 80000
+    assert result.union_active_ms == 80000
+    assert {stage.name: stage.attempts for stage in result.stages} == {
+        "IMPROVEMENT_INTELLIGENCE": 7, "CONTENT_REMEDIATION": 1,
+    }
+    assert abs(result.posthoc_estimated_usd - .09) < 1e-9
+    assert database.read_bytes() == original
+
+
+@pytest.mark.parametrize("bad_id", [" A1", "A1 ", "A\n1", "A\t1"])
+def test_noncanonical_ai_ledger_attempt_identity_refuses_cost_census(tmp_path, bad_id):
+    """Never turn two physical attempt identities into the same normalized ID."""
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts ("
+            "attempt_id TEXT, audit_id TEXT, operation TEXT, "
+            "started_at TEXT, finished_at TEXT, duration_ms INTEGER)"
+        )
+        con.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?, ?, ?, ?, ?, ?)",
+            (bad_id, "AUD-A", "OTHER_AI", None, None, 1000),
+        )
+    before = database.read_bytes()
+    with pytest.raises(ValueError, match="ambiguous AI attempt_id"):
+        read_audit_attempt_timeline(database, "AUD-A")
+    assert database.read_bytes() == before
+
+
+def test_319_incomplete_ai_clocks_do_not_render_partial_sum_as_total(tmp_path):
+    """A priced attempt without timestamps is not a zero-second interval."""
+    from rasai.audit_stage_cost_presentation import (
+        inspect_stage_economics, stage_console_lines, stage_report_html,
+    )
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT,audit_id TEXT,operation TEXT,"
+            "started_at TEXT,finished_at TEXT,duration_ms REAL,"
+            "estimated_cost REAL,cost_currency TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?)",
+            [
+                ("A-1", "AUD-PARTIAL-319", "IMPROVEMENT_INTELLIGENCE",
+                 "2026-10-19T10:00:00Z", "2026-10-19T10:00:02Z",
+                 2000, .02, "USD"),
+                ("A-2", "AUD-PARTIAL-319", "IMPROVEMENT_INTELLIGENCE",
+                 None, None, None, .03, "USD"),
+            ],
+        )
+    physical = db.read_bytes()
+    result = inspect_stage_economics(db, "AUD-PARTIAL-319")
+    assert result["status"] == "READ_ONLY_OBSERVED"
+    assert result["attempts"] == 2
+    assert result["unknown_ai_intervals"] == 1
+    assert result["timing_complete"] is False
+    assert result["total_summed_ms"] is None
+    assert result["total_union_ms"] is None
+    assert result["partial_recorded_duration_ms"] == 2000
+    assert len(result["stages"]) == 1
+    stage = result["stages"][0]
+    assert stage["summed_ms"] is None
+    assert stage["active_ms"] is None
+    assert stage["partial_recorded_duration_ms"] == 2000
+    assert stage["priced_attempts"] == 2
+    assert stage["usd_posthoc"] == .05
+    console = "\n".join(stage_console_lines(result))
+    html = stage_report_html(result)
+    assert "Relógios IA incompletos: 1" in console
+    assert "soma total N/D" in html
+    assert "Tempo ativo" in html
+    assert "0.00 s" not in html
+    assert db.read_bytes() == physical
+
+
+def test_319_full_ai_clocks_preserve_complete_stage_timing(tmp_path):
+    from rasai.audit_stage_cost_presentation import inspect_stage_economics
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE content_remediation_attempts("
+            "attempt_id TEXT,audit_id TEXT,started_at TEXT,finished_at TEXT,"
+            "estimated_cost REAL,cost_currency TEXT)"
+        )
+        con.execute(
+            "INSERT INTO content_remediation_attempts VALUES (?,?,?,?,?,?)",
+            ("R-1", "AUD-FULL-319",
+             "2026-10-19T10:00:00Z", "2026-10-19T10:00:02Z", .01, "USD"),
+        )
+    result = inspect_stage_economics(db, "AUD-FULL-319")
+    assert result["status"] == "READ_ONLY_OBSERVED"
+    assert result["unknown_ai_intervals"] == 0
+    assert result["timing_complete"] is True
+    assert result["total_summed_ms"] == 2000
+    assert result["total_union_ms"] == 2000
+    assert result["stages"][0]["summed_ms"] == 2000
+    assert result["stages"][0]["partial_recorded_duration_ms"] is None
+
+
+def test_319_cost_cohorts_split_central_vs_directed_and_search_without_double_count(tmp_path):
+    from rasai.audit_stage_cost_presentation import (
+        inspect_stage_economics, stage_console_lines, stage_report_html,
+    )
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT,audit_id TEXT,operation TEXT,surface TEXT,"
+            "started_at TEXT,finished_at TEXT,"
+            "estimated_cost REAL,cost_currency TEXT,"
+            "observed_cost REAL,observed_cost_currency TEXT)"
+        )
+        con.execute(
+            "CREATE TABLE content_remediation_attempts("
+            "attempt_id TEXT,audit_id TEXT,operation TEXT,"
+            "started_at TEXT,finished_at TEXT,"
+            "estimated_cost REAL,cost_currency TEXT,"
+            "observed_cost REAL,observed_cost_currency TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("CORE", "AUD-COST-319", "IMPROVEMENT_INTELLIGENCE", None,
+                 "2026-10-19T10:00:00Z", "2026-10-19T10:00:01Z",
+                 .02, "USD", None, None),
+                ("DIRECTED", "AUD-COST-319", "DIRECTED_ANALYSIS", None,
+                 "2026-10-19T10:00:01Z", "2026-10-19T10:00:02Z",
+                 .03, "USD", None, None),
+                ("SEARCH", "AUD-COST-319", "SERP_QUERY", "SEARCH_API",
+                 "2026-10-19T10:00:02Z", "2026-10-19T10:00:03Z",
+                 .01, "USD", None, None),
+                ("FOREIGN", "AUD-OTHER", "DIRECTED_ANALYSIS", None,
+                 "2026-10-19T10:00:00Z", "2026-10-19T10:00:01Z",
+                 99, "USD", None, None),
+            ],
+        )
+        con.execute(
+            "INSERT INTO content_remediation_attempts VALUES (?,?,?,?,?,?,?,?,?)",
+            ("M20", "AUD-COST-319", "CONTENT_REMEDIATION",
+             "2026-10-19T10:00:03Z", "2026-10-19T10:00:04Z",
+             None, None, .08, "USD"),
+        )
+    original = db.read_bytes()
+    result = inspect_stage_economics(db, "AUD-COST-319")
+    assert result["status"] == "READ_ONLY_OBSERVED"
+    groups = result["cost_cohorts"]
+    core = groups["CORE_RECORDED"]
+    extra = groups["OPTIONAL_DIRECTED_OR_SEARCH"]
+    assert core["attempts"] == 2 and core["priced_attempts"] == 2
+    assert extra["attempts"] == 2 and extra["priced_attempts"] == 2
+    assert core["status"] == extra["status"] == "FULL_USD_COST_COVERAGE"
+    assert abs(core["amount_usd"] - .1) < 1e-9
+    assert abs(extra["amount_usd"] - .04) < 1e-9
+    assert not core["same_population_as_initial_forecast_proven"]
+    assert not extra["is_provider_invoice"]
+    output = "\n".join(stage_console_lines(result))
+    html = stage_report_html(result)
+    assert "IA central registrada: USD 0.100000" in output
+    assert "Search API opcionais: USD 0.040000" in output
+    assert "USD 0.100000" in html and "USD 0.040000" in html
+    assert "não comparar automaticamente" in output
+    assert db.read_bytes() == original
+
+
+def test_319_cost_cohort_partial_coverage_never_invents_total(tmp_path):
+    from rasai.audit_stage_cost_presentation import inspect_stage_economics, stage_report_html
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE ai_provider_attempts("
+            "attempt_id TEXT,audit_id TEXT,operation TEXT,started_at TEXT,"
+            "finished_at TEXT,estimated_cost REAL,cost_currency TEXT)"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?)",
+            [
+                ("C-1", "AUD-PARTIAL", "OTHER_AI",
+                 "2026-10-19T10:00:00Z", "2026-10-19T10:00:01Z", .01, "USD"),
+                ("C-2", "AUD-PARTIAL", "OTHER_AI",
+                 "2026-10-19T10:00:01Z", "2026-10-19T10:00:02Z", None, None),
+                ("O-1", "AUD-PARTIAL", "DIRECTED_ANALYSIS",
+                 "2026-10-19T10:00:02Z", "2026-10-19T10:00:03Z", .05, "USD"),
+            ],
+        )
+    projected = inspect_stage_economics(db, "AUD-PARTIAL")
+    core = projected["cost_cohorts"]["CORE_RECORDED"]
+    optional = projected["cost_cohorts"]["OPTIONAL_DIRECTED_OR_SEARCH"]
+    assert core["status"] == "COST_COVERAGE_INCOMPLETE"
+    assert core["amount_usd"] is None
+    assert core["attempts"] == 2 and core["priced_attempts"] == 1
+    assert optional["amount_usd"] == .05
+    html = stage_report_html(projected)
+    assert "N/D (cobertura USD 1/2)" in html
+    assert "USD 0.050000" in html

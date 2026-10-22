@@ -1126,3 +1126,184 @@ def test_cobs_html_renderer_rejects_claim_of_same_serp_html_population(
     projected["serp_and_html_same_population_proven"] = True
     with pytest.raises(ValueError, match="cannot claim equal SERP"):
         render_cobs_static_pair_html(projected)
+
+
+def test_same_size_aud_rewrite_during_digest_abstains(tmp_path, monkeypatch):
+    """Descriptor/path consistency is required even when total bytes are unchanged."""
+    from pathlib import Path
+    import os
+
+    source = tmp_path / "audit.db"
+    source.write_bytes(b"stable-bytes")
+    raw_open = Path.open
+    mutated = []
+
+    class Reading:
+        def __init__(self, handle):
+            self.handle = handle
+        def __enter__(self):
+            self.handle.__enter__()
+            return self
+        def __exit__(self, *args):
+            return self.handle.__exit__(*args)
+        def __getattr__(self, key):
+            return getattr(self.handle, key)
+        def read(self, n=-1):
+            chunk = self.handle.read(n)
+            if chunk and not mutated:
+                mutated.append(True)
+                stamp = source.stat()
+                with raw_open(source, "r+b") as writer:
+                    writer.write(b"X")
+                os.utime(source, ns=(stamp.st_atime_ns, stamp.st_mtime_ns + 10000000))
+            return chunk
+
+    def intercepted(path, *args, **kwargs):
+        stream = raw_open(path, *args, **kwargs)
+        if path == source and args and args[0] == "rb":
+            return Reading(stream)
+        return stream
+
+    monkeypatch.setattr(Path, "open", intercepted)
+    with pytest.raises(ValueError, match="AUD source changed during digest"):
+        capture._physical_digest(source)
+    assert mutated
+
+
+def test_capture_with_local_consent_denied_before_network(tmp_path, monkeypatch):
+    """The sidecar forwards revocable grant policy to the common HTTP gate."""
+    from datetime import datetime, timedelta, timezone
+    from rasai.geo_competitor_consent import record_local_consent
+
+    folder = _audit(tmp_path)
+    registry = tmp_path / "policy.json"
+    grant = record_local_consent(
+        registry, hostname="competitor.example.org",
+        role="COMPETITOR_CANDIDATE",
+        purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW", action="GRANT",
+        expires_at=(datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+        confirmed=True,
+    )
+    from rasai.geo_competitor_fetch import inspect_consented_public_html
+    seen = []
+    def fake(url, **kwargs):
+        seen.append(kwargs)
+        return _response(local_consent_event_sha256=grant)
+    monkeypatch.setattr(capture, "inspect_consented_public_html", fake)
+    first = _run(folder, tmp_path, consent_registry=registry,
+                 consent_purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW")
+    assert first["status"] == "MATERIALIZED"
+    assert seen[-1]["consent_registry"] == registry
+    before = (folder / "audit.db").read_bytes()
+    record_local_consent(
+        registry, hostname="competitor.example.org",
+        role="COMPETITOR_CANDIDATE",
+        purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW",
+        action="REVOKE", confirmed=True,
+    )
+    with pytest.raises(ValueError, match="consent revoked"):
+        _run(folder, tmp_path, consent_registry=registry,
+             consent_purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW")
+    assert (folder / "audit.db").read_bytes() == before
+
+
+def test_capture_revoked_mid_fetch_rejects_materialization(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from rasai.geo_competitor_consent import record_local_consent
+    folder = _audit(tmp_path)
+    registry = tmp_path / "consent.json"
+    grant = record_local_consent(
+        registry, hostname="competitor.example.org", role="COMPETITOR_CANDIDATE",
+        purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW", action="GRANT",
+        expires_at=(datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+        confirmed=True,
+    )
+    def revoke_after_capture(url, **kwargs):
+        record_local_consent(
+            registry, hostname="competitor.example.org",
+            role="COMPETITOR_CANDIDATE",
+            purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW",
+            action="REVOKE", confirmed=True,
+        )
+        return _response(local_consent_event_sha256=grant)
+    monkeypatch.setattr(capture, "inspect_consented_public_html", revoke_after_capture)
+    with pytest.raises(ValueError, match="consent revoked"):
+        _run(folder, tmp_path, consent_registry=registry,
+             consent_purpose="GEO_COMPETITOR_STATIC_CONTENT_REVIEW")
+    assert not (tmp_path / "output").exists()
+
+
+
+def test_cobs_stored_replay_is_structurally_consumed_without_content_validation(
+    tmp_path, monkeypatch,
+):
+    """Same captured bytes: persisted COBS -> pair projection -> safe HTML."""
+    from rasai.geo_competitor_pair import compare_cobs_static_pair, _offline_replay_summary
+    from rasai.geo_competitor_pair_html import render_cobs_static_pair_html
+
+    folder = _audit(tmp_path)
+    _add_aud_targets(folder, [(folder.name, _TARGET_URL)])
+    source_bytes = (folder / "audit.db").read_bytes()
+
+    def observed(url, **kwargs):
+        target = kwargs["role"] == "CUSTOMER"
+        digest = ("e" if target else "f") * 64
+        return _response(
+            role=kwargs["role"], requested_url=url, final_url=url,
+            content_sha256=digest,
+            html_fetch_timestamp=("2026-10-10T10:15:00Z"
+                                  if target else "2026-10-10T11:15:00Z"),
+            offline_js_advisory={
+                "contract_version": "RASAI-COBS-NETWORKLESS-INLINE-REPLAY-1",
+                "status": "INLINE_DOM_STABLE_IN_OCI",
+                "source_html_sha256": digest,
+                "isolated_rendered_html_sha256": "a" * 64,
+                "replay_device": "mobile",
+                "live_site_hydration_proven": False,
+                "live_primary_content_proven": False,
+                "same_serp_device_or_population_proven": False,
+                "rendered_html_persisted": False,
+                "isolated_lexical_inventory_is_live_evidence": False,
+                "isolated_lexical_inventory": {
+                    "contract_version": "RASAI-COBS-NETWORKLESS-LEXICAL-INVENTORY-1",
+                    "method": "SAME_SOURCE_HTML_VS_OCI_DOM_OFFLINE",
+                    "static_html": {
+                        "word_count_observed_html": 3, "headings_sample": ["Antes"],
+                    },
+                    "isolated_dom": {
+                        "word_count_observed_html": 7,
+                        "headings_sample": ["Depois <seguro>"],
+                    },
+                    "observed_word_count_delta": 4,
+                    "content_readiness_proven": False,
+                    "live_site_hydration_proven": False,
+                    "primary_content_proven": False,
+                    "semantic_or_editorial_gap_proven": False,
+                    "same_serp_population_proven": False,
+                    "raw_html_persisted": False,
+                    "additional_public_http_requests": 0,
+                },
+            },
+        )
+    monkeypatch.setattr(capture, "inspect_consented_public_html", observed)
+    target = capture.capture_competitor_sidecar(
+        folder, _OBS, _TARGET_URL, role="CUSTOMER",
+        output_root=tmp_path / "customer", consented_hostnames=("customer.example.org",),
+    )
+    competitor = _run(folder, tmp_path)
+    projection = compare_cobs_static_pair(
+        folder, target["manifest_path"], competitor["manifest_path"],
+    )
+    assert projection["competitor"]["offline_replay_summary"]["observed_word_count_delta"] == 4
+    assert projection["competitor"]["offline_replay_summary"]["semantic_or_editorial_gap_proven"] is False
+    rendered = render_cobs_static_pair_html(projection)
+    assert "Depois &lt;seguro&gt;" in rendered
+    assert "replay OCI" in rendered
+    assert (folder / "audit.db").read_bytes() == source_bytes
+
+    # Rehashed but inconsistent offline source identity cannot be promoted.
+    bad = json.loads(open(competitor["manifest_path"], encoding="utf-8").read())
+    bad["capture"]["offline_js_advisory"]["source_html_sha256"] = "b" * 64
+    assert _offline_replay_summary(bad) == {
+        "status": "NOT_VERIFIABLE_OFFLINE_REPLAY",
+    }
