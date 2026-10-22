@@ -205,7 +205,7 @@ def publish_faq_after_seal(*, audit_id: str, aud_dir: Path) -> dict[str, int]:
     from rasai.apdex_readiness_sidecar import _original
     root = Path(aud_dir)
     try:
-        original_id, _, _ = _original(root)
+        original_id, _, _ = _original(root, allow_limited_completion=True)
         if original_id != audit_id:
             raise ValueError("physical source ID mismatch")
         folder = root.parent / ".rasai-faq-sidecars" / audit_id

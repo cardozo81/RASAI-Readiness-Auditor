@@ -53,8 +53,13 @@ def _sha(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _original(aud_dir: Path) -> tuple[str, str, str]:
-    """Return proven sealed AUD identity using only read-only local operations."""
+def _original(aud_dir: Path, *, allow_limited_completion: bool = False) -> tuple[str, str, str]:
+    """Return proven sealed AUD identity; optional limitations apply only to FAQ.
+
+    Default strict COMPLETE semantics remain unchanged for M25 and other readers.
+    Explicit FAQ acceptance of COMPLETE_WITH_LIMITATIONS does not waive manifest,
+    source integrity, finalized status, or the receipt-to-snapshot binding.
+    """
     aud_dir = Path(aud_dir)
     if not _AUD_ID.fullmatch(aud_dir.name) or aud_dir.is_symlink():
         raise ValueError("unsafe AUD directory identity")
@@ -89,7 +94,10 @@ def _original(aud_dir: Path) -> tuple[str, str, str]:
             ).fetchall()
             if (
                 len(rows) != 1 or str(rows[0][0]).upper() != "COMPLETED"
-                or str(rows[0][1]).upper() != "COMPLETE"
+                or str(rows[0][1]).upper() not in (
+                    {"COMPLETE", "COMPLETE_WITH_LIMITATIONS"}
+                    if allow_limited_completion else {"COMPLETE"}
+                )
                 or con.execute("PRAGMA quick_check").fetchone()[0] != "ok"
                 or con.execute("PRAGMA foreign_key_check").fetchone() is not None
             ):
