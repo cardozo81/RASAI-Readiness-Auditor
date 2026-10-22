@@ -360,6 +360,21 @@ def test_real_chromium_sqlite_to_sealed_sidecar_and_consultative_report(
 
     prepared, _ = _workspace(tmp_path)
     workspace = AuditWorkspace(prepared.root)
+    # The real report test baseline uses a legacy three-column configuration
+    # fixture. Add the canonical configuration provenance fields required when
+    # physical page snapshots are present, without mocking report production.
+    with sqlite3.connect(workspace.database) as db:
+        for name, field in (
+            ("schema_version", "TEXT NOT NULL DEFAULT '1'"),
+            ("configuration_kind", "TEXT NOT NULL DEFAULT 'CONSOLE'"),
+            ("source_audit_id", "TEXT"),
+            ("source_configuration_hash", "TEXT"),
+            ("changed_fields_json", "TEXT NOT NULL DEFAULT '[]'"),
+            ("execution_series_id", "TEXT NOT NULL DEFAULT 'SER-LOCAL-322'"),
+            ("scope_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ("created_at", "TEXT NOT NULL DEFAULT '2026-10-22T12:00:00Z'"),
+        ):
+            db.execute("ALTER TABLE audit_execution_configurations " + name + " " + field)
     forget_experimental_readiness(AUDIT_ID)
     monkeypatch.setattr(m25, "_log_progress", lambda *args, **kwargs: None)
     server = ThreadingHTTPServer(("127.0.0.1", 0), Spa)
