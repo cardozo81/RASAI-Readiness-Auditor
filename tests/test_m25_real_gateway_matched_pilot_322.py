@@ -65,13 +65,14 @@ def test_five_physical_same_gateway_m25_ab_pairs(monkeypatch):
     thread.start()
     url = f"http://127.0.0.1:{server.server_port}/spa"
     browser_path = shutil.which("google-chrome") or shutil.which("chromium")
-    baseline = m25.PlaywrightSyntheticUxGateway(
-        session_mode="cold", executable_path=browser_path,
-    )
-    active = experimental_gateway_factory(
+    # A single Playwright sync driver and one Chromium process for BOTH arms.
+    # Simultaneous sync_playwright.start() drivers are not supported in-thread.
+    # Cold contexts preserve isolation while alternating observer opt-in.
+    gateway = experimental_gateway_factory(
         session_mode="cold", policy=("CSR_SPA", 2200),
     )
-    active.executable_path = browser_path
+    gateway.executable_path = browser_path
+    observer = gateway.advisory_same_page_observer
     profile = m25.DESKTOP_STANDARD_PROFILE
     config = m25.ExperienceApdexConfig(
         settle_seconds=0.7, concurrency=1,
@@ -88,7 +89,9 @@ def test_five_physical_same_gateway_m25_ab_pairs(monkeypatch):
             order = ("control", "probe") if index % 2 == 0 else ("probe", "control")
             pair = {}
             for arm in order:
-                gateway = baseline if arm == "control" else active
+                gateway.advisory_same_page_observer = (
+                    observer if arm == "probe" else None
+                )
                 rows = m25._measure_device(
                     audit_id=AUD, workspace=object(), url=url,
                     device="DESKTOP", target=1, max_attempts=1,
@@ -130,10 +133,7 @@ def test_five_physical_same_gateway_m25_ab_pairs(monkeypatch):
                     assert observed.post_load_delta_ms is not None
                     assert observed.post_load_delta_ms >= 0
             measured.append(pair)
-        versions = {
-            baseline.environment()["chromium_version"],
-            active.environment()["chromium_version"],
-        }
+        versions = {gateway.environment()["chromium_version"]}
         assert len(versions) == 1
         observed, costs = _drain(AUD)
         assert len(observed) == 5 and len(costs) == 5
@@ -188,8 +188,7 @@ def test_five_physical_same_gateway_m25_ab_pairs(monkeypatch):
             )
         }, sort_keys=True))
     finally:
-        baseline.close()
-        active.close()
+        gateway.close()
         forget_experimental_readiness(AUD)
         server.shutdown()
         server.server_close()
