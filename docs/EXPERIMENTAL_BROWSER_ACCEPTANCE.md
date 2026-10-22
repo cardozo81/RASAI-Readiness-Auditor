@@ -147,23 +147,23 @@ passivamente os controles do DOM de cada URL autorizada conforme
 clique**; sem alvo e contencao aprovados a campanha nao comeca.
 
 
-## Plano operacional de fechamento #652 — execução concentrada sem hospedagem (21/10/2026)
+## Plano operacional de fechamento #652 - execução concentrada sem hospedagem (21/10/2026)
 
 ### Decisão e fronteira
 Operador aprovou a **opção A**: homologação física pelo agente, preferencialmente sem ação Windows. O objetivo é comprovar **na AUD real** a mesma amostra Playwright, não repetir uma demonstração de clique desconectada. Nenhum consentimento geral autoriza rede externa ou relaxamento de proteção contra SSRF. PR #647 continua Draft.
 
-### Inventário de evidências existentes — não executar novamente
+### Inventário de evidências existentes - não executar novamente
 - Chromium real realizou um clique na fixture FAQ local e observou DOM antes/depois; isso é **prova parcial independente**, sem AUD nem firewall de rede atestado.
 - Inventário passivo de botão FAQ (incluindo casos negativos) já teve teste focal Windows aprovado; contratos same-sample/HMAC e projeção consultiva existem.
 - A fixture local homologável requer button[type=button][aria-controls=faq-answer-controlled][aria-expanded=false], painel oculto e conteúdo inserido depois de um único clique. O conteúdo nunca será usado como prova de Googlebot/indexação.
 
-### Passo 1 — gate do ambiente (agente, sem uso humano)
+### Passo 1 - gate do ambiente (agente, sem uso humano)
 1. Conferir checkout real do RASAi, HEAD, Python/Playwright, navegador e o caminho CLI de AUD; **o simples acesso ao GitHub por API não constitui checkout nem executor físico**.
 2. Confirmar um caminho **oficial** de captura opt-in que suporte um alvo controlado. Não utilizar `file://`, `localhost` nem `about:blank` como substitutos de URL HTTP(s) sem comprovar que o contrato de integração aceita esse transporte **sem** modificar as regras globais de rede.
 3. Atestar contenção de saída de rede do processo Chromium e seus protocolos nativos na camada de SO/container; negar execução se não comprovada.
 4. Confirmar URL solicitada e final **exatas**, device MOBILE, DOM inventariado, ID do botão e limite de um gesto, com zero requests novos durante o gesto. Uma autorização genérica para “opção A” não autoriza tráfego público não especificado.
 
-### Passo 2 — executar uma única AUD descartável
+### Passo 2 - executar uma única AUD descartável
 Utilizar os parâmetros da CLI existentes:
 - `--experimental-faq-explicit-consent`
 - `--experimental-faq-network-boundary-ack` (declaração, **não** prova de contenção)
@@ -176,7 +176,7 @@ Utilizar os parâmetros da CLI existentes:
 
 Gerar a chave apenas no executor confiável, com pelo menos 32 bytes, permissões restritas, sem colocá-la na AUD/Git/relatório. Capturar uma única sessão Chromium real e vincular AUD/page_id/snapshot_id/sample_id, URL inicial/final, device, DOM pré-clique/hash, clique e DOM pós-clique; recusar divergência ou timeout. Manter histórica e índices imutáveis.
 
-### Passo 3 — evidência independente e decisão
+### Passo 3 - evidência independente e decisão
 - Validar a identidade física da AUD contra snapshot selado e recibo HMAC por verificador independente, inclusive uma adulteração negativa, sem expor segredo nem HTML posterior.
 - Ler projeção `rasai.experimental_observation_report` estritamente com AUD controlada; exigir estados separados pré-clique/pós-clique/não verificado, sem pontuar resultados.
 - Registrar SHA/ambiente, URL consentida (sem dados sensíveis), IDs reais da AUD e snapshot, limites, hash e resultados na #652.

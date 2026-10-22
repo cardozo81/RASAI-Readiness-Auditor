@@ -6,6 +6,18 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    # Read-only acceptance/status literals: translate without certifying a gate.
+    "AUD_OR_SIGNED_DOCUMENTARY_PACKET_NOT_ATTESTED": "Auditoria ou pacote documental assinado sem atestação verificável",
+    "CANDIDATE_LIMIT_EXCEEDED": "Quantidade de candidatos FAQ acima do limite seguro de inspeção",
+    "HTML_FILE_NOT_READABLE": "Arquivo HTML indisponível ou sem leitura confiável",
+    "SCOPE_OR_HTML_UNVERIFIABLE": "Escopo de URL ou HTML não verificável",
+    "PASSIVE_INVENTORY_ONLY": "Inventário passivo de candidatos, sem clique ou homologação",
+    "OCI_OUTPUT_UNVERIFIABLE": "Saída do isolamento OCI sem comprovação",
+    "OCI_PROCESS_UNVERIFIABLE": "Processo de isolamento OCI sem comprovação",
+    "SIDECAR_PUBLICATION_REJECTED": "Publicação do registro experimental recusada",
+    "SIGNED_WITNESS_INVALID": "Atestado assinado não verificável",
+    "DOCUMENTARY_PACKET_OR_AUD_BINDING_NOT_ATTESTED": "Pacote documental ou vínculo com auditoria não atestado",
+    "AUD_BOUND_DOCUMENTARY_REVIEW_OBSERVED": "Revisão documental observada e vinculada à auditoria; não certifica conformidade",
     "APOS_CLIQUE_DECLARADO_SEM_HOMOLOGACAO": "Após clique declarado pelo coletor local; homologação física pendente",
     # Opt-in physical receipt/readiness fail-closed states.
     "FAQ_EXPLICIT_SCOPE_MISMATCH": "URL final, solicitada ou dispositivo não corresponde ao consentimento",

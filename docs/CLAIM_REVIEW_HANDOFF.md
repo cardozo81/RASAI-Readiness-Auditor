@@ -291,7 +291,7 @@ parcialmente presente e com arquivos existentes idênticos, grava
 Se houver divergência, devolve
 `DRAFT_FILES_ALREADY_PRESENT_NO_OVERWRITE` com contadores de
 arquivos reaproveitáveis, conflitantes e ausentes. Isso preserva
-possíveis revisões já feitas pelo responsável — **não apagar ou
+possíveis revisões já feitas pelo responsável - **não apagar ou
 renomear arquivos privados automaticamente**.
 Se já existir `manifest.json`, devolve
 `MANIFEST_PRESENT_USE_ACCEPTANCE_GATE`; sua presença não atesta
