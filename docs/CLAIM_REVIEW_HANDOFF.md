@@ -190,3 +190,45 @@ revisor. A autenticacao externa oficial, a fundamentacao e o aceite
 independente precisam estar documentados fora do RASAi antes de
 declarar homologacao regulatoria. Nenhum GET/SUSEP/API/IA, nenhum
 reprocessamento de AUD historica e nenhum dado privado no GitHub.
+
+## 6. Preflight automatizado, sem expor o pacote privado (22/10/2026)
+
+Executar **uma vez** a descoberta read-only no Windows, com a branch
+atualizada. O script opera sobre o armazenamento local indicado, sem rede,
+sem downloads e sem alterar a AUD:
+
+```powershell
+cd C:\IA-PROJETOS\github\RASAI-Readiness-Auditor
+git pull --ff-only
+& ".\.venv\Scripts\python.exe" ".\scripts\CLAIM_603_WINDOWS_ACCEPTANCE.py" --search-root "C:\IA-PROJETOS"
+```
+
+Quando a AUD tiver sido localizada fora dessa pasta, informar seu caminho
+explicitamente com `--audit-directory "C:\CAMINHO\AUD-EAF..."`.
+O resultado **PRIVATE_SIGNED_PACKET_REQUIRED** significa que o
+vínculo físico está preparado, mas não existe ainda pacote documental
+assinado pelo revisor. Não interpretar esse estado como teste reprovado
+da implementação ou como fonte oficial validada.
+
+Quando o revisor fornecer em diretório **privado fora do Git** um
+`manifest.json` mais os `claim_file`, `document_file`, `receipt_file`
+indicados (nenhum placeholder), executar uma única vez:
+
+```powershell
+& ".\.venv\Scripts\python.exe" ".\scripts\CLAIM_603_WINDOWS_ACCEPTANCE.py" `
+  --audit-directory "C:\CAMINHO\AUD-EAFBFF6E3F6E415CB0DD41F561B5B2DF" `
+  --manifest "C:\REVISAO_PRIVADA\manifest.json"
+```
+
+A chave de revisão real deve ser provida pelo **revisor**, em
+`RASAI_CLAIM_REVIEW_HMAC_KEY_HEX`, junto da allowlist
+`RASAI_CLAIM_REVIEWER_ALLOWLIST`. Nunca compartilhar seus valores
+nem registrar os documentos no GitHub/chat; o script imprime apenas
+metadados de captura, contagens e resultados redigidos. As variáveis
+devem ser removidas do processo após o teste. Sem chave ou revisão real
+retorna `PRIVATE_REVIEW_CREDENTIALS_REQUIRED` e não promove alegações.
+
+Apenas `AUTHENTICATED_REVIEW_AND_AUD_LINK_VERIFIED` (exit 0)
+com o comprovante independente real permite solicitar o aceite final
+externo. O algoritmo verifica integridade e vínculo local; continua
+**não** certificando origem legal/regulatória em nome da SUSEP.
