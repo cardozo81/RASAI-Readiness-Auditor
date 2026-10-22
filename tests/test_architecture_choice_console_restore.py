@@ -85,6 +85,8 @@ def test_selector_displays_current_choice_and_cancel_preserves_it(monkeypatch, c
     console._menu = lambda _state: builtins.input("Escolha: ")
     console._configure = lambda *_args: None
     console.run_audit_from_console = lambda _state: 0
+    # Production console supplies this renderer; isolated test double must too.
+    console.render_header = lambda _state: None
     monkeypatch.setattr(adapter, "_INSTALLED", False)
     adapter.install(console)
     state = _state()

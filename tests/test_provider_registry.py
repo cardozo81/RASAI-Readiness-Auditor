@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from rasai.m18_ai import DEFAULT_MODELS, KEY_ENV, MODEL_ENV, SUPPORTED_MODELS
+from rasai.ai_model_catalog import load_model_catalog
 from rasai.provider_extensions import (
     EXTENDED_DEFAULT_MODELS,
     EXTENDED_ENDPOINT_ENV,
@@ -38,7 +39,14 @@ class ProviderRegistryTests(unittest.TestCase):
             assert registration is not None
             self.assertEqual(registration.key_env, KEY_ENV[provider_name])
             self.assertEqual(registration.model_env, MODEL_ENV[provider_name])
-            self.assertEqual(registration.supported_models, SUPPORTED_MODELS[provider_name])
+            # M18 retains legacy identifiers for historical AUDs. Only enabled,
+            # effective and selectable models are offered in the live registry.
+            catalog_models = load_model_catalog().provider_models(
+                provider_name, enabled_only=True, effective_only=True
+            )
+            expected = tuple(item.model for item in catalog_models if item.selectable)
+            self.assertEqual(registration.supported_models, expected)
+            self.assertTrue(set(expected).issubset(SUPPORTED_MODELS[provider_name]))
             self.assertEqual(registration.default_model, DEFAULT_MODELS[provider_name])
             self.assertTrue(registration.auto_eligible)
             self.assertFalse(registration.explicit_only)
