@@ -314,7 +314,7 @@ def test_603_optin_wrong_aud_or_ambiguous_snapshot_is_rejected(tmp_path):
     with sqlite3.connect(root / "audit.db") as con:
         con.execute("INSERT INTO pages VALUES ('P-OTHER','AUD-FOREIGN')")
         con.execute(
-            "INSERT INTO page_snapshots VALUES (?,?,?)",
+            "INSERT INTO page_snapshots(snapshot_id,page_id,main_content_ref) VALUES (?,?,?)",
             ("SNP-SIGNED", "P-OTHER", "artifacts/capture/main.txt"),
         )
     out = inspect_claim_review_batch(
