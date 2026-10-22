@@ -1251,6 +1251,7 @@ def test_cobs_stored_replay_is_structurally_consumed_without_content_validation(
         return _response(
             role=kwargs["role"], requested_url=url, final_url=url,
             content_sha256=digest,
+            jsonld_types=[],  # Required static extraction field in the COBS contract.
             html_fetch_timestamp=("2026-10-10T10:15:00Z"
                                   if target else "2026-10-10T11:15:00Z"),
             offline_js_advisory={
