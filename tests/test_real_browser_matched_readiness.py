@@ -241,9 +241,15 @@ def test_real_m25_sqlite_persists_exact_same_page_probe_samples(tmp_path, monkey
                 )
             forget_experimental_readiness(audit_id)
             if arm == "probe":
-                factory = lambda: experimental_gateway_factory(
-                    session_mode="cold", policy=("CSR_SPA",2200),
-                )
+                def factory():
+                    # GitHub runner has system Chrome, not the downloaded
+                    # Playwright Chromium. Use the same pinned executable
+                    # in both physically measured arms.
+                    gateway = experimental_gateway_factory(
+                        session_mode="cold", policy=("CSR_SPA",2200),
+                    )
+                    gateway.executable_path = browser_path
+                    return gateway
             else:
                 factory = lambda: m25.PlaywrightSyntheticUxGateway(
                     session_mode="cold", executable_path=browser_path,
