@@ -165,8 +165,8 @@ não são censo de sessões individuais.</p></section>
 <ul>""" + recommendations + """</ul></section>
 <footer class="muted"><p>Nenhum threshold foi inferido da arquitetura.
 Sem novas consultas ao Dynatrace, mudanças no ambiente monitorado, nas medições
-sintéticas de navegação e experiência, na pontuação Apdex ou nos índices de
-prontidão e GEO. Nenhuma auditoria ou relatório canônico foi alterado e não
+sintéticas de navegação e experiência, na pontuação Apdex ou nos índices
+SARI e SCORE-GEO. Nenhuma auditoria ou relatório canônico foi alterado e não
 houve cobrança adicional.</p></footer>
 </body></html>
 """
