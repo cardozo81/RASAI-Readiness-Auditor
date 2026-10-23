@@ -198,7 +198,7 @@ A integração Cohere mantém somente `command-a-03-2025` no catálogo de fábri
 
 A integração inicial expõe somente `kimi-k3` na plataforma internacional, com `context_window=1000000`, `reasoning_values=[LOW,HIGH,MAX]`, `default_reasoning=LOW` e `auto_eligible=false`. O default `LOW` é o menor effort oficialmente aceito pelo K3; o default do fornecedor (`max`) não é herdado pelo RASAi. O catálogo não habilita endpoint China, tools, web search, Formula, multimodalidade, Responses API ou cache TTL 1h.
 
-### Atualização DeepSeek Flash — 23/10/2026
+### Atualização DeepSeek Flash - 23/10/2026
 
 A API oficial usa `deepseek-flash` para DeepSeek-V4.1-Flash-1017
 (lançado em 17/10/2026). `deepseek-v4-pro` permanece selecionável.
