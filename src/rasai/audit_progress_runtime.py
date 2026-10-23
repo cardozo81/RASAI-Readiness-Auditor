@@ -179,6 +179,84 @@ def _semantic_analysis_completed(workspace: Any, audit_id: str) -> bool:
         return False
 
 
+def _persisted_single_device_comparison_completed(workspace: Any, audit_id: str) -> bool:
+    """Reconstruct a finished M8 checkpoint for RPR without relying on process flags.
+
+    A single-device AUD deliberately persists BR-GEO-052 as NOT_APPLICABLE.
+    This is an actual, completed comparison decision rather than absent evidence.
+    Multi-device comparisons must be checked by their own canonical path: this
+    compatibility path cannot claim their completion from one snapshot.
+    """
+    if not audit_id:
+        return False
+    try:
+        database = Path(workspace.database)
+        if database.is_symlink() or not database.is_file():
+            return False
+        with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=2) as db:
+            db.row_factory = sqlite3.Row
+            db.execute("PRAGMA query_only=ON")
+            pages = [
+                str(row[0]) for row in db.execute(
+                    "SELECT page_id FROM pages WHERE audit_id=?",
+                    (audit_id,),
+                )
+            ]
+            if not pages:
+                return False
+
+            snapshots = db.execute(
+                """SELECT ps.page_id,ps.device,ps.browser_metadata
+                   FROM page_snapshots ps
+                   JOIN pages p ON p.page_id=ps.page_id
+                   WHERE p.audit_id=?""",
+                (audit_id,),
+            ).fetchall()
+            contexts: dict[str, set[str]] = {page_id: set() for page_id in pages}
+            if not snapshots:
+                return False
+            for row in snapshots:
+                page_id = str(row["page_id"] or "")
+                if page_id not in contexts:
+                    return False
+                metadata = json.loads(str(row["browser_metadata"] or "{}"))
+                if not isinstance(metadata, dict):
+                    return False
+                selected = metadata.get("audit_device_context")
+                if not isinstance(selected, list) or len(selected) != 1:
+                    return False
+                device = str(selected[0]).upper()
+                if device not in {"MOBILE", "DESKTOP"} or str(row["device"] or "").upper() != device:
+                    return False
+                contexts[page_id].add(device)
+
+            rows = db.execute(
+                """SELECT page_id,result,observed_value FROM rule_executions
+                   WHERE audit_id=? AND rule_id='BR-GEO-052'
+                   ORDER BY executed_at DESC,rowid DESC""",
+                (audit_id,),
+            ).fetchall()
+            completed: set[str] = set()
+            for row in rows:
+                page_id = str(row["page_id"] or "")
+                if page_id not in contexts or page_id in completed:
+                    continue
+                if len(contexts[page_id]) != 1 or str(row["result"]) != "NOT_APPLICABLE":
+                    return False
+                observed = json.loads(str(row["observed_value"] or "{}"))
+                if (
+                    not isinstance(observed, dict)
+                    or observed.get("comparison_requested") is not False
+                    or observed.get("reason_code") != "DEVICE_COMPARISON_DISABLED_BY_CONTEXT"
+                    or observed.get("selected_devices") != sorted(contexts[page_id])
+                ):
+                    return False
+                completed.add(page_id)
+            return completed == set(pages)
+    except (OSError, ValueError, TypeError, sqlite3.Error):
+        return False
+
+
 def _assert_ready(
     *,
     audit_id: str,
@@ -193,6 +271,12 @@ def _assert_ready(
     if "SEMANTIC_ANALYSIS" in missing and _semantic_analysis_completed(workspace, audit_id):
         _flags(workspace).add("SEMANTIC_ANALYSIS")
         missing.remove("SEMANTIC_ANALYSIS")
+    if (
+        "CONTEXT_COMPARISON" in missing
+        and _persisted_single_device_comparison_completed(workspace, audit_id)
+    ):
+        _flags(workspace).add("CONTEXT_COMPARISON")
+        missing.remove("CONTEXT_COMPARISON")
     if not missing:
         return
     try_append_operational_event(

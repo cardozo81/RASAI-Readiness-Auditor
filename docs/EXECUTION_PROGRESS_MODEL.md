@@ -149,3 +149,29 @@ Nenhum modelo de percentual consegue antecipar precisamente latência de rede, f
 - **percentual geral** permanece identificado como projeção enquanto a execução estiver aberta;
 - timeouts/deadlines são mostrados como limites operacionais, não como estimativa de conclusão;
 - o relógio total mede tempo real de parede até a última etapa habilitada.
+
+## RPR: reconstrução durável do checkpoint M8 (AUD física 23/10/2026)
+
+O gate operacional `CONTEXT_COMPARISON` não pode depender exclusivamente de flags
+em memória produzidas durante a execução inicial. No RPR, o processo pode
+reutilizar sem nova execução o M8 já persistido. Se o gate esquecer este
+checkpoint, `CONTENT_REMEDIATION_AI` retorna
+`API_EVIDENCE_GATE_BLOCKED: CONTEXT_COMPARISON` mesmo com dados M8 válidos.
+
+O runtime permite reconstruir esse checkpoint **somente** se toda página da AUD
+possui observação M8 `BR-GEO-052` explícita `NOT_APPLICABLE`, com
+`DEVICE_COMPARISON_DISABLED_BY_CONTEXT`, e todos os snapshots confirmam o
+mesmo escopo de **um único dispositivo**. Nesse cenário, não ter segunda
+plataforma é escolha da AUD e não dado ausente. O teste é read-only e não
+executa provider, não muda score e não converte conclusão M8 em `PASS`.
+
+Ausência de página, divergência entre dispositivos, JSON ausente/inválido,
+resultado M8 incompatível ou universo de dois dispositivos falham fechados.
+A liberação do gate não é aprovação automática de M20: a remediação continua
+sujeita a findings elegíveis, configuração e política de custo/autorização do RPR.
+
+Comportamento validado por teste sintético: a AUD
+`AUD-12516653C86743ACA32FA177B26AE19D` apresentou M8
+`NOT_APPLICABLE` de MOBILE e conteúdo recuperado no RPR anterior;
+o bloqueio `CONTEXT_COMPARISON` impedira até mesmo a tentativa M20.
+Os testes não reescrevem nem executam a AUD física.
