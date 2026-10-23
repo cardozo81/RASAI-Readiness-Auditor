@@ -418,3 +418,39 @@ def test_public_component_labels_prefer_pt_br() -> None:
     assert _friendly_component("WEB_PERFORMANCE") == "Desempenho web"
     assert _friendly_component("SEARCH_INTELLIGENCE") == "Inteligência de busca / SERP"
     assert _friendly_component("PASSIVE_SECURITY") == "Segurança passiva"
+
+
+def test_catalog_provenance_hides_sqlite_table_and_capability_identifiers() -> None:
+    """Public CAT panels show evidence sources, never private schema details."""
+    from rasai.catalog_report_page import _catalog_provenance_section
+
+    sources = (
+        ("standards_metric_observations", "Métricas de padrões web", 59),
+        ("standards_service_runs", "Serviços de padrões web", 13),
+        ("m24_runs", "Execução dos diagnósticos técnicos", 1),
+        ("m24_diagnostics", "Diagnósticos de descoberta", 5),
+        ("page_snapshots", "Capturas de navegador", 1),
+    )
+    html = _catalog_provenance_section(sources, plan_status="Apto")
+    assert "Fonte funcional" in html and "Registros" in html
+    for name, label, count in sources:
+        assert label in html
+        assert name not in html
+        assert str(count) in html
+    assert "Fonte interna" not in html
+    assert "Identificadores técnicos de capacidade" not in html
+    assert "Aptidão registrada no plano:" in html
+
+
+def test_catalog_provenance_preserves_cat10_and_empty_state() -> None:
+    from rasai.catalog_report_page import _catalog_provenance_section
+
+    security = _catalog_provenance_section(
+        (("passive_security_runs", "Diagnósticos de segurança", 2),),
+    )
+    assert "Diagnósticos de segurança" in security
+    assert "passive_security_runs" not in security
+    assert "Aptidão registrada no plano" not in security
+    empty = _catalog_provenance_section((), plan_status="Apto")
+    assert "Nenhuma fonte funcional específica identificada." in empty
+    assert "Fonte interna" not in empty

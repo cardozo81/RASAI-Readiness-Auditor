@@ -417,6 +417,35 @@ def _apdex_interpretation_html(database: Path, audit_id: str, catalog_id: str) -
     )
 
 
+
+def _catalog_provenance_section(
+    sources: Sequence[tuple[str, str, int]], *,
+    plan_status: str | None = None,
+) -> str:
+    """Show functional provenance only; preserve physical names in SQLite."""
+    rows = [(label, count) for _table_name, label, count in sources]
+    plan = (
+        "<p><strong>Aptidão registrada no plano:</strong> "
+        + _display_value(plan_status) + "</p>"
+        if plan_status is not None else ""
+    )
+    content = (
+        "<details><summary>Mostrar proveniência técnica</summary>"
+        "<div class='detail-body'>"
+        + _table(
+            ("Fonte funcional", "Registros"),
+            rows,
+            empty="Nenhuma fonte funcional específica identificada.",
+        )
+        + plan
+        + "<p class='muted'>As quantidades refletem registros persistidos "
+        "nesta auditoria. Identificadores internos de armazenamento e "
+        "implementação não são apresentados nesta interface.</p>"
+        "</div></details>"
+    )
+    return _section("technical", "Detalhes técnicos", content)
+
+
 def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     catalog=CATALOG_BY_ID[catalog_id]
     status,tone,detail=_catalog_status(database,data,catalog_id)
@@ -460,7 +489,7 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     execution=_section("execution","Execução",_work_execution_html(data,catalog_id)+_execution_context_notice(database,data,catalog_id)+f"<p><strong>Estado funcional do catálogo:</strong> {_badge(status,tone)} {escape(detail)}</p>"+cause_html)
     results=_section("results","Resultados",_catalog_results_html(database,data,catalog_id))
     source_cards="".join(f"<div class='source-item'><strong>{escape(label)}</strong><small>{count} registro(s) persistido(s)</small></div>" for _table_name,label,count in sources)
-    evidence=_section("evidence","Evidências",("<div class='source-list'>"+source_cards+"</div>" if source_cards else "<div class='notice'>Nenhuma fonte própria deste catálogo foi encontrada.</div>")+"<p class='muted'>Esta seção identifica a proveniência funcional. Nomes físicos de tabelas ficam restritos a Detalhes técnicos.</p>")
+    evidence=_section("evidence","Evidências",("<div class='source-list'>"+source_cards+"</div>" if source_cards else "<div class='notice'>Nenhuma fonte própria deste catálogo foi encontrada.</div>")+"<p class='muted'>Esta seção identifica as fontes funcionais de evidência e os registros persistidos.</p>")
     analysis=_section("analysis","Análise e interpretação",_catalog_analysis_html(database,data,catalog_id))
     if catalog_id=="CAT-09":
         rem_body="<p>As correções detalhadas deste catálogo aparecem em <strong>Resultados</strong>. Cada item procura informar problema, risco de manter, benefício esperado, local de aplicação, implementação sugerida e forma de validação quando esses dados foram persistidos.</p>"
@@ -472,20 +501,11 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
         rem_body=f"<p>Este catálogo é proprietário do diagnóstico do seu domínio. Correções são centralizadas em <a href='cat-09.html'>CAT-09 · Remediações</a>; quando uma análise profunda usa esta evidência, o vínculo aparece em <a href='cat-08.html'>CAT-08 · Análise profunda e melhorias</a>.</p>"
     remediation=_section("remediation","Remediações",rem_body)
     item=data.catalog_items.get(catalog_id,{})
-    if catalog_id=="CAT-10":
-        tech_rows=[(label,count) for _table_name,label,count in sources]
-        technical=_section(
-            "technical",
-            "Detalhes técnicos",
-            "<details><summary>Mostrar proveniência técnica</summary><div class='detail-body'>"
-            +_table(("Fonte funcional","Registros"),tech_rows,empty="Nenhuma fonte funcional específica identificada.")
-            +"<p class='muted'>Identificadores físicos de persistência e controles internos do RASAi permanecem no audit.db e não são projetados nesta interface.</p>"
-            +"</div></details>",
-        )
-    else:
-        tech_rows=[(label,table,count) for table,label,count in sources]
-        plan_status=_status_label(item.get("status")) if item.get("status") else "-"
-        technical=_section("technical","Detalhes técnicos",f"<details><summary>Mostrar proveniência técnica</summary><div class='detail-body'>{_table(('Fonte funcional','Fonte interna','Registros'),tech_rows,empty='Nenhuma fonte interna específica identificada.')}<p><strong>Identificadores técnicos de capacidade:</strong> <code>{escape(', '.join(catalog.capability_ids))}</code></p><p><strong>Aptidão registrada no plano:</strong> {_display_value(plan_status)}</p></div></details>")
+    plan_status = (
+        None if catalog_id == "CAT-10" else
+        _status_label(item.get("status")) if item.get("status") else "-"
+    )
+    technical = _catalog_provenance_section(sources, plan_status=plan_status)
     return _audit_hero(data,f"{catalog.id} · {catalog.label}",catalog.expected_result)+outline+summary+scope+config+execution+results+evidence+analysis+remediation+technical
 
 
