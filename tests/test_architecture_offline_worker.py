@@ -1,8 +1,15 @@
 """Pure contract of the unprivileged, networkless architecture renderer."""
 import base64
+import json
 import pytest
 
-from rasai.architecture_offline_worker import validate_bundle, MAX_ENTRIES
+from rasai.architecture_offline_worker import (
+    validate_bundle, MAX_ENTRIES, MAX_MANIFEST_BYTES,
+    MAX_RESOURCE_BYTES, MAX_BROWSER_REQUESTS,
+)
+from rasai.architecture_resource_budget import (
+    MAX_ASSETS, MAX_ROOT_BYTES, MAX_ASSET_BYTES, MAX_BUNDLE_BYTES,
+)
 
 
 def bundle():
@@ -42,9 +49,36 @@ def test_offline_manifest_rejects_malformed_or_divergent_resource(mutator):
         validate_bundle(candidate)
 
 
+def test_host_and_worker_caps_support_all_64_assets_at_existing_per_resource_byte_limits():
+    assert MAX_ASSETS == 64
+    assert MAX_ENTRIES == MAX_ASSETS + 1 == 65
+    assert MAX_BROWSER_REQUESTS == 70
+    assert MAX_BUNDLE_BYTES == MAX_MANIFEST_BYTES == 52_000_000
+    assert MAX_RESOURCE_BYTES == MAX_ROOT_BYTES + MAX_ASSETS * MAX_ASSET_BYTES
+
+    candidate = bundle()
+    candidate["resources"][0]["body_b64"] = base64.b64encode(
+        b"h" * MAX_ROOT_BYTES
+    ).decode("ascii")
+    asset_body = base64.b64encode(b"x" * MAX_ASSET_BYTES).decode("ascii")
+    candidate["resources"].extend({
+        "url": f"https://example.org/resource-{n}.js",
+        "body_b64": asset_body,
+        "status": 200,
+        "content_type": "text/javascript",
+    } for n in range(MAX_ASSETS))
+    payload_bytes = len(json.dumps(candidate, separators=(",", ":")).encode("utf-8"))
+    # Neither the host nor the OCI stdin limit rejects the maximum legal
+    # inventory before the worker enforces its intended decoded-byte budget.
+    assert payload_bytes < MAX_BUNDLE_BYTES
+    _target, _device, table = validate_bundle(candidate)
+    assert len(table) == MAX_ENTRIES
+    assert sum(len(item[0]) for item in table.values()) == MAX_RESOURCE_BYTES
+
+
 def test_manifest_caps_total_body_and_resources():
     candidate = bundle()
-    candidate["resources"][0]["body_b64"] = base64.b64encode(b"x" * 3_000_001).decode()
+    candidate["resources"][0]["body_b64"] = base64.b64encode(b"x" * (MAX_RESOURCE_BYTES + 1)).decode()
     with pytest.raises(ValueError, match="budget"):
         validate_bundle(candidate)
     candidate = bundle()

@@ -12,10 +12,11 @@ import sys
 from typing import Any
 
 from rasai.url_utils import normalize_url
+from rasai.architecture_resource_budget import (
+    MAX_MANIFEST_BYTES, MAX_ENTRIES, MAX_RESOURCE_BYTES, MAX_BROWSER_REQUESTS,
+)
 
-MAX_MANIFEST_BYTES = 5_000_000
 MAX_RENDER_BYTES = 1_000_000
-MAX_ENTRIES = 31
 
 
 def validate_bundle(payload: object) -> tuple[str, str, dict[str, tuple[bytes, str, int]]]:
@@ -66,7 +67,7 @@ def validate_bundle(payload: object) -> tuple[str, str, dict[str, tuple[bytes, s
         except (ValueError, base64.binascii.Error) as exc:
             raise ValueError("Malformed offline resource") from exc
         total_bytes += len(body)
-        if total_bytes > 3_000_000:
+        if total_bytes > MAX_RESOURCE_BYTES:
             raise ValueError("Offline resource budget exceeded")
         table[url] = (body, mime, status, headers)
     if target not in table or "text/html" not in table[target][1].lower():
@@ -92,7 +93,7 @@ def render_bundle(target: str, device: str, table: dict[str, tuple[bytes, str, i
                     def offline_route(route):
                         requested[0] += 1
                         resource = table.get(route.request.url)
-                        if (requested[0] > 30 or route.request.method != "GET"
+                        if (requested[0] > MAX_BROWSER_REQUESTS or route.request.method != "GET"
                                 or resource is None):
                             blocked[0] += 1
                             route.abort()

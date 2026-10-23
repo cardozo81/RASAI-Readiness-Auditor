@@ -17,6 +17,7 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin
 
 from rasai.architecture_public_html import public_html_failure
+from rasai.architecture_resource_budget import MAX_ASSETS, MAX_BUNDLE_BYTES, MAX_ROOT_BYTES, MAX_ASSET_BYTES
 from rasai.architecture_probe import ProbeCaptures, with_capture_origin
 from rasai.domain import DeviceContext
 from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
@@ -27,8 +28,6 @@ from rasai.url_utils import normalize_url
 
 OFFLINE_IMAGE = "rasai-architecture-offline:local"
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
-MAX_ASSETS = 24
-MAX_BUNDLE_BYTES = 4_500_000
 
 
 class ArchitectureAssetFailure(ValueError):
@@ -161,7 +160,7 @@ def _bundle_resources(target: str, root, raw: str) -> list[dict]:
         if len(candidates) > MAX_ASSETS:
             raise ArchitectureAssetFailure("OCI_ASSET_COUNT_LIMIT")
     fetcher = PublicWebFetcher(
-        timeout_seconds=4.0, max_redirects=0, max_bytes=500_000,
+        timeout_seconds=4.0, max_redirects=0, max_bytes=MAX_ASSET_BYTES,
         opener=PublicWebPinnedOpener(),
     )
     assets = [root_record]
@@ -221,7 +220,7 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
     except (ValueError, OSError):
         return ProbeCaptures(url, url, device, None, None, "PUBLIC_TARGET_REJECTED")
     fetcher = PublicWebFetcher(
-        timeout_seconds=8.0, max_redirects=2, max_bytes=1_000_000,
+        timeout_seconds=8.0, max_redirects=2, max_bytes=MAX_ROOT_BYTES,
         opener=PublicWebPinnedOpener(),
     )
     document = fetcher.fetch(target)

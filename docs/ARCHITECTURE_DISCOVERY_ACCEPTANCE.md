@@ -213,6 +213,26 @@ Se falhar, não executar a descoberta externa até diagnosticar o contêiner.
 **A imagem não precisa ser reconstruída para esse teste se a versão do worker
 não tiver mudado; o Python do host precisa estar atualizado.**
 
+### Alinhamento pontual do orçamento da descoberta OCI - 23/10/2026
+
+A aquisição passa a admitir **64 recursos HTTP distintos adicionais ao HTML**,
+sem alterar as verificações de destino, métodos HTTP ou o isolamento.
+Para evitar que a ampliação encontre bloqueios internos anteriores,
+`architecture_resource_budget.py` fornece os limites compartilhados por
+coletor e worker: **65 entradas**, até **33.000.000 bytes de conteúdo**
+(1 MB HTML + 64 vezes 500 KB por recurso), **52.000.000 bytes para o
+manifesto JSON/base64** e **70 requisições HTTP no navegador** (com margem
+restrita para repetições). Os tamanhos individuais permanecem iguais.
+Uma página acima desses limites, com recurso externo inacessível, com
+JavaScript dependente de API/cookies ou DOM final não atestado continua
+`UNKNOWN`, sem tentativa de contorno ou download não autorizado.
+
+A imagem OCI deve ser **reconstruída localmente** após atualizar o
+repositório: o worker embutido na imagem precisa usar a mesma política do
+coletor Python. A mudança não introduz medição/registro detalhado de
+recursos; essa melhoria autorizada permanece uma etapa independente.
+Nenhuma AUD, configuração, score ou evidência histórica é modificada.
+
 ### Falha no exemplo externo após canário aprovado
 
 Caso o operador obtenha `OCI_BROWSER_CANARY_PASSED`, mas o menu 8 retorne

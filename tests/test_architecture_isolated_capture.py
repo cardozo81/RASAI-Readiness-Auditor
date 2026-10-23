@@ -508,7 +508,7 @@ def test_public_html_failure_reasons_are_specific_and_do_not_open_browser(monkey
 
 
 def test_duplicate_resource_references_consume_one_slot_and_one_fetch(monkeypatch):
-    """Repeated resource references must not consume the 24-resource budget."""
+    """Repeated resource references must not consume the 64-resource budget."""
     from rasai.architecture_isolated_capture import _bundle_resources, ContentFetchStatus
     root_url = "https://example.org/"
     asset_url = "https://example.org/site.css"
@@ -530,8 +530,43 @@ def test_duplicate_resource_references_consume_one_slot_and_one_fetch(monkeypatc
     fetch.return_value.fetch.assert_called_once_with(asset_url)
 
 
+def test_64_unique_assets_are_acquired_with_same_public_destination_checks(monkeypatch):
+    from rasai.architecture_isolated_capture import (
+        _bundle_resources, ContentFetchStatus, MAX_ASSETS,
+    )
+    assert MAX_ASSETS == 64
+    root_url = "https://example.org/"
+    markup = "<main>Example</main>" + "".join(
+        f'<script src="/resource-{i}.js"></script>' for i in range(MAX_ASSETS)
+    )
+    root = SimpleNamespace(
+        status=ContentFetchStatus.OBSERVED, final_url=root_url,
+        http_status=200, body=markup.encode(), headers={"content-type": "text/html"},
+    )
+    checked = []
+
+    def validate(url, _resolver):
+        checked.append(url)
+        return url
+
+    def fetch(url):
+        return SimpleNamespace(
+            status=ContentFetchStatus.OBSERVED, final_url=url, http_status=200,
+            body=b"/* safe asset */", headers={"content-type": "text/javascript"},
+        )
+
+    monkeypatch.setattr("rasai.architecture_isolated_capture._validate_public_url", validate)
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetcher:
+        fetcher.return_value.fetch.side_effect = fetch
+        bundle = _bundle_resources(root_url, root, markup)
+    assert len(bundle) == MAX_ASSETS + 1
+    assert fetcher.return_value.fetch.call_count == MAX_ASSETS
+    # Inventory AND immediate pre-request destination validation still occur.
+    assert len(checked) == MAX_ASSETS * 2
+
+
 def test_unique_resource_limit_refuses_before_network_or_partial_replay(monkeypatch):
-    """The cap is strict for unique resources; even the 25th is not fetched."""
+    """The cap is strict for unique resources; even the 65th is not fetched."""
     from rasai.architecture_isolated_capture import (
         _bundle_resources, ArchitectureAssetFailure, ContentFetchStatus, MAX_ASSETS,
     )
