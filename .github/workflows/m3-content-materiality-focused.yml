@@ -1,0 +1,44 @@
+name: M3 content materiality focused
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/device_context_capture.py'
+      - 'src/rasai/render_materiality.py'
+      - 'src/rasai/search_audit_runtime.py'
+      - 'src/rasai/search_intelligence/competitive_runtime.py'
+      - 'src/rasai/search_intelligence/cli.py'
+      - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/report_presentation.py'
+      - 'src/rasai/catalog_report_search_trust.py'
+      - 'tests/test_device_context_capture.py'
+      - 'tests/test_render_materiality.py'
+      - 'tests/test_competitive_acquisition_policy.py'
+      - 'tests/test_console_search_intelligence.py'
+      - 'tests/test_report_humanization.py'
+      - 'tests/test_catalog_report_search_trust.py'
+      - '.github/workflows/m3-content-materiality-focused.yml'
+permissions:
+  contents: read
+jobs:
+  materiality-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install runtime and pytest (no browser downloads)
+        run: python -m pip install -e . pytest
+      - name: Only physical-AUD-derived regressions
+        run: |
+          python -m pytest -q \
+            tests/test_device_context_capture.py \
+            tests/test_render_materiality.py \
+            tests/test_competitive_acquisition_policy.py \
+            tests/test_console_search_intelligence.py \
+            tests/test_report_humanization.py \
+            tests/test_catalog_report_search_trust.py \
+            -k aud125
