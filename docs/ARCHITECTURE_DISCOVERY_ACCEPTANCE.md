@@ -236,6 +236,15 @@ nao ha novo build nem pergunta desnecessaria. A comprovacao independente
 de isolamento de rede e o canario Chromium continuam obrigatorios **no
 mesmo digest OCI**, antes de requisitar qualquer pagina real.
 
+No Windows, o comando de build direciona stdout/stderr para
+`subprocess.DEVNULL`. Como os logs Docker nao sao exibidos nem interpretados
+pelo RASAi, isso evita que bytes UTF-8 de progresso sejam decodificados pelo
+locale CP1252 e produzam `UnicodeDecodeError` em threads de leitura.
+O resultado continua definido pelo exit code do Docker e pela identidade
+revalidada da imagem. A verificacao `docker info` usa UTF-8 com substituicao
+de bytes invalidos apenas para mensagens nao confiaveis; diagnosticos de
+permissao conservam codigos estaveis, sem exposicao de stderr.
+
 A label de origem identifica a revisao do **codigo local**, mas nao e
 assinatura de fornecedor nem atestado independente do daemon, do build ou
 das dependencias baixadas. Ela nao substitui as verificacoes de isolamento.

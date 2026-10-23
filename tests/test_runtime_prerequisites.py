@@ -124,6 +124,34 @@ def test_consented_build_reuses_single_fixed_image(tmp_path):
     assert args[-1] == str(tmp_path.resolve())
 
 
+def test_docker_build_discards_output_before_windows_charmap_decoder(tmp_path):
+    """No PIPE readers: UTF-8 Docker progress cannot crash Windows CP1252."""
+    import subprocess
+    (tmp_path / "Dockerfile.architecture-offline").write_text("FROM scratch")
+    (tmp_path / "pyproject.toml").write_text("[build-system]")
+    with patch("rasai.architecture_isolated_capture.inspect_local_image",
+               side_effect=[None, "sha256:" + "b" * 64]), patch(
+        "rasai.runtime_prerequisites.expected_source_sha256",
+        return_value="d" * 64,
+    ), patch(
+        "rasai.architecture_isolated_capture.local_docker_transport", return_value=True
+    ), patch("rasai.runtime_prerequisites.shutil.which", return_value="docker"
+    ), patch("rasai.runtime_prerequisites.subprocess.run",
+             side_effect=[SimpleNamespace(returncode=0, stdout="29.8.2"),
+                          SimpleNamespace(returncode=0)]) as run:
+        result = prepare_prerequisite(
+            ARCHITECTURE_BROWSER, consent=lambda _: True, source_root=tmp_path,
+        )
+    assert result.ready and result.changed
+    build = run.call_args
+    assert build.args[0][:2] == ["docker", "build"]
+    assert build.kwargs["stdout"] == subprocess.DEVNULL
+    assert build.kwargs["stderr"] == subprocess.DEVNULL
+    assert build.kwargs["stdin"] == subprocess.DEVNULL
+    assert "capture_output" not in build.kwargs
+    assert "text" not in build.kwargs
+
+
 def test_failed_build_cannot_claim_ready(tmp_path):
     (tmp_path / "Dockerfile.architecture-offline").write_text("FROM scratch")
     (tmp_path / "pyproject.toml").write_text("[build-system]")

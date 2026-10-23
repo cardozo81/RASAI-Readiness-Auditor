@@ -59,6 +59,7 @@ def prepare_prerequisite(
         daemon = subprocess.run(
             [docker, "info", "--format", "{{.ServerVersion}}"],
             stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            encoding="utf-8", errors="replace",
             timeout=10, check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
@@ -95,8 +96,13 @@ def prepare_prerequisite(
              "--tag", "rasai-architecture-offline:local",
              "--build-arg", "RASAI_ARCHITECTURE_SOURCE_SHA256=" + source_sha,
              str(root)],
+            # Docker build output may be UTF-8 (or mixed encoding) on a
+            # Windows CP1252 console. Its contents are neither interpreted
+            # nor published, so discard at the OS boundary instead of
+            # spawning Python reader threads to decode untrusted bytes.
             stdin=subprocess.DEVNULL,
-            capture_output=True, text=True, timeout=900, check=False,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=900, check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
         return PrerequisiteResult(False, "OCI_BUILD_FAILED")
