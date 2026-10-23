@@ -29,18 +29,46 @@ def test_offline_sandbox_uses_no_network_no_mounts_and_nonroot():
 
 
 def test_preflight_requires_locally_resolved_immutable_oci_image(monkeypatch):
+    from rasai.architecture_image_identity import IMAGE_SOURCE_LABEL
     monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which",
                         lambda name: "/usr/bin/docker")
+    source_sha = "f" * 64
     def fake_run(argv, **kwargs):
         if argv[1] == "context":
             return SimpleNamespace(returncode=0, stdout="unix:///var/run/docker.sock")
-        return SimpleNamespace(returncode=0, stdout=DIGEST)
-    with patch("rasai.architecture_isolated_capture.subprocess.run",
-               side_effect=fake_run) as runner:
+        return SimpleNamespace(returncode=0, stdout=DIGEST + "|" + source_sha)
+    with patch("rasai.architecture_isolated_capture.expected_source_sha256",
+               return_value=source_sha), patch(
+        "rasai.architecture_isolated_capture.subprocess.run",
+        side_effect=fake_run,
+    ) as runner:
         assert inspect_local_image() == DIGEST
     assert runner.call_args.args[0] == [
-        "/usr/bin/docker", "image", "inspect", "--format", "{{.Id}}", OFFLINE_IMAGE
+        "/usr/bin/docker", "image", "inspect", "--format",
+        '{{.Id}}|{{index .Config.Labels "' + IMAGE_SOURCE_LABEL + '"}}',
+        OFFLINE_IMAGE,
     ]
+
+
+def test_stale_or_unlabeled_docker_image_is_rejected_before_external_capture(monkeypatch):
+    """A mutable tag cannot claim an obsolete worker is ready for execution."""
+    monkeypatch.setattr("rasai.architecture_isolated_capture.shutil.which",
+                        lambda _: "docker")
+    monkeypatch.setattr("rasai.architecture_isolated_capture.local_docker_transport",
+                        lambda _: True)
+    with patch("rasai.architecture_isolated_capture.expected_source_sha256",
+               return_value="f" * 64), patch(
+        "rasai.architecture_isolated_capture.subprocess.run",
+        return_value=SimpleNamespace(returncode=0, stdout=DIGEST + "|" + "a" * 64),
+    ):
+        assert inspect_local_image() is None
+    with patch("rasai.architecture_isolated_capture.expected_source_sha256",
+               return_value="f" * 64), patch(
+        "rasai.architecture_isolated_capture.subprocess.run",
+        return_value=SimpleNamespace(returncode=0, stdout=DIGEST + "|<no value>"),
+    ):
+        assert inspect_local_image() is None
+
 
 
 def test_preflight_rejects_missing_or_unverified_image_before_http(monkeypatch):

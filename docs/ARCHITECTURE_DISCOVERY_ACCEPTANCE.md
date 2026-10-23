@@ -110,9 +110,12 @@ sem host mounts ou acesso ao Docker daemon, usuário não-root, filesystem read-
 capabilities removidas, CPU/memória/pids limitados, imagem referenciada pelo
 digest local e \`--pull=never\`. Recursos ausentes, externos e falhas abstêm.
 
-Construção a partir do código auditado:
+A preparacao e atualizacao da imagem ocorre pelo console, com
+autorizacao do operador. Para ensaio tecnico independente e **somente
+quando necessario**, o comando manual deve conter o SHA-256 do worker:
 \`\`\`powershell
-docker build -f Dockerfile.architecture-offline -t rasai-architecture-offline:local .
+$WorkerSha = & ".\\.venv\\Scripts\\python.exe" -c "from rasai.architecture_image_identity import expected_source_sha256; print(expected_source_sha256())"
+docker build --build-arg "RASAI_ARCHITECTURE_SOURCE_SHA256=$WorkerSha" -f Dockerfile.architecture-offline -t rasai-architecture-offline:local .
 \`\`\`
 O build baixa dependências e Chromium gratuitos, exige Docker funcional e
 acesso à Internet **apenas durante o build**. Não há instalação automática,
@@ -129,8 +132,9 @@ resultar \`UNKNOWN\` por falta de recursos, sem fallback nativo.
 1. Atualizar a branch e verificar que a árvore Git está limpa.
 2. Conferir o Docker Desktop/Engine e o acesso a um daemon **local**. Revisar a
    política de redes do host e do Docker antes de confiar no isolamento.
-3. Construir a imagem local a partir do código revisado, sem credenciais:
-   \`docker build -f Dockerfile.architecture-offline -t rasai-architecture-offline:local .\`
+3. Acessar o console e autorizar a preparacao da imagem caso o RASAi
+   indique que esta ausente ou desatualizada. Apenas o ensaio tecnico
+   independente deve utilizar o comando manual com build-arg acima.
 4. Executar um diagnóstico de isolamento do daemon/container e observar que
    o container com \`--network none\` não alcança destinos públicos, privados,
    DNS, loopback do host ou metadata. O processo de browser nunca herda volume,
@@ -213,6 +217,65 @@ Se falhar, não executar a descoberta externa até diagnosticar o contêiner.
 **A imagem não precisa ser reconstruída para esse teste se a versão do worker
 não tiver mudado; o Python do host precisa estar atualizado.**
 
+### Gerenciamento automatico de imagem OCI por identidade de codigo - 23/10/2026
+
+Ao selecionar descoberta dinamica, o RASAi calcula uma identidade SHA-256
+deterministica dos arquivos que compoem o worker OCI e das dependencias de
+codigo explicitamente inventariadas em `architecture_image_identity.py`.
+O valor tambem e aplicado como label da imagem no build autorizado pelo
+console. O RASAi aceita a tag `rasai-architecture-offline:local` somente
+quando o daemon Docker **local** retorna simultaneamente um identificador de
+imagem no formato `sha256:...` e a label de origem esperada. Imagem ausente,
+sem a label ou com label divergente **nao pode ser usada** na descoberta.
+
+Com Docker local acessivel, o console pede autorizacao para construir ou
+atualizar a imagem desatualizada. Sem consentimento, sem fonte local ou
+diante de falha do build, a descoberta permanece indisponivel antes de
+consultar o DNS/HTTP do alvo. Quando a imagem ja corresponde ao codigo,
+nao ha novo build nem pergunta desnecessaria. A comprovacao independente
+de isolamento de rede e o canario Chromium continuam obrigatorios **no
+mesmo digest OCI**, antes de requisitar qualquer pagina real.
+
+A label de origem identifica a revisao do **codigo local**, mas nao e
+assinatura de fornecedor nem atestado independente do daemon, do build ou
+das dependencias baixadas. Ela nao substitui as verificacoes de isolamento.
+O usuario nao precisa executar `docker build` manualmente para atualizacoes
+posteriores dentro desse fluxo: a preparacao pelo console e o caminho
+normal. Se Docker nao estiver instalado/iniciado, o RASAi nao tenta
+instalar ou iniciar o servico sem autorizacao. O modo basico e os demais
+catalogos permanecem disponiveis.
+
+Escopo desta entrega: apenas ciclo de vida da imagem, contrato de build,
+verificacao de identidade e testes focais. Nao modifica limites da captura,
+classificacao, TLS, cadeia de redirects, carregamento em iframe,
+persistencia de AUD ou os indices.
+
+#### Interpretacao dos smokes externos recebidos em 23/10/2026
+
+- `loja.bradescoseguros.com.br/seguro-de-vida`: `OCI_ASSET_UNAVAILABLE`,
+  com HTML inicial obtido mas DOM nao obtido. Uma pagina que depende de
+  iframe, aplicacao embarcada ou recursos com autenticacao, redirect,
+  resposta nao-2xx ou limite de tamanho pode falhar na obtencao
+  controlada de recursos. Nao presumir arquitetura SPA nem modificar a
+  politica de rede para forcar a captura.
+- `mdsgroup.com`: `PUBLIC_TLS_FAILURE` na captura inicial, sem HTML.
+  A negociacao TLS deve ser concluida antes de qualquer resposta HTTP
+  de redirect. Um posterior redirecionamento observado por navegador
+  externo nao legitima ignorar a falha TLS do destino solicitado.
+  Conferir a cadeia TLS/SNI/WWW por salto em etapa propria, sem
+  desabilitar a verificacao de certificado.
+- `google.com`: `ISOLATED_CONTENT_NOT_STABLE`, com RAW e redirect HTTP
+  observado. A janela temporal e os requisitos de materialidade do DOM
+  impedem promover uma primeira renderizacao provisoria a classe final.
+- `www.ecosistemasti.com.br`: `ISOLATED_RESOURCES_BLOCKED`, embora
+  haja conteudo principal no HTML inicial. Requisicao de iframe, rede,
+  recurso inexistente no bundle ou metodo nao permitido bloqueia
+  uma comparacao completa, sem provar ausencia de SSR.
+
+Os quatro motivos sao distintos e nao constituem falha da identificacao de
+versao da imagem Docker. Provas por pagina, ativo e destino continuam
+necessarias para ampliar cobertura real sem comprometer a seguranca.
+
 ### Alinhamento pontual do orçamento da descoberta OCI - 23/10/2026
 
 A aquisição passa a admitir **64 recursos HTTP distintos adicionais ao HTML**,
@@ -255,7 +318,7 @@ Os códigos são limitações da observação física, não classificação do
 framework do site. O fluxo mantém `UNKNOWN` e não modifica AUD.
 Antes de repetir um smoke real, sincronizar HEAD local da PR e manter o
 mesmo digest OCI cuja integridade/isolamento passou. Não é necessário
-reconstruir a imagem se o conteúdo do worker e Dockerfile não mudou.
+reconstruir a imagem se a identidade do código OCI permanecer igual.
 
 ### Favicon embutido por URI data: na observação isolada
 

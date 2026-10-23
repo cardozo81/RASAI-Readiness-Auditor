@@ -17,6 +17,7 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin
 
 from rasai.architecture_public_html import public_html_failure
+from rasai.architecture_image_identity import IMAGE_SOURCE_LABEL, expected_source_sha256
 from rasai.architecture_resource_budget import MAX_ASSETS, MAX_BUNDLE_BYTES, MAX_ROOT_BYTES, MAX_ASSET_BYTES
 from rasai.architecture_probe import ProbeCaptures, with_capture_origin
 from rasai.domain import DeviceContext
@@ -63,15 +64,23 @@ def inspect_local_image() -> str | None:
         return None
     if not local_docker_transport(docker):
         return None
+    # The tag can persist across RASAi updates. Reject images carrying no
+    # identity label or a label from an older worker before any site DNS/HTTP.
     try:
+        expected = expected_source_sha256()
         result = subprocess.run(
-            [docker, "image", "inspect", "--format", "{{.Id}}", OFFLINE_IMAGE],
+            [docker, "image", "inspect", "--format",
+             '{{.Id}}|{{index .Config.Labels "' + IMAGE_SOURCE_LABEL + '"}}',
+             OFFLINE_IMAGE],
             capture_output=True, text=True, timeout=10, check=False,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, ValueError, subprocess.TimeoutExpired):
         return None
-    digest = result.stdout.strip()
-    return digest if result.returncode == 0 and _DIGEST.fullmatch(digest) else None
+    parts = result.stdout.strip().split("|")
+    if result.returncode != 0 or len(parts) != 2:
+        return None
+    digest, image_source = parts
+    return digest if _DIGEST.fullmatch(digest) and image_source == expected else None
 
 
 class _AssetReferences(HTMLParser):

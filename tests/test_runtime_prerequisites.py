@@ -3,6 +3,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from rasai.architecture_image_identity import expected_source_sha256, WORKER_INPUTS
+
 from rasai.runtime_prerequisites import (
     ARCHITECTURE_BROWSER, prepare_prerequisite,
 )
@@ -21,6 +23,53 @@ def test_ready_image_needs_no_prompt_or_build():
     run.assert_not_called()
 
 
+def test_worker_source_fingerprint_changes_only_when_worker_inputs_change(tmp_path):
+    for relative in WORKER_INPUTS:
+        file = tmp_path / relative
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text("source A", encoding="utf-8")
+    first = expected_source_sha256(tmp_path)
+    assert len(first) == 64
+    (tmp_path / "src/rasai/architecture_offline_worker.py").write_text(
+        "source B", encoding="utf-8"
+    )
+    second = expected_source_sha256(tmp_path)
+    assert first != second
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "independent.md").write_text("not a worker input")
+    assert expected_source_sha256(tmp_path) == second
+
+
+def test_missing_worker_source_refuses_fingerprint_without_build(tmp_path):
+    import pytest
+    with pytest.raises(ValueError, match="OCI_WORKER_SOURCE_UNAVAILABLE"):
+        expected_source_sha256(tmp_path)
+
+
+def test_stale_image_prompts_and_rebuilds_once_with_explicit_consent(tmp_path):
+    (tmp_path / "Dockerfile.architecture-offline").write_text("FROM scratch")
+    (tmp_path / "pyproject.toml").write_text("[build-system]")
+    answers = []
+    with patch("rasai.architecture_isolated_capture.inspect_local_image",
+               side_effect=[None, "sha256:" + "b" * 64]), patch(
+        "rasai.runtime_prerequisites.expected_source_sha256",
+        return_value="c" * 64,
+    ), patch(
+        "rasai.architecture_isolated_capture.local_docker_transport", return_value=True
+    ), patch("rasai.runtime_prerequisites.shutil.which", return_value="docker"
+    ), patch("rasai.runtime_prerequisites.subprocess.run",
+             side_effect=[SimpleNamespace(returncode=0, stdout="29.8.2"),
+                          SimpleNamespace(returncode=0)]) as run:
+        outcome = prepare_prerequisite(
+            ARCHITECTURE_BROWSER, source_root=tmp_path,
+            consent=lambda message: answers.append(message) or True,
+        )
+    assert outcome.ready and outcome.changed
+    assert len(answers) == 1 and "desatualizada" in answers[0]
+    assert run.call_count == 2
+    assert "--build-arg" in run.call_args.args[0]
+
+
 def test_missing_docker_never_prompts_or_downloads():
     with patch("rasai.architecture_isolated_capture.inspect_local_image",
                return_value=None), patch(
@@ -35,7 +84,7 @@ def test_declined_preparation_makes_no_host_changes(tmp_path):
     (tmp_path / "Dockerfile.architecture-offline").write_text("FROM scratch")
     (tmp_path / "pyproject.toml").write_text("[build-system]")
     with patch("rasai.architecture_isolated_capture.inspect_local_image",
-               return_value=None), patch(
+               return_value=None), patch("rasai.runtime_prerequisites.expected_source_sha256", return_value="d" * 64), patch(
         "rasai.architecture_isolated_capture.local_docker_transport", return_value=True
     ), patch("rasai.runtime_prerequisites.shutil.which", return_value="docker"
     ), patch("rasai.runtime_prerequisites.subprocess.run") as run:
@@ -55,6 +104,9 @@ def test_consented_build_reuses_single_fixed_image(tmp_path):
         return True
     with patch("rasai.architecture_isolated_capture.inspect_local_image",
                side_effect=[None, "sha256:" + "b" * 64]), patch(
+        "rasai.runtime_prerequisites.expected_source_sha256",
+        return_value="d" * 64,
+    ), patch(
         "rasai.architecture_isolated_capture.local_docker_transport", return_value=True
     ), patch("rasai.runtime_prerequisites.shutil.which", return_value="docker"
     ), patch("rasai.runtime_prerequisites.subprocess.run",
@@ -65,6 +117,10 @@ def test_consented_build_reuses_single_fixed_image(tmp_path):
     assert result.ready and result.changed and len(consented) == 1
     args = run.call_args.args[0]
     assert args[0:2] == ["docker", "build"]
+    assert "--build-arg" in args
+    assert args[args.index("--build-arg") + 1] == (
+        "RASAI_ARCHITECTURE_SOURCE_SHA256=" + "d" * 64
+    )
     assert args[-1] == str(tmp_path.resolve())
 
 
@@ -72,7 +128,7 @@ def test_failed_build_cannot_claim_ready(tmp_path):
     (tmp_path / "Dockerfile.architecture-offline").write_text("FROM scratch")
     (tmp_path / "pyproject.toml").write_text("[build-system]")
     with patch("rasai.architecture_isolated_capture.inspect_local_image",
-               return_value=None), patch(
+               return_value=None), patch("rasai.runtime_prerequisites.expected_source_sha256", return_value="d" * 64), patch(
         "rasai.architecture_isolated_capture.local_docker_transport", return_value=True
     ), patch("rasai.runtime_prerequisites.shutil.which", return_value="docker"
     ), patch("rasai.runtime_prerequisites.subprocess.run",

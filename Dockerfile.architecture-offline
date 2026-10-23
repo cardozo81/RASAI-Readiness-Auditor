@@ -3,6 +3,10 @@
 FROM python:3.13-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 WORKDIR /app
+# The application supplies a SHA-256 of the reviewed worker source, not a
+# version inferred from a mutable Docker tag or release number.
+ARG RASAI_ARCHITECTURE_SOURCE_SHA256
+LABEL org.rasai.architecture.source-sha256="${RASAI_ARCHITECTURE_SOURCE_SHA256}"
 COPY pyproject.toml /app/
 COPY src/ /app/src/
 RUN python -m pip install --no-cache-dir . \

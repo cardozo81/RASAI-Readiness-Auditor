@@ -13,6 +13,8 @@ from typing import Callable
 import shutil
 import subprocess
 
+from rasai.architecture_image_identity import expected_source_sha256
+
 ARCHITECTURE_BROWSER = "architecture.browser.oci"
 
 
@@ -72,10 +74,17 @@ def prepare_prerequisite(
     dockerfile = root / "Dockerfile.architecture-offline"
     if not dockerfile.is_file() or not (root / "pyproject.toml").is_file():
         return PrerequisiteResult(False, "OCI_BUILD_SOURCE_UNAVAILABLE")
+    # A previously built image may still exist under the same mutable tag:
+    # inspect_local_image() treats missing or mismatched source labels as not
+    # ready. Never reuse it, and never build without explicit consent.
+    try:
+        source_sha = expected_source_sha256(root)
+    except (OSError, ValueError):
+        return PrerequisiteResult(False, "OCI_BUILD_SOURCE_UNAVAILABLE")
     if not consent(
-        "A descoberta dinamica precisa preparar uma imagem Docker isolada. "
-        "A operacao pode baixar pacotes gratuitos e ocupar espaco em disco. "
-        "Deseja autorizar a preparacao agora?"
+        "A imagem Docker isolada esta ausente ou desatualizada para esta versao "
+        "do RASAi. Deseja autorizar a construcao/atualizacao agora? "
+        "O processo pode baixar pacotes gratuitos e ocupar espaco em disco."
     ):
         return PrerequisiteResult(False, "PREREQUISITE_DECLINED")
     # Dockerfile is a fixed repository-controlled path; user input never
@@ -83,7 +92,9 @@ def prepare_prerequisite(
     try:
         build = subprocess.run(
             [docker, "build", "--file", str(dockerfile),
-             "--tag", "rasai-architecture-offline:local", str(root)],
+             "--tag", "rasai-architecture-offline:local",
+             "--build-arg", "RASAI_ARCHITECTURE_SOURCE_SHA256=" + source_sha,
+             str(root)],
             stdin=subprocess.DEVNULL,
             capture_output=True, text=True, timeout=900, check=False,
         )
