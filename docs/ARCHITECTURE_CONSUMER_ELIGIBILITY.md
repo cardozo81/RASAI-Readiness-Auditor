@@ -115,3 +115,35 @@ Isso não modifica o opt-in de Perplexity, que permanece exclusivo da sessão.
 A fase F3 exclusivamente descritiva agora possui integração read-only em `index.html#architecture` e consulta por AUD via `python -m rasai.architecture_audit_cli /caminho/AUD-ID`. A matriz executável `architecture_consumer_eligibility.architecture_consumer_eligibility()` documenta consumidores e exige que somente `descriptive_report` e `m6_read_only_diagnostic` sejam ADVISORY_SAFE, tal como `architecture_context.APPROVED_ADVISORY_CONSUMERS`.
 
 As classificações `INTERPRETATION_SAFE`, `PRE_COLLECTION_ONLY`, `METHOD_CHANGE_REQUIRES_ADR` e `INAPPLICABLE` são classificações de elegibilidade *não executável*. A entrada do índice não ativa ajuste de métrica, autorização de IA, injeção em coletores ou mudança dos thresholds navegação sintética/experiência sintética. Os IDs externos da própria AUD são preservados; histórico `UNFORCED` não herda perfil do INI atual. Critérios operacionais pendentes continuam declarados nesta documentação. Especificação do mecanismo em [`ARCHITECTURE_AUDIT_ADVISORY.md`](ARCHITECTURE_AUDIT_ADVISORY.md).
+
+## Autorização consultiva por snapshot - 23/10/2026
+
+A apresentação estruturada CAT-01 e o contexto de IA de Improvement
+Intelligence (CAT-08), quando esse módulo for habilitado independentemente,
+podem reutilizar **fatos já capturados** da AUD, sem conceder direito de
+execução para nenhum consumidor da matriz F3. São projeções read-only da
+classificação M6 e de sinais RAW com digest de captura correspondente.
+A IA não pode aumentar confiança, fabricar índice, atribuir causa ou propor
+valores quantitativos universais sem medição ou benchmark aplicável. O
+fingerprint do pedido de IA inclui o contexto pertinente; a inclusão do
+contexto não cria automaticamente uma solicitação a provider.
+
+CAT-07 já oferece orientação pós-coleta que separa Load inicial, ações
+XHR/Fetch e Custom, e indica eventual revisão de KPMs e perfis.
+**Não** existe realimentação de parâmetros M25 depois da descoberta M6.
+CAT-06 M23 mede navegação inicial, sem inferir Soft Navigation/SPA.
+Qualquer mudança automática na KPM, tipo de ação, T/4T ou limiares
+Requires ADR de método, configuração congelada pré-coleta, golden e aceite
+explícito. Nem AUTO nem uma hipótese de confiança baixa autorizam isso.
+
+Compatibilidade: CAT-01 descritivo = implementado nesta projeção; CAT-07
+pós-coleta = existente; CAT-08 IA contextual = implementado para análise
+habilitada; CAT-09 remediações = somente por findings contratados;
+CAT-03 extração semântica = motor próprio M4/M7, sem herança de hipótese;
+CAT-04 CWV = origem, URL e dispositivo medidos independentemente; CAT-05
+SERP e CAT-10 segurança passiva = sem herança automática. SARI/SCORE
+permanecem intactos.
+
+A prévia independente de arquitetura não é uma aquisição canônica M3/M6,
+nem seu resultado está persistido na AUD. Isso permanece um gate distinto,
+a ser tratado mediante persistência versionada e proveniência física.

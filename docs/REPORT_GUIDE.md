@@ -166,6 +166,36 @@ Timeout, quota, HTTP, falta de artifact ou ausência de dado da fonte não são 
 
 Essa distinção se aplica a **todas** as superfícies canônicas. Uma página pode existir estruturalmente e ainda indicar que a capacidade correspondente não foi solicitada, não estava configurada, não era aplicável ou não retornou dado. A presença do arquivo nunca deve ser usada como prova de que uma coleta, provider ou IA ocorreu.
 
+### Estrutura arquitetural da AUD no CAT-01
+
+`cat-01.html#architecture-facts` apresenta fatos arquiteturais estruturados
+reaproveitados dos snapshots da **própria AUD**: classe M6 registrada, condição
+RAW/DOM, evidência estrutural RAW vinculada ao hash de captura, scripts, iframe,
+marcadores de aplicação, qualidade da captura, erros de transporte e hipótese
+consultiva de baixa confiança quando faltou conclusão física.
+
+Nenhuma URL ou HTML é incluído no contexto arquitetural enviado à IA por esta
+projeção. A análise de Improvement Intelligence (`CAT-08`) passa a receber
+os **mesmos fatos de snapshot** em `supporting_context.architecture` quando
+seus objetivos selecionados envolverem HTML técnico, performance, acesso de IA
+ou práticas técnicas. O módulo somente consome dados persistidos; não adiciona
+chamada de IA nem força recomendações sem findings reais. Sua identidade
+integra o fingerprint de reaproveitamento dessa análise.
+
+**Escopo:** o diagnóstico independente `INÍCIO > DESCOBRIR ARQUITETURA` é
+prévia sem AUD; não é importado como evidência M6. Uma AUD nova executa
+M3/M6 de forma independente. `AUTO` pode solicitar prévia opt-in antes da
+nova execução, mas a saída não reconfigura os coletores nem substitui o
+snapshot físico. Um registro sem RAW vinculada a hash de captura não gera
+sinais estruturais ou hipótese artificial. Um hash armazenado no snapshot
+é apenas vínculo de bytes, não autenticação independente de fonte.
+
+A orientação sobre carga inicial versus navegação SPA e KPMs pertence ao
+CAT-07 e ao método de Apdex homologado. CAT-01/CAT-08 não alteram métodos
+M23/M25, thresholds, scores, dimensões ou AUDs antigas. Números ideais
+devem ser baseados em benchmark versionado e aplicável; números observados
+devem estar ligados à medição, sem inferir duração a partir de arquitetura.
+
 ## Domínio e descoberta
 
 `cat-01.html` concentra robots/crawler policy, sitemaps, feeds, `llms.txt` experimental e evidências correlatas no escopo `ORIGIN`. Quando artifacts textuais foram efetivamente capturados, o relatório pode exibir uma pré-visualização read-only sem fazer nova requisição de rede.

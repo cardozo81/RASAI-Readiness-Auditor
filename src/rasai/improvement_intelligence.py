@@ -939,6 +939,15 @@ def _schema(findings: list[dict[str, Any]], maximum: int) -> dict[str, Any]:
 def _instructions(language: str, domains: tuple[str, ...]) -> str:
     labels = ", ".join(DOMAIN_LABELS[item] for item in domains)
     return ("You are the evidence-bound Deep Improvement Analysis specialist for RASAi. Analyze exactly one audited URL using only the supplied persisted evidence. Return JSON only and match the schema exactly. Do not score or alter SARI/SCORE-GEO. Do not claim that a change will cause a specific search ranking. SERP differences are correlational context only. Security is passive posture analysis only: do not propose exploitation, payloads, bypasses, credential attacks, or active scanning. Never invent facts, prices, credentials, statistics, testimonials, certifications, product properties or evidence. For technical findings with original_html, suggested_html should contain a concrete corrected element when the correction is safe. For content/search findings, propose precise people-first wording only when supported by page/competitive evidence; otherwise explain what information must be supplied. Cite only evidence_ids attached to the referenced finding. Human review is mandatory. For every recommendation, current_degradation and expected_benefit are mandatory. "
+        "Architecture supplied in supporting_context.architecture is advisory, scoped to the exact AUD snapshot. "
+        "Respect classification versus unverified low-confidence hypothesis; never turn UNKNOWN into verified SPA/SSR. "
+        "Use architecture when pertinent to technical HTML, performance, AI access and best practices; explain "
+        "which extra same-snapshot measurements would be needed to recommend a different Apdex action/KPM. "
+        "Never alter historic Apdex/SARI scores or assert that a Load action measures SPA soft navigation. "
+        "Numeric limits or ideal values must come from explicit measured data, a versioned benchmark or "
+        "the frozen audit configuration; label reference targets versus actual observations and mark "
+        "unknown when no valid comparable metric exists. Propose concrete, safely reviewable technical steps "
+        "and how to verify them, citing supported findings only. "
         "current_degradation must describe only the evidence-supported limitation or risk that exists now. "
         "expected_benefit must describe only a qualitative improvement that may reasonably follow if applied. "
         "Never promise ranking, traffic, revenue, conversion, security or performance outcomes; state uncertainty "
@@ -1169,7 +1178,11 @@ def _material_finding_for_fingerprint(finding: Mapping[str, Any]) -> dict[str, A
     }
 
 
-def _evidence_fingerprint(findings: list[dict[str, Any]], search: Mapping[str, Any], lighthouse: list[dict[str, Any]]) -> str:
+def _evidence_fingerprint(
+    findings: list[dict[str, Any]], search: Mapping[str, Any],
+    lighthouse: list[dict[str, Any]],
+    architecture: Mapping[str, Any] | None = None,
+) -> str:
     material_findings = [
         _material_finding_for_fingerprint(item)
         for item in findings
@@ -1188,6 +1201,10 @@ def _evidence_fingerprint(findings: list[dict[str, Any]], search: Mapping[str, A
         "search": search,
         "lighthouse": lighthouse,
     }
+    # Preserve historic fingerprints when no relevant architecture was
+    # available; prevent unnecessary repeat provider calls on old audits.
+    if architecture:
+        payload["architecture"] = architecture
     return sha256(
         json.dumps(
             payload,
@@ -1548,8 +1565,19 @@ def collect_improvement_evidence(*, audit_id: str, workspace: AuditWorkspace, co
         if progress: progress("SERP", 68.0, "correlacionando posição SERP e gaps competitivos quando disponíveis")
     finally: connection.close()
     findings = [item for item in _dedupe_findings([*existing, *semantic_risk, *structure, *security, *lighthouse, *discovery, *search]) if item["domain"] in set(config.domains)]
-    supporting = {"structure": structure_summary, "semantic_ymyl_risk": semantic_risk_summary, "security": security_summary, "lighthouse": lighthouse_summary, "discovery": discovery_summary, "search": search_summary, "raw_html_excerpt": context.html[:_AI_HTML_LIMIT], "structured_data": context.structured_data}
-    return context, findings, supporting, _evidence_fingerprint(findings, search_summary, lighthouse_summary)
+    # Reuse the same read-only, capture-digest-bound facts rendered by CAT-01.
+    # This is structured context, not an automatic change to M23/M25,
+    # a provider call, or a new finding without evidence.
+    architecture: dict[str, Any] = {}
+    if set(config.domains) & {"TECHNICAL_HTML", "PERFORMANCE", "AI_ACCESS", "BEST_PRACTICES"}:
+        from rasai.architecture_audit_facts import read_architecture_audit_facts
+        matched = read_architecture_audit_facts(
+            workspace.database, audit_id, snapshot_id=context.snapshot_id,
+        )
+        if matched and matched[0]["page_id"] == context.page_id:
+            architecture = matched[0]
+    supporting = {"structure": structure_summary, "semantic_ymyl_risk": semantic_risk_summary, "security": security_summary, "lighthouse": lighthouse_summary, "discovery": discovery_summary, "search": search_summary, "architecture": architecture, "raw_html_excerpt": context.html[:_AI_HTML_LIMIT], "structured_data": context.structured_data}
+    return context, findings, supporting, _evidence_fingerprint(findings, search_summary, lighthouse_summary, architecture)
 
 
 def execute_improvement_intelligence(*, audit_id: str, workspace: AuditWorkspace, config: ImprovementConfig | None = None, force: bool = False, progress: Callable[[str, float, str], None] | None = None) -> ImprovementResult:
