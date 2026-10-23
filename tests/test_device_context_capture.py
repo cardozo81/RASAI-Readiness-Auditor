@@ -266,10 +266,14 @@ class _SyntheticLazyPage:
     def __init__(self, html: str) -> None:
         self.html = html
         self.scrolls = 0
+        self.resets = 0
         self.waits: list[int] = []
 
-    def evaluate(self, _: str) -> None:
-        self.scrolls += 1
+    def evaluate(self, script: str) -> None:
+        if "scrollTo(0, 0)" in script:
+            self.resets += 1
+        else:
+            self.scrolls += 1
 
     def wait_for_timeout(self, ms: int) -> None:
         self.waits.append(ms)
@@ -307,6 +311,9 @@ def test_aud125_nav_heavy_empty_main_is_not_a_lazy_false_positive():
     assert quality["bounded_lazy_recovery"]["accepted_rendered_sha256"] == hashlib.sha256(substantive.encode()).hexdigest()
     assert quality["recovery"]["outcome"] == "BOUND_EXHAUSTED"
     assert page.scrolls == 3
+    assert page.resets == 1
+    assert probe["viewport_restored_before_screenshot"] is True
+    assert probe["post_scroll_observations"] == 1
     assert page.waits == [250, 250, 250]
 
 
@@ -319,6 +326,9 @@ def test_aud125_lazy_skeleton_without_materialization_remains_incomplete():
     assert _promote_bounded_lazy_dom(shell, original, probe, candidate) == (shell, original)
     assert probe["attempted"] is True
     assert probe["after_probe_content_recoverable"] is False
+    assert probe["post_scroll_observations"] == 8
+    assert probe["actual_additional_wait_ms"] == 2500
+    assert page.resets == 1
 
 
 def test_aud125_ready_ssr_does_not_scroll_or_promote():

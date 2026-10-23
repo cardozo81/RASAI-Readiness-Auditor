@@ -108,6 +108,7 @@ _COOKIE_RUNTIME_INIT_SCRIPT = r"""
 """
 _LAZY_SCROLL_STEPS = 3
 _LAZY_SETTLE_MS = 250
+_LAZY_CONTENT_OBSERVATIONS = 8  # only for a known-weak lazy shell after scroll
 
 
 def _bounded(value: Any, limit: int = _MAX_MESSAGE) -> str:
@@ -741,6 +742,11 @@ def _same_session_lazy_probe(page: Any, rendered_html: str) -> tuple[dict[str, A
         "additional_navigation_requests": 0,
         "scroll_steps": _LAZY_SCROLL_STEPS,
         "settle_ms": _LAZY_SETTLE_MS,
+        "post_scroll_observation_limit": _LAZY_CONTENT_OBSERVATIONS,
+        "max_additional_wait_ms": (
+            (_LAZY_SCROLL_STEPS + _LAZY_CONTENT_OBSERVATIONS - 1) * _LAZY_SETTLE_MS
+        ),
+        "viewport_restored_before_screenshot": False,
         "has_lazy_signals": preliminary.has_lazy_signals,
         "initial_content_recoverable": material_at_entry,
         "legacy_extractor_content_recoverable": preliminary.initial_content_recoverable,
@@ -757,11 +763,28 @@ def _same_session_lazy_probe(page: Any, rendered_html: str) -> tuple[dict[str, A
         for _ in range(_LAZY_SCROLL_STEPS):
             page.evaluate("window.scrollBy(0, Math.max(window.innerHeight * 0.8, 1))")
             page.wait_for_timeout(_LAZY_SETTLE_MS)
-        after_html = page.content()
+        # The subsequent M3 screenshot must still represent the initial viewport;
+        # the bounded scroll is a materialization gesture, not a screenshot target.
+        page.evaluate("window.scrollTo(0, 0)")
+        result["viewport_restored_before_screenshot"] = True
+        after_html = rendered_html
+        after_material = False
+        polls = 0
+        for index in range(_LAZY_CONTENT_OBSERVATIONS):
+            polls += 1
+            after_html = page.content()
+            after_material = _strong_primary_content(observe_materiality(after_html))
+            if after_material:
+                break
+            if index + 1 < _LAZY_CONTENT_OBSERVATIONS:
+                page.wait_for_timeout(_LAZY_SETTLE_MS)
         assessed = analyzer.lazy_loading(rendered_html, after_probe_html=after_html)
-        after_material = _strong_primary_content(observe_materiality(after_html))
         result.update(
             state="CAPTURED",
+            post_scroll_observations=polls,
+            actual_additional_wait_ms=(
+                (_LAZY_SCROLL_STEPS + polls - 1) * _LAZY_SETTLE_MS
+            ),
             after_probe_content_recoverable=after_material,
             result=("PASS" if after_material else "FAIL"),
             reason=("CONTENT_RECOVERED_BY_BOUNDED_SCROLL"
