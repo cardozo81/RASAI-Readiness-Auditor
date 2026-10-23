@@ -999,3 +999,44 @@ def test_aud125_competitive_content_guard_is_presented_as_limitation():
     assert "Captura M3 incompleta" in str(labels["Fonte do conteúdo do site auditado"][3])
     assert labels["Fonte do conteúdo do site auditado"][-1] == "COM LIMITAÇÃO"
     assert labels["Comparação de conteúdo"][-1] == "COM LIMITAÇÃO"
+
+
+
+def test_aud125_cat05_warns_when_competitive_source_precedes_recovered_m3(tmp_path: Path) -> None:
+    from hashlib import sha256
+    from rasai.catalog_report_search_trust import _competitive_customer_snapshot_freshness
+
+    database = tmp_path / "audit.db"
+    original = b"<main><h1></h1></main>"
+    recovered = b"<main><h1>Seguro de vida Bradesco</h1><p>Coberturas</p></main>"
+    artifact = tmp_path / "rendered.html"
+    artifact.write_bytes(recovered)
+    with sqlite3.connect(database) as db:
+        db.executescript("""
+            CREATE TABLE pages(page_id TEXT PRIMARY KEY,audit_id TEXT,normalized_url TEXT);
+            CREATE TABLE page_snapshots(
+                snapshot_id TEXT PRIMARY KEY,page_id TEXT,device TEXT,captured_at TEXT,
+                rendered_artifact_ref TEXT);
+            INSERT INTO pages VALUES('P1','AUD-RPR-M3','https://example.test/seguro');
+            INSERT INTO page_snapshots VALUES(
+                'S1','P1','MOBILE','2026-10-23T18:59:00Z','rendered.html');
+        """)
+        payload = {
+            "acquisition_policy": {"customer_source": "AUDIT_RENDERED_ARTIFACT"},
+            "customer_page": {
+                "requested_url": "https://example.test/seguro",
+                "content_sha256": sha256(original).hexdigest(),
+            },
+        }
+        result = _competitive_customer_snapshot_freshness(
+            db, database, "AUD-RPR-M3", payload, device="mobile",
+        )
+        assert result == "SUPERSEDED_BY_NEW_M3"
+        payload["customer_page"]["content_sha256"] = sha256(recovered).hexdigest()
+        assert _competitive_customer_snapshot_freshness(
+            db, database, "AUD-RPR-M3", payload, device="mobile",
+        ) == "CURRENT"
+        payload["acquisition_policy"]["customer_source"] = "PUBLIC_WEB_HTTP"
+        assert _competitive_customer_snapshot_freshness(
+            db, database, "AUD-RPR-M3", payload, device="mobile",
+        ) == "UNKNOWN"

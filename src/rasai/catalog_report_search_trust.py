@@ -1158,6 +1158,60 @@ def _competitive_validation_rows(
     return rows
 
 
+def _competitive_customer_snapshot_freshness(
+    connection: sqlite3.Connection,
+    database: Path,
+    audit_id: str,
+    payload: Mapping[str, Any],
+    *,
+    device: str,
+) -> str:
+    """Compare persisted competitive customer's source bytes with effective M3.
+
+    This is presentation-only. It never invalidates scored evidence or recollects
+    competing sites; uncertain historical lineage stays UNKNOWN.
+    """
+    policy = payload.get("acquisition_policy")
+    customer = payload.get("customer_page")
+    if (
+        not isinstance(policy, Mapping)
+        or policy.get("customer_source") != "AUDIT_RENDERED_ARTIFACT"
+        or not isinstance(customer, Mapping)
+        or not _table_exists(connection, "page_snapshots")
+        or not _table_exists(connection, "pages")
+    ):
+        return "UNKNOWN"
+    old_digest = str(customer.get("content_sha256") or "").lower()
+    target = str(customer.get("requested_url") or "")
+    if not re.fullmatch(r"[0-9a-f]{64}", old_digest) or not target or device.upper() not in {"MOBILE", "DESKTOP"}:
+        return "UNKNOWN"
+    try:
+        row = connection.execute(
+            """SELECT ps.rendered_artifact_ref FROM page_snapshots ps
+               JOIN pages p ON p.page_id=ps.page_id
+               WHERE p.audit_id=? AND p.normalized_url=?
+                 AND UPPER(ps.device)=UPPER(?)
+               ORDER BY ps.captured_at DESC,ps.rowid DESC LIMIT 1""",
+            (audit_id, target, device),
+        ).fetchone()
+    except sqlite3.Error:
+        return "UNKNOWN"
+    if row is None or not row[0]:
+        return "UNKNOWN"
+    relative = Path(str(row[0]))
+    if relative.is_absolute() or ".." in relative.parts:
+        return "UNKNOWN"
+    workspace_root = database.parent
+    path = workspace_root / relative
+    try:
+        if path.is_symlink() or not path.is_file() or not 0 < path.stat().st_size <= 8_000_000:
+            return "UNKNOWN"
+        current_digest = sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return "UNKNOWN"
+    return "CURRENT" if old_digest == current_digest else "SUPERSEDED_BY_NEW_M3"
+
+
 def _competitive_html(database: Path, data: Any) -> str:
     from rasai import catalog_report_integrations as integrations
     from rasai import catalog_report_page as page
@@ -1251,6 +1305,19 @@ def _competitive_html(database: Path, data: Any) -> str:
 
 
             deterministic_payload = _artifact_json(database, item.get("evidence_ref"))
+            source_freshness = _competitive_customer_snapshot_freshness(
+                connection, database, data.audit_id, deterministic_payload,
+                device=str(configuration.get("device") or ""),
+            )
+            if source_freshness == "SUPERSEDED_BY_NEW_M3":
+                body += (
+                    "<div class='notice warn'><strong>Evidência competitiva anterior à recuperação M3:</strong> "
+                    "o conteúdo do cliente utilizado na comparação e na IA competitiva "
+                    "corresponde a um DOM renderizado anterior, diferente da captura efetiva "
+                    "atual da AUD. Lacunas e recomendações competitivas não são "
+                    "conclusões sobre o conteúdo recuperado. SERP e referências históricas "
+                    "continuam preservadas; não houve nova coleta nem recálculo.</div>"
+                )
             runtime_policy = (
                 deterministic_payload.get("acquisition_policy")
                 if isinstance(deterministic_payload.get("acquisition_policy"), Mapping)
