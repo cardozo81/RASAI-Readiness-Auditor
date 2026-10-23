@@ -893,6 +893,7 @@ PUBLIC_VALUE_LABELS.update({
     "OCI_ASSET_TLS_FAILURE": "Validação TLS falhou na aquisição de um recurso",
     "OCI_ASSET_TIMEOUT": "Tempo limite excedido na aquisição de um recurso",
     "OCI_ASSET_SIZE_LIMIT": "Recurso excedeu o tamanho individual permitido",
+    "OCI_ASSET_TOTAL_BYTES_LIMIT": "Recursos excederam o orçamento agregado da captura isolada",
     "OCI_ASSET_REDIRECT_BLOCKED": "Redirecionamento de recurso não permitido na reprodução isolada",
     "OCI_ASSET_NETWORK_UNAVAILABLE": "Recurso não acessível pelo transporte público protegido",
     "OCI_ASSET_HTTP_NOT_SUCCESS": "Recurso retornou resposta HTTP não bem-sucedida",

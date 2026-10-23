@@ -140,3 +140,143 @@ def test_failed_asset_without_render_never_upgrades_architecture():
     assert assessment.hypothesis is not None
     assert assessment.hypothesis.likely is ArchitectureClassification.CSR_SPA
     assert assessment.resource_diagnostic is None
+
+
+def test_oversize_css_can_be_acquired_with_bounded_type_specific_fetcher(monkeypatch):
+    from rasai.architecture_resource_budget import (
+        MAX_ASSET_BYTES, MAX_STYLESHEET_BYTES, MAX_RESOURCE_BYTES,
+    )
+    assert MAX_ASSET_BYTES == 500_000
+    assert MAX_STYLESHEET_BYTES == 2_000_000
+    assert MAX_RESOURCE_BYTES == 33_000_000
+    css_url = "https://example.org/assets/site.css"
+    html = '<main>Layout</main><link rel="stylesheet" href="/assets/site.css">'
+    root = resource(content_type="text/html", body=html.encode())
+    css_body = b"x" * 1_500_000
+    css = resource(final=css_url, content_type="text/css; charset=utf-8", body=css_body)
+    limits = []
+
+    class FakeFetcher:
+        def __init__(self, **kwargs):
+            limits.append(kwargs["max_bytes"])
+            self._cap = kwargs["max_bytes"]
+
+        def fetch(self, url):
+            assert url == css_url
+            assert len(css.body) <= self._cap
+            return css
+
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture._validate_public_url",
+        lambda url, _: url,
+    )
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture.PublicWebFetcher", FakeFetcher,
+    )
+    captured = _bundle_resources(URL, root, html)
+    assert limits == [MAX_ASSET_BYTES, MAX_STYLESHEET_BYTES]
+    assert len(captured) == 2
+    import base64
+    assert base64.b64decode(captured[1]["body_b64"]) == css_body
+
+
+def test_css_preload_as_style_receives_css_limit_without_domain_rule(monkeypatch):
+    from rasai.architecture_resource_budget import MAX_STYLESHEET_BYTES
+    url = "https://example.org/shared.css"
+    html = '<link rel="preload" as="style" href="/shared.css">'
+    root = resource(content_type="text/html", body=html.encode())
+    stylesheet = resource(final=url, content_type="text/css", body=b"x" * 700_000)
+    fetch_caps = []
+
+    class FakeFetcher:
+        def __init__(self, **kwargs):
+            self.limit = kwargs["max_bytes"]
+            fetch_caps.append(self.limit)
+        def fetch(self, link):
+            assert link == url
+            assert len(stylesheet.body) <= self.limit
+            return stylesheet
+
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture._validate_public_url",
+        lambda link, _: link,
+    )
+    monkeypatch.setattr("rasai.architecture_isolated_capture.PublicWebFetcher", FakeFetcher)
+    result = _bundle_resources(URL, root, html)
+    assert len(result) == 2
+    assert MAX_STYLESHEET_BYTES in fetch_caps
+
+
+def test_css_above_two_megabytes_still_abstains_and_preserves_failure_kind(monkeypatch):
+    from rasai.architecture_resource_budget import MAX_STYLESHEET_BYTES
+    html = '<main>Page</main><link rel="stylesheet" href="/big.css">'
+    root = resource(content_type="text/html", body=html.encode())
+    # Simulates the fetcher's own bounded response failure; no large body
+    # crosses the boundary or reaches the worker.
+    css = resource(
+        status=ContentFetchStatus.ERROR, error="CONTENT_BODY_LIMIT",
+        final="https://example.org/big.css", body=b"",
+    )
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture._validate_public_url",
+        lambda u, _: u,
+    )
+
+    def build(**kwargs):
+        if kwargs["max_bytes"] == MAX_STYLESHEET_BYTES:
+            return SimpleNamespace(fetch=lambda _: css)
+        return SimpleNamespace(fetch=lambda _: (_ for _ in ()).throw(
+            AssertionError("CSS must not use default 500KB fetcher")
+        ))
+
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture.PublicWebFetcher", build,
+    )
+    with pytest.raises(ArchitectureAssetFailure) as error:
+        _bundle_resources(URL, root, html)
+    assert error.value.reason == "OCI_ASSET_SIZE_LIMIT"
+    assert error.value.diagnostic.kind == "stylesheet"
+
+
+def test_mislabeled_oversize_css_does_not_bypass_default_asset_ceiling(monkeypatch):
+    html = '<link rel="stylesheet" href="/unexpected.html">'
+    root = resource(content_type="text/html", body=html.encode())
+    wrong = resource(
+        final="https://example.org/unexpected.html",
+        content_type="text/html", body=b"x" * 700_000,
+    )
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture._validate_public_url", lambda u, _: u,
+    )
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
+        fetch.return_value.fetch.return_value = wrong
+        with pytest.raises(ArchitectureAssetFailure) as error:
+            _bundle_resources(URL, root, html)
+    assert error.value.reason == "OCI_ASSET_SIZE_LIMIT"
+    assert error.value.diagnostic.kind == "stylesheet"
+
+
+def test_css_cannot_eat_through_aggregate_worker_memory_budget(monkeypatch):
+    import rasai.architecture_isolated_capture as isolated
+    html = ('<main>Page</main>'
+            '<link rel="stylesheet" href="/first.css">'
+            '<link rel="stylesheet" href="/second.css">')
+    root = resource(content_type="text/html", body=html.encode())
+    first = resource(
+        final="https://example.org/first.css", content_type="text/css",
+        body=b"x" * 650_000,
+    )
+    second = resource(
+        final="https://example.org/second.css", content_type="text/css",
+        body=b"x" * 650_000,
+    )
+    monkeypatch.setattr(isolated, "_validate_public_url", lambda u, _: u)
+    monkeypatch.setattr(isolated, "MAX_RESOURCE_BYTES", 1_000_000)
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetch:
+        fetch.return_value.fetch.side_effect = [first, second]
+        with pytest.raises(ArchitectureAssetFailure) as error:
+            _bundle_resources(URL, root, html)
+    assert error.value.reason == "OCI_ASSET_TOTAL_BYTES_LIMIT"
+    assert error.value.diagnostic.kind == "stylesheet"
+    assert error.value.diagnostic.ordinal == 2
+    assert error.value.diagnostic.candidates == 2

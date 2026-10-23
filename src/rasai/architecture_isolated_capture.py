@@ -19,7 +19,10 @@ from urllib.parse import urljoin
 from rasai.architecture_public_html import public_html_failure
 from rasai.architecture_image_identity import IMAGE_SOURCE_LABEL, expected_source_sha256
 from rasai.architecture_resource_diagnostic import ResourcePreflightDiagnostic
-from rasai.architecture_resource_budget import MAX_ASSETS, MAX_BUNDLE_BYTES, MAX_ROOT_BYTES, MAX_ASSET_BYTES
+from rasai.architecture_resource_budget import (
+    MAX_ASSETS, MAX_BUNDLE_BYTES, MAX_RESOURCE_BYTES, MAX_ROOT_BYTES,
+    MAX_ASSET_BYTES, MAX_STYLESHEET_BYTES,
+)
 from rasai.architecture_probe import ProbeCaptures, with_capture_origin
 from rasai.domain import DeviceContext
 from rasai.geo_competitor_pinned_egress import PublicWebPinnedOpener
@@ -125,6 +128,10 @@ class _AssetReferences(HTMLParser):
                      if item in relevant),
                     "unknown",
                 )
+                # A stylesheet introduced through preload has the same CSS
+                # fetch requirements as a regular link rel=stylesheet.
+                if kind == "preload" and (attributes.get("as") or "").lower() == "style":
+                    kind = "stylesheet"
                 self._add(reference, kind)
 
 
@@ -228,7 +235,21 @@ def _bundle_resources(target: str, root, raw: str) -> list[dict]:
         timeout_seconds=4.0, max_redirects=0, max_bytes=MAX_ASSET_BYTES,
         opener=PublicWebPinnedOpener(),
     )
+    # CSS affects the visibility/stability checks of the observed DOM. Allow
+    # larger stylesheets, but preserve the total worker input budget rather
+    # than raising every resource to the same maximum.
+    stylesheet_fetcher = (
+        PublicWebFetcher(
+            timeout_seconds=4.0, max_redirects=0,
+            max_bytes=MAX_STYLESHEET_BYTES, opener=PublicWebPinnedOpener(),
+        )
+        if any(kind == "stylesheet" for _, kind in candidates)
+        else None
+    )
     assets = [root_record]
+    decoded_bytes = len(root.body)
+    if decoded_bytes > MAX_ROOT_BYTES or decoded_bytes > MAX_RESOURCE_BYTES:
+        raise ArchitectureAssetFailure("OCI_ASSET_TOTAL_BYTES_LIMIT")
     total = len(candidates)
     for position, (candidate, kind) in enumerate(candidates, start=1):
         # Revalidate immediately before each host-side request. This is a
@@ -241,8 +262,22 @@ def _bundle_resources(target: str, root, raw: str) -> list[dict]:
                 phase="pre_fetch", ordinal=position, candidates=total,
             ) from exc
         try:
-            document = fetcher.fetch(candidate)
+            # Only declared CSS fetches use the larger bounded downloader.
+            # The actual HTTP MIME must also be CSS to accept >500 KB.
+            asset_fetcher = stylesheet_fetcher if kind == "stylesheet" else fetcher
+            document = asset_fetcher.fetch(candidate)
             encoded = _encode_asset(candidate, document)
+            content_type = document.headers["content-type"].split(";", 1)[0].strip().lower()
+            allowed_bytes = (
+                MAX_STYLESHEET_BYTES
+                if kind == "stylesheet" and content_type == "text/css"
+                else MAX_ASSET_BYTES
+            )
+            if len(document.body) > allowed_bytes:
+                raise ArchitectureAssetFailure("OCI_ASSET_SIZE_LIMIT")
+            if decoded_bytes + len(document.body) > MAX_RESOURCE_BYTES:
+                raise ArchitectureAssetFailure("OCI_ASSET_TOTAL_BYTES_LIMIT")
+            decoded_bytes += len(document.body)
         except ArchitectureAssetFailure as exc:
             raise ArchitectureAssetFailure(
                 exc.reason, kind=kind, phase="fetch",

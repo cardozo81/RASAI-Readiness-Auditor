@@ -8,8 +8,11 @@ from __future__ import annotations
 
 MAX_ASSETS = 64  # Additional unique resources, excluding the HTML document.
 MAX_ROOT_BYTES = 1_000_000
-MAX_ASSET_BYTES = 500_000
+MAX_ASSET_BYTES = 500_000  # Default limit for each non-CSS asset.
+MAX_STYLESHEET_BYTES = 2_000_000  # Bounded CSS exception; layout affects DOM visibility.
 MAX_ENTRIES = MAX_ASSETS + 1
+# Independent aggregate ceiling: larger CSS assets consume the existing total
+# budget rather than silently expanding the worker's memory/manifest surface.
 MAX_RESOURCE_BYTES = MAX_ROOT_BYTES + MAX_ASSETS * MAX_ASSET_BYTES
 MAX_BUNDLE_BYTES = 52_000_000  # JSON/base64 plus bounded URL/header overhead.
 MAX_MANIFEST_BYTES = MAX_BUNDLE_BYTES

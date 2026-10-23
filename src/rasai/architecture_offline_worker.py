@@ -14,6 +14,7 @@ from typing import Any
 from rasai.url_utils import normalize_url
 from rasai.architecture_resource_budget import (
     MAX_MANIFEST_BYTES, MAX_ENTRIES, MAX_RESOURCE_BYTES, MAX_BROWSER_REQUESTS,
+    MAX_ROOT_BYTES, MAX_ASSET_BYTES, MAX_STYLESHEET_BYTES,
 )
 
 MAX_RENDER_BYTES = 1_000_000
@@ -66,6 +67,17 @@ def validate_bundle(payload: object) -> tuple[str, str, dict[str, tuple[bytes, s
             body = base64.b64decode(body_text, validate=True)
         except (ValueError, base64.binascii.Error) as exc:
             raise ValueError("Malformed offline resource") from exc
+        # Reject a malformed bundle even when it bypasses the host collector.
+        # Larger CSS is permitted only with a CSS response MIME; default
+        # assets and root HTML retain their independent per-resource ceilings.
+        mime_type = mime.split(";", 1)[0].strip().lower()
+        individual_cap = (
+            MAX_ROOT_BYTES if url == target else
+            MAX_STYLESHEET_BYTES if mime_type == "text/css" else
+            MAX_ASSET_BYTES
+        )
+        if len(body) > individual_cap:
+            raise ValueError("Offline individual resource budget exceeded")
         total_bytes += len(body)
         if total_bytes > MAX_RESOURCE_BYTES:
             raise ValueError("Offline resource budget exceeded")

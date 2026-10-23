@@ -528,3 +528,45 @@ observada permanece `UNKNOWN` sem RAW/DOM completos; hipóteses do HTML
 continuam separadas. A próxima investigação pode ser orientada pelo motivo
 e tipo de falha, **nunca por cadastro ou reconhecimento de domínios**.
 
+
+## Orçamento de recursos por papel arquitetural (23/10/2026)
+
+O diagnóstico de captura real encontrou um recurso do tipo **folha de estilo**
+acima do limite individual padrão de 500.000 bytes (posição 14 de 27 no
+inventário RAW de uma amostra). Esse fato não informa o tamanho exato,
+a relevância da folha nem comprova a arquitetura do documento.
+
+O orçamento genérico, sem regras por domínio, mantém **64 recursos**
+adicionais ao HTML, **1.000.000 bytes para o HTML inicial** e **500.000
+bytes para recursos comuns** (incluindo JavaScript, imagens e mídia).
+Folhas de estilo declaradas por `rel=stylesheet` ou por `rel=preload
+as=style` podem ser adquiridas até **2.000.000 bytes**, mediante validação
+de destino público e `Content-Type: text/css` na resposta.
+
+**Limites globais permanecem iguais:** até 33.000.000 bytes decodificados
+para HTML+recursos e 52.000.000 bytes para o manifesto JSON/Base64, com no
+máximo 65 entradas no worker e 70 requisições no navegador isolado.
+O coletor agora interrompe o inventário antes de entregar um pacote que
+ultrapassaria o limite decodificado do worker. Exceder o total devolve
+`OCI_ASSET_TOTAL_BYTES_LIMIT`, distinto de `OCI_ASSET_SIZE_LIMIT`
+individual; ambos apresentam somente tipo, etapa e posição do recurso
+sem URLs ou conteúdo.
+
+A política por tipo **não presume que CSS seja dispensável**: folhas de
+estilo podem determinar visibilidade, placeholders e estabilização do DOM
+e não são ignoradas para obter classificação artificial. No worker, toda
+entrada CSS deve respeitar seu teto de 2 MB; entradas não-CSS continuam
+limitadas a 500 KB; a entrada principal continua limitada a 1 MB.
+O worker aplica os limites também quando recebe um manifesto inválido,
+sem depender da validação do host. A aquisição conserva
+`--network=none` no Chromium, IP pinado no host, verificação TLS/SNI,
+recusa de redirecionamentos de recursos e abstenção sem DOM comprovado.
+
+A fonte da política de orçamento integra o fingerprint do código OCI.
+Depois de `git pull --ff-only`, a preparação do console deve solicitar
+consentimento para reconstruir a imagem desatualizada uma única vez.
+Não é necessário executar `docker build` manualmente.
+
+Esta mudança não implementa escolha de recursos opcionais nem observação
+de frames dinâmicos. Essas capacidades permanecem separadas para evitar
+promover um DOM incompleto a `STATIC_OR_SSR` ou `CSR_SPA`.

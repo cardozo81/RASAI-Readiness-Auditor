@@ -8,7 +8,7 @@ from rasai.architecture_offline_worker import (
     MAX_RESOURCE_BYTES, MAX_BROWSER_REQUESTS,
 )
 from rasai.architecture_resource_budget import (
-    MAX_ASSETS, MAX_ROOT_BYTES, MAX_ASSET_BYTES, MAX_BUNDLE_BYTES,
+    MAX_ASSETS, MAX_ROOT_BYTES, MAX_ASSET_BYTES, MAX_STYLESHEET_BYTES, MAX_BUNDLE_BYTES,
 )
 
 
@@ -102,4 +102,45 @@ def test_offline_manifest_retains_csp_and_rejects_header_injection():
     assert table["https://example.org/"][3]["content-security-policy"].endswith("'none'")
     candidate["resources"][0]["response_headers"]["content-security-policy"] = "abc\r\nset-cookie:bad"
     with pytest.raises(ValueError, match="headers"):
+        validate_bundle(candidate)
+
+
+def test_worker_accepts_large_css_while_retaining_small_default_asset_limit():
+    candidate = bundle()
+    css = b"c" * 1_500_000
+    candidate["resources"].append({
+        "url": "https://example.org/large.css",
+        "body_b64": base64.b64encode(css).decode("ascii"),
+        "status": 200,
+        "content_type": "text/css; charset=utf-8",
+    })
+    _, _, table = validate_bundle(candidate)
+    assert table["https://example.org/large.css"][0] == css
+    assert MAX_STYLESHEET_BYTES == 2_000_000
+    assert MAX_ASSET_BYTES == 500_000
+
+
+@pytest.mark.parametrize("mime,cap", [
+    ("text/javascript", MAX_ASSET_BYTES),
+    ("text/html", MAX_ASSET_BYTES),
+    ("text/css", MAX_STYLESHEET_BYTES),
+])
+def test_worker_refuses_single_asset_above_mime_budget(mime, cap):
+    candidate = bundle()
+    candidate["resources"].append({
+        "url": "https://example.org/asset",
+        "body_b64": base64.b64encode(b"x" * (cap + 1)).decode("ascii"),
+        "status": 200,
+        "content_type": mime,
+    })
+    with pytest.raises(ValueError, match="individual resource budget"):
+        validate_bundle(candidate)
+
+
+def test_worker_rejects_html_root_over_document_limit():
+    candidate = bundle()
+    candidate["resources"][0]["body_b64"] = base64.b64encode(
+        b"x" * (MAX_ROOT_BYTES + 1)
+    ).decode("ascii")
+    with pytest.raises(ValueError, match="individual resource budget"):
         validate_bundle(candidate)
