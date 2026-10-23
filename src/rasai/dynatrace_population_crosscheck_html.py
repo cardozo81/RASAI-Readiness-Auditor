@@ -164,8 +164,10 @@ não são censo de sessões individuais.</p></section>
 <section class="section"><h2>Revisões recomendadas</h2>
 <ul>""" + recommendations + """</ul></section>
 <footer class="muted"><p>Nenhum threshold foi inferido da arquitetura.
-Sem novas consultas Dynatrace, alteração de tenant, RUM, M23/M25,
-pontuação Apdex, SCORE-GEO, AUD, relatório canônico ou cobrança.</p></footer>
+Sem novas consultas ao Dynatrace, mudanças no ambiente monitorado, nas medições
+sintéticas de navegação e experiência, na pontuação Apdex ou nos índices de
+prontidão e GEO. Nenhuma auditoria ou relatório canônico foi alterado e não
+houve cobrança adicional.</p></footer>
 </body></html>
 """
 

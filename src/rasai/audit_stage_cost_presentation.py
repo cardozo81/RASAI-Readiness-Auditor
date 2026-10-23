@@ -390,7 +390,7 @@ def stage_report_html(projection: dict[str, Any]) -> str:
     return (
         timing_notice
         + cost_notice
-        + "<p>Tentativas de IA (análise e remediação): <strong>%s</strong>; soma 
+        + "<p>Tentativas de IA (análise e remediação): <strong>%s</strong>; soma "
         "<strong>%s</strong>; união ativa <strong>%s</strong>. "
         "União ativa não equivale a duração da AUD.</p>"
         "<div class='table-wrap'><table><thead><tr>"
