@@ -1,4 +1,4 @@
-# Materialidade M3 e consumidores Search — contrato de correção
+# Materialidade M3 e consumidores Search - contrato de correção
 
 ## Causa física reproduzida e contrato
 
@@ -20,14 +20,14 @@ O diagnóstico causal na main anterior: o preflight de lazy usa `bool(extractor.
 
 | Origem | Congelamento | Execução | Apresentação |
 | --- | --- | --- | --- |
-| SERP — termos, região, device, profundidade, budgets, concorrentes e YMYL | `SEARCH_INTELLIGENCE` configuration na AUD | argumentos canônicos CLI → provider, requests e observações | CAT-05 requested/effective/observed |
-| Perplexity — queries e FAST/WEB | pedido autorizado por AUD, nunca por restauração de INI | Search API na execução autorizada, run e custos separados | pós-run da execução persistida + GEO advisory |
+| SERP - termos, região, device, profundidade, budgets, concorrentes e YMYL | `SEARCH_INTELLIGENCE` configuration na AUD | argumentos canônicos CLI → provider, requests e observações | CAT-05 requested/effective/observed |
+| Perplexity - queries e FAST/WEB | pedido autorizado por AUD, nunca por restauração de INI | Search API na execução autorizada, run e custos separados | pós-run da execução persistida + GEO advisory |
 | Captura M3 | política ENGINE_DEFAULT e contexto URL/device da captura | recovery e lazy probe same-session; resultado de materialidade | browser_metadata e source-quality; `INCOMPLETE` bloqueia IA |
 | Reprocessamento | escopo/configuração não secreta da AUD original | apenas dependências elegíveis, respeitando RPR canônico | novo attempt vs sucessos preservados |
 
 Nenhum item acima altera scores, classificação arquitetural M6, threshold Apdex M23/M25, credenciais ou cobranças. Não enviar queries/headers/cookies/HTML sensível em diagnóstico genérico.
 
-## Gate focal — o mínimo necessário
+## Gate focal - o mínimo necessário
 
 1. Testes sintéticos de skeleton com nav extenso, conteúdo tardio materializado, shell persistente, SSR já pronto; nenhum site externo. Provar 0 waits indevidos e hash exato.
 2. Fixture SQLite de snapshot M3 incompleto: `_rendered_customer_artifact` indisponível; comparação descritiva terminal `CUSTOMER_CONTENT_NOT_COMPARABLE`, candidatos preservados, 0 chamadas HTTP adicionais. READY conserva caminho original.
