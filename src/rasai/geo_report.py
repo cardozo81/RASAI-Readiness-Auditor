@@ -627,10 +627,44 @@ def geo_body(database: Path, audit_id: str) -> str:
         # Never promote a previous successful snapshot to the latest failed attempt.
         comparison = None
     summary += "<section><h2>Comparação SERP × Perplexity</h2>"
-    if comparison is None or comparison.get("serp_observation_id") is None:
-        summary += "<p>Comparação não aplicável: não há snapshot de análise GEO "
-        summary += "com consulta única e observação SERP live válida. Requests multi-query "
-        summary += "não são desagregados artificialmente.</p>"
+    if comparison is None:
+        summary += (
+            "<p>Comparação: N/D. Não há snapshot GEO verificavelmente associado "
+            "à execução Perplexity atual. Isso não comprova se uma coleta SERP "
+            "foi solicitada, executada ou falhou; consulte o registro da AUD. "
+            "Nenhuma taxa de sobreposição pode ser inferida.</p>"
+        )
+    elif comparison.get("serp_observation_id") is None:
+        rates = comparison.get("descriptive_overlap")
+        reason = rates.get("reason") if isinstance(rates, dict) else None
+        cause = {
+            "NO_EQUIVALENT_OBSERVED_SERP_QUERY":
+                "não foi vinculada uma observação SERP live da mesma consulta",
+            "UNATTRIBUTABLE_QUERY_SET":
+                "as fontes da Search API não são atribuíveis a uma consulta única",
+            "EXTERNAL_SEARCH_NOT_SUCCESSFUL":
+                "a execução Search API não foi concluída com sucesso",
+            "TIME_SCOPE_UNPROVEN":
+                "não há relógios verificáveis nas duas fontes",
+            "TIME_SCOPE_OUTSIDE_WINDOW":
+                "as observações excedem a janela de 24 horas",
+            "NO_VALID_URL_DENOMINATOR":
+                "não há denominadores de URLs verificáveis nas duas fontes",
+        }.get(reason, "elegibilidade da comparação não demonstrada")
+        summary += (
+            "<p>Comparação: N/D. Existe snapshot GEO associado à execução externa, "
+            "mas não há observação SERP elegível vinculada ao snapshot.</p>"
+            "<p>Motivo observado: " + escape(cause) + "."
+        )
+        if isinstance(reason, str) and reason:
+            summary += " Código persistido: <code>" + escape(reason[:100]) + "</code>."
+        summary += (
+            "</p><p>Este registro não distingue SERP não solicitada de SERP "
+            "solicitada sem resultado elegível. Uma AUD concluída significa "
+            "que seus requisitos obrigatórios foram finalizados; não exige "
+            "esta comparação opcional, nem autoriza cobrança ou reprocessamento "
+            "retroativo. Requests multi-query não são desagregados.</p>"
+        )
     else:
         rates = comparison.get("descriptive_overlap")
         has_verified_rates = (

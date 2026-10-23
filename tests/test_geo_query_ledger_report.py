@@ -121,3 +121,40 @@ def test_canonical_geo_page_hides_hostname_roster_without_source_query(tmp_path)
     db = _physical(tmp_path, per_source=False)
     page = geo_body(db, "AUD-REPORT304")
     assert "Hosts observados na consulta" not in page
+
+
+
+def test_geo_not_comparable_reason_remains_legible_after_final_humanization(tmp_path):
+    from rasai.report_presentation import humanize_report_html
+    db = _physical(tmp_path, per_source=False)
+    before = db.read_bytes()
+    html = humanize_report_html(
+        geo_query_advisory_html(db, "AUD-REPORT304"), page_name="geo.html",
+    )
+    assert "Fonte externa não atribuível individualmente" in html
+    assert "<code>PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN</code>" in html
+    assert "Condição técnica não catalogada" not in html
+    assert db.read_bytes() == before
+
+
+def test_geo_global_abstention_is_causal_and_read_only(monkeypatch, tmp_path):
+    from rasai.report_presentation import humanize_report_html
+    db = _physical(tmp_path)
+    before = db.read_bytes()
+    def no_serp(_):
+        return {
+            "audit_id": "AUD-REPORT304",
+            "contract_version": "RASAI-GEO-PER-QUERY-304-ADVISORY-008",
+            "status": "NOT_COMPARABLE",
+            "reason": "SERP_SCOPE_SCHEMA_UNVERIFIABLE",
+            "source_audit_db_integrity_guard": "DOUBLE_SHA256_MATCH",
+            "queries": [],
+        }
+    monkeypatch.setattr("rasai.geo_query_ledger_report.inspect_geo_per_query", no_serp)
+    html = humanize_report_html(
+        geo_query_advisory_html(db, "AUD-REPORT304"), page_name="geo.html",
+    )
+    assert "Estrutura de escopo SERP ausente ou incompatível" in html
+    assert "<code>SERP_SCOPE_SCHEMA_UNVERIFIABLE</code>" in html
+    assert "Condição técnica não catalogada" not in html
+    assert db.read_bytes() == before

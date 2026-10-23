@@ -40,6 +40,37 @@ def _advisory_unavailable(reason: str) -> str:
 
 
 
+_GEO_REASON_LABELS = {
+    "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN": "Fonte externa não atribuível individualmente a esta consulta",
+    "NO_COMPARABLE_OBSERVED_SERP_SCOPE_WITHIN_24H": "Nenhuma SERP live elegível da mesma consulta na janela de 24 horas",
+    "NO_VALID_EXTERNAL_URL_DENOMINATOR": "Sem URLs externas válidas para a consulta",
+    "NO_VALID_SERP_URL_DENOMINATOR": "Sem URLs SERP válidas para a consulta",
+    "SERP_CHRONOLOGY_UNVERIFIABLE_FOR_QUERY": "Data/hora de coleta SERP não verificável",
+    "SERP_QUERY_IDENTITY_UNVERIFIABLE": "Identidade da consulta SERP não verificável",
+    "SERP_SCOPE_INCOMPLETE_ALONGSIDE_VERIFIED_SAMPLE": "Há observação SERP com escopo incompleto na mesma janela",
+    "AMBIGUOUS_SERP_MARKET_LANGUAGE_DEVICE_SCOPE": "Mais de um escopo SERP de mercado, idioma ou dispositivo",
+    "AMBIGUOUS_EQUIDISTANT_SERP_OBSERVATIONS": "Há observações SERP igualmente elegíveis sem desempate verificável",
+    "SERP_SOURCE_URL_IDENTITY_UNVERIFIABLE": "Identidade de uma URL SERP não verificável",
+    "EXTERNAL_SOURCE_URL_IDENTITY_UNVERIFIABLE": "Identidade de uma URL Search API não verificável",
+    "NO_QUERY_WITH_VERIFIED_SOURCE_DENOMINATORS": "Nenhuma consulta possui denominadores verificáveis nas duas fontes",
+    "SERP_SCOPE_SCHEMA_UNVERIFIABLE": "Estrutura de escopo SERP ausente ou incompatível",
+    "SERP_RESULTS_SCHEMA_UNVERIFIABLE": "Estrutura dos resultados SERP ausente ou incompatível",
+    "EXTERNAL_SEARCH_NOT_FOUND": "Nenhuma execução Search API persistida nesta AUD",
+    "EXTERNAL_SEARCH_NOT_SUCCESSFUL": "Execução Search API ausente ou sem sucesso verificável",
+    "AUD_NOT_COMPLETE_OR_FOREIGN": "Identidade ou conclusão da AUD não verificada",
+    "AUD_METADATA_UNVERIFIABLE": "Metadados de identificação da AUD não verificáveis",
+    "AUD_SQLITE_SIDECAR_APPEARED_DURING_READ": "Arquivos SQLite auxiliares surgiram durante a leitura",
+    "AUD_SOURCE_CHANGED_DURING_READ": "Fonte SQLite alterada durante a verificação",
+}
+
+
+def _reason_html(value: object) -> str:
+    """Human explanation and immutable technical code, never an unknown-enum fallback."""
+    code = value if isinstance(value, str) and value else "QUERY_NOT_VERIFIED"
+    label = _GEO_REASON_LABELS.get(code, "Pré-requisito técnico não comprovado")
+    return escape(label) + " (<code>" + _e(code, limit=120) + "</code>)"
+
+
 def _source_host_roster(row: Mapping[str, Any], admissible: bool) -> str:
     """Optional read-only expansion, never promoted without source integrity."""
     roster = row.get("host_source_inventory") if admissible else None
@@ -117,6 +148,12 @@ def geo_query_advisory_html(database: Path, audit_id: str) -> str:
         "<th>Overlap SERP</th><th>Overlap Search API</th>"
         "<th>URL exata auditada</th><th>Limite</th></tr></thead><tbody>",
     ]
+    if projection.get("status") == "NOT_COMPARABLE" and not rows:
+        parts.append(
+            "<p>Comparação por consulta: N/D. Motivo físico: "
+            + _reason_html(projection.get("reason")) + ". "
+            "Não significa ausência de resultados ou falha da Search API.</p>"
+        )
     roster_details: list[str] = []
     for item in rows:
         if not isinstance(item, Mapping):
@@ -167,7 +204,7 @@ def geo_query_advisory_html(database: Path, audit_id: str) -> str:
             scope_text = "N/D"
         note = (
             "Só URLs; mesma intenção/mercado não comprovados"
-            if valid else _e(item.get("reason") or "QUERY_NOT_VERIFIED")
+            if valid else _reason_html(item.get("reason"))
         )
         cells = [
             _e(item.get("query")) + " — " + escape(cls),

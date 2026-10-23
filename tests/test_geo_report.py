@@ -432,3 +432,39 @@ def test_geo_stored_overlap_uses_utc_order_and_abstains_on_ambiguous_history(
     before_naive = db.read_bytes()
     assert _stored_comparison(db, "AUD-A") is None
     assert db.read_bytes() == before_naive
+
+
+
+def test_geo_comparison_without_serp_shows_persisted_reason_not_snapshot_absence(tmp_path):
+    from rasai.report_presentation import humanize_report_html
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            CREATE TABLE perplexity_search_runs (
+                run_id TEXT PRIMARY KEY, audit_id TEXT, query_json TEXT,
+                search_type TEXT, status TEXT, started_at TEXT);
+            CREATE TABLE perplexity_search_sources (
+                run_id TEXT, position INTEGER, url TEXT, title TEXT, snippet TEXT);
+            CREATE TABLE geo_observation_runs (
+                audit_id TEXT, projection_json TEXT, created_at TEXT);
+            INSERT INTO perplexity_search_runs VALUES (
+                'PX-ONLY','AUD-GEO-ONLY','["seguro para familia"]','fast',
+                'SUCCESS','2026-10-23T16:25:00Z');
+            INSERT INTO perplexity_search_sources VALUES (
+                'PX-ONLY',1,'https://example.org/seguros','Fonte','snippet');
+            INSERT INTO geo_observation_runs VALUES (
+                'AUD-GEO-ONLY',
+                '{"contract_version":"RASAI-GEO-OBSERVATION-8",'
+                '"perplexity_run_id":"PX-ONLY","serp_observation_id":null,'
+                '"descriptive_overlap":{"status":"NOT_COMPARABLE",'
+                '"reason":"NO_EQUIVALENT_OBSERVED_SERP_QUERY"}}',
+                '2026-10-23T16:28:00Z');
+        """)
+    before = db.read_bytes()
+    html = humanize_report_html(geo_body(db, "AUD-GEO-ONLY"), page_name="geo.html")
+    assert "Existe snapshot GEO associado" in html
+    assert "não foi vinculada uma observação SERP live da mesma consulta" in html
+    assert "<code>NO_EQUIVALENT_OBSERVED_SERP_QUERY</code>" in html
+    assert "Condição técnica não catalogada" not in html
+    assert "reprocessamento retroativo" in html
+    assert db.read_bytes() == before
