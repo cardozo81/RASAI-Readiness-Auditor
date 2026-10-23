@@ -58,6 +58,10 @@ def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
                 + ("presente" if raw.hidden_placeholder_present else "não observado")
             )
             lines.append(
+                "  Iframes declarados no HTML inicial: %s (src: %s; srcdoc: %s)."
+                % (raw.iframe_tags, raw.iframe_src_tags, raw.iframe_srcdoc_tags)
+            )
+            lines.append(
                 "  Esses sinais não comprovam arquitetura SPA, SSR, hidratação "
                 "real, conteúdo pós-JS ou indexação. Classe permanece UNKNOWN "
                 "sem comparação com DOM renderizado."
@@ -66,6 +70,25 @@ def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
             lines.append(
                 "Sinais estruturais RAW: N/D (HTML ausente ou orçamento excedido)."
             )
+    hypothesis = getattr(result, "hypothesis", None)
+    if hypothesis is not None and result.architecture.value == "UNKNOWN":
+        if hypothesis.structure == "EMBEDDED_FRAME_COMPOSITION":
+            lines.append(
+                "Padrão estrutural provável (confiança baixa): página composta "
+                "com iframe; arquitetura do conteúdo embarcado não observada."
+            )
+        elif hypothesis.likely is not None:
+            alternatives = ", ".join(item.value for item in hypothesis.alternatives)
+            lines.append(
+                "Hipótese de arquitetura, NÃO comprovada (confiança baixa): "
+                + hypothesis.likely.value
+            )
+            if alternatives:
+                lines.append("  Alternativas compatíveis: " + alternatives)
+        lines.append(
+            "  Inferência limitada ao HTML inicial; sem execução do conteúdo "
+            "embarcado, comparação DOM ou identificação de framework."
+        )
     if getattr(result, "redirect_hops_reported", None) is not None:
         hops = result.redirect_hops_reported
         lines.append(

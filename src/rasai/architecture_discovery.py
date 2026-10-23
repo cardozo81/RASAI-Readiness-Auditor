@@ -10,6 +10,9 @@ from dataclasses import dataclass
 from rasai.domain import ArchitectureClassification
 from rasai.javascript_spa import JavascriptSpaAnalyzer, StateComparison
 from rasai.architecture_raw_signals import RawHtmlSignals, inspect_raw_html_signals
+from rasai.architecture_hypothesis import (
+    ArchitectureHypothesis, suggest_architecture_from_raw,
+)
 
 METHOD_VERSION = "architecture-observation-v1"
 
@@ -23,6 +26,7 @@ class ArchitectureAssessment:
     raw_available: bool = False
     rendered_available: bool = False
     raw_signals: RawHtmlSignals | None = None
+    hypothesis: ArchitectureHypothesis | None = None
     redirect_hops_reported: int | None = None
     protocol_transition: str | None = None
     acquisition_transport: str | None = None
@@ -44,19 +48,24 @@ def assess_architecture(
         if raw_html is not None and (quality_reason or rendered_html is None)
         else None
     )
+    hypothesis = (
+        suggest_architecture_from_raw(partial)
+        if partial is not None and (quality_reason is not None or rendered_html is None)
+        else None
+    )
     if quality_reason:
         return ArchitectureAssessment(
             ArchitectureClassification.UNKNOWN, None, quality_reason,
             raw_available=raw_html is not None,
             rendered_available=rendered_html is not None,
-            raw_signals=partial,
+            raw_signals=partial, hypothesis=hypothesis,
         )
     if raw_html is None or rendered_html is None:
         return ArchitectureAssessment(
             ArchitectureClassification.UNKNOWN, None, "RAW_OR_RENDERED_UNAVAILABLE",
             raw_available=raw_html is not None,
             rendered_available=rendered_html is not None,
-            raw_signals=partial,
+            raw_signals=partial, hypothesis=hypothesis,
         )
     comparison = (analyzer or JavascriptSpaAnalyzer()).compare(raw_html, rendered_html)
     if not comparison.raw_main_content.strip() and not comparison.rendered_main_content.strip():

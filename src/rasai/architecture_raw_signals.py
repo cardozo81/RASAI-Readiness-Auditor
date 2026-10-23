@@ -31,6 +31,9 @@ class RawHtmlSignals:
     external_script_tags: int = 0
     inline_script_tags: int = 0
     hidden_placeholder_present: bool = False
+    iframe_tags: int = 0
+    iframe_src_tags: int = 0
+    iframe_srcdoc_tags: int = 0
     rendered_dom_observed: bool = False
     architecture_inferred: bool = False
     rules_version: str = "architecture-raw-signals-v1"
@@ -51,6 +54,9 @@ class _StructuralParser(HTMLParser):
         self.external_scripts = 0
         self.inline_scripts = 0
         self.hidden_placeholder = False
+        self.iframes = 0
+        self.iframe_src = 0
+        self.iframe_srcdoc = 0
 
     def handle_starttag(self, tag, attrs):
         self.tags += 1
@@ -67,6 +73,10 @@ class _StructuralParser(HTMLParser):
             marker = attributes.get("id")
             self.root_marker |= isinstance(marker, str) and marker.lower() in _APP_ROOT_IDS
         self.framework_attribute |= bool(_FRAMEWORK_ATTRIBUTES.intersection(attributes))
+        if tag == "iframe":
+            self.iframes = min(self.iframes + 1, 1000)
+            self.iframe_src += int(bool(attributes.get("src")) and self.iframe_src < 1000)
+            self.iframe_srcdoc += int("srcdoc" in attributes and self.iframe_srcdoc < 1000)
         if tag == "script":
             if attributes.get("src"):
                 self.external_scripts = min(self.external_scripts + 1, 1000)
@@ -105,6 +115,9 @@ class _StructuralParser(HTMLParser):
             external_script_tags=self.external_scripts,
             inline_script_tags=self.inline_scripts,
             hidden_placeholder_present=self.hidden_placeholder,
+            iframe_tags=self.iframes,
+            iframe_src_tags=self.iframe_src,
+            iframe_srcdoc_tags=self.iframe_srcdoc,
         )
 
 

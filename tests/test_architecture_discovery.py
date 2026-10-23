@@ -78,3 +78,32 @@ def test_absent_raw_never_invents_partial_http_evidence():
                                  quality_reason="PUBLIC_HTTP_NOT_SUCCESS")
     assert not result.raw_available and not result.rendered_available
     assert "HTML RAW: não comprovado" in "\\n".join(describe_architecture_assessment(result))
+
+
+def test_incomplete_dynamic_capture_provides_separate_domain_agnostic_hypothesis():
+    raw = '<html><body><div id="root"></div><script src="/app.js"></script></body></html>'
+    result = assess_architecture(
+        raw_html=raw, rendered_html=None, quality_reason="OCI_ASSET_UNAVAILABLE",
+    )
+    assert result.architecture is ArchitectureClassification.UNKNOWN
+    assert result.hypothesis is not None
+    assert result.hypothesis.likely is ArchitectureClassification.CSR_SPA
+    assert "LOW" == result.hypothesis.confidence
+
+
+def test_frame_host_is_composite_not_automatically_spa():
+    raw = ('<body><div id="app"></div>'
+           '<iframe src="/embedded/process"></iframe>'
+           '<script src="/navigation.js"></script></body>')
+    result = assess_architecture(raw_html=raw, rendered_html=None)
+    assert result.architecture is ArchitectureClassification.UNKNOWN
+    assert result.hypothesis is not None and result.hypothesis.likely is None
+    assert result.hypothesis.structure == "EMBEDDED_FRAME_COMPOSITION"
+
+
+def test_missing_raw_after_tls_error_can_never_offer_architecture_probability():
+    result = assess_architecture(
+        raw_html=None, rendered_html=None, quality_reason="PUBLIC_TLS_FAILURE",
+    )
+    assert result.architecture is ArchitectureClassification.UNKNOWN
+    assert result.hypothesis is None

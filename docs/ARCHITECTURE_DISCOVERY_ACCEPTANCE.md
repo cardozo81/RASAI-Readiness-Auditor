@@ -435,3 +435,68 @@ A consulta de arquitetura isolada pode demorar até 2,4 segundos adicionais;
 isso não compõe nem modifica indicadores medidos da auditoria.
 O adaptador também preserva os códigos de abstenção de DOM não estável
 ou não verificável, em vez de substituí-los por limitação genérica.
+
+
+## Descoberta arquitetural genérica, sem conhecimento prévio de domínio
+
+O RASAi recebe URL e device, não um cadastro de domínios e regras por site.
+A identificação arquitetural deve decorrer de evidências obtidas em tempo de
+execução e do escopo efetivamente observado. Sites externos usados em testes
+são exemplos de mecanismos técnicos; não são entradas de classificação.
+
+### Separação de três níveis de evidência
+
+1. **Observada:** comparação RAW/DOM com identidade de documento, transporte
+   admissível, recursos essenciais suficientes e conteúdo estabilizado.
+   Essa camada permanece com o classificador canônico
+   `STATIC_OR_SSR / CSR_SPA / HYDRATED / MIXED / UNKNOWN`.
+2. **Hipótese consultiva:** inferência de baixa confiança, explicitamente
+   não comprovada, sobre indícios do HTML inicial quando a renderização
+   estiver indisponível. `architecture-hypothesis-v1` não transforma
+   `UNKNOWN` em classificação observada, não altera índices, auditorias
+   persistidas, roteamento de coletores ou autorização de execução.
+3. **Limitação:** motivo técnico que impediu obter evidência suficiente,
+   preservado separadamente da hipótese, incluindo TLS, redirect, recurso,
+   iframe não materializado, captura bloqueada ou DOM instável.
+
+### Padrões estruturais iniciais para hipótese de baixa confiança
+
+- Contêiner de aplicação com scripts e conteúdo principal RAW não comprovado:
+  `CSR_SPA` candidato, com `MIXED` como alternativa. Um marcador de root
+  por si só não comprova JavaScript executado ou arquitetura SPA.
+- Conteúdo principal RAW, atributo estrutural de framework e scripts:
+  `HYDRATED` candidato, com outras arquiteturas explicitamente possíveis.
+- Conteúdo RAW substantivo e H1, sem prova de hidratação:
+  `STATIC_OR_SSR` candidato, sem descartar atualização por JavaScript.
+- Presença de `iframe` no HTML inicial: identificar a **topologia composta**
+  `EMBEDDED_FRAME_COMPOSITION`, mas recusar hipótese de arquitetura global
+  até observar separadamente a origem e o DOM do conteúdo embutido.
+- Ausência de RAW válido: não propor hipótese. Erros TLS e rede não
+  autorizam deduzir arquitetura a partir da URL ou do erro.
+
+Esses rótulos são informativos; "confiança baixa" não é probabilidade
+numérica validada. Nunca confundir possíveis alternativas com prova física.
+
+### Requisitos seguintes para cobertura de arquiteturas heterogêneas
+
+1. Aquisição tipada e identificada por documento: URL solicitada, hops
+   verificados, certificado e SNI por conexão, documento final, frames
+   explícitos, recurso essencial/opcional e provenance por observação.
+2. Reprodução isolada e limitada de dependências de documento, incluindo
+   scripts, CSS, recursos de origem pública e frames permitidos, sempre com
+   IP público fixado no transporte host e `docker run --network=none`.
+   Não ignorar TLS nem simular cookies/sessões ausentes.
+3. Observação temporal de estados sucessivos do DOM e de cada contexto
+   incorporado; distinguir conteúdo tardio de conteúdo que não foi obtido,
+   e SPA, SSR, hidratação, composição por frames e fluxos mistos.
+4. Critérios explícitos de suficiência: preservar abstenção somente quando
+   falta evidência essencial; recurso visual secundário bloqueado não deve
+   ser automaticamente considerado prova de falha da arquitetura inteira.
+5. Saída consultiva com arquitetura observada, candidatos, razões, componentes
+   e limites. Scores históricos permanecem imutáveis.
+
+Os mecanismos acima ainda não estão todos implementados. A primeira
+entrega genérica acrescenta apenas o inventário estrutural RAW de iframe e
+as hipóteses consultivas descritas, com testes independentes de qualquer host.
+A arquitetura de documentos incorporados e o tratamento seletivo de recursos
+permanecem requisitos funcionais independentes, não conclusões já obtidas.
