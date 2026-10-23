@@ -18,6 +18,40 @@ def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
         f"Versão do método: {result.method_version}",
         f"Limitação: {public_label(result.limitation) or result.limitation or 'Nenhuma identificada neste diagnóstico'}",
     ]
+    diagnostic = getattr(result, "resource_diagnostic", None)
+    if diagnostic is not None and result.architecture.value == "UNKNOWN":
+        # All displayed fields are finite enums/integers checked at creation.
+        # No URL, hostname, query string, site content or exception is exposed.
+        kinds = {
+            "script": "script JavaScript",
+            "stylesheet": "folha de estilo",
+            "image": "imagem",
+            "iframe": "documento de iframe",
+            "source": "recurso de mídia",
+            "preload": "recurso pré-carregado",
+            "modulepreload": "módulo pré-carregado",
+            "icon": "ícone",
+            "unknown": "recurso não identificado",
+        }
+        phases = {
+            "inventory": "validação do inventário",
+            "pre_fetch": "revalidação pública antes da coleta",
+            "fetch": "aquisição ou validação da resposta",
+        }
+        lines.append(
+            "Recurso associado à limitação: "
+            + kinds[diagnostic.kind]
+            + "; etapa: " + phases[diagnostic.phase] + "."
+        )
+        if diagnostic.ordinal is not None and diagnostic.candidates is not None:
+            lines.append(
+                f"  Posição no inventário permitido: "
+                f"{diagnostic.ordinal} de {diagnostic.candidates} recurso(s)."
+            )
+        lines.append(
+            "  Diagnóstico técnico restrito à categoria; "
+            "URL, conteúdo e credenciais não são exibidos."
+        )
     comparison = result.comparison
     if comparison is None:
         lines.append("HTML RAW: " + ("obtido" if getattr(result, "raw_available", False) else "não comprovado"))

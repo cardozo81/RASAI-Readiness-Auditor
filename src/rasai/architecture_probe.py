@@ -12,6 +12,7 @@ from typing import Callable
 from urllib.parse import urlsplit
 
 from rasai.architecture_discovery import ArchitectureAssessment, assess_architecture
+from rasai.architecture_resource_diagnostic import ResourcePreflightDiagnostic
 from rasai.domain import DeviceContext
 from rasai.search_intelligence.content import _validate_public_url, _default_resolver
 from rasai.url_utils import normalize_url
@@ -40,6 +41,7 @@ class ProbeCaptures:
     quality_reason: str | None = None
     origin: CaptureOriginDigest | None = None
     redirect_chain: tuple[str, ...] = ()
+    resource_diagnostic: ResourcePreflightDiagnostic | None = None
 
 
 def with_capture_origin(capture: ProbeCaptures, *, transport: str) -> ProbeCaptures:
@@ -60,7 +62,7 @@ def with_capture_origin(capture: ProbeCaptures, *, transport: str) -> ProbeCaptu
     return ProbeCaptures(
         capture.requested_url, capture.final_url, capture.device,
         capture.raw_html, capture.rendered_html, capture.quality_reason,
-        origin, capture.redirect_chain,
+        origin, capture.redirect_chain, capture.resource_diagnostic,
     )
 
 
@@ -117,6 +119,12 @@ def probe_architecture(
         rendered_html=observation.rendered_html,
         quality_reason=observation.quality_reason,
     )
+    # Resource diagnostics explain acquisition limitations, not architecture.
+    # A successful physical comparison has no failure diagnostic to report.
+    if observation.quality_reason is not None and observation.resource_diagnostic is not None:
+        assessment = replace(
+            assessment, resource_diagnostic=observation.resource_diagnostic,
+        )
     # The acquisition adapter owns this *reported* redirect metadata.
     # Capture-time SHA does not imply an independently signed audit manifest.
     # Present only bounded hop counts/protocols, not potentially secret URLs.

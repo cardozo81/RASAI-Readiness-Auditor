@@ -18,6 +18,7 @@ from urllib.parse import urljoin
 
 from rasai.architecture_public_html import public_html_failure
 from rasai.architecture_image_identity import IMAGE_SOURCE_LABEL, expected_source_sha256
+from rasai.architecture_resource_diagnostic import ResourcePreflightDiagnostic
 from rasai.architecture_resource_budget import MAX_ASSETS, MAX_BUNDLE_BYTES, MAX_ROOT_BYTES, MAX_ASSET_BYTES
 from rasai.architecture_probe import ProbeCaptures, with_capture_origin
 from rasai.domain import DeviceContext
@@ -34,9 +35,16 @@ _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 class ArchitectureAssetFailure(ValueError):
     """Bounded resource failure code. Never hold page URLs or content."""
 
-    def __init__(self, reason: str) -> None:
+    def __init__(
+        self, reason: str, *,
+        kind: str = "unknown", phase: str = "inventory",
+        ordinal: int | None = None, candidates: int | None = None,
+    ) -> None:
         super().__init__(reason)
         self.reason = reason
+        self.diagnostic = ResourcePreflightDiagnostic(
+            kind=kind, phase=phase, ordinal=ordinal, candidates=candidates,
+        )
 
 
 def local_docker_transport(docker: str) -> bool:
@@ -87,11 +95,17 @@ class _AssetReferences(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.urls: list[str] = []
+        self.kinds: list[str] = []
+
+    def _add(self, reference: str, kind: str) -> None:
+        self.urls.append(reference)
+        self.kinds.append(kind)
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
         if tag in {"script", "img", "source", "iframe"} and attributes.get("src"):
-            self.urls.append(attributes["src"])
+            kind = "image" if tag == "img" else tag
+            self._add(attributes["src"], kind)
         elif tag == "link" and attributes.get("href"):
             relations = set((attributes.get("rel") or "").lower().split())
             relevant = relations & {"stylesheet", "preload", "modulepreload", "icon"}
@@ -106,17 +120,53 @@ class _AssetReferences(HTMLParser):
                     or reference.strip().lower() == "data:,"
                 ):
                     return
-                self.urls.append(reference)
+                kind = next(
+                    (item for item in ("stylesheet", "modulepreload", "preload", "icon")
+                     if item in relevant),
+                    "unknown",
+                )
+                self._add(reference, kind)
+
+
+def _asset_failure_reason(document, expected_url: str) -> str | None:
+    """Interpret only bounded fetcher-owned status codes; discard its messages."""
+    status = getattr(document, "status", None)
+    error = getattr(document, "error_code", None)
+    http_status = getattr(document, "http_status", None)
+    if status == ContentFetchStatus.BLOCKED:
+        return "OCI_ASSET_DESTINATION_BLOCKED"
+    if error == "CONTENT_TLS_ERROR":
+        return "OCI_ASSET_TLS_FAILURE"
+    if error == "CONTENT_TIMEOUT":
+        return "OCI_ASSET_TIMEOUT"
+    if error == "CONTENT_BODY_LIMIT":
+        return "OCI_ASSET_SIZE_LIMIT"
+    if error in {
+        "TOO_MANY_REDIRECTS", "REDIRECT_LOOP", "INVALID_REDIRECT",
+        "CONTENT_REDIRECT_STATE",
+    } or (type(http_status) is int and 300 <= http_status < 400):
+        return "OCI_ASSET_REDIRECT_BLOCKED"
+    if status != ContentFetchStatus.OBSERVED:
+        return "OCI_ASSET_NETWORK_UNAVAILABLE"
+    if type(http_status) is not int or not 200 <= http_status < 300:
+        return "OCI_ASSET_HTTP_NOT_SUCCESS"
+    if getattr(document, "final_url", None) != expected_url:
+        return "OCI_ASSET_FINAL_URL_MISMATCH"
+    if not isinstance(getattr(document, "body", None), bytes):
+        return "OCI_ASSET_UNAVAILABLE"
+    headers = getattr(document, "headers", None)
+    if not isinstance(headers, dict) or not headers.get("content-type"):
+        return "OCI_ASSET_CONTENT_TYPE_MISSING"
+    return None
 
 
 def _encode_asset(url: str, document) -> dict:
-    content_type = document.headers.get("content-type", "")
-    if (document.status != ContentFetchStatus.OBSERVED
-            or document.final_url != url or document.http_status is None
-            or not 200 <= document.http_status < 300
-            or not isinstance(document.body, bytes)
-            or not content_type or "\r" in content_type or "\n" in content_type):
-        raise ArchitectureAssetFailure("OCI_ASSET_UNAVAILABLE")
+    failure = _asset_failure_reason(document, url)
+    if failure is not None:
+        raise ArchitectureAssetFailure(failure)
+    content_type = document.headers["content-type"]
+    if "\r" in content_type or "\n" in content_type:
+        raise ArchitectureAssetFailure("OCI_ASSET_POLICY_REJECTED")
     # Preserve relevant browser response policy. Stripping CSP from the replay
     # could execute scripts forbidden on the real page and misclassify a site.
     safe_headers = {}
@@ -149,38 +199,56 @@ def _bundle_resources(target: str, root, raw: str) -> list[dict]:
     # Shared bundles can be repeated dozens of times without increasing
     # network exposure. Inspect every reference before using the budget:
     # duplicates cannot hide an unsafe destination or malformed URL.
-    candidates: list[str] = []
+    candidates: list[tuple[str, str]] = []
     seen = {target}
-    for reference in parser.urls:
+    for reference, kind in zip(parser.urls, parser.kinds, strict=True):
         try:
             candidate = normalize_url(urljoin(target, reference))
         except ValueError as exc:
-            raise ArchitectureAssetFailure("OCI_ASSET_URL_REJECTED") from exc
-        # Cross-origin assets are permitted only as bounded host-fetched public
-        # resources. The networkless browser never fetches them itself.
+            raise ArchitectureAssetFailure(
+                "OCI_ASSET_URL_REJECTED", kind=kind, phase="inventory",
+            ) from exc
+        # Every reference, including optional images and duplicates, must
+        # pass the public-only destination gate before selection/fetch.
         try:
             _validate_public_url(candidate, _default_resolver)
         except (ValueError, OSError) as exc:
-            raise ArchitectureAssetFailure("OCI_CROSS_ORIGIN_ASSET_REJECTED") from exc
+            raise ArchitectureAssetFailure(
+                "OCI_CROSS_ORIGIN_ASSET_REJECTED", kind=kind, phase="inventory",
+            ) from exc
         if candidate in seen:
             continue
         seen.add(candidate)
-        candidates.append(candidate)
+        candidates.append((candidate, kind))
         if len(candidates) > MAX_ASSETS:
-            raise ArchitectureAssetFailure("OCI_ASSET_COUNT_LIMIT")
+            raise ArchitectureAssetFailure(
+                "OCI_ASSET_COUNT_LIMIT", kind=kind, phase="inventory",
+            )
     fetcher = PublicWebFetcher(
         timeout_seconds=4.0, max_redirects=0, max_bytes=MAX_ASSET_BYTES,
         opener=PublicWebPinnedOpener(),
     )
     assets = [root_record]
-    for candidate in candidates:
-        # Revalidate immediately before each host-side request: reject a
-        # destination whose DNS/public eligibility changed since inventory.
+    total = len(candidates)
+    for position, (candidate, kind) in enumerate(candidates, start=1):
+        # Revalidate immediately before each host-side request. This is a
+        # security barrier, not a recoverable availability problem.
         try:
             _validate_public_url(candidate, _default_resolver)
         except (ValueError, OSError) as exc:
-            raise ArchitectureAssetFailure("OCI_CROSS_ORIGIN_ASSET_REJECTED") from exc
-        assets.append(_encode_asset(candidate, fetcher.fetch(candidate)))
+            raise ArchitectureAssetFailure(
+                "OCI_CROSS_ORIGIN_ASSET_REJECTED", kind=kind,
+                phase="pre_fetch", ordinal=position, candidates=total,
+            ) from exc
+        try:
+            document = fetcher.fetch(candidate)
+            encoded = _encode_asset(candidate, document)
+        except ArchitectureAssetFailure as exc:
+            raise ArchitectureAssetFailure(
+                exc.reason, kind=kind, phase="fetch",
+                ordinal=position, candidates=total,
+            ) from exc
+        assets.append(encoded)
     return assets
 
 
@@ -241,17 +309,19 @@ def capture_isolated_public_architecture(url: str, device: DeviceContext) -> Pro
     raw = document.body.decode("utf-8", errors="replace")
     # A failed OCI stage cannot attribute redirected RAW to the initial URL.
     # public_html_failure already validated this public redirect chain.
-    def partial_capture(reason: str) -> ProbeCaptures:
+    def partial_capture(
+        reason: str, diagnostic: ResourcePreflightDiagnostic | None = None,
+    ) -> ProbeCaptures:
         return with_capture_origin(ProbeCaptures(
             target, final_target, device, raw, None, reason,
-            redirect_chain=redirect_chain,
+            redirect_chain=redirect_chain, resource_diagnostic=diagnostic,
         ), transport="PINNED_HTTP_STATIC")
     # Distinguish unsafe/unavailable HTML resources from Chromium failures.
     # Preserve only bounded reason codes; never expose URLs, HTML or stderr.
     try:
         resources = _bundle_resources(final_target, document, raw)
     except ArchitectureAssetFailure as exc:
-        return partial_capture(exc.reason)
+        return partial_capture(exc.reason, exc.diagnostic)
     except (ValueError, OSError):
         return partial_capture("OCI_ASSET_BUNDLE_REJECTED")
     try:

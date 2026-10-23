@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from rasai.domain import ArchitectureClassification
 from rasai.javascript_spa import JavascriptSpaAnalyzer, StateComparison
 from rasai.architecture_raw_signals import RawHtmlSignals, inspect_raw_html_signals
+from rasai.architecture_resource_diagnostic import ResourcePreflightDiagnostic
 from rasai.architecture_hypothesis import (
     ArchitectureHypothesis, suggest_architecture_from_raw,
 )
@@ -27,6 +28,7 @@ class ArchitectureAssessment:
     rendered_available: bool = False
     raw_signals: RawHtmlSignals | None = None
     hypothesis: ArchitectureHypothesis | None = None
+    resource_diagnostic: ResourcePreflightDiagnostic | None = None
     redirect_hops_reported: int | None = None
     protocol_transition: str | None = None
     acquisition_transport: str | None = None

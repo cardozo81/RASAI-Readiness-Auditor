@@ -500,3 +500,31 @@ entrega genérica acrescenta apenas o inventário estrutural RAW de iframe e
 as hipóteses consultivas descritas, com testes independentes de qualquer host.
 A arquitetura de documentos incorporados e o tratamento seletivo de recursos
 permanecem requisitos funcionais independentes, não conclusões já obtidas.
+
+## Diagnóstico genérico de falhas por recurso isolado
+
+A aquisição OCI mantém a recusa segura de qualquer recurso com URL inválida,
+destino privado, certificado TLS inválido, redirecionamento não permitido,
+limite de tamanho ou resposta incompatível. Para evitar que falhas distintas
+sejam apresentadas como uma única indisponibilidade, o RASAi distingue:
+
+- Bloqueio de destino público, falha TLS, timeout e erro de rede.
+- Redirecionamento proibido, HTTP não-2xx, URL final divergente.
+- Tamanho individual excedido, tipo de conteúdo ausente e política recusada.
+
+O diagnóstico consultivo identifica adicionalmente apenas **categoria**
+(`script`, `stylesheet`, `iframe`, `image`, `source`, `preload`,
+`modulepreload` ou `icon`), **etapa** e **posição ordinal** entre
+os recursos únicos previamente inventariados. Não armazena nem imprime
+URL do recurso, parâmetros, DOM, corpo HTTP, cookies, exceções, certificados
+ou credenciais. Os números não equivalem a contagem de todos os recursos
+que um navegador com Internet tentaria acessar: são somente o inventário
+da captura RAW sob as regras atuais.
+
+O registro é transitório, vinculado à tentativa de aquisição da página.
+Não persiste em AUD, não altera scores, classificação v1, orçamento de
+recursos, política TLS, isolamento OCI ou métodos de busca. Classificação
+observada permanece `UNKNOWN` sem RAW/DOM completos; hipóteses do HTML
+continuam separadas. A próxima investigação pode ser orientada pelo motivo
+e tipo de falha, **nunca por cadastro ou reconhecimento de domínios**.
+
