@@ -38,6 +38,7 @@ def execute_competitive_intelligence(
     customer_rendered_final_url: str | None = None,
     customer_rendered_http_status: int | None = 200,
     customer_rendered_content_type: str = "text/html; charset=utf-8",
+    customer_content_ineligible: bool = False,
 ) -> CompetitiveExecution:
     """Classify SERP results and optionally inspect customer/competitor content.
 
@@ -47,7 +48,7 @@ def execute_competitive_intelligence(
     if max_competitor_pages < 0:
         raise ValueError("max_competitor_pages must be >= 0")
     shared_fetcher = fetcher
-    if content_enabled and shared_fetcher is None:
+    if content_enabled and not customer_content_ineligible and shared_fetcher is None:
         shared_fetcher = PublicWebFetcher()
 
     acquisition_policy = {
@@ -69,7 +70,9 @@ def execute_competitive_intelligence(
             else None
         ),
         "customer_source": (
-            "AUDIT_RENDERED_ARTIFACT"
+            "AUDIT_RENDERED_INCOMPLETE"
+            if customer_content_ineligible
+            else "AUDIT_RENDERED_ARTIFACT"
             if content_enabled and customer_rendered_html is not None
             else "PUBLIC_WEB_HTTP"
         ),
@@ -96,6 +99,14 @@ def execute_competitive_intelligence(
                     competitor_pages=(),
                     gaps=(),
                     comparison_status="SERP_OBSERVATION_UNAVAILABLE",
+                )
+            elif content_enabled and customer_content_ineligible:
+                analysis = CompetitiveContentAnalysis(
+                    selection=selection,
+                    customer_page=None,
+                    competitor_pages=(),
+                    gaps=(),
+                    comparison_status="CUSTOMER_CONTENT_NOT_COMPARABLE",
                 )
             elif content_enabled:
                 customer_override = None

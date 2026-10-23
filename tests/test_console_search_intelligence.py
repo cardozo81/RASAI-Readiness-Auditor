@@ -523,3 +523,34 @@ class PerplexityExplicitCopy318Tests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+def test_aud125_post_run_perplexity_uses_physical_run_not_reset_draft(tmp_path):
+    import sqlite3
+    from rasai.console_search_intelligence import _persisted_perplexity_summary
+    aud = "AUD-12516653C86743ACA32FA177B26AE19D"
+    directory = tmp_path / aud
+    directory.mkdir()
+    with sqlite3.connect(directory / "audit.db") as con:
+        con.executescript("""
+            CREATE TABLE perplexity_search_runs(
+                run_id TEXT,audit_id TEXT,search_type TEXT,query_json TEXT,
+                status TEXT,started_at TEXT);
+        """)
+        con.execute(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+            ("PX-FAST", aud, "FAST", '["seguro para família"]',
+             "SUCCESS", "2026-10-23T18:01:42Z"),
+        )
+    state = SearchConsoleState()
+    state.audit_id = aud
+    state.audits_root = tmp_path
+    state.perplexity_queries = ()
+    state.perplexity_search_type = "web"
+    summary = _persisted_perplexity_summary(state)
+    assert summary is not None
+    assert summary["status"] == "SUCCESS"
+    assert summary["mode"] == "FAST"
+    assert summary["queries"] == 1
+    assert state.perplexity_queries == ()

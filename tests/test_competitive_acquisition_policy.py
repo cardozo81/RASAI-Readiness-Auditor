@@ -320,3 +320,45 @@ def test_search_audit_selects_matching_rendered_customer_artifact(tmp_path: Path
         "https://example.test/",
         "mobile",
     ) == rendered.resolve()
+
+
+
+def test_aud125_incomplete_m3_does_not_produce_competitive_gaps_or_http_calls():
+    execution = _search_execution()
+    class NoNetwork:
+        timeout_seconds = 10.0
+        max_redirects = 3
+        max_bytes = 2000000
+        requests_used = 0
+        def fetch(self, url):
+            raise AssertionError("known-incomplete customer must not cause competitor/customer HTTP")
+    out = execute_competitive_intelligence(
+        execution, content_enabled=True, customer_url="https://example.test/",
+        max_competitor_pages=3, fetcher=NoNetwork(),
+        customer_content_ineligible=True,
+    )
+    assert len(out.analyses) == len(execution.results)
+    assert all(a.comparison_status == "CUSTOMER_CONTENT_NOT_COMPARABLE" for a in out.analyses)
+    assert all(a.gaps == () and a.customer_page is None for a in out.analyses)
+    assert out.content_http_requests == 0
+
+
+def test_aud125_exact_device_capture_quality_blocks_shell_artifact(tmp_path: Path):
+    from rasai.search_audit_runtime import _customer_capture_quality, _rendered_customer_artifact
+    db = tmp_path / "audit.db"
+    html = tmp_path / "rendered.html"
+    html.write_text("<main></main>", encoding="utf-8")
+    with sqlite3.connect(db) as cx:
+        cx.executescript("""
+            CREATE TABLE pages(page_id TEXT PRIMARY KEY,audit_id TEXT,normalized_url TEXT);
+            CREATE TABLE page_snapshots(snapshot_id TEXT PRIMARY KEY,page_id TEXT,
+                device TEXT,captured_at TEXT,rendered_artifact_ref TEXT,browser_metadata TEXT);
+        """)
+        cx.execute("INSERT INTO pages VALUES (?,?,?)", ("P1", "AUD", "https://example.test/"))
+        cx.execute("INSERT INTO page_snapshots VALUES (?,?,?,?,?,?)",
+                   ("S1", "P1", "MOBILE", "2026-10-23T18:00:00Z", "rendered.html",
+                    json.dumps({"capture_quality":{"state":"INCOMPLETE","reason":"TRANSIENT_RENDER_PERSISTED"}})))
+    ws = SimpleNamespace(root=tmp_path, database=db)
+    assert _customer_capture_quality(ws, "AUD", "https://example.test/", "mobile") == "INCOMPLETE"
+    assert _rendered_customer_artifact(ws,"AUD","https://example.test/","mobile") is None
+    assert _customer_capture_quality(ws, "AUD", "https://example.test/", "desktop") is None

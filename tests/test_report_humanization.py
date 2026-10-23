@@ -229,3 +229,19 @@ def test_cat08_selected_but_ai_not_authorized_is_not_fake_success(tmp_path) -> N
     connection.close()
     status, tone, _ = _catalog_status(database, data, "CAT-08")
     assert (status, tone) == ("CONCLUÍDO", "good")
+
+
+
+def test_aud125_partial_public_states_are_not_replaced_with_unknown_fallback():
+    from rasai.report_presentation import humanize_report_html
+    html = (
+        "<table><tr><td>AI</td><td>PENDENTE</td>"
+        "<td>TRANSIENT_RENDER_PERSISTED</td>"
+        "<td>CUSTOMER_CONTENT_NOT_COMPARABLE</td></tr></table>"
+    )
+    displayed = humanize_report_html(html, page_name="index.html")
+    assert "IA</td>" in displayed
+    assert "Pendente</td>" in displayed
+    assert "Conteúdo transitório não materializado" in displayed
+    assert "Conteúdo principal do cliente não comparável" in displayed
+    assert "Condição técnica não catalogada" not in displayed

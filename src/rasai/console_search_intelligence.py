@@ -11,8 +11,10 @@ from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 import builtins
 import io
+import json
 import math
 import os
+import re
 import sqlite3
 from pathlib import Path
 import time
@@ -74,6 +76,41 @@ class SearchConsoleState(BaseState):
     perplexity_last_status: str = "NOT_REQUESTED"
     perplexity_last_detail: str = ""
     perplexity_last_duration_seconds: float | None = None
+
+
+def _persisted_perplexity_summary(state: object) -> dict[str, object] | None:
+    """Post-AUD facts, independent of cleared per-run consent/draft fields."""
+    audit_id = str(getattr(state, "audit_id", "") or "")
+    if re.fullmatch(r"AUD-[A-Za-z0-9-]{1,96}", audit_id) is None:
+        return None
+    root = audit_workspace(state)
+    if root is None:
+        return None
+    database = Path(root) / "audit.db"
+    if database.is_symlink() or not database.is_file():
+        return None
+    try:
+        with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True) as db:
+            db.execute("PRAGMA query_only=ON")
+            row = db.execute(
+                """SELECT status,search_type,query_json,run_id
+                   FROM perplexity_search_runs WHERE audit_id=?
+                   ORDER BY started_at DESC,rowid DESC LIMIT 1""", (audit_id,),
+            ).fetchone()
+    except (OSError, sqlite3.Error, ValueError):
+        return None
+    if row is None:
+        return None
+    try:
+        queries = json.loads(str(row[2] or "[]"))
+    except (TypeError, ValueError):
+        queries = None
+    return {
+        "status": str(row[0] or "UNKNOWN"),
+        "mode": str(row[1] or "UNKNOWN").upper(),
+        "queries": len(queries) if isinstance(queries, list) else None,
+        "run_id": str(row[3] or ""),
+    }
 
 
 def _explicit_brazil_scope(region: str) -> bool:
@@ -965,6 +1002,7 @@ def install(console_module: ModuleType) -> None:
                 terminal_label,
                 100.0,
                 exact=True,
+                current_status="CONCLUÍDA",
                 detail="processamento operacional encerrado; confira os estados da AUD e das integrações",
                 detail_rows=(
                     ("AUD core", previous_status),
@@ -999,14 +1037,24 @@ def install(console_module: ModuleType) -> None:
             if state.search_last_report:
                 print(f"Relatório Search     : {state.search_last_report}")
 
+        persisted_px = _persisted_perplexity_summary(state)
         perplexity_queries = tuple(getattr(state, "perplexity_queries", ()) or ())
-        if not perplexity_queries and state.perplexity_last_status == "NOT_REQUESTED":
-            print("Perplexity externa    : não solicitada nesta sessão")
+        if persisted_px is not None:
+            count = persisted_px["queries"]
+            print(
+                f"Perplexity externa    : {persisted_px['status']} | "
+                f"queries={count if count is not None else 'N/D'} | "
+                f"modo={persisted_px['mode']} | fonte=AUD persistida"
+            )
+            if state.perplexity_last_detail:
+                print(f"Detalhe Perplexity   : {state.perplexity_last_detail}")
+        elif not perplexity_queries and state.perplexity_last_status == "NOT_REQUESTED":
+            print("Perplexity externa    : não solicitada nesta sessão (sem execução persistida verificável)")
         else:
             print(
                 f"Perplexity externa    : {state.perplexity_last_status} | "
                 f"queries={len(perplexity_queries)} | "
-                f"modo={state.perplexity_search_type.upper()}"
+                f"modo={state.perplexity_search_type.upper()} | fonte=sessão (não verificada na AUD)"
             )
             if state.perplexity_last_detail:
                 print(f"Detalhe Perplexity   : {state.perplexity_last_detail}")

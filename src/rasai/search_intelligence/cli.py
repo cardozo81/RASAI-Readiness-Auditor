@@ -82,6 +82,11 @@ def build_parser() -> argparse.ArgumentParser:
         help=argparse.SUPPRESS,
     )
     parser.add_argument(
+        "--customer-content-ineligible",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "--max-content-pages",
         type=int,
         default=3,
@@ -305,6 +310,10 @@ def _validate_args(parser: argparse.ArgumentParser, args, config: SerpRuntimeCon
         raise ValueError("--customer-url requires --compare-content")
     if args.customer_rendered_artifact and not args.compare_content:
         raise ValueError("--customer-rendered-artifact requires --compare-content")
+    if args.customer_content_ineligible and not args.compare_content:
+        raise ValueError("--customer-content-ineligible requires --compare-content")
+    if args.customer_content_ineligible and args.customer_rendered_artifact:
+        raise ValueError("customer rendered artifact cannot be eligible and ineligible simultaneously")
     if args.customer_rendered_artifact and not args.customer_rendered_artifact.is_file():
         raise ValueError("--customer-rendered-artifact must reference an existing file")
     if args.ai_competitive and not args.compare_content:
@@ -435,6 +444,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 fetcher=content_fetcher if args.compare_content else None,
                 customer_rendered_html=customer_rendered_html,
                 customer_rendered_final_url=args.customer_url,
+                customer_content_ineligible=args.customer_content_ineligible,
             )
 
         ai_execution = None

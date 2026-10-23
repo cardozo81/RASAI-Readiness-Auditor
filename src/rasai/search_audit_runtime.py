@@ -386,7 +386,10 @@ def _competitive_comparison_summary(
     *,
     expected_observations: int,
 ) -> dict[str, Any]:
-    acceptable = {"CONSOLIDATED", "NO_ELIGIBLE_COMPETITOR_CANDIDATES"}
+    # Search collection succeeds independently of the optional content
+    # comparator. Abstaining on an unusable customer M3 is terminal, not a
+    # reason to refetch SERP/provider data or invent missing competitive gaps.
+    acceptable = {"CONSOLIDATED", "NO_ELIGIBLE_COMPETITOR_CANDIDATES", "CUSTOMER_CONTENT_NOT_COMPARABLE"}
     connection = sqlite3.connect(workspace.database)
     try:
         try:
@@ -629,6 +632,12 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
             )
             if rendered_customer is not None:
                 command.extend(("--customer-rendered-artifact", str(rendered_customer)))
+            elif _customer_capture_quality(
+                workspace, audit_id, target, str(getattr(args, "search_device", "mobile")),
+            ) in {"INCOMPLETE", "UNAVAILABLE"}:
+                # Do not silently switch to independent HTTP and call the
+                # retrieved shell a comparable M3 observation.
+                command.append("--customer-content-ineligible")
 
     output = io.StringIO()
     try:
@@ -691,11 +700,17 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
             result_ref="search-intelligence:effective",
             retryable=False,
         )
+        limited = (
+            comparison.get("statuses", {}).get("CUSTOMER_CONTENT_NOT_COMPARABLE", 0)
+            if bool(getattr(args, "search_compare_content", False))
+            else 0
+        )
         return {
-            "collection_state": "SUCCESS",
+            "collection_state": "SUCCESS_WITH_CONTENT_LIMITATION" if limited else "SUCCESS",
             "requested": True,
             "queries": len(queries),
             "engine": engine,
+            "competitive_comparison": "CUSTOMER_CONTENT_NOT_COMPARABLE" if limited else "ELIGIBLE_OR_NOT_REQUESTED",
         }
 
     error_code, error_message = (
@@ -727,6 +742,44 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
     }
 
 
+def _customer_capture_quality(
+    workspace: Any, audit_id: str, target: str, device: str,
+) -> str | None:
+    """Physical M3 quality for the exact same customer URL and device."""
+    try:
+        expected = normalize_url(target)
+    except ValueError:
+        return None
+    try:
+        with sqlite3.connect(workspace.database) as conn:
+            conn.row_factory = sqlite3.Row
+            columns = {
+                str(row[1]) for row in conn.execute("PRAGMA table_info(page_snapshots)")
+            }
+            if "browser_metadata" not in columns or "device" not in columns:
+                return None
+            rows = conn.execute(
+                """SELECT p.normalized_url,ps.device,ps.browser_metadata
+                   FROM page_snapshots ps JOIN pages p ON p.page_id=ps.page_id
+                   WHERE p.audit_id=? AND UPPER(ps.device)=UPPER(?)
+                   ORDER BY ps.captured_at DESC,ps.rowid DESC LIMIT 20""",
+                (audit_id, device),
+            ).fetchall()
+    except sqlite3.Error:
+        return None
+    from rasai.render_materiality import persisted_capture_quality_state
+    for row in rows:
+        try:
+            if normalize_url(str(row["normalized_url"] or "")) != expected:
+                continue
+            metadata = json.loads(row["browser_metadata"] or "{}")
+        except (ValueError, TypeError):
+            return None
+        state = persisted_capture_quality_state(metadata)
+        return state.value if state is not None else None
+    return None
+
+
 def _rendered_customer_artifact(
     workspace: Any,
     audit_id: str,
@@ -736,6 +789,11 @@ def _rendered_customer_artifact(
     try:
         expected = normalize_url(target)
     except ValueError:
+        return None
+    # Never reuse a known-incomplete M3 as commercial comparison evidence.
+    if _customer_capture_quality(workspace, audit_id, target, device) in {
+        "INCOMPLETE", "UNAVAILABLE",
+    }:
         return None
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
@@ -768,9 +826,14 @@ def _rendered_customer_artifact(
             candidate_url = normalize_url(str(row["normalized_url"] or ""))
         except ValueError:
             continue
-        if candidate_url != expected:
+        if candidate_url != expected or (
+            row["device"] and str(row["device"]).upper() != device.upper()
+        ):
             continue
-        candidate = (Path(workspace.root) / str(row["rendered_artifact_ref"])).resolve()
+        reference = Path(str(row["rendered_artifact_ref"]))
+        if reference.is_absolute() or ".." in reference.parts:
+            continue
+        candidate = (Path(workspace.root) / reference).resolve()
         try:
             candidate.relative_to(Path(workspace.root).resolve())
         except ValueError:

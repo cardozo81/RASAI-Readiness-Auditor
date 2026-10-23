@@ -581,6 +581,17 @@ _TAG_SPLIT_RE = re.compile(r"(<[^>]+>)", flags=re.DOTALL)
 # as &lt;tag ...&gt; inside report cells, where the generic HTML tag guard does
 # not apply. Never humanize identifiers, URLs or attributes inside it.
 _ESCAPED_DOM_TAG_RE = re.compile(r"(&lt;/?[A-Za-z][^<>]*?&gt;)", flags=re.IGNORECASE | re.DOTALL)
+# Finite, decision-relevant values found in physical partial AUD reports.
+# Preserve unknown codes via the existing safe fallback instead of guessing.
+_PUBLIC_LABELS.update({
+    "AI": "IA",
+    "PENDENTE": "Pendente",
+    "CUSTOMER_CONTENT_NOT_COMPARABLE": "Conteúdo principal do cliente não comparável",
+    "BOUNDED_LAZY_CONTENT_MATERIALIZED": "Conteúdo materializado após interação limitada",
+    "TRANSIENT_RENDER_PERSISTED": "Conteúdo transitório não materializado",
+    "RENDER_CAPTURE_QUALITY_INCOMPLETE": "Captura renderizada materialmente incompleta",
+})
+
 _PUBLIC_TOKEN_VALUES = tuple(
     sorted(set(_PUBLIC_LABELS) | set(SUPPLEMENTAL_PUBLIC_LABELS), key=len, reverse=True)
 )

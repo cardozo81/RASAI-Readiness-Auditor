@@ -907,6 +907,7 @@ def _competitive_validation_rows(
     customer_source_label = {
         "AUDIT_RENDERED_ARTIFACT": "Captura renderizada da própria AUD",
         "PUBLIC_WEB_HTTP": "Aquisição HTTP pública",
+        "AUDIT_RENDERED_INCOMPLETE": "Captura M3 incompleta; comparação de conteúdo recusada",
     }.get(customer_source, "Não materializado")
     customer_source_state = (
         "NÃO APLICÁVEL"
@@ -917,7 +918,7 @@ def _competitive_validation_rows(
     )
     rows.append((
         "Fonte do conteúdo do site auditado",
-        "Reutilizar captura renderizada da AUD quando disponível",
+        "Reutilizar captura renderizada materializada da AUD; não mascarar M3 incompleto por HTTP",
         "Sim" if "customer_source" in runtime_policy else "Não",
         customer_source_label,
         "Sim",

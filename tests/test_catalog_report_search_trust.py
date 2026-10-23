@@ -981,3 +981,21 @@ def test_active_cat05_serp_renderer_displays_provider_times_opt_in_and_repeat_ev
     # Legacy observations are not retrospectively labelled as force-refreshed.
     assert html.count("Atualização sem cache explicitamente solicitada") == 1
     assert "SERP_REQUESTED_DEPTH_INCOMPLETE" not in html
+
+
+
+def test_aud125_competitive_content_guard_is_presented_as_limitation():
+    configuration = {"competitive": True, "compare_content": True, "max_content_pages": 3}
+    item = {"comparison_status": "CUSTOMER_CONTENT_NOT_COMPARABLE", "evidence_ref": "artifact.json"}
+    rows = _competitive_validation_rows(
+        configuration, item, [], [], None, None, [], None,
+        runtime_policy={
+            "content_enabled": True,
+            "customer_source": "AUDIT_RENDERED_INCOMPLETE",
+            "max_competitor_pages": 3,
+        },
+    )
+    labels = {str(row[0]): row for row in rows}
+    assert "Captura M3 incompleta" in str(labels["Fonte do conteúdo do site auditado"][3])
+    assert labels["Fonte do conteúdo do site auditado"][-1] == "COM LIMITAÇÃO"
+    assert labels["Comparação de conteúdo"][-1] == "COM LIMITAÇÃO"
