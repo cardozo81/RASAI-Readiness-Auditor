@@ -257,6 +257,8 @@ Identificadores de rastreabilidade como `AUD-*`, `RPR-*`, `BR-GEO-*`, hashes, ID
 
 Na seção `Detalhes técnicos > Mostrar proveniência técnica` de CAT-01 a CAT-10, exibir somente fontes funcionais, contagens e aptidão do plano quando aplicável. Nomes físicos de tabelas SQLite, como `m24_runs` e `m24_diagnostics`, e IDs de implementação de capacidades não são informação de interesse do analista e não devem ser projetados no HTML, mesmo sob um painel expansível. Preservar integralmente o esquema e os registros do banco, assim como a rastreabilidade por identificadores canônicos de AUD, regras, achados e evidências.
 
+As projeções GEO e CONS reutilizam o mapeamento único de títulos de regras `rasai.public_rule_titles`. O título pt-BR é uma tradução de apresentação com correspondência exata; títulos originais, regras, achados e evidências permanecem preservados na persistência. Textos desconhecidos não recebem tradução inferida.
+
 Famílias compostas, como `TECHNICAL_PREREQUISITE_BR_GEO_<NNN>_<STATE>`, são interpretadas semanticamente e preservam somente o identificador canônico `BR-GEO-NNN`.
 
 O pipeline possui fallback defensivo para impedir que um novo enum em formato de máquina seja apresentado cru antes de ganhar rótulo específico. Testes de contrato inventariam literais semânticos produzidos pelo código e operações do console; valores novos devem receber rótulo público ou ser classificados explicitamente como rastreabilidade.

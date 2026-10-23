@@ -10,6 +10,7 @@ import sqlite3
 from types import ModuleType
 from typing import Any, Iterable, Mapping
 
+from rasai.public_rule_titles import RULE_TITLES_PT_BY_EN, RULE_TITLES_PT_BY_ID
 from rasai.remediation import recipe_for
 from rasai.rule_references import references_for
 
@@ -78,11 +79,7 @@ _REFERENCE_BASIS_LABELS = {
     "OFFICIAL_DOCUMENTATION": "Documentação oficial",
 }
 
-_RULE_TITLE_PT = {
-    "BR-GEO-003": "Recursos de sitemap devem ser adquiridos e interpretados quando disponíveis",
-    "BR-GEO-013": "Declarações canonical devem ser interpretáveis e não conflitantes",
-    "BR-GEO-017": "robots.txt deve ser interpretável quando presente",
-}
+_RULE_TITLE_PT = RULE_TITLES_PT_BY_ID
 
 _VISIBLE_TERM_PT = {
     "MOBILE": "Dispositivo móvel",
@@ -264,9 +261,7 @@ def _humanize_domain_text(value: Any) -> str:
         "Evidence & Trust": "Evidência e confiança",
         "Entity Clarity": "Clareza de entidades",
         "Semantic Structure": "Estrutura semântica",
-        "Canonical declarations must be interpretable and non-conflicting": "Declarações canonical devem ser interpretáveis e não conflitantes",
-        "robots.txt must be interpretable when present": "robots.txt deve ser interpretável quando presente",
-        "Sitemap resources must be acquired and interpreted when available": "Recursos de sitemap devem ser adquiridos e interpretados quando disponíveis",
+        **RULE_TITLES_PT_BY_EN,
         "evidence-bound": "baseada em evidências",
         "root cause": "causa raiz",
         "claims": "afirmações",

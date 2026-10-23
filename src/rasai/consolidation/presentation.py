@@ -14,6 +14,7 @@ import re
 from typing import Any, Mapping
 
 from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost, canonical_total_tokens
+from rasai.public_rule_titles import RULE_TITLES_PT_BY_EN
 from .models import GenerationResult
 
 _PRESENTATION_STYLE_ID = "rasai-consolidated-presentation-v1"
@@ -1215,9 +1216,7 @@ _VISIBLE_TOKEN_LABELS = {
     "ATTRIBUTION_EVIDENCE_GAP": "Lacuna de atribuição ou evidência",
 }
 _VISIBLE_PHRASE_LABELS = {
-    "Canonical declarations must be interpretable and non-conflicting": "Declarações canonical devem ser interpretáveis e não conflitantes",
-    "robots.txt must be interpretable when present": "robots.txt deve ser interpretável quando presente",
-    "Sitemap resources must be acquired and interpreted when available": "Recursos de sitemap devem ser adquiridos e interpretados quando disponíveis",
+    **RULE_TITLES_PT_BY_EN,
     "Comparar RAW e RENDERED": "Comparar HTML bruto e HTML renderizado",
     "findings NEW": "novas ocorrências",
     "findings": "ocorrências",

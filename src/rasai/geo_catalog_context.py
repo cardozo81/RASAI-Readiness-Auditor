@@ -8,6 +8,7 @@ from pathlib import Path
 import sqlite3
 
 from rasai.geo_snapshot_context import geo_snapshot_context_html
+from rasai.public_rule_titles import RULE_TITLES_PT_BY_EN
 from rasai.geo_temporal_provenance import (
     _UNVERIFIABLE, _columns, _last_temporally_verified,
 )
@@ -32,14 +33,7 @@ _CATEGORIES = {
 # Public text is a presentation projection. Keep the persisted finding.title
 # and its rule/evidence identity unchanged for auditability. Only translate
 # exact, RASAi-owned diagnostic labels already defined in the rule registry.
-_PUBLIC_FINDING_TITLES = {
-    "Sitemap resources must be acquired and interpreted when available":
-        "Recursos de sitemap devem ser adquiridos e interpretados quando disponíveis",
-    "Canonical declarations must be interpretable and non-conflicting":
-        "Declarações canonical devem ser interpretáveis e não conflitantes",
-    "robots.txt must be interpretable when present":
-        "robots.txt deve ser interpretável quando presente",
-}
+_PUBLIC_FINDING_TITLES = RULE_TITLES_PT_BY_EN
 
 
 def _public_finding_title(value: object) -> str:

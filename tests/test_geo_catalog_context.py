@@ -406,6 +406,7 @@ def test_cat08_uncertain_ai_reservation_explains_billing_and_no_automatic_retry(
 
 def test_cat01_geo_rule_titles_are_in_portuguese_without_rewriting_evidence(tmp_path):
     from rasai.geo_catalog_context import _PUBLIC_FINDING_TITLES
+    from rasai.public_rule_titles import RULE_TITLES_PT_BY_ID
 
     db = tmp_path / "audit.db"
     _db(db)
@@ -426,7 +427,8 @@ def test_cat01_geo_rule_titles_are_in_portuguese_without_rewriting_evidence(tmp_
     html = catalog_geo_context(db, "AUD-1", "CAT-01")
     for n, (rule, english) in enumerate(pairs):
         assert english not in html
-        assert _PUBLIC_FINDING_TITLES[english] in html
+        assert _PUBLIC_FINDING_TITLES[english] == RULE_TITLES_PT_BY_ID[rule]
+        assert RULE_TITLES_PT_BY_ID[rule] in html
         assert rule in html
         assert f"F-GEO-{n}" in html
         assert f"EV-GEO-{n}" in html
