@@ -735,7 +735,12 @@ def _same_session_lazy_probe(page: Any, rendered_html: str) -> tuple[dict[str, A
     # The BR-GEO-024 extractor can recover navigation text from a blank
     # product skeleton. M3 uses its stronger, independent materiality gate.
     from rasai.render_materiality import _strong_primary_content, observe_materiality
-    material_at_entry = _strong_primary_content(observe_materiality(rendered_html))
+    materiality = observe_materiality(rendered_html)
+    material_at_entry = _strong_primary_content(materiality)
+    # DOM class/attribute lazy markers also matter when the legacy GEO rule
+    # specifically tests loading=data-src. The M3 recovery gate is wider but
+    # only permitted on demonstrably weak primary content.
+    has_actionable_lazy = preliminary.has_lazy_signals or materiality.lazy_markers > 0
     result: dict[str, Any] = {
         "scope": ContextScope.DEVICE_SNAPSHOT.value,
         "capture_method": "SAME_PAGE_BOUNDED_SCROLL",
@@ -747,7 +752,8 @@ def _same_session_lazy_probe(page: Any, rendered_html: str) -> tuple[dict[str, A
             (_LAZY_SCROLL_STEPS + _LAZY_CONTENT_OBSERVATIONS - 1) * _LAZY_SETTLE_MS
         ),
         "viewport_restored_before_screenshot": False,
-        "has_lazy_signals": preliminary.has_lazy_signals,
+        "has_lazy_signals": has_actionable_lazy,
+        "legacy_rule_lazy_signals": preliminary.has_lazy_signals,
         "initial_content_recoverable": material_at_entry,
         "legacy_extractor_content_recoverable": preliminary.initial_content_recoverable,
         "materiality_gate": "PRIMARY_CONTENT",
@@ -755,7 +761,7 @@ def _same_session_lazy_probe(page: Any, rendered_html: str) -> tuple[dict[str, A
         "after_probe_content_recoverable": preliminary.after_probe_content_recoverable,
         "state": "NOT_REQUIRED",
     }
-    if not preliminary.has_lazy_signals or material_at_entry:
+    if not has_actionable_lazy or material_at_entry:
         return result, None
 
     result["attempted"] = True

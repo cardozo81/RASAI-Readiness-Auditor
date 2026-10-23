@@ -585,6 +585,7 @@ _ESCAPED_DOM_TAG_RE = re.compile(r"(&lt;/?[A-Za-z][^<>]*?&gt;)", flags=re.IGNORE
 # Preserve unknown codes via the existing safe fallback instead of guessing.
 _PUBLIC_LABELS.update({
     "AI": "IA",
+    "IA": "IA",
     "PENDENTE": "Pendente",
     "CUSTOMER_CONTENT_NOT_COMPARABLE": "Conteúdo principal do cliente não comparável",
     "BOUNDED_LAZY_CONTENT_MATERIALIZED": "Conteúdo materializado após interação limitada",
