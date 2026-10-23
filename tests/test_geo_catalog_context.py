@@ -402,3 +402,39 @@ def test_cat08_uncertain_ai_reservation_explains_billing_and_no_automatic_retry(
     assert "pode ter sido faturada" in result
     assert "OLD-SUCCESS" not in result
     assert db.read_bytes() == before
+
+
+def test_cat01_geo_rule_titles_are_in_portuguese_without_rewriting_evidence(tmp_path):
+    from rasai.geo_catalog_context import _PUBLIC_FINDING_TITLES
+
+    db = tmp_path / "audit.db"
+    _db(db)
+    pairs = (
+        ("BR-GEO-003", "Sitemap resources must be acquired and interpreted when available"),
+        ("BR-GEO-013", "Canonical declarations must be interpretable and non-conflicting"),
+        ("BR-GEO-017", "robots.txt must be interpretable when present"),
+    )
+    with sqlite3.connect(db) as con:
+        con.executemany(
+            "INSERT INTO findings VALUES (?,?,?,?,?,?)",
+            [
+                ("AUD-1", f"F-GEO-{n}", "INDEXABILITY", rule, english, f'["EV-GEO-{n}"]')
+                for n, (rule, english) in enumerate(pairs)
+            ],
+        )
+    before = db.read_bytes()
+    html = catalog_geo_context(db, "AUD-1", "CAT-01")
+    for n, (rule, english) in enumerate(pairs):
+        assert english not in html
+        assert _PUBLIC_FINDING_TITLES[english] in html
+        assert rule in html
+        assert f"F-GEO-{n}" in html
+        assert f"EV-GEO-{n}" in html
+    # Existing English or non-English titles not in the exact mapping survive.
+    assert "Canonical suspeita" in html
+    assert db.read_bytes() == before
+    with sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True) as con:
+        for rule, english in pairs:
+            assert con.execute(
+                "SELECT title FROM findings WHERE rule_id=?", (rule,)
+            ).fetchone()[0] == english

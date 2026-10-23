@@ -29,6 +29,23 @@ _CATEGORIES = {
     "CAT-05": frozenset(("SEARCH_RANKING", "SEARCH_INTELLIGENCE")),
 }
 
+# Public text is a presentation projection. Keep the persisted finding.title
+# and its rule/evidence identity unchanged for auditability. Only translate
+# exact, RASAi-owned diagnostic labels already defined in the rule registry.
+_PUBLIC_FINDING_TITLES = {
+    "Sitemap resources must be acquired and interpreted when available":
+        "Recursos de sitemap devem ser adquiridos e interpretados quando disponíveis",
+    "Canonical declarations must be interpretable and non-conflicting":
+        "Declarações canonical devem ser interpretáveis e não conflitantes",
+    "robots.txt must be interpretable when present":
+        "robots.txt deve ser interpretável quando presente",
+}
+
+
+def _public_finding_title(value: object) -> str:
+    original = str(value or "-")[:180]
+    return _PUBLIC_FINDING_TITLES.get(original, original)
+
 
 def _refs(raw: object) -> tuple[str, ...]:
     try:
@@ -143,7 +160,7 @@ def _recommendations(con: sqlite3.Connection, audit: str) -> str:
     if not entries:
         return "<p>Sem recomendações GEO associadas a evidências desta AUD.</p>"
     return "<ul>" + "".join(
-        "<li>" + escape(str(title or "-")[:180]) + " | prioridade original: "
+        "<li>" + escape(_public_finding_title(title)) + " | prioridade original: "
         + escape(str(priority or "-")) + " | achado <code>" + escape(str(fid))
         + "</code> | evidências: " + ", ".join(escape(e) for e in refs) + "</li>"
         for fid, title, priority, refs in entries
@@ -166,7 +183,7 @@ def catalog_geo_context(database: Path, audit_id: str, catalog_id: str) -> str:
                 rows = _findings(con, audit_id, catalog_id)
                 if rows:
                     result += "<ul>" + "".join(
-                        "<li>" + escape(str(label or "-")[:180])
+                        "<li>" + escape(_public_finding_title(label))
                         + " | regra <code>" + escape(str(rule))
                         + "</code> | achado <code>" + escape(str(fid))
                         + "</code> | evidências: " + ", ".join(escape(e) for e in refs)
