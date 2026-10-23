@@ -203,7 +203,7 @@ A integração inicial expõe somente `kimi-k3` na plataforma internacional, com
 A API oficial usa `deepseek-flash` para DeepSeek-V4.1-Flash-1017
 (lançado em 17/10/2026). `deepseek-v4-pro` permanece selecionável.
 O alias anterior `deepseek-v4-flash` não deve ser utilizado em novas
-auditorias: o modelo legado está preservado no catálogo apenas com
+auditorias: o identificador anterior está preservado no catálogo apenas com
 `enabled=false`, `selectable=false` e `auto_eligible=false`.
 
 O operador administra **`config/ai-models.toml`** e, separadamente,
