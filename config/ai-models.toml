@@ -10,10 +10,10 @@
 
 [metadata]
 schema_version = 1
-catalog_version = "RASAI-MODELS-2026-10-03.4"
-reference_date = "2026-10-03"
-verified_on = "2026-10-03"
-review_recommended_on = "2026-11-03"
+catalog_version = "RASAI-MODELS-2026-10-23.1"
+reference_date = "2026-10-23"
+verified_on = "2026-10-23"
+review_recommended_on = "2026-11-23"
 
 [[models]]
 provider = "OPENAI"
@@ -89,7 +89,7 @@ source_reference = "https://api-docs.deepseek.com/"
 
 [[models]]
 provider = "DEEPSEEK"
-model = "deepseek-v4-flash"
+model = "deepseek-flash"
 enabled = true
 selectable = true
 adapter_default = false
@@ -103,7 +103,26 @@ recommended_use = "volume/custo"
 reasoning_values = ["NONE", "LOW", "HIGH", "MAX"]
 default_reasoning = "NONE"
 capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
-source_reference = "https://api-docs.deepseek.com/"
+source_reference = "https://api-docs.deepseek.com/quick_start/pricing/"
+
+# Registro historico desabilitado: alias aposentado, nao usar em nova AUD.
+[[models]]
+provider = "DEEPSEEK"
+model = "deepseek-v4-flash"
+enabled = false
+selectable = false
+adapter_default = false
+public_default = false
+auto_eligible = false
+qualification = "PROVISIONAL"
+rasai_class = "PROVISIONAL-B"
+rank = 6
+recommended_depth = "HIGH"
+recommended_use = "volume/custo"
+reasoning_values = ["NONE", "LOW", "HIGH", "MAX"]
+default_reasoning = "NONE"
+capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
+source_reference = "https://api-docs.deepseek.com/updates/"
 
 [[models]]
 provider = "MIMO"

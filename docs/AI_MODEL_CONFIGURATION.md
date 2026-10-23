@@ -1,7 +1,7 @@
 # Catálogo configurável de modelos de IA
 
 **Estado:** contrato atual do RASAi em desenvolvimento.  
-**Data de referência do catálogo de fábrica:** 03/10/2026  
+**Data de referência do catálogo de fábrica:** 23/10/2026  
 **Schema do catálogo:** `1`
 
 ## 1. Objetivo
@@ -197,6 +197,31 @@ A integração Cohere mantém somente `command-a-03-2025` no catálogo de fábri
 ### Kimi/Moonshot na baseline de 03/10/2026
 
 A integração inicial expõe somente `kimi-k3` na plataforma internacional, com `context_window=1000000`, `reasoning_values=[LOW,HIGH,MAX]`, `default_reasoning=LOW` e `auto_eligible=false`. O default `LOW` é o menor effort oficialmente aceito pelo K3; o default do fornecedor (`max`) não é herdado pelo RASAi. O catálogo não habilita endpoint China, tools, web search, Formula, multimodalidade, Responses API ou cache TTL 1h.
+
+### Atualização DeepSeek Flash — 23/10/2026
+
+A API oficial usa `deepseek-flash` para DeepSeek-V4.1-Flash-1017
+(lançado em 17/10/2026). `deepseek-v4-pro` permanece selecionável.
+O alias anterior `deepseek-v4-flash` não deve ser utilizado em novas
+auditorias: o modelo legado está preservado no catálogo apenas com
+`enabled=false`, `selectable=false` e `auto_eligible=false`.
+
+O operador administra **`config/ai-models.toml`** e, separadamente,
+**`config/ai-pricing.toml`**. Arquivos sob `src/rasai/config/` são
+baselines de fábrica, não a superfície de edição humana. Com
+`RASAI_AI_MODELS_SOURCE=auto`, o arquivo do operador prevalece e é
+relido antes da próxima auditoria. Também é necessário corrigir
+qualquer override `RASAI_DEEPSEEK_MODEL` ainda apontando ao alias.
+Uma AUD iniciada não muda seu snapshot automaticamente.
+
+Tarifas Flash vigentes de referência, USD por milhão de tokens:
+off-peak: entrada 0,15, cache 0,003 e saída 0,60;
+peak: entrada 0,30, cache 0,006 e saída 1,20.
+O calendário simplificado no TOML não representa feriados públicos
+chineses; o valor é estimativa, não faturamento certificado.
+
+Fontes oficiais: https://api-docs.deepseek.com/updates/
+e https://api-docs.deepseek.com/quick_start/pricing/.
 
 ## 8. Exemplo: adicionar um novo modelo de um provider existente
 

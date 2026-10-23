@@ -58,7 +58,7 @@ Os defaults públicos efetivos são definidos por `provider_runtime_policy` e s�
 | Provider | Modelo default público | Modelos permitidos pelo registry | Recomendado para operação padrão |
 |---|---|---|---|
 | OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | default público, salvo necessidade técnica específica |
-| DeepSeek | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | default público |
+| DeepSeek | `deepseek-flash` | `deepseek-v4-pro`, `deepseek-flash` | default público |
 | MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro mantidos temporariamente por compatibilidade até 21/10/2026 02:00 UTC | default público eficiente |
 | xAI | `grok-4.6` | conforme registry vigente | default público |
 | Qwen | `qwen3.8-flash` | conforme registry vigente | default público com reasoning `NONE` |

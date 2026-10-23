@@ -97,7 +97,7 @@ Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 | Provider | Default público | Reasoning default |
 |---|---|---|
 | OpenAI | `gpt-5.6-luna` | `NONE` |
-| DeepSeek | `deepseek-v4-flash` | `NONE` |
+| DeepSeek | `deepseek-flash` | `NONE` |
 | MiMo | `mimo-v2.6-flash` | `NONE` |
 | xAI | `grok-4.6` | `LOW` |
 | Qwen | `qwen3.8-flash` | `NONE` |

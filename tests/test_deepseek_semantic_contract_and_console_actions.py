@@ -80,7 +80,7 @@ class DeepSeekSemanticWireContractTests(unittest.TestCase):
             return _response(_keyed_payload())
 
         provider = DeepSeekProvider(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             reasoning_effort="LOW",
             api_key="test-key",
             transport=transport,
@@ -114,7 +114,7 @@ class DeepSeekSemanticWireContractTests(unittest.TestCase):
         del payload["assessments"][SEMANTIC_RULE_IDS[-1]]
 
         provider = DeepSeekProvider(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             reasoning_effort="LOW",
             api_key="test-key",
             transport=lambda *_: _response(payload),

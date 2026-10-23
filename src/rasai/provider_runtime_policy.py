@@ -44,7 +44,7 @@ from rasai.provider_wire_schema import project_provider_request_body
 # them as dictionaries preserves the stable API used by console/reporting consumers.
 SIMPLE_DEFAULT_MODELS: dict[str, str] = {
     "OPENAI": "gpt-5.6-luna",
-    "DEEPSEEK": "deepseek-v4-flash",
+    "DEEPSEEK": "deepseek-flash",
     "MIMO": "mimo-v2.6-flash",
     "XAI": "grok-4.6",
     "QWEN": "qwen3.8-flash",

@@ -126,7 +126,7 @@ def _persist_perplexity_attempt(workspace: AuditWorkspace, audit_id: str) -> Non
 
 def test_factory_catalog_declares_only_materialized_native_usage_contracts() -> None:
     catalog = load_factory_pricing_catalog()
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-03.7"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-23.1"
     perplexity = catalog.native_policy(
         "PERPLEXITY",
         "SEARCH_API",

@@ -48,7 +48,7 @@ A lista de reasoning exibida pelo comando é o domínio aceito pelo runtime para
 | Seleção RASAi | Provider | Variável de credencial | Default público | URL para credencial | Observação |
 |---|---|---|---|---|---|
 | `openai` | OpenAI | `OPENAI_API_KEY` | `gpt-5.6-luna` | <https://platform.openai.com/api-keys> | API é contratada separadamente de planos do ChatGPT. |
-| `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-v4-flash` | <https://platform.deepseek.com/api_keys> | chave da plataforma/API DeepSeek |
+| `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-flash` | <https://platform.deepseek.com/api_keys> | chave da plataforma/API DeepSeek |
 | `mimo` | Xiaomi MiMo | `MIMO_API_KEY` | `mimo-v2.6-flash` | <https://mimo.mi.com/> | PAYG `sk-...`; v2.5/pro mantidos temporariamente por compatibilidade até 21/10/2026 02:00 UTC |
 | `xai` / `grok` | xAI / Grok | `XAI_API_KEY` | `grok-4.6` | <https://console.x.ai/> | API key xAI |
 | `qwen` | Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen3.8-flash` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | região da key e endpoint devem ser coerentes |

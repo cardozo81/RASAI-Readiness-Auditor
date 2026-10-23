@@ -45,17 +45,21 @@ def _conditions(provider: str) -> dict[str, str]:
 def test_factory_catalog_is_versioned_and_referenced_to_2026_10_02() -> None:
     catalog = load_factory_pricing_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-03.7"
-    assert catalog.metadata.reference_date == "2026-10-03"
-    assert catalog.metadata.verified_on == "2026-10-03"
-    assert catalog.metadata.review_recommended_on == "2026-11-03"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-23.1"
+    assert catalog.metadata.reference_date == "2026-10-23"
+    assert catalog.metadata.verified_on == "2026-10-23"
+    assert catalog.metadata.review_recommended_on == "2026-11-23"
 
 
 def test_factory_catalog_declares_current_commercial_models() -> None:
     catalog = load_factory_pricing_catalog()
     by_key = {(item.provider, item.model): item for item in catalog.models}
     assert by_key[("OPENAI", "gpt-5.6-luna")].pricing_model == "TOKEN_CONTEXT_TIERED"
+    assert by_key[("DEEPSEEK", "deepseek-flash")].pricing_model == "TOKEN_TIME_WINDOW"
     assert by_key[("DEEPSEEK", "deepseek-v4-flash")].pricing_model == "TOKEN_TIME_WINDOW"
+    flash = {rule.context: rule for rule in by_key[("DEEPSEEK", "deepseek-flash")].rules}
+    assert (flash["OFF_PEAK"].input_price_per_million, flash["OFF_PEAK"].cached_input_price_per_million, flash["OFF_PEAK"].output_price_per_million) == (0.15, 0.003, 0.60)
+    assert (flash["PEAK"].input_price_per_million, flash["PEAK"].cached_input_price_per_million, flash["PEAK"].output_price_per_million) == (0.30, 0.006, 1.20)
     assert by_key[("MIMO", "mimo-v2.6-flash")].pricing_model == "TOKEN_STANDARD"
     assert by_key[("MIMO", "mimo-v2.6-pro")].pricing_model == "TOKEN_STANDARD"
     assert by_key[("XAI", "grok-4.6")].pricing_model == "TOKEN_CONTEXT_TIERED"
@@ -228,7 +232,7 @@ def test_restore_factory_helper_reconstructs_editable_catalog(tmp_path: Path) ->
     target.write_text("invalid = true\n", encoding="utf-8")
     restored = restore_factory_pricing_catalog(target)
     catalog = load_pricing_catalog(path=restored)
-    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-03.7"
+    assert catalog.metadata.catalog_version == "RASAI-PRICING-2026-10-23.1"
     assert catalog.source == str(target.resolve())
 
 

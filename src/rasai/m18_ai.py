@@ -214,14 +214,14 @@ ROUTING_POLICY: tuple[ProviderPolicy, ...] = (
     ProviderPolicy(3, "DEEPSEEK", "deepseek-v4-pro", "HIGH", "PROVISIONAL-A-", "PROVISIONAL", "alternativa forte"),
     ProviderPolicy(4, "MIMO", "mimo-v2.6-pro", "THINKING_ENABLED", "PROVISIONAL-B+", "PROVISIONAL", "alternativa forte"),
     ProviderPolicy(5, "OPENAI", "gpt-5.6-luna", "HIGH", "QUALIFIED-B+", "QUALIFIED", "volume/custo"),
-    ProviderPolicy(6, "DEEPSEEK", "deepseek-v4-flash", "HIGH", "PROVISIONAL-B", "PROVISIONAL", "volume/custo"),
+    ProviderPolicy(6, "DEEPSEEK", "deepseek-flash", "HIGH", "PROVISIONAL-B", "PROVISIONAL", "volume/custo"),
     ProviderPolicy(7, "MIMO", "mimo-v2.6-flash", "THINKING_ENABLED", "PROVISIONAL-B", "PROVISIONAL", "volume/multimodal"),
 )
 _POLICY_BY_KEY = {(item.provider, item.model): item for item in ROUTING_POLICY}
 
 SUPPORTED_MODELS: dict[str, tuple[str, ...]] = {
     "OPENAI": ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"),
-    "DEEPSEEK": ("deepseek-v4-pro", "deepseek-v4-flash"),
+    "DEEPSEEK": ("deepseek-v4-pro", "deepseek-flash"),
     "MIMO": ("mimo-v2.6-pro", "mimo-v2.6-flash", "mimo-v2.5-pro", "mimo-v2.5"),
 }
 DEFAULT_MODELS = {

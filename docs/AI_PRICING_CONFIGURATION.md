@@ -316,7 +316,7 @@ Valores em USD por 1 milhão de tokens.
 | OpenAI `gpt-5.6-luna` | `TOKEN_CONTEXT_TIERED` | 0,20 | 0,02 | 1,20 | >272k input: 0,40 / 0,04 / 1,80 |
 | OpenAI `gpt-5.6-terra` | `TOKEN_CONTEXT_TIERED` | 2,00 | 0,20 | 12,00 | >272k input: 4,00 / 0,40 / 18,00 |
 | OpenAI `gpt-5.6-sol` | `TOKEN_CONTEXT_TIERED` | 4,00 | 0,40 | 20,00 | >272k input: 8,00 / 0,80 / 30,00 |
-| DeepSeek `deepseek-v4-flash` off-peak | `TOKEN_TIME_WINDOW` | 0,22 | 0,007 | 0,66 | peak: 0,44 / 0,014 / 1,32 |
+| DeepSeek `deepseek-flash` off-peak | `TOKEN_TIME_WINDOW` | 0,15 | 0,003 | 0,60 | peak: 0,30 / 0,006 / 1,20 |
 | DeepSeek `deepseek-v4-pro` off-peak | `TOKEN_TIME_WINDOW` | 0,66 | 0,022 | 1,98 | peak: 1,32 / 0,044 / 3,96 |
 | Xiaomi MiMo `mimo-v2.6-flash` | `TOKEN_STANDARD` | 0,14 | 0,0028 | 0,28 | PAYG real-time; default público |
 | Xiaomi MiMo `mimo-v2.6-pro` | `TOKEN_STANDARD` | 0,435 | 0,0036 | 0,87 | PAYG real-time; default adapter |

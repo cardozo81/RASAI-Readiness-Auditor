@@ -43,7 +43,7 @@ class ProviderOnboardingTests(unittest.TestCase):
             self.assertEqual(SIMPLE_DEFAULT_MODELS[provider_name], item.default_model, item.id)
             self.assertEqual(REASONING_OPTIONS[provider_name], item.reasoning_values, item.id)
         deepseek = next(item for item in records if item.id == "deepseek")
-        self.assertEqual("deepseek-v4-flash", deepseek.default_model)
+        self.assertEqual("deepseek-flash", deepseek.default_model)
         self.assertEqual(("NONE", "LOW", "HIGH", "MAX"), deepseek.reasoning_values)
 
     def test_records_report_configuration_state_without_secret_value(self) -> None:

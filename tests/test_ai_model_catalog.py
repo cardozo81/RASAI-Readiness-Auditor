@@ -38,10 +38,16 @@ def _new_openai_model():
 def test_factory_model_catalog_covers_current_integrated_providers() -> None:
     catalog = load_factory_model_catalog()
     assert catalog.metadata.schema_version == 1
-    assert catalog.metadata.catalog_version == "RASAI-MODELS-2026-10-03.4"
+    assert catalog.metadata.catalog_version == "RASAI-MODELS-2026-10-23.1"
     assert {
         "OPENAI", "DEEPSEEK", "MIMO", "XAI", "QWEN", "GEMINI", "ANTHROPIC", "MISTRAL", "COHERE", "KIMI", "COPILOT"
     }.issubset(set(catalog.provider_names()))
+    assert catalog.public_default("DEEPSEEK").model == "deepseek-flash"
+    assert catalog.adapter_default("DEEPSEEK").model == "deepseek-v4-pro"
+    legacy = catalog.model_definition("DEEPSEEK", "deepseek-v4-flash")
+    assert legacy is not None and not legacy.enabled
+    assert not legacy.selectable and not legacy.auto_eligible
+    assert "deepseek-v4-flash" not in {item.model for item in catalog.provider_models("DEEPSEEK")}
     assert catalog.public_default("OPENAI").model == "gpt-5.6-luna"
     assert catalog.adapter_default("OPENAI").model == "gpt-5.6-terra"
     assert catalog.public_default("MIMO").model == "mimo-v2.6-flash"

@@ -73,7 +73,7 @@ A variável é secret-only. Não existe default seguro nem persistência em `ras
 | Variável | Default efetivo | Valores permitidos pelo runtime | Recomendado |
 |---|---|---|---|
 | `RASAI_OPENAI_MODEL` | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `gpt-5.6-luna`; usar Sol quando qualidade justificar maior custo/latência |
-| `RASAI_DEEPSEEK_MODEL` | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | `deepseek-v4-flash` |
+| `RASAI_DEEPSEEK_MODEL` | `deepseek-flash` | `deepseek-v4-pro`, `deepseek-flash` | `deepseek-flash` |
 | `RASAI_MIMO_MODEL` | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro apenas até 21/10/2026 02:00 UTC | `mimo-v2.6-flash` |
 | `RASAI_XAI_MODEL` | `grok-4.6` | `grok-4.6` | default |
 | `RASAI_QWEN_MODEL` | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash` |

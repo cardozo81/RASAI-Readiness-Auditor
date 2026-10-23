@@ -546,10 +546,17 @@ def _local_validation(spec: IntegrationSpec, env: Mapping[str, str]) -> Integrat
                 )
             model = str(env.get(registration.model_env) or registration.default_model).strip()
             if model not in registration.supported_models:
+                legacy_flash = registration.id == "deepseek" and model == "deepseek-v4-flash"
+                action = (
+                    "Selecione deepseek-flash em RASAI_DEEPSEEK_MODEL e no catálogo "
+                    "config/ai-models.toml. O identificador antigo foi aposentado."
+                    if legacy_flash else
+                    "Selecione um modelo aceito pelo provider registry e reteste."
+                )
                 return IntegrationDiagnostic(
                     spec.id, spec.label, datetime.now(timezone.utc).isoformat(), STATUS_CONFIGURATION_ERROR, "MODEL_CONFIGURATION",
                     f"Modelo configurado não pertence ao catálogo suportado pelo adapter: {model}.",
-                    "Selecione um modelo aceito pelo provider registry e reteste.",
+                    action,
                     fingerprint, None, None, spec.probe_cost, ("configuration",),
                 )
 
@@ -672,10 +679,17 @@ def _probe_ai(spec: IntegrationSpec, env: Mapping[str, str], *, timeout: float, 
         return base
     models = _model_ids(_payload(raw.body))
     if models and model not in models:
+        legacy_flash = registration.id == "deepseek" and model == "deepseek-v4-flash" and "deepseek-flash" in models
+        action = (
+            "O alias deepseek-v4-flash foi aposentado. Configure RASAI_DEEPSEEK_MODEL=deepseek-flash "
+            "e habilite o modelo canonico em config/ai-models.toml; depois reteste."
+            if legacy_flash else
+            "Revise o modelo/região/endpoint configurado e reteste antes de depender deste provider."
+        )
         return IntegrationDiagnostic(
             spec.id, spec.label, base.checked_at, STATUS_RESOURCE_ERROR, "MODEL_NOT_AVAILABLE",
             f"A credencial respondeu, mas o modelo configurado ({model}) não apareceu no catálogo acessível retornado pelo provider.",
-            "Revise o modelo/região/endpoint configurado e reteste antes de depender deste provider.",
+            action,
             base.configuration_fingerprint, base.latency_ms, base.http_status, spec.probe_cost,
             ("configuration", "connectivity", "authentication", "model_catalog"),
         )

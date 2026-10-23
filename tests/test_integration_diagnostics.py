@@ -94,6 +94,36 @@ def test_http_401_is_authentication_error() -> None:
     assert result.transient is False
 
 
+def test_deepseek_current_flash_is_present_in_non_generative_model_catalog() -> None:
+    spec = get_integration_spec("ai:deepseek")
+    assert spec is not None
+    requests = []
+
+    def opener(request, timeout=0):
+        requests.append(request.full_url)
+        return _Response({"data": [{"id": "deepseek-flash"}, {"id": "deepseek-v4-pro"}]})
+
+    result = run_diagnostic(
+        spec,
+        env={"DEEPSEEK_API_KEY": "secret-test", "RASAI_DEEPSEEK_MODEL": "deepseek-flash"},
+        opener=opener,
+    )
+    assert result.status == STATUS_OPERATIONAL
+    assert requests == ["https://api.deepseek.com/models"]
+    assert "secret-test" not in result.detail
+
+
+def test_deepseek_legacy_alias_is_not_auto_accepted_in_current_model_catalog() -> None:
+    spec = get_integration_spec("ai:deepseek")
+    assert spec is not None
+    result = run_diagnostic(
+        spec,
+        env={"DEEPSEEK_API_KEY": "secret-test", "RASAI_DEEPSEEK_MODEL": "deepseek-v4-flash"},
+        opener=lambda request, timeout=0: _Response({"data": [{"id": "deepseek-flash"}]}),
+    )
+    assert result.status != STATUS_OPERATIONAL
+
+
 def test_mistral_probe_uses_non_generative_models_endpoint() -> None:
     spec = get_integration_spec("ai:mistral")
     assert spec is not None

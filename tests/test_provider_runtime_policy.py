@@ -19,7 +19,7 @@ from rasai.provider_runtime_policy import (
 class ProviderRuntimePolicyTests(unittest.TestCase):
     def test_public_defaults_use_simplest_models(self) -> None:
         self.assertEqual(SIMPLE_DEFAULT_MODELS["OPENAI"], "gpt-5.6-luna")
-        self.assertEqual(SIMPLE_DEFAULT_MODELS["DEEPSEEK"], "deepseek-v4-flash")
+        self.assertEqual(SIMPLE_DEFAULT_MODELS["DEEPSEEK"], "deepseek-flash")
         self.assertEqual(SIMPLE_DEFAULT_MODELS["MIMO"], "mimo-v2.6-flash")
         self.assertEqual(SIMPLE_DEFAULT_MODELS["QWEN"], "qwen3.8-flash")
         self.assertEqual(SIMPLE_DEFAULT_MODELS["MISTRAL"], "mistral-small-2603")

@@ -12,6 +12,12 @@ src/rasai/config/ai-models-defaults.toml
 
 Referência operacional de cadastro/login e geração de credenciais: [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
 
+A referência operacional DeepSeek Flash foi atualizada em 23/10/2026 para
+`deepseek-flash` (DeepSeek-V4.1-Flash-1017). O alias anterior
+`deepseek-v4-flash` consta somente como registro histórico desabilitado:
+não é selecionável e não participa de AUTO. A edição humana utiliza
+`config/ai-models.toml`, separada de `config/ai-pricing.toml`.
+
 ## Providers concretos
 
 | ID canônico | Provider | Aliases CLI | Credencial | URL de credencial/login | Política do provider no `AUTO` |
@@ -152,7 +158,7 @@ A tabela abaixo é apenas a fotografia do catálogo distribuído com o produto. 
 | Provider | Default público | Modelos de fábrica | Reasoning default do modelo público |
 |---|---|---|---|
 | OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `NONE` |
-| DeepSeek | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | `NONE` |
+| DeepSeek | `deepseek-flash` | `deepseek-v4-pro`, `deepseek-flash` | `NONE` |
 | MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro mantidos temporariamente por compatibilidade até 21/10/2026 02:00 UTC | `NONE` |
 | xAI | `grok-4.6` | `grok-4.6` | `LOW` |
 | Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `NONE` |
