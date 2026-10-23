@@ -14,7 +14,7 @@ from typing import Any
 from rasai.url_utils import normalize_url
 from rasai.architecture_resource_budget import (
     MAX_MANIFEST_BYTES, MAX_ENTRIES, MAX_RESOURCE_BYTES, MAX_BROWSER_REQUESTS,
-    MAX_ROOT_BYTES, MAX_ASSET_BYTES, MAX_STYLESHEET_BYTES,
+    MAX_ROOT_BYTES, MAX_ASSET_BYTES, RESOURCE_KINDS, resource_byte_limit,
 )
 
 MAX_RENDER_BYTES = 1_000_000
@@ -43,10 +43,19 @@ def validate_bundle(payload: object) -> tuple[str, str, dict[str, tuple[bytes, s
     for record in resources:
         if (not isinstance(record, dict)
                 or not base_fields.issubset(record)
-                or set(record) - base_fields - {"response_headers"}):
+                or set(record) - base_fields - {"response_headers", "resource_kind"}):
             raise ValueError("Invalid offline resource")
         url, body_text, mime, status = (record[k] for k in ("url", "body_b64", "content_type", "status"))
         headers = record.get("response_headers", {"content-type": mime})
+        # Synthetic canaries and legacy small-resource manifests may omit
+        # the role; such resources receive only the restrictive default cap.
+        kind = record.get("resource_kind", "document" if url == target else "unknown")
+        if (
+            not isinstance(kind, str) or kind not in RESOURCE_KINDS
+            or (url == target and kind != "document")
+            or (url != target and kind == "document")
+        ):
+            raise ValueError("Invalid offline resource kind")
         if (not isinstance(headers, dict) or
                 headers.get("content-type") != mime or
                 set(headers) - permitted_headers or
@@ -67,14 +76,11 @@ def validate_bundle(payload: object) -> tuple[str, str, dict[str, tuple[bytes, s
             body = base64.b64decode(body_text, validate=True)
         except (ValueError, base64.binascii.Error) as exc:
             raise ValueError("Malformed offline resource") from exc
-        # Reject a malformed bundle even when it bypasses the host collector.
-        # Larger CSS is permitted only with a CSS response MIME; default
-        # assets and root HTML retain their independent per-resource ceilings.
-        mime_type = mime.split(";", 1)[0].strip().lower()
+        # Match the host's role + response MIME budget, never grant a
+        # 4 MB script allowance merely because an image claims a JS MIME.
         individual_cap = (
             MAX_ROOT_BYTES if url == target else
-            MAX_STYLESHEET_BYTES if mime_type == "text/css" else
-            MAX_ASSET_BYTES
+            resource_byte_limit(kind, mime)
         )
         if len(body) > individual_cap:
             raise ValueError("Offline individual resource budget exceeded")

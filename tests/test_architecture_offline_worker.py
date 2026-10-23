@@ -8,7 +8,8 @@ from rasai.architecture_offline_worker import (
     MAX_RESOURCE_BYTES, MAX_BROWSER_REQUESTS,
 )
 from rasai.architecture_resource_budget import (
-    MAX_ASSETS, MAX_ROOT_BYTES, MAX_ASSET_BYTES, MAX_STYLESHEET_BYTES, MAX_BUNDLE_BYTES,
+    MAX_ASSETS, MAX_ROOT_BYTES, MAX_ASSET_BYTES, MAX_STYLESHEET_BYTES,
+    MAX_SCRIPT_BYTES, MAX_BUNDLE_BYTES,
 )
 
 
@@ -110,6 +111,7 @@ def test_worker_accepts_large_css_while_retaining_small_default_asset_limit():
     css = b"c" * 1_500_000
     candidate["resources"].append({
         "url": "https://example.org/large.css",
+        "resource_kind": "stylesheet",
         "body_b64": base64.b64encode(css).decode("ascii"),
         "status": 200,
         "content_type": "text/css; charset=utf-8",
@@ -120,15 +122,17 @@ def test_worker_accepts_large_css_while_retaining_small_default_asset_limit():
     assert MAX_ASSET_BYTES == 500_000
 
 
-@pytest.mark.parametrize("mime,cap", [
-    ("text/javascript", MAX_ASSET_BYTES),
-    ("text/html", MAX_ASSET_BYTES),
-    ("text/css", MAX_STYLESHEET_BYTES),
+@pytest.mark.parametrize("mime,kind,cap", [
+    ("text/javascript", "script", MAX_SCRIPT_BYTES),
+    ("application/javascript", "modulepreload", MAX_SCRIPT_BYTES),
+    ("text/html", "unknown", MAX_ASSET_BYTES),
+    ("text/css", "stylesheet", MAX_STYLESHEET_BYTES),
 ])
-def test_worker_refuses_single_asset_above_mime_budget(mime, cap):
+def test_worker_refuses_single_asset_above_mime_budget(mime, kind, cap):
     candidate = bundle()
     candidate["resources"].append({
         "url": "https://example.org/asset",
+        "resource_kind": kind,
         "body_b64": base64.b64encode(b"x" * (cap + 1)).decode("ascii"),
         "status": 200,
         "content_type": mime,
@@ -142,5 +146,71 @@ def test_worker_rejects_html_root_over_document_limit():
     candidate["resources"][0]["body_b64"] = base64.b64encode(
         b"x" * (MAX_ROOT_BYTES + 1)
     ).decode("ascii")
+    with pytest.raises(ValueError, match="individual resource budget"):
+        validate_bundle(candidate)
+
+
+@pytest.mark.parametrize("mime,role", [
+    ("text/javascript; charset=utf-8", "script"),
+    ("application/javascript", "modulepreload"),
+    ("application/ecmascript", "script"),
+])
+def test_worker_accepts_large_declared_javascript_below_four_megabytes(mime, role):
+    candidate = bundle()
+    script = b"j" * 1_500_000
+    candidate["resources"].append({
+        "url": "https://example.org/program.js",
+        "resource_kind": role,
+        "body_b64": base64.b64encode(script).decode("ascii"),
+        "status": 200,
+        "content_type": mime,
+    })
+    _, _, entries = validate_bundle(candidate)
+    assert entries["https://example.org/program.js"][0] == script
+
+
+@pytest.mark.parametrize("mime,kind", [
+    ("text/javascript", "image"),
+    ("text/javascript", "unknown"),
+    ("text/plain", "script"),
+    ("text/html", "script"),
+    ("text/css", "script"),
+    ("application/javascript", "stylesheet"),
+])
+def test_worker_rejects_large_scripts_when_role_or_mime_mismatch(mime, kind):
+    candidate = bundle()
+    candidate["resources"].append({
+        "url": "https://example.org/ambiguous-resource",
+        "resource_kind": kind,
+        "body_b64": base64.b64encode(b"x" * 650_000).decode("ascii"),
+        "status": 200,
+        "content_type": mime,
+    })
+    with pytest.raises(ValueError, match="individual resource budget"):
+        validate_bundle(candidate)
+
+
+def test_worker_refuses_forged_or_unknown_resource_role():
+    for role in ("document", "https://confidential.example", "runtime", None):
+        candidate = bundle()
+        candidate["resources"].append({
+            "url": "https://example.org/asset",
+            "resource_kind": role,
+            "body_b64": "",
+            "status": 200,
+            "content_type": "text/javascript",
+        })
+        with pytest.raises(ValueError, match="resource kind"):
+            validate_bundle(candidate)
+
+
+def test_worker_legacy_resource_without_role_cannot_claim_large_js_allowance():
+    candidate = bundle()
+    candidate["resources"].append({
+        "url": "https://example.org/legacy.js",
+        "body_b64": base64.b64encode(b"x" * 600_000).decode("ascii"),
+        "status": 200,
+        "content_type": "text/javascript",
+    })
     with pytest.raises(ValueError, match="individual resource budget"):
         validate_bundle(candidate)

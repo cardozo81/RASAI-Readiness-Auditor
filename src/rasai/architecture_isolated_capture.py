@@ -21,7 +21,8 @@ from rasai.architecture_image_identity import IMAGE_SOURCE_LABEL, expected_sourc
 from rasai.architecture_resource_diagnostic import ResourcePreflightDiagnostic
 from rasai.architecture_resource_budget import (
     MAX_ASSETS, MAX_BUNDLE_BYTES, MAX_RESOURCE_BYTES, MAX_ROOT_BYTES,
-    MAX_ASSET_BYTES, MAX_STYLESHEET_BYTES,
+    MAX_ASSET_BYTES, MAX_STYLESHEET_BYTES, MAX_SCRIPT_BYTES,
+    resource_byte_limit,
 )
 from rasai.architecture_probe import ProbeCaptures, with_capture_origin
 from rasai.domain import DeviceContext
@@ -130,8 +131,12 @@ class _AssetReferences(HTMLParser):
                 )
                 # A stylesheet introduced through preload has the same CSS
                 # fetch requirements as a regular link rel=stylesheet.
-                if kind == "preload" and (attributes.get("as") or "").lower() == "style":
-                    kind = "stylesheet"
+                if kind == "preload":
+                    resource_type = (attributes.get("as") or "").strip().lower()
+                    if resource_type == "style":
+                        kind = "stylesheet"
+                    elif resource_type == "script":
+                        kind = "script"
                 self._add(reference, kind)
 
 
@@ -167,7 +172,7 @@ def _asset_failure_reason(document, expected_url: str) -> str | None:
     return None
 
 
-def _encode_asset(url: str, document) -> dict:
+def _encode_asset(url: str, document, *, kind: str = "unknown") -> dict:
     failure = _asset_failure_reason(document, url)
     if failure is not None:
         raise ArchitectureAssetFailure(failure)
@@ -191,6 +196,7 @@ def _encode_asset(url: str, document) -> dict:
             safe_headers[header] = value
     return {
         "url": url,
+        "resource_kind": kind,
         "content_type": content_type,
         "response_headers": safe_headers,
         "status": document.http_status,
@@ -199,7 +205,7 @@ def _encode_asset(url: str, document) -> dict:
 
 
 def _bundle_resources(target: str, root, raw: str) -> list[dict]:
-    root_record = _encode_asset(target, root)
+    root_record = _encode_asset(target, root, kind="document")
     parser = _AssetReferences()
     parser.feed(raw)
     # Count unique fetchable resources, not HTML reference occurrences.
@@ -235,15 +241,22 @@ def _bundle_resources(target: str, root, raw: str) -> list[dict]:
         timeout_seconds=4.0, max_redirects=0, max_bytes=MAX_ASSET_BYTES,
         opener=PublicWebPinnedOpener(),
     )
-    # CSS affects the visibility/stability checks of the observed DOM. Allow
-    # larger stylesheets, but preserve the total worker input budget rather
-    # than raising every resource to the same maximum.
+    # CSS and JavaScript affect DOM materialization; grant bounded,
+    # role-specific fetch windows, without increasing the aggregate budget.
     stylesheet_fetcher = (
         PublicWebFetcher(
             timeout_seconds=4.0, max_redirects=0,
             max_bytes=MAX_STYLESHEET_BYTES, opener=PublicWebPinnedOpener(),
         )
         if any(kind == "stylesheet" for _, kind in candidates)
+        else None
+    )
+    script_fetcher = (
+        PublicWebFetcher(
+            timeout_seconds=4.0, max_redirects=0,
+            max_bytes=MAX_SCRIPT_BYTES, opener=PublicWebPinnedOpener(),
+        )
+        if any(kind in {"script", "modulepreload"} for _, kind in candidates)
         else None
     )
     assets = [root_record]
@@ -262,16 +275,18 @@ def _bundle_resources(target: str, root, raw: str) -> list[dict]:
                 phase="pre_fetch", ordinal=position, candidates=total,
             ) from exc
         try:
-            # Only declared CSS fetches use the larger bounded downloader.
-            # The actual HTTP MIME must also be CSS to accept >500 KB.
-            asset_fetcher = stylesheet_fetcher if kind == "stylesheet" else fetcher
+            # The HTML-declared role controls the downloader limit. A larger
+            # response only passes when its HTTP MIME matches that role.
+            # The worker repeats the same typed checks from the manifest.
+            asset_fetcher = (
+                stylesheet_fetcher if kind == "stylesheet"
+                else script_fetcher if kind in {"script", "modulepreload"}
+                else fetcher
+            )
             document = asset_fetcher.fetch(candidate)
-            encoded = _encode_asset(candidate, document)
-            content_type = document.headers["content-type"].split(";", 1)[0].strip().lower()
-            allowed_bytes = (
-                MAX_STYLESHEET_BYTES
-                if kind == "stylesheet" and content_type == "text/css"
-                else MAX_ASSET_BYTES
+            encoded = _encode_asset(candidate, document, kind=kind)
+            allowed_bytes = resource_byte_limit(
+                kind, document.headers["content-type"],
             )
             if len(document.body) > allowed_bytes:
                 raise ArchitectureAssetFailure("OCI_ASSET_SIZE_LIMIT")

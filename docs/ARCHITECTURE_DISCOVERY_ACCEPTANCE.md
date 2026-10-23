@@ -570,3 +570,34 @@ Não é necessário executar `docker build` manualmente.
 Esta mudança não implementa escolha de recursos opcionais nem observação
 de frames dinâmicos. Essas capacidades permanecem separadas para evitar
 promover um DOM incompleto a `STATIC_OR_SSR` ou `CSR_SPA`.
+
+## Orçamento de JavaScript por papel (23/10/2026)
+
+Um novo diagnóstico de captura física indicou bloqueio de recurso declarado
+como script JavaScript, na posição 26 de 27 recursos RAW, por ultrapassar
+500.000 bytes. Isso não prova o tamanho exato nem a arquitetura do site.
+
+O orçamento agora é **genérico por papel e MIME**, sem regras por domínio:
+HTML inicial até **1.000.000 bytes**; CSS declarada até **2.000.000 bytes**
+com MIME `text/css`; recursos JS de `script src`, `modulepreload` e
+`preload as=script` até **4.000.000 bytes**, apenas com MIME
+`text/javascript`, `application/javascript`, `text/ecmascript`,
+`application/ecmascript` ou `application/x-javascript`. Os demais
+recursos permanecem limitados a **500.000 bytes** cada.
+
+O manifest inclui o papel tipado de cada recurso. O worker isolado revalida
+a correspondência **papel + Content-Type**, impedindo que arquivos de mídia
+rotulados como JavaScript, ou scripts respondidos como HTML/texto genérico,
+recebam o limite ampliado. Manifestos legados sem papel são tratados como
+`unknown` e sujeitos ao limite restritivo. Essa mudança preserva
+**64 recursos adicionais**, **33.000.000 bytes** no agregado decodificado,
+**52.000.000 bytes** no manifesto Base64, **65 entradas** e **70
+requisições** no browser. Não amplia o consumo total autorizado,
+não desabilita CSP, não segue redirects de assets, não enfraquece TLS nem
+o isolamento `--network=none`.
+
+O código orçamentário e o worker OCI mudaram: o gerenciador do RASAi deverá
+pedir consentimento para a reconstrução da imagem local na próxima descoberta.
+Acesso ao DOM renderizado e comprovação de classificação continuam sujeitos
+à disponibilidade de **todos os recursos essenciais** e estabilidade da
+página; este ajuste não autoriza forçar uma classe sem comparação RAW/DOM.

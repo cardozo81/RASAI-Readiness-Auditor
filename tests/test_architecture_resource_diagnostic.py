@@ -280,3 +280,119 @@ def test_css_cannot_eat_through_aggregate_worker_memory_budget(monkeypatch):
     assert error.value.diagnostic.kind == "stylesheet"
     assert error.value.diagnostic.ordinal == 2
     assert error.value.diagnostic.candidates == 2
+
+
+@pytest.mark.parametrize("link", [
+    '<script src="/runtime.js"></script>',
+    '<link rel="modulepreload" href="/runtime.js">',
+    '<link rel="preload" as="script" href="/runtime.js">',
+])
+def test_large_js_bundle_role_and_worker_limits_are_consistent(monkeypatch, link):
+    """No domain-dependent exception; 1.5MB script passes host and worker."""
+    from rasai.architecture_offline_worker import validate_bundle
+    from rasai.architecture_resource_budget import MAX_SCRIPT_BYTES
+    from rasai.architecture_isolated_capture import _bundle_resources
+    from rasai.architecture_resource_budget import MAX_ASSET_BYTES
+    import json
+
+    html = "<main>Shell</main>" + link
+    root = resource(content_type="text/html", body=html.encode())
+    js_url = "https://example.org/runtime.js"
+    js = resource(final=js_url, content_type="application/javascript; charset=utf-8",
+                  body=b"x" * 1_500_000)
+    caps = []
+
+    class FakeFetcher:
+        def __init__(self, **kwargs):
+            self.max_bytes = kwargs["max_bytes"]
+            caps.append(self.max_bytes)
+        def fetch(self, url):
+            assert url == js_url
+            assert len(js.body) <= self.max_bytes
+            return js
+
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture._validate_public_url",
+        lambda url, _: url,
+    )
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture.PublicWebFetcher", FakeFetcher,
+    )
+    assets = _bundle_resources(URL, root, html)
+    assert caps == [MAX_ASSET_BYTES, MAX_SCRIPT_BYTES]
+    assert assets[1]["resource_kind"] in {"script", "modulepreload"}
+    _, _, decoded = validate_bundle({
+        "url": URL, "device": "mobile", "resources": assets,
+    })
+    assert decoded[js_url][0] == js.body
+
+
+def test_script_four_megabyte_cap_still_refuses_oversized_js(monkeypatch):
+    from rasai.architecture_resource_budget import MAX_SCRIPT_BYTES
+    html = '<script src="/huge.js"></script>'
+    root = resource(content_type="text/html", body=html.encode())
+    failed = resource(
+        status=ContentFetchStatus.ERROR, http=200, error="CONTENT_BODY_LIMIT",
+        final="https://example.org/huge.js", body=b"",
+    )
+    observed = []
+    class FakeFetcher:
+        def __init__(self, **kwargs):
+            self.max_bytes = kwargs["max_bytes"]
+        def fetch(self, url):
+            observed.append(self.max_bytes)
+            return failed
+
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture._validate_public_url",
+        lambda url, _: url,
+    )
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture.PublicWebFetcher", FakeFetcher,
+    )
+    with pytest.raises(ArchitectureAssetFailure) as error:
+        _bundle_resources(URL, root, html)
+    assert observed == [MAX_SCRIPT_BYTES]
+    assert error.value.reason == "OCI_ASSET_SIZE_LIMIT"
+    assert error.value.diagnostic.kind == "script"
+
+
+@pytest.mark.parametrize("response_type", [
+    "text/plain", "text/html", "application/json", "text/css",
+])
+def test_declared_script_with_wrong_mime_cannot_exceed_default_cap(monkeypatch, response_type):
+    html = '<script src="/app.js"></script>'
+    root = resource(content_type="text/html", body=html.encode())
+    invalid = resource(
+        final="https://example.org/app.js",
+        content_type=response_type, body=b"x" * 750_000,
+    )
+    monkeypatch.setattr(
+        "rasai.architecture_isolated_capture._validate_public_url",
+        lambda url, _: url,
+    )
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetcher:
+        fetcher.return_value.fetch.return_value = invalid
+        with pytest.raises(ArchitectureAssetFailure) as error:
+            _bundle_resources(URL, root, html)
+    assert error.value.reason == "OCI_ASSET_SIZE_LIMIT"
+    assert error.value.diagnostic.kind == "script"
+
+
+def test_multiple_large_scripts_still_obey_original_aggregate_budget(monkeypatch):
+    import rasai.architecture_isolated_capture as isolated
+    html = '<script src="/one.js"></script><script src="/two.js"></script>'
+    root = resource(content_type="text/html", body=html.encode())
+    first = resource(final="https://example.org/one.js",
+                     content_type="text/javascript", body=b"x" * 700_000)
+    second = resource(final="https://example.org/two.js",
+                      content_type="text/javascript", body=b"x" * 700_000)
+    monkeypatch.setattr(isolated, "_validate_public_url", lambda u, _: u)
+    monkeypatch.setattr(isolated, "MAX_RESOURCE_BYTES", 1_000_000)
+    with patch("rasai.architecture_isolated_capture.PublicWebFetcher") as fetcher:
+        fetcher.return_value.fetch.side_effect = [first, second]
+        with pytest.raises(ArchitectureAssetFailure) as error:
+            _bundle_resources(URL, root, html)
+    assert error.value.reason == "OCI_ASSET_TOTAL_BYTES_LIMIT"
+    assert error.value.diagnostic.kind == "script"
+    assert error.value.diagnostic.ordinal == 2
