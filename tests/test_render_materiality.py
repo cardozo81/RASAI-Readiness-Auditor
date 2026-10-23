@@ -220,3 +220,19 @@ def test_transient_marker_disappearing_without_material_content_does_not_end_rec
     assert quality["recovery"]["observation_count"] == 4
     assert quality["final"]["transient_markers"] == 0
     assert quality["final"]["primary_text_length"] < 160
+
+
+
+def test_aud125_materiality_baseline_is_an_empty_main_not_nav_copy():
+    html = (
+        '<nav>' + ('Seguros Vida Produtos Investimentos Institucional. ' * 20) +
+        '</nav><div id="app"><section class="lazy skeleton">'
+        '<main id="sk-main"></main><h1></h1></section></div>'
+    )
+    observed = observe_materiality(html)
+    assert observed.main_present
+    assert observed.main_text_length == 0
+    assert observed.lazy_markers > 0
+    assert observed.transient_markers > 0
+    from rasai.render_materiality import _strong_primary_content
+    assert not _strong_primary_content(observed)

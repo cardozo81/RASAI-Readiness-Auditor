@@ -259,3 +259,74 @@ def test_screenshot_dom_probe_fails_open_on_page_content_error():
         "state": "UNAVAILABLE",
         "contract_version": "SCREENSHOT-DOM-CORRELATION-001",
     }
+
+
+
+class _SyntheticLazyPage:
+    def __init__(self, html: str) -> None:
+        self.html = html
+        self.scrolls = 0
+        self.waits: list[int] = []
+
+    def evaluate(self, _: str) -> None:
+        self.scrolls += 1
+
+    def wait_for_timeout(self, ms: int) -> None:
+        self.waits.append(ms)
+
+    def content(self) -> str:
+        return self.html
+
+
+def test_aud125_nav_heavy_empty_main_is_not_a_lazy_false_positive():
+    from rasai.device_context_capture import _same_session_lazy_probe, _promote_bounded_lazy_dom
+    from rasai.render_materiality import observe_materiality
+    shell = (
+        '<html><body><nav>' + ('Seguro de vida Produtos Institucional ' * 16) +
+        '</nav><div class="lazy-loading skeleton"><main id="sk-main"></main>'
+        '<h1></h1></div><footer>Contato e privacidade</footer></body></html>'
+    )
+    substantive = (
+        '<html><body><nav>Seguros</nav><main><h1>Seguro de vida</h1><p>'
+        + ('Cobertura para famílias e condições de contratação. ' * 8)
+        + '</p></main></body></html>'
+    )
+    assert observe_materiality(shell).main_text_length == 0
+    page = _SyntheticLazyPage(substantive)
+    probe, candidate = _same_session_lazy_probe(page, shell)
+    assert probe["attempted"] is True
+    assert probe["initial_content_recoverable"] is False
+    assert probe["after_probe_content_recoverable"] is True
+    original = observe_materiality(shell).to_dict()
+    accepted, quality = _promote_bounded_lazy_dom(
+        shell, {"state": "INCOMPLETE", "initial": original, "recovery": {"outcome": "BOUND_EXHAUSTED"}},
+        probe, candidate,
+    )
+    assert accepted == substantive
+    assert quality["reason"] == "BOUNDED_LAZY_CONTENT_MATERIALIZED"
+    assert quality["bounded_lazy_recovery"]["accepted_rendered_sha256"] == hashlib.sha256(substantive.encode()).hexdigest()
+    assert quality["recovery"]["outcome"] == "BOUND_EXHAUSTED"
+    assert page.scrolls == 3
+    assert page.waits == [250, 250, 250]
+
+
+def test_aud125_lazy_skeleton_without_materialization_remains_incomplete():
+    from rasai.device_context_capture import _same_session_lazy_probe, _promote_bounded_lazy_dom
+    shell = '<body><nav>Buscar</nav><div class="lazy skeleton"><main></main></div></body>'
+    page = _SyntheticLazyPage(shell)
+    probe, candidate = _same_session_lazy_probe(page, shell)
+    original = {"state": "INCOMPLETE", "reason": "TRANSIENT_RENDER_PERSISTED"}
+    assert _promote_bounded_lazy_dom(shell, original, probe, candidate) == (shell, original)
+    assert probe["attempted"] is True
+    assert probe["after_probe_content_recoverable"] is False
+
+
+def test_aud125_ready_ssr_does_not_scroll_or_promote():
+    from rasai.device_context_capture import _same_session_lazy_probe, _promote_bounded_lazy_dom
+    html = '<main><h1>Seguro de vida</h1><p>' + ("Cobertura contratada. " * 20) + '</p></main>'
+    page = _SyntheticLazyPage(html)
+    probe, candidate = _same_session_lazy_probe(page, html)
+    assert probe["attempted"] is False
+    assert candidate is None
+    assert page.scrolls == 0
+    assert _promote_bounded_lazy_dom(html, {"state": "READY"}, probe, candidate) == (html, {"state": "READY"})

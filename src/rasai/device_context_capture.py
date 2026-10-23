@@ -725,12 +725,16 @@ def _promote_late_materialized_dom(
     }
 
 
-def _same_session_lazy_probe(page: Any, rendered_html: str) -> dict[str, Any]:
-    """Run BR-GEO-024's bounded interaction without another page navigation."""
+def _same_session_lazy_probe(page: Any, rendered_html: str) -> tuple[dict[str, Any], str | None]:
+    """Observe bounded same-page lazy content; return a candidate, not an automatic fact."""
     from rasai.javascript_spa import JavascriptSpaAnalyzer
 
     analyzer = JavascriptSpaAnalyzer()
     preliminary = analyzer.lazy_loading(rendered_html, after_probe_html=None)
+    # The BR-GEO-024 extractor can recover navigation text from a blank
+    # product skeleton. M3 uses its stronger, independent materiality gate.
+    from rasai.render_materiality import _strong_primary_content, observe_materiality
+    material_at_entry = _strong_primary_content(observe_materiality(rendered_html))
     result: dict[str, Any] = {
         "scope": ContextScope.DEVICE_SNAPSHOT.value,
         "capture_method": "SAME_PAGE_BOUNDED_SCROLL",
@@ -738,13 +742,15 @@ def _same_session_lazy_probe(page: Any, rendered_html: str) -> dict[str, Any]:
         "scroll_steps": _LAZY_SCROLL_STEPS,
         "settle_ms": _LAZY_SETTLE_MS,
         "has_lazy_signals": preliminary.has_lazy_signals,
-        "initial_content_recoverable": preliminary.initial_content_recoverable,
+        "initial_content_recoverable": material_at_entry,
+        "legacy_extractor_content_recoverable": preliminary.initial_content_recoverable,
+        "materiality_gate": "PRIMARY_CONTENT",
         "attempted": False,
         "after_probe_content_recoverable": preliminary.after_probe_content_recoverable,
         "state": "NOT_REQUIRED",
     }
-    if not preliminary.has_lazy_signals or preliminary.initial_content_recoverable:
-        return result
+    if not preliminary.has_lazy_signals or material_at_entry:
+        return result, None
 
     result["attempted"] = True
     try:
@@ -753,19 +759,76 @@ def _same_session_lazy_probe(page: Any, rendered_html: str) -> dict[str, Any]:
             page.wait_for_timeout(_LAZY_SETTLE_MS)
         after_html = page.content()
         assessed = analyzer.lazy_loading(rendered_html, after_probe_html=after_html)
+        after_material = _strong_primary_content(observe_materiality(after_html))
         result.update(
             state="CAPTURED",
-            after_probe_content_recoverable=assessed.after_probe_content_recoverable,
-            result=assessed.result.value,
-            reason=assessed.reason,
+            after_probe_content_recoverable=after_material,
+            result=("PASS" if after_material else "FAIL"),
+            reason=("CONTENT_RECOVERED_BY_BOUNDED_SCROLL"
+                    if after_material else "ESSENTIAL_CONTENT_NOT_RECOVERED_BY_BOUNDED_SCROLL"),
+            legacy_extractor_after_recoverable=assessed.after_probe_content_recoverable,
         )
+        return result, after_html
     except PlaywrightTimeoutError:
         result.update(state="TIMEOUT", reason="SAME_SESSION_LAZY_PROBE_TIMEOUT")
     except PlaywrightError as exc:
         result.update(state="FAILED", reason="SAME_SESSION_LAZY_PROBE_FAILED", error=type(exc).__name__)
     except Exception as exc:
         result.update(state="FAILED", reason="SAME_SESSION_LAZY_PROBE_FAILED", error=type(exc).__name__)
-    return result
+    return result, None
+
+
+def _promote_bounded_lazy_dom(
+    captured_html: str | None,
+    quality: dict[str, Any],
+    probe: dict[str, Any],
+    candidate_html: str | None,
+) -> tuple[str | None, dict[str, Any]]:
+    """Only a materialized same-session DOM may replace the unsaved M3 artifact."""
+    if (
+        quality.get("state") != "INCOMPLETE"
+        or probe.get("state") != "CAPTURED"
+        or probe.get("after_probe_content_recoverable") is not True
+        or not isinstance(candidate_html, str)
+    ):
+        return captured_html, quality
+    from rasai.render_materiality import _strong_primary_content, observe_materiality
+    observation = observe_materiality(candidate_html)
+    if not _strong_primary_content(observation):
+        return captured_html, quality
+    initial = quality.get("initial")
+    if not isinstance(initial, dict):
+        initial = observe_materiality(captured_html).to_dict()
+    final = observation.to_dict()
+    fields = {
+        "text_delta": "text_length",
+        "main_text_delta": "main_text_length",
+        "primary_text_delta": "primary_text_length",
+        "dom_nodes_delta": "dom_nodes",
+        "heading_nodes_delta": "heading_nodes",
+        "content_nodes_delta": "content_nodes",
+        "transient_markers_delta": "transient_markers",
+        "lazy_markers_delta": "lazy_markers",
+    }
+    growth = {label: final[key] - int(initial.get(key, 0)) for label, key in fields.items()}
+    growth["materialized"] = True
+    return candidate_html, {
+        **quality,
+        "state": "RECOVERED",
+        "reason": "BOUNDED_LAZY_CONTENT_MATERIALIZED",
+        "materiality_reason": "SAME_SESSION_LAZY_CONTENT_RECOVERED",
+        "final": final,
+        "growth": growth,
+        "bounded_lazy_recovery": {
+            "state": "MATERIALIZED",
+            "capture_method": "SAME_PAGE_BOUNDED_SCROLL",
+            "additional_navigation_requests": 0,
+            "previous_rendered_sha256": hashlib.sha256((captured_html or "").encode("utf-8")).hexdigest(),
+            "accepted_rendered_sha256": hashlib.sha256(candidate_html.encode("utf-8")).hexdigest(),
+            "scroll_steps": probe.get("scroll_steps"),
+            "settle_ms": probe.get("settle_ms"),
+        },
+    }
 
 
 def _install_browser_capture() -> None:
@@ -897,6 +960,14 @@ def _install_browser_capture() -> None:
                 rendered_html,
                 settle_outcome=settle_outcome,
             )
+            # Before screenshot/artifact identity is frozen, perform the
+            # existing bounded lazy probe on this SAME browser page. A nav-heavy
+            # skeleton cannot bypass it through a false positive extractor.
+            stage = "LAZY_PROBE"
+            lazy_probe, lazy_candidate = _same_session_lazy_probe(page, rendered_html)
+            rendered_html, capture_quality = _promote_bounded_lazy_dom(
+                rendered_html, capture_quality, lazy_probe, lazy_candidate,
+            )
             headers = response.headers if response is not None else {}
             stage = "DOCUMENT_SOURCE"
             document_source = _document_source_metadata(
@@ -946,12 +1017,8 @@ def _install_browser_capture() -> None:
                 # accepted HTML. The early and later hashes remain in correlation.
                 rendered_dom = _rendered_dom_metadata(rendered_html)
 
-            # Primary snapshot evidence above is frozen before any diagnostic interaction.
-            # If lazy content needs bounded scrolling, reuse this same page/context instead
-            # of closing it and later navigating the URL again in M6.
-            stage = "LAZY_PROBE"
-            lazy_probe = _same_session_lazy_probe(page, rendered_html)
-
+            # The diagnostic interaction was completed before the authoritative
+            # screenshot and DOM artifact were frozen; no second navigation.
             # Noninstalled physical M3 handoff. Opt-in only by the trusted
             # caller owning THIS renderer instance. The snapshot's accepted
             # rendered HTML is already frozen; the callback must refuse
