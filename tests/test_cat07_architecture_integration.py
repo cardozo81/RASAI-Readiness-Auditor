@@ -577,7 +577,7 @@ def test_355_cat07_rum_action_kpm_reference_is_not_tenant_observation(
     assert "Configuração comprovada" in section
     assert section.count("N/D (tenant não consultado)") == 3
     assert "KPM configurada no tenant: N/D; thresholds e fallback: N/D" in section
-    assert "O Apdex Synthetic M23/M25 permanece independente" in section
+    assert "medições sintéticas de Apdex de navegação e experiência permanecem independentes" in section
     assert "a existência da arquitetura não obriga trocar" in section
     assert "Nenhuma configuração efetiva RUM" not in section
     assert db.read_bytes() == before

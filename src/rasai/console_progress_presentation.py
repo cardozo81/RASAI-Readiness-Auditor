@@ -7,6 +7,26 @@ from typing import Any
 _INSTALLED = False
 
 
+def _public_stage_status(state: Any, progress: Any) -> str:
+    """Use terminal labels only when the local execution has truly ended.
+
+    An optional post-AUD task can retain COMPLETE while still reporting partial
+    progress. An exact 100% terminal local operation prevents false finalization.
+    """
+    current = str(getattr(progress, "current_status", "") or "").strip()
+    status = str(getattr(state, "status", "") or "").upper()
+    operation = str(getattr(state, "operation", "") or "").upper()
+    final = {
+        ("COMPLETE", "LOCAL:DONE"): "CONCLUÍDA",
+        ("COMPLETE_WITH_LIMITATIONS", "LOCAL:DONE"): "CONCLUÍDA COM LIMITAÇÕES",
+        ("FAILED", "LOCAL:ERROR"): "FALHA",
+    }.get((status, operation))
+    if (final is not None and bool(getattr(progress, "overall_exact", False))
+            and getattr(progress, "overall_percent", None) == 100.0):
+        return final
+    return current or "EM EXECUÇÃO"
+
+
 def install() -> None:
     global _INSTALLED
     if _INSTALLED:
@@ -51,7 +71,7 @@ def install() -> None:
 
         render_canonical_progress(
             current_label=str(progress.label or "Execução"),
-            current_status=str(getattr(progress, "current_status", "") or "EM EXECUÇÃO"),
+            current_status=_public_stage_status(state, progress),
             stage_index=getattr(progress, "stage_index", None),
             stage_count=getattr(progress, "stage_count", None),
             stage_count_planned=bool(getattr(progress, "stage_count_planned", True)),

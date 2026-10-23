@@ -87,7 +87,7 @@ def content_readiness_review_html(view: Mapping[str, Any]) -> str:
         "hashes do banco e do manifesto atestam consistência de bytes locais, "
         "não a origem real da medição Playwright. As marcas monotônicas "
         "são declarações externas do produtor, não medidas reconstruídas "
-        "dos eventos ou amostras M23/M25. Sem vínculo de mesma amostra "
+        "das medições de Apdex de navegação ou experiência. Sem vínculo de mesma amostra "
         "autenticado, nenhuma diferença de desempenho, classificação "
         "SATISFIED/TOLERATING/FRUSTRATED ou readiness de conteúdo é "
         "inferida do índice. Valores N/D e TIMEOUT não são zero nem falha "

@@ -16,17 +16,17 @@ ARCH = {
 }
 MODES = {
     "AUTO": "AUTO (conforme descoberta observada neste snapshot)",
-    "DECLARED": "Declarada no plano congelado (não substitui M6)",
+    "DECLARED": "Declarada no plano congelado (não substitui a arquitetura observada)",
     "UNFORCED": "Sem forçar arquitetura (não herda perfil)",
 }
 SOURCES = {
-    "AUTO_DISCOVERY": "Descoberta M6 desta AUD",
+    "AUTO_DISCOVERY": "Arquitetura identificada na captura desta auditoria",
     "USER_DECLARED": "Escolha explícita congelada na AUD",
     "UNFORCED": "Nenhuma classe foi aplicada",
 }
 REASONS = {
     "UNFORCED": "Opção sem forçar; apenas contexto observado",
-    "UNKNOWN_OBSERVED_ARCHITECTURE": "M6 não comprovou uma classe concreta",
+    "UNKNOWN_OBSERVED_ARCHITECTURE": "A observação da arquitetura não comprovou uma classe concreta",
     "MISSING_CONFLICTING_OR_INVALID_EVIDENCE": (
         "Evidência ausente, conflitante ou identidade física inconclusiva"
     ),
@@ -73,7 +73,7 @@ def architecture_audit_context_html(projection: Mapping[str, Any]) -> str:
             or not 0 < len(projection["snapshots"]) <= 100):
         return (
             "<div class='notice' data-contract='ARCH-CONTEXT-646'>"
-            "Arquitetura por snapshot: N/D (origem selada ou identidade M6 "
+            "Arquitetura por snapshot: N/D (origem selada ou identidade da captura "
             "insuficiente). Não aplicada a índices, coletores ou perfis.</div>"
         )
     table = []
@@ -85,7 +85,7 @@ def architecture_audit_context_html(projection: Mapping[str, Any]) -> str:
         effective = row.get("effective_architecture")
         reason = row.get("abstention_reason")
         explanation = (
-            "Divergência entre escolha declarada e M6; não corrigida automaticamente."
+            "Divergência entre escolha declarada e arquitetura observada; não corrigida automaticamente."
             if row.get("discrepancy") is True
             else REASONS.get(reason, "Somente leitura consultiva, sem retroação")
         )
@@ -121,19 +121,21 @@ def architecture_audit_context_html(projection: Mapping[str, Any]) -> str:
             "UNVERIFIED_OR_LEGACY": "Plano congelado não verificável",
         }.get(projection.get("choice_origin"), "Não comprovada"))
         + ".</p>"
-        "<p>Arquitetura descoberta pelo M6, arquitetura declarada e arquitetura "
-        "efetiva <strong>somente nesta análise consultiva</strong> são "
-        "conceitos distintos. A classificação M6 não altera amostras anteriores, "
-        "parametrização M23/M25, regras SCORE-GEO, SARI, IA nem Dynatrace. "
-        "Sem URL + dispositivo + snapshot inequívocos, o valor é N/D. "
-        "URLs são exibidas sem credenciais, parâmetros de consulta ou fragmentos; "
-        "diferença de destino não demonstra sozinha um mecanismo de redirect.</p>"
+        "<p>A arquitetura identificada durante a coleta, a arquitetura declarada "
+        "no planejamento e a arquitetura considerada <strong>somente nesta análise "
+        "consultiva</strong> são conceitos distintos. Esta avaliação não altera "
+        "amostras já registradas, configuração do Apdex de navegação ou de "
+        "experiência, índices de prontidão e GEO, análises de IA nem parâmetros "
+        "externos do Dynatrace. Sem correspondência inequívoca entre URL, "
+        "dispositivo e captura, o resultado é N/D. As URLs são exibidas sem "
+        "credenciais, parâmetros de consulta ou fragmentos; a diferença entre "
+        "destinos não comprova, por si só, o mecanismo de redirecionamento.</p>"
         "<details><summary>Ver contextos físicos de arquitetura ("
         + str(len(table))
         + " captura(s))</summary><div class='table-wrap'><table><thead><tr>"
         "<th>Snapshot</th><th>Página</th><th>Dispositivo</th>"
         "<th>URL solicitada</th><th>URL final observada</th>"
-        "<th>Descoberta M6</th><th>Declarada</th>"
+        "<th>Arquitetura observada</th><th>Declarada</th>"
         "<th>Efetiva nesta análise</th><th>Fonte</th><th>Limite</th>"
         "</tr></thead><tbody>" + "".join(table)
         + "</tbody></table></div></details>"

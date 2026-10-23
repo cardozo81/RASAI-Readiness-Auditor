@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from pathlib import Path
 
@@ -83,11 +84,12 @@ def test_646_sealed_selection_and_m6_are_separate_per_snapshot(
         assert not any(row["discrepancy"] for row in rows.values())
     assert db.read_bytes() == physical
     output = architecture_audit_context_html(result)
-    assert "Arquitetura descoberta pelo M6" in output
+    assert "A arquitetura identificada durante a coleta" in output
     assert "Somente" not in output or "somente" in output.lower()
     assert "https://example.org/a" in output
     assert "<code>S-1</code>" in output
-    assert "M23/M25" in output
+    assert "Apdex de navegação ou de experiência" in output
+    assert not re.search(r"(?<![A-Za-z0-9])M\d{1,3}(?![A-Za-z0-9])", output)
 
 
 def test_646_legacy_does_not_inherit_now_current_operator_preference(tmp_path):

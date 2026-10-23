@@ -16,7 +16,7 @@ from rasai.audit_attempt_timeline import read_audit_attempt_timeline
 from rasai.audit_duration_forecast import _m21_http_request_sums
 
 _STAGE_LABELS = {
-    "CONTENT_REMEDIATION": "Remediação de conteúdo · IA (M20)",
+    "CONTENT_REMEDIATION": "Remediação de conteúdo · IA",
     "DIRECTED_ANALYSIS": "Análise Direcionada · opcional",
     "IMPROVEMENT_INTELLIGENCE": "Improvement Intelligence · IA",
     "COMPETITIVE_AI": "Comparação competitiva · IA",
@@ -227,7 +227,7 @@ def stage_console_lines(projection: dict[str, Any]) -> tuple[str, ...]:
     if projection["status"] == "NOT_VERIFIABLE":
         return ("Tempos/custos por etapa: N/D (" + projection["reason"] + ")",)
     lines = [
-        "Tentativas IA (M18+M20): %s; soma %s; união ativa %s." % (
+        "Tentativas de IA (análise e remediação): %s; soma %s; união ativa %s." % (
             projection["attempts"], _duration(projection["total_summed_ms"]),
             _duration(projection["total_union_ms"]),
         )
@@ -390,7 +390,7 @@ def stage_report_html(projection: dict[str, Any]) -> str:
     return (
         timing_notice
         + cost_notice
-        + "<p>Tentativas IA de M18 e M20: <strong>%s</strong>; soma "
+        + "<p>Tentativas de IA (análise e remediação): <strong>%s</strong>; soma 
         "<strong>%s</strong>; união ativa <strong>%s</strong>. "
         "União ativa não equivale a duração da AUD.</p>"
         "<div class='table-wrap'><table><thead><tr>"

@@ -177,7 +177,7 @@ def _dynatrace_rum_kpm_reference_html(architecture: str) -> str:
         "Uma SPA pode possuir ações Load e XHR legítimas; a existência "
         "da arquitetura não obriga trocar a KPM Load por XHR. "
         "<strong>KPM configurada no tenant: N/D; thresholds e fallback: N/D.</strong> "
-        "O Apdex Synthetic M23/M25 permanece independente.</p>"
+        "As medições sintéticas de Apdex de navegação e experiência permanecem independentes.</p>"
         + "<details><summary>Consultar KPMs possíveis por Load, XHR e Custom</summary>"
         "<div class='table-wrap'><table><thead><tr>"
         "<th>Tipo de ação RUM</th><th>Critério para revisão</th>"
