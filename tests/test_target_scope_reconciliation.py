@@ -89,3 +89,37 @@ def test_ini_search_and_perplexity_provenance_roundtrip_without_paid_calls():
     legacy = SearchConsoleState(target="https://example.org/")
     console_settings._assign(legacy, "search_intelligence", "queries", "travel")
     assert consumer_status(legacy, "SERP") == "SOURCE_UNVERIFIED"
+
+
+def test_rejecting_stale_search_temporarily_excludes_cat05_without_changing_plan(monkeypatch):
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from types import ModuleType
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_catalog_plan import selected_catalog_ids, set_selected_catalog_ids, _PLANS
+    from rasai.console_perplexity_run_gate import install
+
+    state = SearchConsoleState(target="https://new.example/")
+    state.search_queries = ("old brand",)
+    state.search_scope_target = "https://old.example/"
+    state.perplexity_draft_queries = ("old brand",)
+    state.perplexity_scope_target = "https://old.example/"
+    _PLANS.clear()
+    try:
+        set_selected_catalog_ids(state, ["CAT-01", "CAT-05"])
+        called = []
+        module = ModuleType("target_scope_test_console")
+        def run(current):
+            called.append((selected_catalog_ids(current), current.search_queries,
+                           current.perplexity_queries))
+            return 0
+        module.run_audit_from_console = run
+        install(module)
+        monkeypatch.setattr("builtins.input", lambda prompt="": "N")
+        with redirect_stdout(StringIO()):
+            assert module.run_audit_from_console(state) == 0
+        assert called == [(("CAT-01",), (), ())]
+        assert selected_catalog_ids(state) == ("CAT-01", "CAT-05")
+        assert state.search_queries == ("old brand",)
+    finally:
+        _PLANS.clear()

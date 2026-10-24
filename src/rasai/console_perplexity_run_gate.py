@@ -71,7 +71,8 @@ def install(console_module: ModuleType) -> None:
 
     def run(state: Any) -> int:
         from rasai.target_scope_reconciliation import must_review, notices, bind
-        if must_review(state):
+        from rasai.console_catalog_plan import selected_catalog_ids, set_selected_catalog_ids
+        if must_review(state) and "CAT-05" in selected_catalog_ids(state):
             print("\n[ REVISÃO DE ESCOPO — ALVO ALTERADO ]")
             for warning in notices(state):
                 print("  - " + warning)
@@ -80,7 +81,9 @@ def install(console_module: ModuleType) -> None:
             if choice == "N":
                 old_search, old_perplexity = state.search_queries, state.perplexity_queries
                 old_skip = state.perplexity_skip_draft_this_aud
+                old_catalogs = selected_catalog_ids(state)
                 try:
+                    set_selected_catalog_ids(state, tuple(x for x in old_catalogs if x != "CAT-05"))
                     state.search_queries = ()
                     state.perplexity_queries = ()
                     state.perplexity_skip_draft_this_aud = True
@@ -89,9 +92,12 @@ def install(console_module: ModuleType) -> None:
                     state.search_queries = old_search
                     state.perplexity_queries = old_perplexity
                     state.perplexity_skip_draft_this_aud = old_skip
+                    set_selected_catalog_ids(state, old_catalogs)
             if choice != "C":
                 state.status = "READY"
                 state.operation = "LOCAL:TARGET_SCOPE_REVIEW_REQUIRED"
+                from rasai.console_first_run_cost_preview import _DECLINED as declined
+                declined.add(id(state))
                 return 0
             for source in ("SERP", "PERPLEXITY"):
                 bind(state, source)
