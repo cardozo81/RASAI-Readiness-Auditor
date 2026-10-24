@@ -32,9 +32,9 @@ class _FakeClient:
         return self.mapping.get(url, _http(url, b"", "text/plain"))
 
 
-def _xml_urls(n: int) -> bytes:
+def _xml_urls(n: int, *, offset: int = 0) -> bytes:
     return ("<urlset>" + "".join(
-        f"<url><loc>{ORIGIN}/page-{i}</loc></url>" for i in range(n)
+        f"<url><loc>{ORIGIN}/page-{i}</loc></url>" for i in range(offset, offset + n)
     ) + "</urlset>").encode()
 
 
@@ -80,8 +80,8 @@ def test_a167_single_url_limits_sitemap_fetches_and_candidate_inventory():
         index: _http(index, sitemap_index),
         ORIGIN + "/": _http(ORIGIN + "/", b"<main>One URL</main>", "text/html"),
     }
-    for child in children:
-        mapping[child] = _http(child, _xml_urls(275))
+    for idx, child in enumerate(children):
+        mapping[child] = _http(child, _xml_urls(275, offset=idx * 275))
     client = _FakeClient(mapping)
     outcome = DiscoveryEngine(http_client=client).discover(ORIGIN + "/", max_pages=1)
     assert outcome.total_audited == 1
