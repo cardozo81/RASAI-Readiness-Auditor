@@ -1,0 +1,40 @@
+name: A167 discovery GEO focal
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/discovery.py'
+      - 'src/rasai/m14_discovery.py'
+      - 'src/rasai/m2.py'
+      - 'src/rasai/m24_discovery_extensions.py'
+      - 'src/rasai/m24_crawling_discovery.py'
+      - 'src/rasai/search_geo_alignment.py'
+      - 'src/rasai/console_search_scope_presentation.py'
+      - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/console_perplexity_run_gate.py'
+      - 'src/rasai/geo_report.py'
+      - 'src/rasai/semantic_rendered_source.py'
+      - 'src/rasai/semantic_recovery_runtime.py'
+      - 'src/rasai/m7.py'
+      - 'tests/test_sitemap_budget_aud_a167.py'
+      - 'tests/test_a167_semantic_geo_alignment.py'
+      - '.github/workflows/a167-discovery-geo-focal.yml'
+permissions:
+  contents: read
+jobs:
+  a167-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest without browser downloads
+        run: python -m pip install -e . pytest
+      - name: Focused physical-AUD regressions only
+        run: |
+          python -m pytest -q \
+            tests/test_sitemap_budget_aud_a167.py \
+            tests/test_a167_semantic_geo_alignment.py

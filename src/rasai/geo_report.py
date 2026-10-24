@@ -658,6 +658,27 @@ def geo_body(database: Path, audit_id: str) -> str:
         )
         if isinstance(reason, str) and reason:
             summary += " Código persistido: <code>" + escape(reason[:100]) + "</code>."
+        if reason == "NO_EQUIVALENT_OBSERVED_SERP_QUERY" and current is not None:
+            baseline = _serp_baseline(database, audit_id)
+            try:
+                external_queries = json.loads(str(current.get("query_json") or "[]"))
+            except (TypeError, ValueError):
+                external_queries = []
+            if (
+                baseline is not None
+                and isinstance(external_queries, list)
+                and len(external_queries) == 1
+                and isinstance(external_queries[0], str)
+            ):
+                observed_serp = str(baseline[0].get("query") or "")
+                summary += (
+                    "</p><p><strong>Consultas efetivamente observadas:</strong> "
+                    "SERP: <code>" + escape(observed_serp[:180]) +
+                    "</code>; Perplexity: <code>" +
+                    escape(external_queries[0][:180]) + "</code>. "
+                    "Divergência de termos não significa erro de API, "
+                    "ausência de fontes nem equivalência dos contextos."
+                )
         summary += (
             "</p><p>Este registro não distingue SERP não solicitada de SERP "
             "solicitada sem resultado elegível. Uma AUD concluída significa "

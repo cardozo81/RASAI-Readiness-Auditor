@@ -148,9 +148,15 @@ class _PriorState:
         persistence: AuditPersistence,
         m5_result: M5ExecutionResult,
         m6_result: M6ExecutionResult,
+        workspace: AuditWorkspace | None = None,
+        audit_id: str | None = None,
     ) -> None:
         self._page: dict[tuple[str, str], RuleResult] = {}
         self._snapshot: dict[tuple[str, str], RuleResult] = {}
+        self._persistence = persistence
+        self._workspace = workspace
+        self._audit_id = audit_id
+        self._rendered_only_cache: dict[tuple[str, str], bool] = {}
         for execution_id in (*m5_result.rule_execution_ids, *m6_result.rule_execution_ids):
             execution = persistence.rule_executions.get(execution_id)
             if execution is None:
@@ -162,6 +168,19 @@ class _PriorState:
 
     def get(self, rule_id: str, page_id: str, snapshot_id: str) -> RuleResult | None:
         return self._snapshot.get((rule_id, snapshot_id)) or self._page.get((rule_id, page_id))
+
+    def rendered_only_ready(self, page_id: str, snapshot_id: str) -> bool:
+        key = (page_id, snapshot_id)
+        if key not in self._rendered_only_cache:
+            if self._workspace is None or not self._audit_id:
+                self._rendered_only_cache[key] = False
+            else:
+                from rasai.semantic_rendered_source import verified_rendered_semantic_source
+                self._rendered_only_cache[key] = verified_rendered_semantic_source(
+                    persistence=self._persistence, workspace=self._workspace,
+                    audit_id=self._audit_id, page_id=page_id, snapshot_id=snapshot_id,
+                )
+        return self._rendered_only_cache[key]
 
 
 def execute_m7(
@@ -193,7 +212,9 @@ def execute_m7(
         audit = persistence.audits.get(audit_id) or audit
 
     evidence_manager = EvidenceManager(persistence)
-    prior = _PriorState(persistence, m5_result, m6_result)
+    prior = _PriorState(
+        persistence, m5_result, m6_result, workspace=workspace, audit_id=audit_id,
+    )
     execution_ids: list[str] = []
     finding_ids: list[str] = []
     assessment_ids: list[str] = []
@@ -654,13 +675,23 @@ def _dependency_state(
     snapshot_id: str,
 ) -> RuleResult | None:
     html = prior.get("BR-GEO-009", page_id, snapshot_id)
+    rendered = prior.get("BR-GEO-020", page_id, snapshot_id)
+    # BR-009/020 are RAW-dependent, but an attested browser-200 DOM after a
+    # standalone HTTP 403 can support *semantic* advisory evaluation. Do not
+    # rewrite those technical rule results, even when this scoped gate allows M7.
+    rendered_only = (
+        html is RuleResult.NOT_APPLICABLE
+        and rendered is RuleResult.NOT_APPLICABLE
+        and prior.rendered_only_ready(page_id, snapshot_id)
+    )
+    if rendered_only:
+        return None
     if html in {RuleResult.FAIL, RuleResult.ERROR, RuleResult.NOT_APPLICABLE}:
         return RuleResult.NOT_APPLICABLE
     if html in {None, RuleResult.UNKNOWN}:
         return RuleResult.UNKNOWN
 
     if rule_id not in {"BR-GEO-034", "BR-GEO-035"}:
-        rendered = prior.get("BR-GEO-020", page_id, snapshot_id)
         if rendered in {RuleResult.FAIL, RuleResult.ERROR, RuleResult.NOT_APPLICABLE}:
             return RuleResult.NOT_APPLICABLE
         if rendered in {None, RuleResult.UNKNOWN}:

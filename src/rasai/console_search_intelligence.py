@@ -459,6 +459,17 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
         search_type = current_type if not raw_type else raw_type
         if search_type not in {"web", "fast"}:
             raise ValueError("tipo Perplexity deve ser web ou fast")
+        from rasai.search_geo_alignment import geo_query_alignment
+        alignment = geo_query_alignment(
+            tuple(getattr(state, "search_queries", ()) or ()), queries,
+        )
+        print(f"Comparabilidade GEO por consulta: {alignment['label']}")
+        if alignment["status"] == "DIVERGENT":
+            print(
+                "AVISO: SERP e Perplexity têm consultas diferentes. "
+                "Continuar é permitido, mas não produz equivalência comparativa. "
+                "A autorização faturável permanece independente."
+            )
         print(
             f"RESUMO EXPLÍCITO: Perplexity Search API {search_type.upper()}, "
             f"{len(queries)} query(s); credencial "

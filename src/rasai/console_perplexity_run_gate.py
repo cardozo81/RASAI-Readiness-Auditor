@@ -43,6 +43,14 @@ def confirm_draft_for_this_aud(state: Any, *, read: Callable[[str], str] | None 
     print(f"Configuração salva    : {len(queries)} query(s) | {mode}")
     for index, query in enumerate(queries, 1):
         print(f"  {index}. {query}")
+    from rasai.search_geo_alignment import geo_query_alignment
+    aligned = geo_query_alignment(
+        tuple(getattr(state, "search_queries", ()) or ()), queries,
+    )
+    print(f"Comparabilidade GEO : {aligned['label']}")
+    if aligned["status"] == "DIVERGENT":
+        print("AVISO: consultas distintas. A pesquisa pode ser bem-sucedida, "
+              "mas a comparação SERP × Perplexity permanecer N/D.")
     print("A Perplexity Search API pode gerar custo adicional, não incluído na")
     print("estimativa de IA quando o preço canônico é desconhecido.")
     print("C. Solicitar Perplexity nesta AUD (sujeito também à confirmação geral)")

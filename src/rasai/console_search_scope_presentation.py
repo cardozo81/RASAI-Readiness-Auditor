@@ -101,6 +101,23 @@ def render_search_scope(state: Any) -> None:
     px = inspect_perplexity_readiness(state)
     info("Solicitação", px["status"] if not perplexity_queries else "SOLICITADA")
     info("Quantidade de queries", len(perplexity_queries))
+    from rasai.search_geo_alignment import geo_query_alignment
+    active_or_draft = perplexity_queries or tuple(getattr(state, "perplexity_draft_queries", ()) or ())
+    matching = geo_query_alignment(queries, active_or_draft)
+    info("Alinhamento de consultas SERP × Perplexity", matching["label"])
+    if matching["status"] == "DIVERGENT":
+        print(paint(
+            "  Atenção: termos SERP e Perplexity não correspondem; o GEO poderá ser N/D. "
+            "Uma pesquisa bem-sucedida não garante comparabilidade. "
+            "Use CAT-05 > P para copiar termos com autorização explícita.",
+            DIM,
+        ))
+    elif matching["status"] == "QUERY_MATCH":
+        print(paint(
+            "  Consultas alinhadas; país, idioma, dispositivo e janela de coleta ainda "
+            "dependem de comprovação. Search API não equivale a resposta generativa.",
+            DIM,
+        ))
     info("Tipo", perplexity_type)
     # Saved inputs remain inert; at launch they may be explicitly approved.
     draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())

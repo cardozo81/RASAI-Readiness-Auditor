@@ -146,6 +146,8 @@ def _dependency_reason(
     m6_result: Any,
     page_id: str,
     snapshot_id: str,
+    workspace: AuditWorkspace | None = None,
+    audit_id: str | None = None,
 ) -> str | None:
     html = _rule_result(
         persistence,
@@ -161,6 +163,15 @@ def _dependency_reason(
         snapshot_id=snapshot_id,
     )
     if html is not RuleResult.PASS:
+        # Only a RAW HTTP 403 plus a physically verified browser-200 DOM can
+        # enable the advisory M7 semantic path; original BR-GEO results remain.
+        if html is RuleResult.NOT_APPLICABLE and rendered is RuleResult.NOT_APPLICABLE:
+            from rasai.semantic_rendered_source import verified_rendered_semantic_source
+            if workspace is not None and audit_id and verified_rendered_semantic_source(
+                persistence=persistence, workspace=workspace, audit_id=audit_id,
+                page_id=page_id, snapshot_id=snapshot_id,
+            ):
+                return None
         return f"TECHNICAL_PREREQUISITE_BR_GEO_009_{getattr(html, 'value', 'MISSING')}"
     if rendered is not RuleResult.PASS:
         return f"TECHNICAL_PREREQUISITE_BR_GEO_020_{getattr(rendered, 'value', 'MISSING')}"
@@ -240,6 +251,8 @@ def _dependency_gate(original):
                     m6_result=m6_result,
                     page_id=str(page_id),
                     snapshot_id=str(snapshot_id),
+                    workspace=workspace,
+                    audit_id=audit_id,
                 )
                 if reason:
                     reasons[str(snapshot_id)] = reason
