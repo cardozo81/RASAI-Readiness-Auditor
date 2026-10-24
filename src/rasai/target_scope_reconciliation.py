@@ -49,14 +49,43 @@ def scope_preflight(target: str, effective: str) -> None:
         raise ValueError("TARGET_SCOPE_MISMATCH")
 
 
+def bound_url_label(state: Any, consumer: str) -> str:
+    """Display only attested operator-provided scope, never infer one from terms."""
+    if consumer not in {"SERP", "PERPLEXITY"}:
+        raise ValueError("invalid consumer")
+    state_name = "search_scope_target" if consumer == "SERP" else "perplexity_scope_target"
+    current_status = consumer_status(state, consumer)
+    if current_status == "NOT_REQUESTED":
+        return "<sem consultas configuradas>"
+    bound = canonical_target(getattr(state, state_name, ""))
+    return bound or "<URL anterior não registrada no INI>"
+
+
+def scope_display_rows(state: Any, consumer: str) -> tuple[tuple[str, str], ...]:
+    """One canonical source for summaries, editors and consent gates."""
+    if consumer not in {"SERP", "PERPLEXITY"}:
+        raise ValueError("invalid consumer")
+    return (
+        ("URL da auditoria", canonical_target(getattr(state, "target", "")) or "<não informada>"),
+        ("URL vinculada aos termos" if consumer == "SERP" else "URL vinculada às queries",
+         bound_url_label(state, consumer)),
+        ("Situação do vínculo", consumer_status(state, consumer)),
+    )
+
+
 def notices(state: Any) -> tuple[str, ...]:
     labels = {
         "ORIGIN_CHANGED": "origem diferente do alvo atual",
         "PATH_CHANGED": "caminho ou query da URL alterado",
         "SOURCE_UNVERIFIED": "proveniência dos termos não verificada (INI legado)",
     }
-    return tuple(f"{source}: {labels[result]}" for source in ("SERP", "PERPLEXITY")
-                 if (result := consumer_status(state, source)) in labels)
+    return tuple(
+        f"{source}: {labels[result]}; "
+        f"URL dos termos: {bound_url_label(state, source)}; "
+        f"URL atual: {canonical_target(getattr(state, 'target', '')) or '<não informada>'}"
+        for source in ("SERP", "PERPLEXITY")
+        if (result := consumer_status(state, source)) in labels
+    )
 
 
 def must_review(state: Any) -> bool:
@@ -83,4 +112,10 @@ def execution_matrix(state: Any, environment: dict[str, str] | None = None) -> t
         ("CAT-05 / SERP", "TERMOS INDEPENDENTES", consumer_status(state, "SERP")),
         ("CAT-05 / PERPLEXITY", "CONSENTIMENTO INDEPENDENTE", consumer_status(state, "PERPLEXITY")),
         ("GSC", "PROPRIEDADE EXTERNA", gsc_status),
+        ("SERP / URL DE ORIGEM", "VÍNCULO CONFIGURADO", bound_url_label(state, "SERP")),
+        ("PERPLEXITY / URL DE ORIGEM", "VÍNCULO CONFIGURADO", bound_url_label(state, "PERPLEXITY")),
+        ("GSC / PROPRIEDADE", "ESCOPO CONFIGURADO",
+         str((os.environ if environment is None else environment).get(
+             "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL", ""
+         ) or "").strip() or "<não configurada>"),
     )

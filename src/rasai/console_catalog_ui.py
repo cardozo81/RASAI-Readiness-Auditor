@@ -141,6 +141,11 @@ def _render_context(state: Any, catalog: AuditCatalog) -> None:
             ),
         )
     elif catalog.id == "CAT-05":
+        from rasai.target_scope_reconciliation import scope_display_rows
+        for consumer in ("SERP", "PERPLEXITY"):
+            print(f"  [ VÍNCULO {consumer} ]")
+            for label, value in scope_display_rows(state, consumer):
+                info(label, value)
         queries = tuple(getattr(state, "search_queries", ()) or ())
         info("Termos SERP", "; ".join(queries) if queries else "<não configurados>")
         info("Região", getattr(state, "search_region", "") or "<não configurada>")
@@ -161,6 +166,11 @@ def _render_context(state: Any, catalog: AuditCatalog) -> None:
         )
         status, detail = raw_capability_status(state, "google-search-console")
         info("GSC", status)
+        info(
+            "Propriedade GSC",
+            os.environ.get("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL", "").strip()
+            or "<não configurada>",
+        )
         if detail:
             print(paint(f"  {detail}", DIM))
     elif catalog.id == "CAT-06":

@@ -33,10 +33,12 @@ def render_search_scope(state: Any) -> None:
 
     section("ESCOPO DESTA EXECUÇÃO")
     info("URL / entrada", getattr(state, "target", "") or "<não informada>")
-    from rasai.target_scope_reconciliation import consumer_status, notices
+    from rasai.target_scope_reconciliation import notices, scope_display_rows
     info("URL para motores técnicos", "HERDADA DO ALVO ÚNICO")
-    info("Vínculo dos termos SERP", consumer_status(state, "SERP"))
-    info("Vínculo dos termos Perplexity", consumer_status(state, "PERPLEXITY"))
+    for consumer in ("SERP", "PERPLEXITY"):
+        print(f"  [ VÍNCULO {consumer} ]")
+        for label, value in scope_display_rows(state, consumer):
+            info(label, value)
     for warning in notices(state):
         print(paint("  Revisar escopo: " + warning, DIM))
     info("Idioma / mercado", f"{getattr(state, 'language', '-')} / {getattr(state, 'market', '-')}")
@@ -82,6 +84,8 @@ def render_search_scope(state: Any) -> None:
     print()
     print(paint("GOOGLE SEARCH CONSOLE", CYAN, bold=True))
     status, detail = raw_capability_status(state, "google-search-console")
+    import os
+    info("Propriedade GSC", os.environ.get("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL", "").strip() or "<não configurada>")
     info("Estado para a URL atual", status)
     if detail:
         print(paint(f"  {detail}", DIM))

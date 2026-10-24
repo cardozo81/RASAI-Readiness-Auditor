@@ -123,3 +123,101 @@ def test_rejecting_stale_search_temporarily_excludes_cat05_without_changing_plan
         assert state.search_queries == ("old brand",)
     finally:
         _PLANS.clear()
+
+
+def test_explicit_source_urls_are_visible_even_if_url_editor_normalizes_trailing_slash():
+    from rasai.target_scope_reconciliation import bound_url_label, scope_display_rows
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    state = SearchConsoleState(target="https://www.nytimes.com/")
+    state.search_queries = ("seguro de vida",)
+    state.search_scope_target = "https://seguros.example/vida"
+    state.perplexity_draft_queries = ("seguro para família",)
+    state.perplexity_scope_target = "https://seguros.example/vida"
+    assert scope_display_rows(state, "SERP") == (
+        ("URL da auditoria", "https://www.nytimes.com/"),
+        ("URL vinculada aos termos", "https://seguros.example/vida"),
+        ("Situação do vínculo", "ORIGIN_CHANGED"),
+    )
+    assert bound_url_label(state, "PERPLEXITY") == "https://seguros.example/vida"
+    for notice in notices(state):
+        assert "https://seguros.example/vida" in notice
+        assert "https://www.nytimes.com/" in notice
+    assert canonical_target("https://www.nytimes.com") == canonical_target(state.target)
+
+    state.search_scope_target = ""
+    assert bound_url_label(state, "SERP") == "<URL anterior não registrada no INI>"
+    state.search_queries = ()
+    assert bound_url_label(state, "SERP") == "<sem consultas configuradas>"
+
+
+def test_changed_url_editor_shows_existing_origin_without_claiming_slash_change(monkeypatch):
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from rasai import interactive_console
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    state = SearchConsoleState(
+        target="https://www.nytimes.com/", search_queries=("seguro de vida",),
+        search_scope_target="https://seguros.example/vida",
+    )
+    monkeypatch.setattr(interactive_console, "render_header", lambda state: None)
+    monkeypatch.setattr(interactive_console, "prompt_text", lambda *a, **k: "https://www.nytimes.com")
+    output = StringIO()
+    with redirect_stdout(output):
+        interactive_console._configure(state, "1")
+    view = output.getvalue()
+    assert "URL normalizada não mudou" in view
+    assert "https://seguros.example/vida" in view
+    assert state.target == "https://www.nytimes.com"
+    assert state.search_queries == ("seguro de vida",)
+
+
+def test_cat05_editor_and_summary_print_both_source_urls_without_network(monkeypatch):
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from unittest.mock import patch
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_search_parameter_menu import _render_execution_menu, _configure_perplexity
+    from rasai.search_intelligence.config import SerpRuntimeConfig
+    from rasai import console_search_intelligence
+
+    state = SearchConsoleState(target="https://www.nytimes.com/")
+    state.search_queries = ("seguro de vida",)
+    state.search_scope_target = "https://seguros.example/vida"
+    state.perplexity_draft_queries = ("seguro para família",)
+    state.perplexity_scope_target = "https://seguro.example/familia"
+    output = StringIO()
+    with redirect_stdout(output):
+        _render_execution_menu(state, SerpRuntimeConfig.from_environment())
+    rendered = output.getvalue()
+    assert "https://www.nytimes.com/" in rendered
+    assert "https://seguros.example/vida" in rendered
+    assert "https://seguro.example/familia" in rendered
+
+    output = StringIO()
+    with patch("builtins.input", return_value="V"), redirect_stdout(output):
+        _configure_perplexity(console_search_intelligence, state)
+    assert "https://seguro.example/familia" in output.getvalue()
+    assert "https://www.nytimes.com/" in output.getvalue()
+    assert state.perplexity_queries == ()
+
+
+def test_matrix_includes_actual_configured_gsc_property_without_touching_credentials():
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    state = SearchConsoleState(target="https://www.nytimes.com/")
+    state.search_queries = ("travel",)
+    state.search_scope_target = "https://another.example/"
+    state.perplexity_draft_queries = ("travel",)
+    state.perplexity_scope_target = "https://different.example/"
+    rows = execution_matrix(state, {
+        "RASAI_GSC_ENABLED": "true",
+        "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL": "sc-domain:another.example",
+        "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN": "SECRET_DO_NOT_EXPOSE",
+    })
+    assert rows[3][2] == "PROPERTY_URL_MISMATCH"
+    assert rows[4][2] == "https://another.example/"
+    assert rows[5][2] == "https://different.example/"
+    assert rows[6][2] == "sc-domain:another.example"
+    assert "SECRET_DO_NOT_EXPOSE" not in str(rows)

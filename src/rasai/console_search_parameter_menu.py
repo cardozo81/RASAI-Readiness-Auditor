@@ -148,6 +148,9 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
         print(f"\n[ INFO ] {feedback}")
 
     print("\n[ O QUE PESQUISAR - PRÓXIMA EXECUÇÃO ]")
+    from rasai.target_scope_reconciliation import scope_display_rows
+    for label, value in scope_display_rows(state, "SERP"):
+        print(f"   {label:<26}: {value}")
     print(f"1. Termos de busca          : {'; '.join(queries) if queries else '<não configurados>'}")
     print(f"2. Localidade               : {region or '<usa apenas país/mercado da auditoria>'}")
     print(f"3. Profundidade desejada    : Top {depth}")
@@ -193,6 +196,8 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
     from rasai.console_search_intelligence import perplexity_enabled
     px_activation = "ATIVA" if perplexity_enabled() else "DESATIVADA"
     print(f"\nP. Perplexity externa      : {px_activation} | {px_request} | {px_credential}")
+    for label, value in scope_display_rows(state, "PERPLEXITY"):
+        print(f"   {label:<26}: {value}")
     print(
         f"   Configuração: {px_view['configuration_status']} | "
         f"{px_view['configured_query_count']} query(s) {px_view['configured_mode']} | "
@@ -534,6 +539,9 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         ready, detail = search_module.validate_perplexity_readiness(state)
 
         print("\n[ PERPLEXITY SEARCH INTELLIGENCE — PESQUISA EXTERNA ]")
+        from rasai.target_scope_reconciliation import scope_display_rows
+        for label, value in scope_display_rows(state, "PERPLEXITY"):
+            print(f"  {label:<24}: {value}")
         print(
             "  Advisory e independente de SERP: não altera scoring, SARI, CAT score "
             "ou evidência determinística."

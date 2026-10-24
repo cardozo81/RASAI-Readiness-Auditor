@@ -420,9 +420,17 @@ def _configure(state: State, choice: str) -> None:
             state.input_mode = "url"
             state.target = target
             state.current_url = target or "-"
-            if previous_target != target:
-                from rasai.target_scope_reconciliation import notices
-                for note in notices(state):
+            from rasai.target_scope_reconciliation import canonical_target, notices
+            warnings = notices(state)
+            if warnings:
+                if canonical_target(previous_target) == canonical_target(target):
+                    print(paint(
+                        "  A URL normalizada não mudou; os conflitos de configuração abaixo já existiam:",
+                        YELLOW,
+                    ))
+                else:
+                    print(paint("  URL alterada: revise os vínculos abaixo:", YELLOW))
+                for note in warnings:
                     print(paint("  Revisar configuração: " + note, YELLOW))
 
         elif choice == "2":
