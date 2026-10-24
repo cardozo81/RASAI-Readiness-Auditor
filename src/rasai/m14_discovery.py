@@ -15,6 +15,7 @@ from rasai.discovery import (
     RobotsResult,
     RobotsState,
     SitemapResult,
+    sitemap_resource_budget,
     SitemapState,
 )
 from rasai.domain import DiscoverySource
@@ -65,7 +66,8 @@ def discover_url_set(
 
     sitemap_results: list[SitemapResult] = []
     index = 0
-    while index < len(sitemap_queue):
+    budget = sitemap_resource_budget(max_pages)
+    while index < len(sitemap_queue) and len(sitemap_results) < budget:
         sitemap_url = sitemap_queue[index]
         index += 1
         result = engine._acquire_sitemap(sitemap_url, origin)  # noqa: SLF001
@@ -132,4 +134,9 @@ def discover_url_set(
         total_audited=len(pages),
         max_pages=max_pages,
         limit_reached=False,
+        discovery_limitations=(
+            (f"SITEMAP_RESOURCE_BUDGET_EXHAUSTED:acquired={len(sitemap_results)};"
+             f"queued={len(sitemap_queue)};policy={budget}",)
+            if index < len(sitemap_queue) else ()
+        ),
     )

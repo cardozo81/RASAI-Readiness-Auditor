@@ -88,7 +88,8 @@ def _acquire_sitemap_m24(
 
     payload = acquisition.body
     content_type = (acquisition.header("Content-Type") or "").casefold()
-    if sitemap_url.casefold().endswith(".gz") or "gzip" in content_type:
+    # Content may already have been transparently decompressed by HTTP.
+    if payload.startswith(b"\x1f\x8b"):
         try:
             payload = gzip.GzipFile(fileobj=BytesIO(payload)).read(MAX_SITEMAP_BYTES + 1)
         except OSError as exc:
@@ -223,6 +224,7 @@ def _parse_text_urls(payload: bytes, base_url: str, origin: str) -> tuple[list[s
 
 def _xml_urlset_urls(root: ET.Element, base_url: str, origin: str) -> list[str]:
     values: list[str] = []
+    seen: set[str] = set()
     for url_node in list(root):
         if _local_name(url_node.tag) != "url":
             continue
@@ -234,12 +236,13 @@ def _xml_urlset_urls(root: ET.Element, base_url: str, origin: str) -> list[str]:
             ),
             "",
         )
-        _append_same_origin(values, loc, base_url, origin)
+        _append_same_origin(values, loc, base_url, origin, seen)
     return values
 
 
 def _xml_index_urls(root: ET.Element, base_url: str, origin: str) -> list[str]:
     values: list[str] = []
+    seen: set[str] = set()
     for sitemap_node in list(root):
         if _local_name(sitemap_node.tag) != "sitemap":
             continue
@@ -251,24 +254,26 @@ def _xml_index_urls(root: ET.Element, base_url: str, origin: str) -> list[str]:
             ),
             "",
         )
-        _append_same_origin(values, loc, base_url, origin)
+        _append_same_origin(values, loc, base_url, origin, seen)
     return values
 
 
 def _rss_urls(root: ET.Element, base_url: str, origin: str) -> list[str]:
     values: list[str] = []
+    seen: set[str] = set()
     for node in root.iter():
         if _local_name(node.tag) != "item":
             continue
         for child in list(node):
             if _local_name(child.tag) == "link" and (child.text or "").strip():
-                _append_same_origin(values, (child.text or "").strip(), base_url, origin)
+                _append_same_origin(values, (child.text or "").strip(), base_url, origin, seen)
                 break
     return values
 
 
 def _atom_urls(root: ET.Element, base_url: str, origin: str) -> list[str]:
     values: list[str] = []
+    seen: set[str] = set()
     for node in root.iter():
         if _local_name(node.tag) != "entry":
             continue
@@ -278,19 +283,27 @@ def _atom_urls(root: ET.Element, base_url: str, origin: str) -> list[str]:
             rel = (child.attrib.get("rel") or "alternate").casefold()
             href = (child.attrib.get("href") or "").strip()
             if rel in {"", "alternate"} and href:
-                _append_same_origin(values, href, base_url, origin)
+                _append_same_origin(values, href, base_url, origin, seen)
                 break
     return values
 
 
-def _append_same_origin(values: list[str], raw: str, base_url: str, origin: str) -> None:
+def _append_same_origin(
+    values: list[str], raw: str, base_url: str, origin: str, seen: set[str] | None = None,
+) -> None:
     if not raw:
         return
     try:
         normalized = normalize_url(raw, base_url=base_url)
     except ValueError:
         return
-    if is_same_origin(normalized, origin) and normalized not in values:
+    if not is_same_origin(normalized, origin):
+        return
+    if seen is not None:
+        if normalized not in seen:
+            seen.add(normalized)
+            values.append(normalized)
+    elif normalized not in values:
         values.append(normalized)
 
 

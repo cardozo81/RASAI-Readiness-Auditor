@@ -365,6 +365,7 @@ def execute_m2(
             rule_execution_ids.append(execution.rule_execution_id)
 
     limitations = list(discovering.limitations)
+    limitations.extend(discovery.discovery_limitations)
     if discovery.limit_reached:
         limitations.append(
             f"MAX_PAGES_REACHED:discovered={discovery.total_discovered};audited={discovery.total_audited}"
@@ -404,8 +405,13 @@ def _persist_sitemap_evidence(
             "discovery_origin": discovery_origin,
             "http": _http_observed_value(sitemap.acquisition),
             "url_count": len(sitemap.page_urls),
-            "page_urls": list(sitemap.page_urls),
-            "child_sitemaps": list(sitemap.child_sitemaps),
+            # The raw body artifact is authoritative; JSON stores bounded samples.
+            "page_urls": list(sitemap.page_urls[:16]),
+            "child_sitemaps": list(sitemap.child_sitemaps[:16]),
+            "child_sitemap_count": len(sitemap.child_sitemaps),
+            "inventory_projection": "SAMPLE_16_RAW_ARTIFACT_AUTHORITATIVE",
+            "page_urls_sha256": sha256("\n".join(sitemap.page_urls).encode("utf-8")).hexdigest(),
+            "child_sitemaps_sha256": sha256("\n".join(sitemap.child_sitemaps).encode("utf-8")).hexdigest(),
             "error": sitemap.error,
         },
         artifact_reference=artifact_reference,

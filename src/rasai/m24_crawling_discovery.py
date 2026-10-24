@@ -157,6 +157,28 @@ def execute_m24(
             workspace=workspace,
         )
         diagnostics.extend(sitemap_diagnostics)
+        # A bounded inventory cannot prove that a URL is missing from all sitemaps.
+        try:
+            raw = connection.execute(
+                "SELECT limitations FROM audits WHERE audit_id=?", (audit_id,)
+            ).fetchone()
+            limitations = _json_value(raw[0]) if raw else []
+            inventory_complete = not any(
+                str(v).startswith(("SITEMAP_RESOURCE_BUDGET_EXHAUSTED", "DISCOVERY_CANDIDATE_BUDGET_EXHAUSTED"))
+                for v in (limitations if isinstance(limitations, list) else [])
+            )
+        except sqlite3.Error:
+            inventory_complete = False
+        if not inventory_complete:
+            diagnostics.append(M24Diagnostic(
+                code="M24-SITEMAP-BOUNDED-INVENTORY",
+                category="DISCOVERY", severity="INFO",
+                title="Descoberta de sitemap limitada pelo orçamento de recursos",
+                scope_url=origin,
+                observed={"inventory_complete": False, "url_absence_inference": "NOT_ALLOWED"},
+                evidence_ids=tuple(sitemap_info["evidence_ids"]),
+                remediation="Inventário parcial: não inferir ausência da URL nos sitemaps.",
+            ))
         diagnostics.extend(
             _cross_correlate_pages(
                 connection=connection,
@@ -166,6 +188,7 @@ def execute_m24(
                 sitemap_urls=frozenset(sitemap_info["page_urls"]),
                 sitemap_evidence_ids=tuple(sitemap_info["evidence_ids"]),
                 target_type=target_type,
+                sitemap_inventory_complete=inventory_complete,
             )
         )
 
@@ -706,6 +729,7 @@ def _sitemap_diagnostics(
     ).fetchall()
     diagnostics: list[M24Diagnostic] = []
     page_urls: list[str] = []
+    seen_page_urls: set[str] = set()
     evidence_ids: list[str] = []
     source_count = 0
     for row in rows:
@@ -757,7 +781,10 @@ def _sitemap_diagnostics(
                     remediation="Informativo; nenhuma alteração é necessária apenas pelo formato.",
                 )
             )
-        page_urls.extend(item for item in artifact["page_urls"] if item not in page_urls)
+        for item in artifact["page_urls"]:
+            if item not in seen_page_urls:
+                seen_page_urls.add(item)
+                page_urls.append(item)
 
         if artifact["duplicate_urls"]:
             diagnostics.append(
@@ -866,7 +893,7 @@ def _analyze_sitemap_artifact(
     if not path.is_file():
         return result
     payload = path.read_bytes()
-    if source_url.casefold().endswith(".gz"):
+    if payload.startswith(b"\x1f\x8b"):
         try:
             payload = gzip.GzipFile(fileobj=BytesIO(payload)).read(MAX_SITEMAP_BYTES + 1)
         except OSError:
@@ -877,6 +904,7 @@ def _analyze_sitemap_artifact(
     if not stripped.startswith(b"<"):
         result["format"] = "TEXT"
         seen: set[str] = set()
+        seen_page_urls: set[str] = set()
         for line in payload.decode("utf-8-sig", errors="replace").splitlines():
             raw = line.strip()
             if not raw:
@@ -890,8 +918,10 @@ def _analyze_sitemap_artifact(
             if url in seen and url not in result["duplicate_urls"]:
                 result["duplicate_urls"].append(url)
             seen.add(url)
-            if url not in result["page_urls"]:
-                result["page_urls"].append(url)
+            if url in seen_page_urls:
+                continue
+            seen_page_urls.add(url)
+            result["page_urls"].append(url)
         return result
     try:
         root = ET.fromstring(payload)
@@ -901,6 +931,7 @@ def _analyze_sitemap_artifact(
     if root_name == "urlset":
         result["format"] = "XML_URLSET"
         raw_locs: list[str] = []
+        seen_page_entries: set[str] = set()
         for url_node in list(root):
             if _local_name(url_node.tag) != "url":
                 continue
@@ -927,8 +958,8 @@ def _analyze_sitemap_artifact(
                         result["hreflang_links"] += 1
             if loc:
                 raw_locs.append(loc)
-                _append_same_origin(result["page_urls"], loc, source_url, origin)
-        normalized_raw = []
+                _append_same_origin(result["page_urls"], loc, source_url, origin, seen_page_entries)
+        normalized_raw: set[str] = set()
         for raw in raw_locs:
             try:
                 norm = normalize_url(raw, base_url=source_url)
@@ -936,9 +967,10 @@ def _analyze_sitemap_artifact(
                 continue
             if norm in normalized_raw and norm not in result["duplicate_urls"]:
                 result["duplicate_urls"].append(norm)
-            normalized_raw.append(norm)
+            normalized_raw.add(norm)
     elif root_name == "sitemapindex":
         result["format"] = "XML_INDEX"
+        seen_child: set[str] = set()
         for sitemap_node in list(root):
             if _local_name(sitemap_node.tag) != "sitemap":
                 continue
@@ -950,9 +982,10 @@ def _analyze_sitemap_artifact(
                 ),
                 "",
             )
-            _append_same_origin(result["child_sitemaps"], loc, source_url, origin)
+            _append_same_origin(result["child_sitemaps"], loc, source_url, origin, seen_child)
     elif root_name == "rss":
         result["format"] = "RSS_2"
+        seen_entries: set[str] = set()
         for node in root.iter():
             if _local_name(node.tag) != "item":
                 continue
@@ -964,9 +997,10 @@ def _analyze_sitemap_artifact(
                 ),
                 "",
             )
-            _append_same_origin(result["page_urls"], link, source_url, origin)
+            _append_same_origin(result["page_urls"], link, source_url, origin, seen_entries)
     elif root_name == "feed":
         result["format"] = "ATOM_1"
+        seen_entries: set[str] = set()
         for node in root.iter():
             if _local_name(node.tag) != "entry":
                 continue
@@ -976,7 +1010,7 @@ def _analyze_sitemap_artifact(
                 rel = (child.attrib.get("rel") or "alternate").casefold()
                 href = (child.attrib.get("href") or "").strip()
                 if rel in {"", "alternate"} and href:
-                    _append_same_origin(result["page_urls"], href, source_url, origin)
+                    _append_same_origin(result["page_urls"], href, source_url, origin, seen_entries)
                     break
     return result
 
@@ -1009,6 +1043,7 @@ def _cross_correlate_pages(
     sitemap_urls: frozenset[str],
     sitemap_evidence_ids: tuple[str, ...],
     target_type: str,
+    sitemap_inventory_complete: bool = True,
 ) -> list[M24Diagnostic]:
     diagnostics: list[M24Diagnostic] = []
     robots_observed = _json_value(robots["observed_value"]) if robots is not None else {}
@@ -1026,7 +1061,7 @@ def _cross_correlate_pages(
     ).fetchall()
     audited_urls = [str(row["normalized_url"]) for row in pages]
 
-    if sitemap_urls:
+    if sitemap_urls and sitemap_inventory_complete:
         missing = [url for url in audited_urls if url not in sitemap_urls]
         if missing:
             diagnostics.append(
@@ -1382,14 +1417,22 @@ def _contains_noindex(value: str) -> bool:
     return any(token == "noindex" or token.endswith(": noindex") for token in tokens)
 
 
-def _append_same_origin(values: list[str], raw: str, base_url: str, origin: str) -> None:
+def _append_same_origin(
+    values: list[str], raw: str, base_url: str, origin: str, seen: set[str] | None = None,
+) -> None:
     if not raw:
         return
     try:
         normalized = normalize_url(raw, base_url=base_url)
     except ValueError:
         return
-    if is_same_origin(normalized, origin) and normalized not in values:
+    if not is_same_origin(normalized, origin):
+        return
+    if seen is not None:
+        if normalized not in seen:
+            seen.add(normalized)
+            values.append(normalized)
+    elif normalized not in values:
         values.append(normalized)
 
 

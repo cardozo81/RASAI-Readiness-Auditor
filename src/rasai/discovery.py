@@ -15,6 +15,16 @@ from rasai.domain import DiscoverySource
 from rasai.url_utils import is_same_origin, normalize_url, normalized_origin, resolve_http_url
 
 
+def sitemap_resource_budget(max_pages: int) -> int:
+    """Bound sitemap fetches independently of the number of audited URLs."""
+    return min(128, max(12, max_pages * 4))
+
+
+def discovery_candidate_budget(max_pages: int) -> int:
+    """Prevent unbounded URL provenance for a single-page audit."""
+    return min(50_000, max(2_000, max_pages * 100))
+
+
 DEFAULT_CRAWLERS = (
     "Googlebot",
     "Googlebot Smartphone",
@@ -87,6 +97,7 @@ class DiscoveryResult:
     total_audited: int
     max_pages: int
     limit_reached: bool
+    discovery_limitations: tuple[str, ...] = ()
 
 
 @dataclass(slots=True)
@@ -141,6 +152,9 @@ class DiscoveryEngine:
         candidates: dict[str, _Candidate] = {}
         provenance: list[DiscoveryProvenance] = []
         provenance_keys: set[tuple[str, DiscoverySource, str | None, str]] = set()
+        candidate_cap = discovery_candidate_budget(max_pages)
+        candidate_budget_exhausted = False
+        sitemap_budget = sitemap_resource_budget(max_pages)
 
         def add_candidate(
             discovered_url: str,
@@ -150,6 +164,7 @@ class DiscoveryEngine:
             depth: int,
             reference_increment: int = 0,
         ) -> str | None:
+            nonlocal candidate_budget_exhausted
             try:
                 normalized = normalize_url(discovered_url)
             except ValueError:
@@ -158,6 +173,9 @@ class DiscoveryEngine:
                 return None
             candidate = candidates.get(normalized)
             if candidate is None:
+                if len(candidates) >= candidate_cap:
+                    candidate_budget_exhausted = True
+                    return None
                 candidate = _Candidate(
                     normalized_url=normalized,
                     discovered_url=discovered_url,
@@ -201,7 +219,7 @@ class DiscoveryEngine:
 
         sitemap_results: list[SitemapResult] = []
         sitemap_index = 0
-        while sitemap_index < len(sitemap_queue):
+        while sitemap_index < len(sitemap_queue) and len(sitemap_results) < sitemap_budget:
             sitemap_url = sitemap_queue[sitemap_index]
             sitemap_index += 1
             result = self._acquire_sitemap(sitemap_url, origin)
@@ -297,6 +315,17 @@ class DiscoveryEngine:
             crawler_access=crawler_access,
         )
 
+        limitations = []
+        if sitemap_index < len(sitemap_queue):
+            limitations.append(
+                f"SITEMAP_RESOURCE_BUDGET_EXHAUSTED:acquired={len(sitemap_results)};"
+                f"queued={len(sitemap_queue)};policy={sitemap_budget}"
+            )
+        if candidate_budget_exhausted:
+            limitations.append(
+                f"DISCOVERY_CANDIDATE_BUDGET_EXHAUSTED:retained={len(candidates)};"
+                f"policy={candidate_cap}"
+            )
         return DiscoveryResult(
             origin=origin,
             pages=pages,
@@ -307,7 +336,10 @@ class DiscoveryEngine:
             total_discovered=len(candidates),
             total_audited=len(pages),
             max_pages=max_pages,
-            limit_reached=any(url not in selected_set for url in candidates),
+            limit_reached=(
+                candidate_budget_exhausted or any(url not in selected_set for url in candidates)
+            ),
+            discovery_limitations=tuple(limitations),
         )
 
     def _selection_key(self, candidate: _Candidate) -> tuple[int, int, int, str]:
