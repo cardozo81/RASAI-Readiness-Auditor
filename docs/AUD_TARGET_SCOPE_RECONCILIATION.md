@@ -1,4 +1,4 @@
-# Contrato transversal de alvo da AUD — Console e CAT-05
+# Contrato transversal de alvo da AUD - Console e CAT-05
 
 ## Fonte da verdade
 
