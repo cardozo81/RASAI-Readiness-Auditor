@@ -13,7 +13,7 @@ def canonical_target(value: object) -> str:
         return ""
 
 
-def status(target: object, bound_target: object, *, requested: bool) -> str:
+def scope_state(target: object, bound_target: object, *, requested: bool) -> str:
     if not requested:
         return "NOT_REQUESTED"
     current = canonical_target(target)
@@ -36,7 +36,7 @@ def consumer_status(state: Any, consumer: str) -> str:
         requested = bool(getattr(state, "perplexity_queries", ()) or getattr(state, "perplexity_draft_queries", ()))
     else:
         raise ValueError("invalid consumer")
-    return status(getattr(state, "target", ""), bound, requested=requested)
+    return scope_state(getattr(state, "target", ""), bound, requested=requested)
 
 
 def bind(state: Any, consumer: str) -> None:
