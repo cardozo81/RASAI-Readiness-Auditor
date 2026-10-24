@@ -32,4 +32,4 @@ O CAT-05 e a preparação exibem uma matriz de herança dos motores, termos inde
 
 ## Testes
 
-`tests/test_target_scope_reconciliation.py`: alteração entre domínios, caminho, INI legado, vínculo de queries, GSC incompatível, serialização das duas fontes, propagação e falha fechada quando o alvo de execução diverge. Nenhum request de provider, Docker, Browser ou smoke pago é necessário.
+`tests/test_target_scope_reconciliation.py`: alteração entre domínios, caminho, INI anterior, vínculo de queries, GSC incompatível, serialização das duas fontes, propagação e falha fechada quando o alvo de execução diverge. Nenhum request de provider, Docker, Browser ou smoke pago é necessário.
