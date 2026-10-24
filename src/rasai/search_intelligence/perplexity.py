@@ -679,6 +679,7 @@ def execute_perplexity_search(
         "Content-Type": "application/json",
         "Accept": "application/json",
         "User-Agent": "RASAi-Search-Intelligence/1",
+        "X-Pplx-Integration": "rasai-readiness-auditor",
     }
     effective_transport = transport or _default_transport
 
