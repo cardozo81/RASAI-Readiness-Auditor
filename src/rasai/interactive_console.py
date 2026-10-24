@@ -416,9 +416,14 @@ def _configure(state: State, choice: str) -> None:
                 current=state.target if state.input_mode == "url" else "",
                 empty_keeps_current=False,
             )
+            previous_target = state.target
             state.input_mode = "url"
             state.target = target
             state.current_url = target or "-"
+            if previous_target != target:
+                from rasai.target_scope_reconciliation import notices
+                for note in notices(state):
+                    print(paint("  Revisar configuração: " + note, YELLOW))
 
         elif choice == "2":
             state.project = prompt_text(

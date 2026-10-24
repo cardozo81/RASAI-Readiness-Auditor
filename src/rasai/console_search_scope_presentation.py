@@ -33,6 +33,12 @@ def render_search_scope(state: Any) -> None:
 
     section("ESCOPO DESTA EXECUÇÃO")
     info("URL / entrada", getattr(state, "target", "") or "<não informada>")
+    from rasai.target_scope_reconciliation import consumer_status, notices
+    info("URL para motores técnicos", "HERDADA DO ALVO ÚNICO")
+    info("Vínculo dos termos SERP", consumer_status(state, "SERP"))
+    info("Vínculo dos termos Perplexity", consumer_status(state, "PERPLEXITY"))
+    for warning in notices(state):
+        print(paint("  Revisar escopo: " + warning, DIM))
     info("Idioma / mercado", f"{getattr(state, 'language', '-')} / {getattr(state, 'market', '-')}")
     info("Device da auditoria", _friendly_device(getattr(state, "device", "mobile")))
 

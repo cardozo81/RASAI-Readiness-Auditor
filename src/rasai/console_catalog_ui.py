@@ -350,6 +350,11 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         selected = tuple(item for item in CATALOGS if is_selected(state, item.id))
         plan_state, plan_detail = execution_ready(console_module, state)
         ai_state, ai_lines = _ai_summary(state, selected)
+        if any(item.id == "CAT-05" for item in selected):
+            from rasai.target_scope_reconciliation import execution_matrix
+            section("ADERÊNCIA DO ALVO AOS CONSUMIDORES")
+            for consumer, origin, result in execution_matrix(state):
+                print(f"  {consumer:<29} | {origin:<24} | {result}")
         section("PLANO DA PRÓXIMA AUDITORIA")
         print(f"Catálogos selecionados     : {len(selected)}")
         print(f"Estado                     : {badge(plan_state)} | {plan_detail}")

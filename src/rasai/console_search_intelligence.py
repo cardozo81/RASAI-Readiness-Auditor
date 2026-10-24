@@ -48,6 +48,7 @@ class SearchConsoleState(BaseState):
     config_dirty: bool = False
 
     search_queries: tuple[str, ...] = ()
+    search_scope_target: str = ""
     search_depth: int = 20
     search_region: str = ""
     search_device: str = "mobile"
@@ -68,6 +69,7 @@ class SearchConsoleState(BaseState):
     perplexity_search_type: str = "web"
     # Reusable non-secret drafting inputs, without paid-request intent.
     perplexity_draft_queries: tuple[str, ...] = ()
+    perplexity_scope_target: str = ""
     perplexity_draft_search_type: str = "web"
     # Opt-out only for the current AUD; neither request nor skip is persisted.
     perplexity_skip_draft_this_aud: bool = False
@@ -312,6 +314,8 @@ def configure_search_intelligence(state: SearchConsoleState) -> None:
                 f"foram informados {len(queries)} termos; limite atual é {config.max_queries}"
             )
         state.search_queries = queries
+        from rasai.target_scope_reconciliation import bind
+        bind(state, "SERP")
 
         current_depth = min(max(int(state.search_depth), 1), config.max_depth)
         depth_raw = input(
@@ -490,6 +494,8 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
             state.error = ""
             return
         state.perplexity_queries = queries
+        from rasai.target_scope_reconciliation import bind
+        bind(state, "PERPLEXITY")
         state.perplexity_search_type = search_type
         state.perplexity_last_status = "PENDING"
         state.perplexity_last_detail = (
@@ -693,6 +699,9 @@ def build_search_argv(
     queries = tuple(getattr(state, "search_queries", ()) or ())
     if not queries:
         raise ValueError("nenhum termo Search Intelligence configurado")
+    if str(getattr(state, 'target', '') or '').strip():
+        from rasai.target_scope_reconciliation import scope_preflight
+        scope_preflight(str(state.target), target_url)
     host = urlsplit(target_url).hostname
     if not host:
         raise ValueError(f"não foi possível derivar domínio do target {target_url!r}")

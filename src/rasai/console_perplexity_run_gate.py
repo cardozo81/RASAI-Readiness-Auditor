@@ -70,6 +70,31 @@ def install(console_module: ModuleType) -> None:
     original_run = console_module.run_audit_from_console
 
     def run(state: Any) -> int:
+        from rasai.target_scope_reconciliation import must_review, notices, bind
+        if must_review(state):
+            print("\n[ REVISÃO DE ESCOPO — ALVO ALTERADO ]")
+            for warning in notices(state):
+                print("  - " + warning)
+            print("C. Confirmar termos para novo alvo (sem API); N. Omitir pesquisas nesta AUD; V. Voltar")
+            choice = input("Revisar escopo [C/N/V]: ").strip().upper()
+            if choice == "N":
+                old_search, old_perplexity = state.search_queries, state.perplexity_queries
+                old_skip = state.perplexity_skip_draft_this_aud
+                try:
+                    state.search_queries = ()
+                    state.perplexity_queries = ()
+                    state.perplexity_skip_draft_this_aud = True
+                    return int(original_run(state) or 0)
+                finally:
+                    state.search_queries = old_search
+                    state.perplexity_queries = old_perplexity
+                    state.perplexity_skip_draft_this_aud = old_skip
+            if choice != "C":
+                state.status = "READY"
+                state.operation = "LOCAL:TARGET_SCOPE_REVIEW_REQUIRED"
+                return 0
+            for source in ("SERP", "PERPLEXITY"):
+                bind(state, source)
         if not draft_pending_confirmation(state):
             try:
                 return int(original_run(state) or 0)

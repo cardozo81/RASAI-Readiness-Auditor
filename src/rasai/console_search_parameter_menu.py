@@ -262,6 +262,8 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
         print(f"  Valor inválido: use de 1 a {maximum} queries.")
         return
     state.perplexity_queries = queries
+    from rasai.target_scope_reconciliation import bind
+    bind(state, "PERPLEXITY")
     state.perplexity_skip_draft_this_aud = False
     _mark_perplexity_pending(search_module, state)
 
@@ -286,6 +288,8 @@ def _manage_perplexity_draft(search_module: ModuleType, state: Any) -> None:
             print("  Rascunho não ativado. Nenhuma pesquisa foi solicitada.")
             return
         state.perplexity_queries = draft
+        from rasai.target_scope_reconciliation import bind
+        bind(state, "PERPLEXITY")
         state.perplexity_search_type = mode
         state.perplexity_skip_draft_this_aud = False
         _mark_perplexity_pending(search_module, state)
@@ -328,6 +332,8 @@ def _copy_serp_terms_to_perplexity(search_module: ModuleType, state: Any) -> Non
         print("  Sem autorização: nenhuma query Perplexity foi modificada.")
         return
     state.perplexity_queries = source
+    from rasai.target_scope_reconciliation import bind
+    bind(state, "PERPLEXITY")
     state.perplexity_skip_draft_this_aud = False
     _mark_perplexity_pending(search_module, state)
 
@@ -680,6 +686,8 @@ def _edit_terms(search_module: ModuleType, state: Any, config: SerpRuntimeConfig
         print(f"  Valor inválido: use de 1 a {allowed} termo(s) nas condições atuais.")
         return
     state.search_queries = queries
+    from rasai.target_scope_reconciliation import bind
+    bind(state, "SERP")
 
 
 def _edit_region(state: Any) -> None:

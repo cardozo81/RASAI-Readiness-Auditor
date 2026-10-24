@@ -145,6 +145,7 @@ def _install_search_persistence() -> None:
         if hasattr(state, "search_queries"):
             result["search_intelligence"] = {
                 "queries": "; ".join(tuple(getattr(state, "search_queries", ()) or ())),
+                "source_target": str(getattr(state, "search_scope_target", "") or ""),
                 "depth": str(int(getattr(state, "search_depth", 20))),
                 "region": str(getattr(state, "search_region", "") or ""),
                 "device": str(getattr(state, "search_device", "mobile") or "mobile"),
@@ -179,6 +180,7 @@ def _install_search_persistence() -> None:
                 raise ValueError("perplexity_draft: modo inválido")
             result["perplexity_draft"] = {
                 "queries": "; ".join(terms),
+                "source_target": str(getattr(state, "perplexity_scope_target", "") or ""),
                 "search_type": mode,
             }
         return result
@@ -195,6 +197,11 @@ def _install_search_persistence() -> None:
                 if len(terms) > 5:
                     raise ValueError("perplexity_draft: máximo de cinco queries")
                 state.perplexity_draft_queries = terms
+            elif option == "source_target":
+                from rasai.target_scope_reconciliation import canonical_target
+                if raw.strip() and not canonical_target(raw):
+                    raise ValueError("perplexity_draft.source_target inválido")
+                state.perplexity_scope_target = canonical_target(raw)
             elif option == "search_type":
                 mode = raw.strip().lower()
                 if mode not in {"web", "fast"}:
@@ -209,6 +216,11 @@ def _install_search_persistence() -> None:
 
         if option == "queries":
             state.search_queries = parse_search_terms(raw)
+        elif option == "source_target":
+            from rasai.target_scope_reconciliation import canonical_target
+            if raw.strip() and not canonical_target(raw):
+                raise ValueError("search_intelligence.source_target inválido")
+            state.search_scope_target = canonical_target(raw)
         elif option == "depth":
             value = int(raw)
             if value <= 0:
