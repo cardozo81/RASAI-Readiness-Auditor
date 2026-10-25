@@ -27,7 +27,7 @@ ARCH_LABELS = {
 # Presentation-only vocabulary. Executable KPM/source enums remain unchanged
 # in SQLite and in the architecture-advisory contract.
 _KPM_LABELS = {
-    "USER_ACTION_DURATION": "Duração da ação do usuário",
+    "USER_ACTION_DURATION": "Duração da ação de carregamento inicial",
     "DOM_INTERACTIVE": "Tempo até o documento ficar interativo (DOM)",
     "LOAD_EVENT_START": "Início do evento de carregamento",
     "LOAD_EVENT_END": "Conclusão do evento de carregamento",
@@ -187,7 +187,10 @@ def _dynatrace_rum_kpm_reference_html(architecture: str) -> str:
     rows = "".join(
         "<tr><td><code>" + escape(label) + "</code></td><td>" + escape(context)
         + "</td><td>" + ", ".join(
-            escape(_KPM_LABELS.get(kpm, "Métrica sem rótulo catalogado"))
+            escape(
+                "Duração da ação do usuário" if kpm == "USER_ACTION_DURATION"
+                else _KPM_LABELS.get(kpm, "Métrica sem rótulo catalogado")
+            )
             + " (<code>" + escape(kpm) + "</code>)"
             for kpm in sorted(KPM_BY_ACTION[key])
         )
