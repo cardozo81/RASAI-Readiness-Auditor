@@ -298,6 +298,9 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
                     "from_disk_cache": bool(response.get("fromDiskCache")),
                     "additional_network_requests": 0,
                 }
+                if not main_frame_id or not frame_id:
+                    # Main-frame provenance absent: cannot attribute certificate.
+                    state["main_response_network"] = None
 
         def loading_finished(event: dict[str, Any]) -> None:
             request_id = str(event.get("requestId") or "")

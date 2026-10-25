@@ -376,8 +376,8 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
     lead = (
         "<div class='subsection' id='architecture-facts'>"
         "<h3>Arquitetura da aplicação e rede observada nesta captura</h3>"
-        "<p class='section-lead'>Este quadro apresenta <strong>todos os fatos arquiteturais "
-        "disponíveis nesta projeção</strong>, separados por evidência. "
+        "<p class='section-lead'>Este quadro apresenta <strong>os principais fatos arquiteturais e resumos de rede "
+        "pertinentes nesta projeção</strong>, separados por evidência; dados sensíveis não são publicados. "
         "A descoberta preliminar do console é independente e não é incorporada "
         "automaticamente à auditoria. Valores não comprovados permanecem N/D.</p>"
     )
@@ -477,7 +477,7 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
                       }.get(row["capture_quality"], "N/D"))
             + "</dl></section>"
             "<section class='architecture-fact-group'><h5>Limites da descoberta de rede</h5><dl>"
-            + display("DNS, IPs públicos e servidores", "N/D (não atestados nesta projeção)")
+            + display("Resolução DNS e IP de origem/backend", "N/D (IP do par remoto, quando observado, consta abaixo)")
             + display("Cadeia integral do certificado e validação externa", "N/D (não atestadas nesta projeção)")
             + display("CDN, WAF, proxy, balanceador e backend", "N/D (topologia não determinável)")
             + display("Inventário agregado de CSS/JS/subframes e origens",
@@ -552,7 +552,7 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             + "</dl></section></div>"
             "<p class='architecture-limit'>Tags declaradas não comprovam requisições "
             "concluídas; observações de rede não constituem inventário de toda a "
-            "infraestrutura. DNS, IP, TLS, CDN, WAF, balanceador e backend permanecem "
+            "infraestrutura. DNS, cadeia TLS completa, CDN, WAF, balanceador e backend permanecem "
             "não determináveis. Capturas anteriores à instrumentação adicional "
             "exibem NOT_COLLECTED, e não zero.</p>"
         )
