@@ -136,6 +136,34 @@ def _apdex_samples_html(database: Path, data: _ReportData, *, experience: bool) 
 
 
 
+def _synthetic_profile_public_label(profile_id: str) -> _Html:
+    """Humanize the known RASAI preset composite without exposing internal env IDs.
+
+    Presentation only. The canonical profile identifier remains in audit.db.
+    A network preset is a simulated envelope, not observed infrastructure.
+    """
+    raw = str(profile_id or "").strip()
+    fields = raw.split("_", 4)
+    if len(fields) == 5 and fields[0] == "RASAI":
+        from rasai.synthetic_runtime_profiles import describe_preset
+        device = {"MOBILE": "Dispositivo móvel", "DESKTOP": "Computador"}.get(fields[1])
+        if device:
+            try:
+                client = describe_preset("client", fields[2])
+                hardware = describe_preset("hardware", fields[3])
+                network = describe_preset("network", fields[4])
+            except (KeyError, ValueError):
+                return _Html("Perfil técnico não reconhecido na versão atual (dados originais preservados)")
+            return _Html(
+                escape(device + " · Navegador/cliente: " + client
+                       + " · Capacidade simulada: " + hardware
+                       + " · Rede simulada: " + network)
+            )
+    if raw.startswith("RASAI_"):
+        return _Html("Identificador interno de perfil não catalogado")
+    return _Html("<code>" + escape(raw or "-") + "</code>")
+
+
 def _ux_profile_execution_html(database: Path, data: _ReportData) -> str:
     """Aggregate persisted CAT-07 attempts by URL, device and technical profile."""
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row
@@ -201,7 +229,7 @@ def _ux_profile_execution_html(database: Path, data: _ReportData) -> str:
         rows.append((
             url or "-",
             _device_label(device),
-            _Html(f"<code>{escape(profile_id or '-')}</code>"),
+            _synthetic_profile_public_label(profile_id),
             target,
             attempts,
             f"{responses}/{attempts}",

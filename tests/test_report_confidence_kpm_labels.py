@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from rasai.catalog_report_presentation import _confidence_label
+from rasai.catalog_report_analysis import _synthetic_profile_public_label
 from rasai.cat07_architecture_reporting import (
     _dynatrace_rum_kpm_reference_html,
     _preview_source_html,
@@ -85,3 +86,14 @@ def test_dynatrace_preview_source_is_provenance_not_network_origin():
     assert "<script>" not in _preview_source_html("<script>")
     assert "Duração da ação de carregamento inicial" in _preview_value_html("USER_ACTION_DURATION")
     assert _preview_value_html("0.2") == "0.2"
+
+
+def test_synthetic_profile_internal_id_is_replaced_by_observable_preset_labels():
+    rendered = str(_synthetic_profile_public_label(
+        "RASAI_MOBILE_mobile-balanced-chromium_mobile-balanced_mobile-4g-fast"
+    ))
+    assert "RASAI_MOBILE" not in rendered
+    assert "Rede simulada:" in rendered
+    assert "Navegador/cliente:" in rendered
+    assert "Capacidade simulada:" in rendered
+    assert "RASAI_SECRET_TEST" not in str(_synthetic_profile_public_label("RASAI_SECRET_TEST"))

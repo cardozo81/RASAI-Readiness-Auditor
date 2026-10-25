@@ -289,7 +289,8 @@ def test_cat07_guided_readonly_report_shows_approved_future_values_not_applied(t
     assert "Arquitetura informada antes da AUD" in html
     assert "arquitetura declarada diverge" in html
     assert "Prévia para uma NOVA auditoria (não aplicada)" in html
-    assert "RASAI_APDEX_EXPERIENCE_KPM" in html
+    assert "Métrica proposta para o Apdex de experiência" in html
+    assert "RASAI_APDEX_EXPERIENCE_KPM" not in html
     assert "RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS" in html
     assert "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS" in html
     assert "Sim - requer aceite" in html

@@ -67,7 +67,10 @@ def test_catalog01_replays_structured_advisory_from_bound_raw_only(tmp_path):
     assert not read_architecture_audit_facts(db, "AUD-1", snapshot_id="SNP-2")
     html = architecture_audit_facts_html(db, "AUD-1")
     assert "CAT" not in html or "CAT-01" not in html
-    assert "Hipótese consultiva não comprovada" in html
+    assert "Hipótese preliminar, não comprovada" in html
+    assert "Arquitetura registrada (M6)" not in html
+    assert "Limites da descoberta de rede" in html
+    assert "Status HTTP da captura" in html
     assert "SNP-2" not in html
     assert "scripts externos" in html
 
