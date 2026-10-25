@@ -726,6 +726,27 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
                 visible,
                 flags=re.IGNORECASE,
             )
+            # Human-facing module names are replaced only in the visible text
+            # stream; HTML attributes, identifiers and literal payloads in
+            # code/pre/script/style are preserved by the guard above.
+            for original, readable in (
+                ("Orientação assistida por IA · M24-robots.txt-Ausente",
+                 "Orientação assistida por IA · ausência observada de robots.txt"),
+                ("Orientação assistida por IA · M24-Sitemap-Ausente",
+                 "Orientação assistida por IA · ausência observada de sitemap"),
+                ("M18-SEMANTIC-22-v1", "Análise semântica por IA · contrato 22, versão 1"),
+                ("M24-TECHNICAL-REMEDIATION-v2", "Remediação técnica por IA · versão 2"),
+                ("M20-CONTENT-REMEDIATION-v3", "Remediação editorial por IA · versão 3"),
+            ):
+                visible = visible.replace(original, readable)
+            visible = re.sub(
+                r"(?<![A-Za-z0-9_])M(?:3|6)(?![A-Za-z0-9_])",
+                lambda match: {
+                    "M3": "captura principal",
+                    "M6": "análise de arquitetura da aplicação",
+                }[match.group(0)],
+                visible,
+            )
             visible = _standalone_concept_label(visible, page_name=page_name)
             output.append(_PUBLIC_TOKEN_RE.sub(_public_token_replacement, visible))
     return _VISIBLE_VALUE_RE.sub(isolated, "".join(output))

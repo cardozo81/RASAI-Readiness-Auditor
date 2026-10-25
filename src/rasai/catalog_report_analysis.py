@@ -128,7 +128,7 @@ def _apdex_samples_html(database: Path, data: _ReportData, *, experience: bool) 
             )
             note="<div class='notice'>Esta amostra persiste contagens de falhas por requisição. Quando a lista individual de URLs não faz parte do contrato da amostra, o relatório não inventa esse detalhe.</div>"
         else:
-            fields=(("Amostra",s.get("sample_id")),("Data/hora da medição",captured),("URL",s.get("url")),("URL final",s.get("final_url")),("Classificação",classification),("Duração",_fmt_number(s.get("duration_ms"),"ms")),("HTTP",s.get("http_status")),("Perfil técnico",s.get("profile_id")),("Política de cache",_session_label(s.get("cache_policy"))),("Erro",s.get("error_message") or s.get("error_code") or "-"))
+            fields=(("Amostra",s.get("sample_id")),("Data/hora da medição",captured),("URL",s.get("url")),("URL final",s.get("final_url")),("Classificação",classification),("Duração",_fmt_number(s.get("duration_ms"),"ms")),("HTTP",s.get("http_status")),("Perfil técnico",_synthetic_profile_public_label(s.get("profile_id"))),("Política de cache",_session_label(s.get("cache_policy"))),("Erro",s.get("error_message") or s.get("error_code") or "-"))
             diagnostics=_browser_diagnostics_public(s.get("browser_diagnostics"))
             note="<h3>Diagnóstico de navegador</h3><div class='pre'>"+escape(json.dumps(diagnostics,ensure_ascii=False,indent=2))+"</div>" if diagnostics else ""
         modals.append(_modal(mid,f"Amostra {s.get('run_index',i)}",f"{'Apdex de experiência' if experience else 'Apdex de navegação'} · {s.get('url') or '-'}",_kv(fields)+note))

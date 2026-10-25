@@ -907,7 +907,7 @@ def _competitive_validation_rows(
     customer_source_label = {
         "AUDIT_RENDERED_ARTIFACT": "Captura renderizada da própria AUD",
         "PUBLIC_WEB_HTTP": "Aquisição HTTP pública",
-        "AUDIT_RENDERED_INCOMPLETE": "Captura M3 incompleta; comparação de conteúdo recusada",
+        "AUDIT_RENDERED_INCOMPLETE": "Captura principal incompleta; comparação de conteúdo recusada",
     }.get(customer_source, "Não materializado")
     customer_source_state = (
         "NÃO APLICÁVEL"
@@ -918,7 +918,7 @@ def _competitive_validation_rows(
     )
     rows.append((
         "Fonte do conteúdo do site auditado",
-        "Reutilizar captura renderizada materializada da AUD; não mascarar M3 incompleto por HTTP",
+        "Reutilizar captura renderizada materializada da AUD; não mascarar captura principal incompleta por HTTP",
         "Sim" if "customer_source" in runtime_policy else "Não",
         customer_source_label,
         "Sim",
@@ -1311,7 +1311,7 @@ def _competitive_html(database: Path, data: Any) -> str:
             )
             if source_freshness == "SUPERSEDED_BY_NEW_M3":
                 body += (
-                    "<div class='notice warn'><strong>Evidência competitiva anterior à recuperação M3:</strong> "
+                    "<div class='notice warn'><strong>Evidência competitiva anterior à recuperação da captura principal:</strong> "
                     "o conteúdo do cliente utilizado na comparação e na IA competitiva "
                     "corresponde a um DOM renderizado anterior, diferente da captura efetiva "
                     "atual da AUD. Lacunas e recomendações competitivas não são "

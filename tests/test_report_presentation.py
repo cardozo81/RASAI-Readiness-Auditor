@@ -217,3 +217,24 @@ class ReportPresentationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_humanization_hides_user_facing_module_names_but_keeps_raw_evidence():
+    from rasai.report_presentation import humanize_report_html
+
+    html = (
+        "<div>Captura M3 incompleta; Arquitetura M6 observada. "
+        "Orientação assistida por IA · M24-robots.txt-Ausente</div>"
+        "<p>Contrato M18-SEMANTIC-22-v1</p>"
+        "<pre>M6 M18-SEMANTIC-22-v1</pre>"
+        "<code>M3</code>"
+        "<a data-source='M6'>Detalhe M6</a>"
+    )
+    rendered = humanize_report_html(html, page_name="cat-01.html")
+    assert "captura principal incompleta" in rendered
+    assert "análise de arquitetura da aplicação observada" in rendered
+    assert "ausência observada de robots.txt" in rendered
+    assert "Análise semântica por IA · contrato 22, versão 1" in rendered
+    assert "<pre>M6 M18-SEMANTIC-22-v1</pre>" in rendered
+    assert "<code>M3</code>" in rendered
+    assert "data-source='M6'" in rendered
