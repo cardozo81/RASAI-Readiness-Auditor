@@ -149,6 +149,9 @@ def describe_architecture_assessment(result: Any) -> tuple[str, ...]:
 
 
 def architecture_preview_menu(console: Any, state: Any) -> None:
+    # Preview only exists in this menu invocation until the operator chooses
+    # opt-in persistence. Never persist automatically on HTTP failure.
+    pending: tuple[str, DeviceContext, str, Any] | None = None
     while True:
         console.render_header(state)
         print("INÍCIO > DESCOBRIR ARQUITETURA")
@@ -162,15 +165,57 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
         print("2. Alterar URL")
         print("3. Alterar dispositivo")
         print("4. Alterar modo de descoberta")
+        print("5. Salvar última prévia explicitamente (fora da AUD)")
+        print("6. Consultar prévias salvas para esta URL e dispositivo")
         print("V. Voltar")
         choice = input("Escolha: ").strip().upper()
         if choice == "V":
             return
+        if choice == "5":
+            if pending is None:
+                print("Nenhuma prévia desta sessão para salvar. Execute 1 antes.")
+                continue
+            previous_url, previous_device, previous_mode, assessment = pending
+            from rasai.url_utils import normalize_url
+            try:
+                if (normalize_url(str(getattr(state, "target", ""))) != previous_url
+                        or str(getattr(state, "device", "")).upper() != previous_device.value
+                        or read_mode() != previous_mode):
+                    pending = None
+                    print("URL/dispositivo/modo alterado. Execute nova prévia antes de salvar.")
+                    continue
+                from rasai.architecture_preview_store import save_preview
+                record = save_preview(None, previous_url, previous_device, previous_mode, assessment)
+                print("Prévia local salva (opt-in): " + record["preview_id"])
+                print("Estado: PRELIMINARY_UNVERIFIED; retenção máxima: 30 dias/20 registros.")
+                print("Não altera arquitetura declarada, AUD, SCORE-GEO ou classificação M6.")
+                pending = None
+            except (OSError, ValueError) as exc:
+                print("Prévia não persistida: " + type(exc).__name__)
+            continue
+        if choice == "6":
+            from rasai.architecture_preview_store import list_previews
+            try:
+                key = str(getattr(state, "target", "") or "")
+                current_device = DeviceContext(str(getattr(state, "device", "")).upper())
+                rows = list_previews(None, url=key, device=current_device)
+                print(f"Prévias verificadas neste escopo: {len(rows)}")
+                for row in rows:
+                    print(
+                        f"  {row['preview_id']} | {row['created_utc']} | "
+                        f"{row['mode']} | {row['architecture']} | "
+                        f"{row['limitations'][0]} | PRELIMINARY_UNVERIFIED"
+                    )
+                print("Apenas contexto preliminar; não é evidência M6 nem uma AUD.")
+            except (OSError, ValueError) as exc:
+                print("Consulta de prévias indisponível: " + type(exc).__name__)
+            continue
         if choice in {"2", "3"}:
             print("A alteração também será utilizada na preparação da próxima auditoria.")
             console._configure(state, "1" if choice == "2" else "3")
             continue
         if choice == "4":
+            pending = None
             print("1. Básica: HTML público, sem Docker, classificação limitada")
             print("2. Dinâmica: HTML e navegador isolado, Docker necessário")
             print("3. Não executar descoberta neste momento")
@@ -185,6 +230,7 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             continue
         if choice != "1":
             continue
+        pending = None
         url = str(getattr(state, "target", "") or "").strip()
         device = str(getattr(state, "device", "mobile") or "mobile").lower()
         if not url or device not in {"mobile", "desktop"}:
@@ -228,6 +274,18 @@ def architecture_preview_menu(console: Any, state: Any) -> None:
             else:
                 for line in describe_architecture_assessment(execution.assessment):
                     print(line)
+                from rasai.url_utils import normalize_url
+                pending = (normalize_url(url), DeviceContext(device.upper()),
+                           mode, execution.assessment)
+                if execution.assessment.limitation == "PUBLIC_HTTP_NOT_SUCCESS":
+                    print(
+                        "O transporte HTTP público não recebeu resposta 2xx. "
+                        "O modo dinâmico isolado não executa JavaScript sem o "
+                        "documento inicial seguro; UNKNOWN não prova ausência de "
+                        "conteúdo para navegadores convencionais. "
+                        "Código HTTP específico não está disponível nesta prévia."
+                    )
+                print("Para persistir esta observação preliminar, escolha 5 no menu; padrão é NÃO salvar.")
                 if mode == STATIC:
                     print("Modo básico: nenhum navegador executado; classificação dinâmica não comprovada.")
                 print("Esta observação não modifica a seleção nem os índices da AUD.")

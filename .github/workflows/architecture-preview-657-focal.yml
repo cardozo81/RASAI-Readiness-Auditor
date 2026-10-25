@@ -1,0 +1,30 @@
+name: Architecture preview 657 phase A
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/architecture_preview_store.py'
+      - 'src/rasai/console_architecture_discovery.py'
+      - 'tests/test_architecture_preview_store_657.py'
+      - '.github/workflows/architecture-preview-657-focal.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-preview-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install offline test dependencies
+        run: python -m pip install -e . pytest
+      - name: Verify scope, retention, no-AUD writes and console without network
+        run: |
+          python -m pytest -q \
+            tests/test_architecture_preview_store_657.py \
+            tests/test_console_architecture_discovery.py \
+            tests/test_architecture_acquisition_service.py \
+            tests/test_architecture_probe.py
