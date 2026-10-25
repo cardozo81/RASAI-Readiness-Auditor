@@ -82,5 +82,5 @@ def test_dynatrace_preview_source_is_provenance_not_network_origin():
     assert "sem consulta ao tenant" in origin
     assert _preview_source_html(None) == "N/D"
     assert "&lt;script&gt;" in _preview_source_html("<script>")
-    assert "Duração da ação do usuário" in _preview_value_html("USER_ACTION_DURATION")
+    assert "Duração da ação de carregamento inicial" in _preview_value_html("USER_ACTION_DURATION")
     assert _preview_value_html("0.2") == "0.2"
