@@ -629,3 +629,17 @@ Permanecem residuais da #657: completude causal dos requests/frames, observaçã
 segura e autoritativa de DNS/TLS quando pertinente e vínculo de prévia opt-in
 com nova AUD de acordo com contrato. Não atribuir encerramento total da issue
 a este incremento parcial.
+
+
+### Resposta principal (Chromium/CDP, sem novas consultas)
+
+A partir desta evolução, a resposta do documento principal pode registrar
+protocolo HTTP, protocolo TLS, emissor/sujeito do certificado, validade temporal
+e IP **exclusivamente global/público do par remoto**, quando presentes no evento
+CDP já observado na mesma navegação. Endereços privados, loopback, reservados
+e internos são omitidos. Nenhuma consulta DNS, port scan, CT ou validação externa
+da cadeia ocorre neste caminho. O par remoto pode ser CDN, proxy, edge ou
+cache, e **não prova IP do backend nem provedor de infraestrutura**.
+Para auditorias históricas sem esses campos o HTML exibe N/D.
+O inventário limitado foi estendido a XHR e Fetch, essenciais para leitura
+de dependências de aplicações SPA, além de CSS e documentos de subframes.

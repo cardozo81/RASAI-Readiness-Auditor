@@ -116,7 +116,7 @@ def _network_facts(
     rhosts: Counter[str] = Counter()
     rstatuses: Counter[str] = Counter()
     for item in resource_rows[:160]:
-        if not isinstance(item, Mapping) or item.get("resource_type") not in {"Stylesheet","SubframeDocument"}:
+        if not isinstance(item, Mapping) or item.get("resource_type") not in {"Stylesheet","SubframeDocument","XHR","Fetch"}:
             continue
         kinds[item["resource_type"]] += 1
         host = _public_host(item.get("host"))
@@ -125,6 +125,26 @@ def _network_facts(
         status = item.get("status")
         if type(status) is int and 100 <= status <= 599:
             rstatuses[str(status // 100) + "xx"] += 1
+    doc = metadata.get("main_response_network")
+    doc = doc if isinstance(doc, Mapping) else {}
+    tls_fields = {}
+    for key in ("http_protocol", "tls_protocol", "tls_issuer", "tls_subject"):
+        value = doc.get(key)
+        if (isinstance(value, str) and len(value) <= 100
+                and not any(ord(c) < 32 or ord(c) == 127 for c in value)):
+            tls_fields[key] = value
+    for key in ("tls_valid_from", "tls_valid_to"):
+        value = doc.get(key)
+        if type(value) is int and 0 < value < 7258118400:
+            tls_fields[key] = value
+    peer = doc.get("remote_public_peer_ip")
+    if isinstance(peer, str):
+        try:
+            ip = ipaddress.ip_address(peer)
+            if ip.is_global:
+                tls_fields["remote_public_peer_ip"] = str(ip)
+        except ValueError:
+            pass
     cookies = metadata.get("cookie_runtime")
     cookies = cookies if isinstance(cookies, Mapping) else {}
     nav = metadata.get("navigation_trace")
@@ -145,6 +165,8 @@ def _network_facts(
         "response_truncated": resources.get("truncated") is True,
         "navigation_count": min(len(nav),100) if isinstance(nav,list) else None,
         "cookie_events": num(cookies,"count"),
+        "main_response_state": doc.get("state", "NOT_COLLECTED"),
+        "main_response_security": tls_fields,
         "topology": "NETWORK_TOPOLOGY_NOT_DETERMINABLE",
     }
 
@@ -456,7 +478,7 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             + "</dl></section>"
             "<section class='architecture-fact-group'><h5>Limites da descoberta de rede</h5><dl>"
             + display("DNS, IPs públicos e servidores", "N/D (não atestados nesta projeção)")
-            + display("Detalhes do certificado e negociação TLS", "N/D (não atestados nesta projeção)")
+            + display("Cadeia integral do certificado e validação externa", "N/D (não atestadas nesta projeção)")
             + display("CDN, WAF, proxy, balanceador e backend", "N/D (topologia não determinável)")
             + display("Inventário agregado de CSS/JS/subframes e origens",
                       "Resumo por evidência abaixo; topologia N/D")
@@ -514,7 +536,7 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             + display("Protocolos", counts(net.get("script_protocols")))
             + display("Domínios públicos observados, até oito", hosts(net.get("script_hosts")))
             + "</dl></section>"
-            "<section class='architecture-fact-group'><h5>CSS e subframes na rede</h5><dl>"
+            "<section class='architecture-fact-group'><h5>CSS, APIs e subframes na rede</h5><dl>"
             + display("Proveniência", "Somente respostas da mesma navegação; sem coleta adicional")
             + display("Estado", net.get("response_state"))
             + display("Respostas observadas", net.get("response_count"))
@@ -533,6 +555,25 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             "infraestrutura. DNS, IP, TLS, CDN, WAF, balanceador e backend permanecem "
             "não determináveis. Capturas anteriores à instrumentação adicional "
             "exibem NOT_COLLECTED, e não zero.</p>"
+        )
+        sec = net.get("main_response_security") or {}
+        parts.append(
+            "<div class='architecture-fact-grid'><section class='architecture-fact-group'>"
+            "<h5>Resposta principal: transporte e TLS observados</h5><dl>"
+            + display("Estado da observação", net.get("main_response_state"))
+            + display("Protocolo HTTP informado", sec.get("http_protocol"))
+            + display("Versão TLS informada", sec.get("tls_protocol"))
+            + display("Emissor do certificado informado", sec.get("tls_issuer"))
+            + display("Sujeito do certificado informado", sec.get("tls_subject"))
+            + display("Validade inicial do certificado (Unix UTC)", sec.get("tls_valid_from"))
+            + display("Validade final do certificado (Unix UTC)", sec.get("tls_valid_to"))
+            + display("IP público do par remoto (não é origem/backend)",
+                      sec.get("remote_public_peer_ip"))
+            + "</dl></section></div>"
+            "<p class='architecture-limit'>Dados TLS e do par remoto são os "
+            "informados pelo Chromium para a conexão da resposta principal. "
+            "Não certificam toda a cadeia TLS, resolução DNS, o servidor "
+            "de origem, o provedor CDN ou a topologia interna.</p>"
         )
         hypothesis = row.get("hypothesis")
         if isinstance(hypothesis, dict):

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import ipaddress
 import re
 import time
 from typing import Any
@@ -160,6 +161,7 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
         "script_responses": {},
         "resource_responses": {},
         "resource_response_truncated": False,
+        "main_response_network": None,
     }
     try:
         session = context.new_cdp_session(page)
@@ -201,7 +203,7 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
             main_id = str(state.get("main_frame_id") or "")
             frame_id = str(event.get("frameId") or "")
             # Only a proven non-main Document qualifies as a subframe.
-            if resource_type == "Stylesheet" or (
+            if resource_type in {"Stylesheet", "XHR", "Fetch"} or (
                 resource_type == "Document" and main_id and frame_id and frame_id != main_id
             ):
                 request_id = str(event.get("requestId") or "")
@@ -214,7 +216,7 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
                         raw_status = response.get("status")
                         state["resource_responses"][request_id] = {
                             "resource_type": (
-                                "Stylesheet" if resource_type == "Stylesheet"
+                                resource_type if resource_type != "Document"
                                 else "SubframeDocument"
                             ),
                             "host": _public_host(response.get("url")),
@@ -259,6 +261,43 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
             state["request_id"] = request_id
             if isinstance(response, dict):
                 state["response_url"] = _safe_url(response.get("url"))
+                security = response.get("securityDetails")
+                security = security if isinstance(security, dict) else {}
+                raw_peer = response.get("remoteIPAddress")
+                public_peer = None
+                try:
+                    peer = ipaddress.ip_address(str(raw_peer))
+                    if peer.is_global:
+                        public_peer = str(peer)
+                except ValueError:
+                    pass
+
+                def tls_label(name: str) -> str | None:
+                    value = security.get(name)
+                    if (not isinstance(value, str) or len(value) > 100 or
+                            any(ord(c) < 32 or ord(c) == 127 for c in value)):
+                        return None
+                    return value
+
+                def tls_time(name: str) -> int | None:
+                    value = security.get(name)
+                    return int(value) if type(value) in (int, float) and 0 < value < 7258118400 else None
+
+                state["main_response_network"] = {
+                    "state": "OBSERVED_MAIN_DOCUMENT_RESPONSE",
+                    "capture_method": "SAME_NAVIGATION_CDP_RESPONSE_RECEIVED",
+                    "http_protocol": str(response.get("protocol") or "")[:24] or None,
+                    "remote_public_peer_ip": public_peer,
+                    "tls_protocol": tls_label("protocol"),
+                    "tls_issuer": tls_label("issuer"),
+                    "tls_subject": tls_label("subjectName"),
+                    "tls_valid_from": tls_time("validFrom"),
+                    "tls_valid_to": tls_time("validTo"),
+                    "tls_security_details_observed": bool(security),
+                    "from_service_worker": bool(response.get("fromServiceWorker")),
+                    "from_disk_cache": bool(response.get("fromDiskCache")),
+                    "additional_network_requests": 0,
+                }
 
         def loading_finished(event: dict[str, Any]) -> None:
             request_id = str(event.get("requestId") or "")
@@ -1200,6 +1239,7 @@ def _install_browser_capture() -> None:
             metadata["rendered_dom"] = rendered_dom
             metadata["script_runtime"] = script_runtime
             metadata["network_resource_observations"] = _observed_resource_metadata(cdp_capture)
+            metadata["main_response_network"] = cdp_capture.get("main_response_network")
             metadata["cookie_runtime"] = cookie_runtime
             metadata["bounded_lazy_probe"] = lazy_probe
             metadata["capture_quality"] = capture_quality
@@ -1287,6 +1327,10 @@ def _install_browser_capture() -> None:
             metadata["render_failure_context"] = failure_context
         metadata["context_scope_contract"] = CONTEXT_SCOPE_CONTRACT_VERSION
         metadata["capture_scope"] = ContextScope.DEVICE_SNAPSHOT.value
+        metadata["main_response_network"] = {
+            "state": "UNAVAILABLE_RENDER_FAILURE",
+            "additional_network_requests": 0,
+        }
         metadata["network_resource_observations"] = {
             "state": "UNAVAILABLE_RENDER_FAILURE",
             "capture_method": "SAME_NAVIGATION_CDP_RESPONSE_RECEIVED",
