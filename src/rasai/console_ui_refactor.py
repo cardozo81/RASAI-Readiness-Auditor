@@ -491,7 +491,11 @@ def _install_configure_persistence(console: ModuleType) -> None:
             # earlier edit. The inner editor sets APDEX_EDIT_CANCELLED explicitly.
             state.operation = "LOCAL:APDEX_EDIT_IN_PROGRESS"
         try:
-            _ensure_mix(state)
+            # Editing a URL must not re-materialize the unrelated Apdex mix:
+            # that side effect changed the fingerprint and offered a save
+            # even when "https://host" and "https://host/" were identical.
+            if choice != "1":
+                _ensure_mix(state)
             original(state, choice)
         except BaseException:
             if apdex_edit:
