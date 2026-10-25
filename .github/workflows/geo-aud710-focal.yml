@@ -1,0 +1,35 @@
+name: GEO AUD710 contract (offline)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/search_geo_alignment.py'
+      - 'src/rasai/console_search_scope_presentation.py'
+      - 'src/rasai/console_search_parameter_menu.py'
+      - 'src/rasai/console_catalog_ui.py'
+      - 'src/rasai/console_perplexity_run_gate.py'
+      - 'src/rasai/geo_report.py'
+      - 'src/rasai/console_progress_presentation.py'
+      - 'tests/test_geo_nytimes_regressions.py'
+      - '.github/workflows/geo-aud710-focal.yml'
+permissions:
+  contents: read
+jobs:
+  geo-aud710:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install test package (no browser)
+        run: python -m pip install -e . pytest
+      - name: Offline regressions, no search provider calls
+        run: |
+          python -m pytest -q \
+            tests/test_geo_nytimes_regressions.py \
+            tests/test_geo_report.py \
+            tests/test_console_perplexity_run_gate.py \
+            tests/test_console_progress_presentation.py

@@ -50,8 +50,15 @@ def _observations(database: Path, audit_id: str) -> tuple[list[dict], list[dict]
         )]
         if not runs:
             return [], []
+        source_columns = {
+            row[1] for row in con.execute("PRAGMA table_info(perplexity_search_sources)")
+        }
+        dates = ", ".join(
+            "s." + field if field in source_columns else "NULL AS " + field
+            for field in ("source_date", "last_updated")
+        )
         sources = [dict(r) for r in con.execute(
-            "SELECT s.run_id, s.position, s.url, s.title, s.snippet "
+            "SELECT s.run_id, s.position, s.url, s.title, s.snippet, " + dates + " "
             "FROM perplexity_search_sources s "
             "JOIN perplexity_search_runs r ON r.run_id=s.run_id "
             "WHERE r.audit_id=? ORDER BY r.started_at, s.position", (audit_id,)
@@ -574,9 +581,27 @@ def geo_body(database: Path, audit_id: str) -> str:
         ) + _baseline_serp_section(database, audit_id) + _baseline_findings_section(database, audit_id) + _extraction_quality_section(database) + "</div>"
     current_id = _current_run_id(database, audit_id)
     current = next((r for r in runs if r.get("run_id") == current_id), None)
+    # Preserve all runs in audit.db. Present only sources from the verifiable
+    # latest run, never promote a previous success after a newer failed request.
+    historical_source_count = len(sources)
+    sources = [s for s in sources if current is not None and s["run_id"] == current["run_id"]]
     counts = Counter(_host(x["url"]) for x in sources if _host(x["url"]))
     summary = "<section><h2>Observações recuperadas</h2>"
-    summary += f"<p>{len(runs)} execução(ões) persistida(s); {len(sources)} fonte(s) recuperada(s).</p>"
+    summary += (
+        f"<p>{len(runs)} execução(ões) persistida(s); "
+        f"{len(sources)} fonte(s) materializada(s) da execução atual "
+        f"({historical_source_count} em todas as execuções da AUD).</p>"
+    )
+    if current is None:
+        summary += "<p>Execução atual N/D por cronologia não verificável; fontes históricas preservadas sem promoção.</p>"
+    elif str(current.get("status") or "").upper() == "SUCCESS":
+        summary += (
+            "<p><strong>Perplexity Search API realizada com sucesso.</strong> "
+            f"{len(sources)} fonte(s) observada(s) e materializada(s) no audit.db; "
+            "resultados de busca externa, não respostas nem citações generativas.</p>"
+        )
+    else:
+        summary += "<p>Execução atual sem sucesso comprovado; fontes de execuções anteriores não representam o resultado atual.</p>"
     summary += "<p>O denominador refere-se a resultados externos, não a respostas generativas. "
     summary += "Consultas agrupadas em um request não autorizam atribuir cada fonte a uma query individual.</p>"
     summary += "<table><thead><tr><th>Run</th><th>Consultas</th><th>Status</th><th>Modo</th></tr></thead><tbody>"
@@ -892,8 +917,10 @@ def geo_body(database: Path, audit_id: str) -> str:
     if not sources:
         summary += "<p>Nenhuma fonte retornada para comparação nesta execução.</p>"
     else:
+        summary += "<p>Links, datas e trechos abaixo são observações fornecidas pela Search API. "
+        summary += "O trecho HTML pode ser abreviado para leitura; o valor normalizado completo permanece no SQLite.</p>"
         summary += "<table><thead><tr><th>Run/posição</th><th>Domínio e URL</th>"
-        summary += "<th>Título retornado</th><th>Trecho disponível</th></tr></thead><tbody>"
+        summary += "<th>Título retornado</th><th>Datas da fonte (se fornecidas)</th><th>Trecho disponível</th></tr></thead><tbody>"
         for source in sources[:20]:
             url = str(source.get("url") or "")
             run_id = str(source.get("run_id") or "")
@@ -910,9 +937,32 @@ def geo_body(database: Path, audit_id: str) -> str:
                 else ""
             )
             summary += "<td>" + escape(host) + escape(locale_hint)
-            summary += "<br>" + escape(url[:300]) + "</td>"
+            summary += "<br>" + escape(url[:300])
+            # Only public-looking HTTP(S) links; never emit javascript:, data:
+            # or credential-bearing URLs as executable report hyperlinks.
+            try:
+                parsed = urlsplit(url)
+                linkable = (
+                    parsed.scheme.lower() in {"http", "https"}
+                    and bool(parsed.hostname)
+                    and parsed.username is None and parsed.password is None
+                    and not any(ord(ch) < 32 for ch in url)
+                )
+            except ValueError:
+                linkable = False
+            if linkable:
+                summary += (
+                    ' <a href="' + escape(url, quote=True) +
+                    '" target="_blank" rel="noopener noreferrer">Abrir fonte</a>'
+                )
+            summary += "</td>"
             summary += "<td>" + escape(str(source.get("title") or "-")[:250]) + "</td>"
-            summary += "<td>" + escape(str(source.get("snippet") or "Não fornecido")[:450])
+            summary += "<td>Data: " + escape(str(source.get("source_date") or "N/D")[:40])
+            summary += "<br>Atualização: " + escape(str(source.get("last_updated") or "N/D")[:40]) + "</td>"
+            snippet = str(source.get("snippet") or "Não fornecido")
+            summary += "<td>" + escape(snippet[:450])
+            if len(snippet) > 450:
+                summary += " <em>[trecho abreviado; íntegro no audit.db]</em>"
             summary += "</td></tr>"
         summary += "</tbody></table>"
         if len(sources) > 20:

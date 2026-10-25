@@ -206,6 +206,14 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
     if px_view["draft_awaits_run_confirmation"]:
         print("   Query salva preparada: ao iniciar AUD será solicitado aceite Perplexity.")
     print("   Pesquisa externa advisory; independente de SERP e sem efeito em scoring/evidência determinística.")
+    from rasai.search_geo_alignment import geo_configuration_view
+    advisory = geo_configuration_view(state)
+    print(f"   Comparabilidade GEO       : {advisory['comparability']}")
+    print(f"   Pertinência temática      : {advisory['topical_fitness']}")
+    if advisory["review_recommended"]:
+        print(f"   SERP: {'; '.join(advisory['serp_queries'])[:260]}")
+        print(f"   Perplexity: {'; '.join(advisory['perplexity_queries'])[:260]} [{advisory['perplexity_source']}]")
+        print("   Ajustar: 1 (SERP) ou P > 1/6/9 (Perplexity); podem ser independentes.")
     print("\nD. Não solicitar SERP nesta execução (limpa os termos)")
     print("V. Voltar")
 
@@ -594,6 +602,14 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
                 print("  Solicitação ignorada nesta AUD; use 9 para reativar manualmente.")
             else:
                 print("  PARA CONFIGURAR: definir queries (1) ou copiar SERP com autorização (6).")
+        from rasai.search_geo_alignment import geo_configuration_view
+        advisory = geo_configuration_view(state)
+        print(f"  Comparabilidade GEO   : {advisory['comparability']}")
+        print(f"  Pertinência ao alvo   : {advisory['topical_fitness']}")
+        if advisory["review_recommended"]:
+            print(f"  SERP efetiva          : {'; '.join(advisory['serp_queries'])[:260]}")
+            print(f"  Perplexity preparada  : {'; '.join(advisory['perplexity_queries'])[:260]}")
+            print("  Revisar: CAT-05 > 1 > 1 (SERP) ou P > 1/6/9 (Perplexity).")
         print("  País, idioma, domínio, recência e limites adicionais são opcionais.")
         print(f"  Detalhe               : {detail}")
         from rasai.search_intelligence.perplexity_request_policy import resolve_request_options

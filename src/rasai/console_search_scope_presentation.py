@@ -114,7 +114,17 @@ def render_search_scope(state: Any) -> None:
     from rasai.search_geo_alignment import geo_query_alignment
     active_or_draft = perplexity_queries or tuple(getattr(state, "perplexity_draft_queries", ()) or ())
     matching = geo_query_alignment(queries, active_or_draft)
+    from rasai.search_geo_alignment import geo_configuration_view
+    advisory = geo_configuration_view(state)
     info("Alinhamento de consultas SERP × Perplexity", matching["label"])
+    info("Comparabilidade da próxima AUD", advisory["comparability"])
+    info("Pertinência temática ao site", advisory["topical_fitness"])
+    info("Equivalência de contexto", advisory["provider_context_equivalence"])
+    if advisory["review_recommended"]:
+        print(paint("  REVISIONAR ANTES DA PESQUISA PAGA: termos SERP e Perplexity abaixo.", DIM))
+        info("Consultas SERP", "; ".join(advisory["serp_queries"]))
+        info("Consultas Perplexity", "; ".join(advisory["perplexity_queries"]))
+        print(paint("  Ajustar: CAT-05 > 1 > 1 (SERP); CAT-05 > 1 > P > 1/6/9 (Perplexity).", DIM))
     if matching["status"] == "DIVERGENT":
         print(paint(
             "  Atenção: termos SERP e Perplexity não correspondem; o GEO poderá ser N/D. "

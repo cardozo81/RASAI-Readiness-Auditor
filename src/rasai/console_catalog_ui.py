@@ -365,6 +365,16 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
             section("ADERÊNCIA DO ALVO AOS CONSUMIDORES")
             for consumer, origin, result in execution_matrix(state):
                 print(f"  {consumer:<29} | {origin:<24} | {result}")
+            from rasai.search_geo_alignment import geo_configuration_view
+            comparison = geo_configuration_view(state)
+            print(f"  {'GEO / CONSULTAS':<29} | {'COMPARABILIDADE':<24} | {comparison['comparability']}")
+            print(f"  {'GEO / TEMÁTICA':<29} | {'PERTINÊNCIA':<24} | {comparison['topical_fitness']}")
+            if comparison["review_recommended"]:
+                print(paint(
+                    "  AVISO: consultas SERP e Perplexity não permitem comparação conclusiva. "
+                    "Revisar via A ou CAT-05; consultas independentes são permitidas.",
+                    YELLOW,
+                ))
         section("PLANO DA PRÓXIMA AUDITORIA")
         print(f"Catálogos selecionados     : {len(selected)}")
         print(f"Estado                     : {badge(plan_state)} | {plan_detail}")

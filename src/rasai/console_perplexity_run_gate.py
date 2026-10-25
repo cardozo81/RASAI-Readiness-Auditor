@@ -101,6 +101,44 @@ def install(console_module: ModuleType) -> None:
                 return 0
             for source in ("SERP", "PERPLEXITY"):
                 bind(state, source)
+        # Advisory GEO gate: independent terms are allowed, but the operator
+        # must acknowledge non-comparability before any optional Search API.
+        from rasai.search_geo_alignment import geo_configuration_view
+        from rasai.console_catalog_plan import selected_catalog_ids
+        px_active = bool(tuple(getattr(state, "perplexity_queries", ()) or ()))
+        px_draft_pending = draft_pending_confirmation(state)
+        view = geo_configuration_view(state)
+        if (
+            "CAT-05" in selected_catalog_ids(state)
+            and bool(view["serp_queries"])
+            and (px_active or px_draft_pending)
+            and bool(view["review_recommended"])
+        ):
+            print("\n[ AVISO GEO — CONSULTAS NÃO COMPARÁVEIS ]")
+            print("SERP: " + "; ".join(view["serp_queries"])[:300])
+            print("Perplexity: " + "; ".join(view["perplexity_queries"])[:300])
+            print("Motivo: " + str(view["comparability"]))
+            print("C. Prosseguir com consultas independentes (aceite informativo, não financeiro)")
+            print("N. Prosseguir nesta AUD sem Perplexity (SERP preservada)")
+            print("V. Voltar ao plano para ajustar CAT-05 > 1 > 1 ou CAT-05 > 1 > P")
+            choice = input("Revisão de comparabilidade [C/N/V]: ").strip().upper()
+            if choice == "N":
+                old_px = state.perplexity_queries
+                old_skip = state.perplexity_skip_draft_this_aud
+                try:
+                    state.perplexity_queries = ()
+                    state.perplexity_skip_draft_this_aud = True
+                    return int(original_run(state) or 0)
+                finally:
+                    state.perplexity_queries = old_px
+                    state.perplexity_skip_draft_this_aud = old_skip
+            if choice != "C":
+                state.status = "READY"
+                state.operation = "LOCAL:GEO_QUERY_REVIEW_REQUIRED"
+                state.error = ""
+                from rasai.console_first_run_cost_preview import _DECLINED as declined
+                declined.add(id(state))
+                return 0
         if not draft_pending_confirmation(state):
             try:
                 return int(original_run(state) or 0)

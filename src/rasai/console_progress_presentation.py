@@ -21,6 +21,13 @@ def _public_stage_status(state: Any, progress: Any) -> str:
         ("COMPLETE_WITH_LIMITATIONS", "LOCAL:DONE"): "CONCLUÍDA COM LIMITAÇÕES",
         ("FAILED", "LOCAL:ERROR"): "FALHA",
     }.get((status, operation))
+    # Opening an artifact changes the UI action, not the sealed AUD state.
+    # Never display an ended 100% pipeline as RUNNING while viewing files.
+    if operation in {"LOCAL:OPEN_REPORT", "LOCAL:OPEN_AUDIT_FOLDER"}:
+        final = {
+            "COMPLETE": "CONCLUÍDA",
+            "COMPLETE_WITH_LIMITATIONS": "CONCLUÍDA COM LIMITAÇÕES",
+        }.get(status, final)
     if (final is not None and bool(getattr(progress, "overall_exact", False))
             and getattr(progress, "overall_percent", None) == 100.0):
         return final
