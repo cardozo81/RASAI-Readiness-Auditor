@@ -133,6 +133,8 @@ def read_architecture_audit_facts(
         raw_http = raw_http if isinstance(raw_http, Mapping) else {}
         redirects = raw_http.get("redirect_count")
         redirects = redirects if type(redirects) is int and 0 <= redirects <= 50 else None
+        http_status = raw_http.get("status")
+        http_status = http_status if type(http_status) is int and 100 <= http_status <= 599 else None
         signals = inspect_raw_html_signals(raw) if raw_verified else None
         hypothesis = (
             suggest_architecture_from_raw(signals)
@@ -171,6 +173,7 @@ def read_architecture_audit_facts(
             } if hypothesis else None),
             "capture_quality": _code(quality.get("state")),
             "network_error": _code(raw_http.get("network_error")),
+            "http_status_observed": http_status,
             "http_redirects_observed": redirects,
             "boundary": "AUD_SNAPSHOT_ONLY_NO_STANDALONE_PREVIEW",
             "measurement_inference_authorized": False,
@@ -181,60 +184,135 @@ def read_architecture_audit_facts(
 
 
 def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
-    """CAT-01's canonical read-only technical architecture section."""
+    """Materialize observed application and public-HTTP facts without guessing topology."""
+    from rasai.cat07_architecture_reporting import ARCH_LABELS
+
     facts = read_architecture_audit_facts(database, audit_id)
     lead = (
         "<div class='subsection' id='architecture-facts'>"
-        "<h3>Arquitetura e sinais da captura auditada</h3>"
-        "<p class='section-lead'>Informações vinculadas aos snapshots desta AUD; "
-        "a descoberta preliminar independente não é incorporada automaticamente. "
-        "Hipóteses não são classificações confirmadas. Esta seção não modifica "
-        "Apdex, parâmetros de coleta, pontuação ou auditorias existentes.</p>"
+        "<h3>Arquitetura da aplicação e rede observada nesta captura</h3>"
+        "<p class='section-lead'>Este quadro apresenta <strong>todos os fatos arquiteturais "
+        "disponíveis nesta projeção</strong>, separados por evidência. "
+        "A descoberta preliminar do console é independente e não é incorporada "
+        "automaticamente à auditoria. Valores não comprovados permanecem N/D.</p>"
     )
     if not facts:
-        return lead + "<p>Não há snapshots com dados arquiteturais estruturados nesta auditoria.</p></div>"
-    parts = [lead, "<div class='grid'>"]
+        return lead + (
+            "<p>Não há snapshots com dados arquiteturais estruturados nesta auditoria. "
+            "Rede, DNS, TLS e topologia: N/D (dados não disponíveis nesta projeção).</p></div>"
+        )
+    parts = [lead, """
+    <style>
+    #architecture-facts .architecture-observations {
+      display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:16px 0
+    }
+    #architecture-facts .architecture-observation {
+      border:1px solid var(--line,#dce5e7);border-radius:10px;
+      padding:18px 20px;min-width:0;background:var(--card,#fff)
+    }
+    #architecture-facts .architecture-observation h4{margin:0 0 12px;font-size:1.1rem}
+    #architecture-facts .architecture-fact-grid {
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px
+    }
+    #architecture-facts .architecture-fact-group {
+      min-width:0;border-top:1px solid var(--line,#dce5e7);padding-top:12px
+    }
+    #architecture-facts .architecture-fact-group h5{font-size:.9rem;margin:0 0 9px}
+    #architecture-facts .architecture-fact-group dl{margin:0;display:grid;gap:8px}
+    #architecture-facts .architecture-fact-group dl div{min-width:0}
+    #architecture-facts .architecture-fact-group dt{font-size:.76rem;color:var(--muted,#4a6270)}
+    #architecture-facts .architecture-fact-group dd{
+      margin:2px 0 0;font-weight:600;overflow-wrap:anywhere
+    }
+    #architecture-facts .architecture-limit {
+      border-left:3px solid var(--line-strong,#afbec5);padding:10px 13px;
+      margin:14px 0 0;background:var(--surface-subtle,#f6f8fa)
+    }
+    @media(max-width:850px){
+      #architecture-facts .architecture-fact-grid{grid-template-columns:minmax(0,1fr)}
+    }
+    @media print{#architecture-facts .architecture-observation{break-inside:avoid}}
+    </style>
+    <div class='architecture-observations'>
+    """]
     for row in facts:
-        def shown(v: Any) -> str:
-            return escape(str(v if v is not None else "N/D"))
-        parts.append("<div class='card'><h4>Snapshot " + shown(row["snapshot_id"]) +
-                     " · " + shown(row["device"]) + "</h4>")
-        parts.append("<p><strong>Arquitetura registrada (M6):</strong> " +
-                     shown(row["observed_architecture"]) + "</p>")
-        parts.append("<p><strong>RAW vinculada por SHA-256 de captura:</strong> " +
-                     ("sim" if row["raw_verified_against_capture_digest"] else "não comprovada") +
-                     " · <strong>DOM persistido:</strong> " +
-                     ("referência e hash registrados" if row["rendered_reference_and_digest_recorded"]
-                      else "não comprovado") + "</p>")
-        s = row["raw_signals"]
-        if isinstance(s, dict):
+        def shown(value: Any) -> str:
+            return escape(str(value)) if value is not None else "N/D"
+
+        def display(name: str, value: Any) -> str:
+            return "<div><dt>" + escape(name) + "</dt><dd>" + shown(value) + "</dd></div>"
+
+        signals = row["raw_signals"] if isinstance(row["raw_signals"], dict) else None
+        classification = ARCH_LABELS.get(row["observed_architecture"], ARCH_LABELS["UNKNOWN"])
+        parts.append(
+            "<article class='architecture-observation'><h4>Captura " + shown(row["snapshot_id"])
+            + " · " + shown(row["device"]) + "</h4>"
+            "<div class='architecture-fact-grid'>"
+            "<section class='architecture-fact-group'><h5>Arquitetura observada</h5><dl>"
+            + display("Classificação registrada nesta captura", classification)
+            + display("Página de origem", row["page_id"])
+            + display("Integridade do HTML inicial",
+                      "Hash da captura verificado" if row["raw_verified_against_capture_digest"]
+                      else "N/D (integridade não comprovada)")
+            + display("DOM renderizado",
+                      "Referência e hash registrados, sem nova verificação"
+                      if row["rendered_reference_and_digest_recorded"]
+                      else "N/D (vínculo não comprovado)")
+            + "</dl></section>"
+            "<section class='architecture-fact-group'><h5>Estrutura HTML observada</h5><dl>"
+        )
+        if signals is not None:
             parts.append(
-                "<p>Sinais RAW: scripts externos <strong>" + shown(s["scripts_external"]) +
-                "</strong>; inline <strong>" + shown(s["scripts_inline"]) +
-                "</strong>; iframes <strong>" + shown(s["iframes"]) +
-                "</strong>; H1 <strong>" + ("sim" if s["h1"] else "não observado") +
-                "</strong>; contêiner de aplicação <strong>" +
-                ("sim" if s["app_root"] else "não observado") +
-                "</strong>; conteúdo principal substantivo <strong>" +
-                ("sim" if s["main_content"] else "não comprovado") + "</strong>.</p>"
+                display("Scripts externos declarados no HTML inicial", signals["scripts_external"])
+                + display("Scripts embutidos declarados no HTML inicial", signals["scripts_inline"])
+                + display("Elementos iframe declarados no HTML inicial", signals["iframes"])
+                + display("Iframes com endereço declarado", signals["iframes_with_src"])
+                + display("Iframes com conteúdo interno", signals["iframes_with_srcdoc"])
+                + display("Título H1", "Observado" if signals["h1"] else "Não observado")
+                + display("Contêiner de aplicação", "Observado" if signals["app_root"] else "Não observado")
+                + display("Marcador de framework", "Observado" if signals["framework_attribute"] else "Não observado")
+                + display("Marcador de placeholder/skeleton",
+                          "Observado" if signals["skeleton_marker"] else "Não observado")
+                + display("Conteúdo principal no HTML inicial",
+                          "Observado" if signals["main_content"] else "Não comprovado")
             )
         else:
-            parts.append("<p>RAW estrutural: " + shown(row["raw_signals_state"]) + ".</p>")
-        h = row["hypothesis"]
-        if isinstance(h, dict):
+            parts.append(display("Sinais estruturais", "N/D (" + str(row["raw_signals_state"]) + ")"))
+        parts.append(
+            "</dl></section>"
+            "<section class='architecture-fact-group'><h5>HTTP e resposta pública observados</h5><dl>"
+            + display("Status HTTP da captura", row["http_status_observed"])
+            + display("Redirecionamentos HTTP observados", row["http_redirects_observed"])
+            + display("Falha de rede registrada",
+                      row["network_error"] if row["network_error"] else "Nenhuma registrada no contexto disponível")
+            + display("Qualidade de captura",
+                      row["capture_quality"] if row["capture_quality"] else "N/D")
+            + "</dl></section>"
+            "<section class='architecture-fact-group'><h5>Limites da descoberta de rede</h5><dl>"
+            + display("DNS, IPs públicos e servidores", "N/D (não atestados nesta projeção)")
+            + display("Detalhes do certificado e negociação TLS", "N/D (não atestados nesta projeção)")
+            + display("CDN, WAF, proxy, balanceador e backend", "N/D (topologia não determinável)")
+            + display("Recursos e subframes carregados em runtime",
+                      "N/D (inventário de requests/frames não materializado aqui)")
+            + "</dl></section></div>"
+        )
+        hypothesis = row.get("hypothesis")
+        if isinstance(hypothesis, dict):
             parts.append(
-                "<p><strong>Hipótese consultiva não comprovada:</strong> " +
-                shown(h.get("candidate") or h.get("structure")) +
-                "; confiança " + shown(h["confidence"]) +
-                "; alternativas: " + shown(", ".join(h["alternatives"]) or "N/D") +
-                ".</p>"
+                "<p class='architecture-limit'><strong>Hipótese preliminar, não comprovada:</strong> "
+                + shown(ARCH_LABELS.get(hypothesis.get("candidate"), hypothesis.get("structure") or "N/D"))
+                + "; confiança qualitativa " + shown({"LOW": "baixa"}.get(
+                    hypothesis.get("confidence"), "não determinada"))
+                + ". Não substitui classificação da captura.</p>"
             )
-        parts.append("<p>Qualidade: " + shown(row["capture_quality"]) +
-                     "; redirects HTTP observados: " + shown(row["http_redirects_observed"]) +
-                     "; falha de rede: " + shown(row["network_error"]) +
-                     ".</p></div>")
-    parts.append("</div></div>")
-    return "".join(parts)
+        parts.append(
+            "<p class='architecture-limit'><strong>Fronteira observacional:</strong> "
+            "contagens de tags no HTML inicial não demonstram carregamento bem-sucedido "
+            "de CSS, JavaScript ou subframes; resposta HTTP e número de redirecionamentos "
+            "não comprovam a topologia de infraestrutura. Não houve nova coleta de rede "
+            "para gerar esta apresentação.</p></article>"
+        )
+    return "".join(parts) + "</div></div>"
 
 
 __all__ = ["read_architecture_audit_facts", "architecture_audit_facts_html", "VERSION"]

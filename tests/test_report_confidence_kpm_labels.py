@@ -51,11 +51,12 @@ def test_geo_competitive_opportunity_is_declared_not_calibrated(monkeypatch):
         "summary": None, "opportunities": [opportunity],
     })
     html = geo_report._baseline_serp_section(Path("unopened.db"), "AUD-TEST")
-    assert "Confiança estimada pela IA (não verificada): 82%" in html
-    assert "Confiança estimada pela IA (não verificada): 0.82" not in html
+    assert "Confiança estimada pela IA (não verificada)</small>" in html
+    assert "<strong>82%</strong>" in html
+    assert "0.82</strong>" not in html
     assert opportunity["confidence"] == 0.82
     opportunity["confidence"] = float("nan")
-    assert "Confiança estimada pela IA (não verificada): N/D" in (
+    assert "Confiança estimada pela IA (não verificada)</small><strong>N/D</strong>" in (
         geo_report._baseline_serp_section(Path("unopened.db"), "AUD-TEST")
     )
 
@@ -78,9 +79,9 @@ def test_dynatrace_preview_source_is_provenance_not_network_origin():
     raw = "RASAI_EXECUTABLE_DYNATRACE_LOAD_FALLBACK_REFERENCE"
     origin = _preview_source_html(raw)
     assert "Referência de compatibilidade do RASAi" in origin
-    assert "<code>" + raw + "</code>" in origin
+    assert raw not in origin
     assert "sem consulta ao tenant" in origin
     assert _preview_source_html(None) == "N/D"
-    assert "&lt;script&gt;" in _preview_source_html("<script>")
+    assert "<script>" not in _preview_source_html("<script>")
     assert "Duração da ação de carregamento inicial" in _preview_value_html("USER_ACTION_DURATION")
     assert _preview_value_html("0.2") == "0.2"
