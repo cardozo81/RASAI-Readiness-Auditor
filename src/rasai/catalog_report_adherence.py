@@ -115,6 +115,14 @@ _MAX_PAGES_LIMITATION_RE = re.compile(
     r"^MAX_PAGES_REACHED:discovered=(\d+);audited=(\d+)$",
     re.I,
 )
+_SITEMAP_RESOURCE_BUDGET_RE = re.compile(
+    r"^SITEMAP_RESOURCE_BUDGET_EXHAUSTED:acquired=(\d+);queued=(\d+);policy=(\d+)$",
+    re.I,
+)
+_DISCOVERY_CANDIDATE_BUDGET_RE = re.compile(
+    r"^DISCOVERY_CANDIDATE_BUDGET_EXHAUSTED:retained=(\d+);policy=(\d+)$",
+    re.I,
+)
 _COUNTED_LIMITATION_RE = re.compile(
     r"^(RENDERED_LINKS_OUTSIDE_AUDIT_UNIVERSE_MAX_PAGES|"
     r"RENDERED_DISCOVERY_GAP|RENDER_DISCOVERY_GAP|DISCOVERY_GAP|"
@@ -177,14 +185,34 @@ def _human_limitation(value: Any) -> str:
     if not raw:
         return "Limitação registrada"
 
+    sitemap_budget = _SITEMAP_RESOURCE_BUDGET_RE.fullmatch(raw)
+    if sitemap_budget:
+        acquired, queued, policy = map(int, sitemap_budget.groups())
+        return (
+            "Inventário de sitemaps limitado por orçamento de coleta: "
+            f"{acquired} recurso(s) adquirido(s) de {queued} endereço(s) na fila "
+            f"(limite configurado: {policy}). Os demais recursos da fila "
+            "não foram adquiridos; isso não comprova ausência de conteúdo no site."
+        )
+
+    candidate_budget = _DISCOVERY_CANDIDATE_BUDGET_RE.fullmatch(raw)
+    if candidate_budget:
+        retained, policy = map(int, candidate_budget.groups())
+        return (
+            "Inventário de URLs amostrado, não exaustivo: "
+            f"{retained} URL(s) candidata(s) retida(s), no limite de {policy}. "
+            "O total real de URLs publicadas não foi determinado."
+        )
+
     max_pages = _MAX_PAGES_LIMITATION_RE.fullmatch(raw)
     if max_pages:
         discovered = int(max_pages.group(1))
         audited = int(max_pages.group(2))
         return (
-            "Limite máximo de páginas atingido: "
-            f"{_url_count(discovered, state='discovered')}; "
-            f"{_url_count(audited, state='audited')}"
+            "Limite de páginas selecionadas para análise atingido: "
+            f"{_url_count(audited, state='audited')} entre "
+            f"{_url_count(discovered, state='discovered')} no recorte coletado. "
+            "A contagem descoberta pode estar limitada por orçamento de amostragem."
         )
 
     counted = _COUNTED_LIMITATION_RE.fullmatch(raw)
