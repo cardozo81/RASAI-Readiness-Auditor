@@ -293,6 +293,7 @@ def test_cat07_guided_readonly_report_shows_approved_future_values_not_applied(t
     assert "RASAI_APDEX_EXPERIENCE_KPM" not in html
     assert "Limite da faixa satisfatória (segundos)" in html\n    assert "RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS" not in html
     assert "Limite da faixa frustrada (segundos)" in html\n    assert "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS" not in html
+    assert "RASAI_EXECUTABLE_DYNATRACE_LOAD_FALLBACK_REFERENCE" not in html
     assert "Sim - requer aceite" in html
     assert "Conclusão do evento de carregamento" in html and "4.0" in html
     assert "Somente Dynatrace externo" not in html or "não executado pelo RASAi" in html
