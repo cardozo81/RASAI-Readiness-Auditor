@@ -128,6 +128,24 @@ def _safe_url(value: Any) -> str | None:
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path or "/", "", ""))
 
 
+def _observed_resource_metadata(capture: dict[str, Any]) -> dict[str, Any]:
+    """Bounded network responses already received in the same browser session."""
+    entries = capture.get("resource_responses")
+    entries = entries if isinstance(entries, dict) else {}
+    items = list(entries.values())[:160]
+    return {
+        "state": "UNAVAILABLE" if not capture.get("available") else (
+            "CAPTURED" if items else "NO_OBSERVATIONS"
+        ),
+        "capture_method": "SAME_NAVIGATION_CDP_RESPONSE_RECEIVED",
+        "additional_network_requests": 0,
+        "count": len(items),
+        "truncated": capture.get("resource_response_truncated") is True,
+        "max_items": 160,
+        "items": items,
+    }
+
+
 def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[str, Any]]:
     """Observe the existing Chromium navigation without creating another request."""
     state: dict[str, Any] = {
@@ -140,6 +158,8 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
         "setup_error": None,
         "script_requests": {},
         "script_responses": {},
+        "resource_responses": {},
+        "resource_response_truncated": False,
     }
     try:
         session = context.new_cdp_session(page)
@@ -178,6 +198,36 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
 
         def response_received(event: dict[str, Any]) -> None:
             resource_type = str(event.get("type") or "")
+            main_id = str(state.get("main_frame_id") or "")
+            frame_id = str(event.get("frameId") or "")
+            # Only a proven non-main Document qualifies as a subframe.
+            if resource_type == "Stylesheet" or (
+                resource_type == "Document" and main_id and frame_id and frame_id != main_id
+            ):
+                request_id = str(event.get("requestId") or "")
+                response = event.get("response")
+                if request_id and isinstance(response, dict):
+                    if len(state["resource_responses"]) < 160:
+                        # Domain-only provenance. Never persist path/query,
+                        # request/response headers, addresses or payloads.
+                        from rasai.architecture_audit_facts import _public_host
+                        raw_status = response.get("status")
+                        state["resource_responses"][request_id] = {
+                            "resource_type": (
+                                "Stylesheet" if resource_type == "Stylesheet"
+                                else "SubframeDocument"
+                            ),
+                            "host": _public_host(response.get("url")),
+                            "status": (
+                                int(raw_status)
+                                if type(raw_status) in (int, float) and 100 <= raw_status <= 599
+                                else None
+                            ),
+                            "protocol": str(response.get("protocol") or "")[:24],
+                            "from_service_worker": bool(response.get("fromServiceWorker")),
+                        }
+                    else:
+                        state["resource_response_truncated"] = True
             if resource_type == "Script":
                 request_id = str(event.get("requestId") or "")
                 response = event.get("response")
@@ -1149,6 +1199,7 @@ def _install_browser_capture() -> None:
             metadata["document_source"] = document_source
             metadata["rendered_dom"] = rendered_dom
             metadata["script_runtime"] = script_runtime
+            metadata["network_resource_observations"] = _observed_resource_metadata(cdp_capture)
             metadata["cookie_runtime"] = cookie_runtime
             metadata["bounded_lazy_probe"] = lazy_probe
             metadata["capture_quality"] = capture_quality
@@ -1236,6 +1287,14 @@ def _install_browser_capture() -> None:
             metadata["render_failure_context"] = failure_context
         metadata["context_scope_contract"] = CONTEXT_SCOPE_CONTRACT_VERSION
         metadata["capture_scope"] = ContextScope.DEVICE_SNAPSHOT.value
+        metadata["network_resource_observations"] = {
+            "state": "UNAVAILABLE_RENDER_FAILURE",
+            "capture_method": "SAME_NAVIGATION_CDP_RESPONSE_RECEIVED",
+            "additional_network_requests": 0,
+            "count": 0,
+            "truncated": False,
+            "items": [],
+        }
         metadata["script_runtime"] = {
             "state": "UNAVAILABLE_RENDER_FAILURE",
             "capture_method": "CDP_BUFFERED_SCRIPT_BODY+PERFORMANCE_RESOURCE_TIMING",
