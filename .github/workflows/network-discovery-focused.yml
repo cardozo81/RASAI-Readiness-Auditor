@@ -1,0 +1,38 @@
+name: Network discovery and external-history focused validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/architecture_audit_facts.py'
+      - 'src/rasai/device_context_capture.py'
+      - 'src/rasai/observability/external_sources.py'
+      - 'src/rasai/apdex_sampling_reliability_reporting.py'
+      - 'tests/test_architecture_audit_facts.py'
+      - 'tests/test_architecture_network_inventory.py'
+      - 'tests/test_device_network_resource_observations.py'
+      - 'tests/test_external_observability_integrations.py'
+      - 'tests/test_apdex_sampling_reliability.py'
+      - '.github/workflows/network-discovery-focused.yml'
+permissions:
+  contents: read
+jobs:
+  focused-inventory-and-sampling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install runtime and pytest
+        run: python -m pip install -e . pytest
+      - name: Run bounded isolated acceptance only
+        run: >-
+          python -m pytest -q
+          tests/test_architecture_audit_facts.py
+          tests/test_architecture_network_inventory.py
+          tests/test_device_network_resource_observations.py
+          tests/test_external_observability_integrations.py
+          tests/test_common_crawl_health.py
+          tests/test_apdex_sampling_reliability.py

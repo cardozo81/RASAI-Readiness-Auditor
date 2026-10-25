@@ -601,3 +601,31 @@ pedir consentimento para a reconstrução da imagem local na próxima descoberta
 Acesso ao DOM renderizado e comprovação de classificação continuam sujeitos
 à disponibilidade de **todos os recursos essenciais** e estabilidade da
 página; este ajuste não autoriza forçar uma classe sem comparação RAW/DOM.
+
+
+## Inventário observacional segregado (incremento #657)
+
+CAT-01 projeta evidências **já persistidas** sem nova coleta:
+- recursos declarados no DOM, de passive_security_resources, agrupados por tipo;
+- respostas de scripts observadas pelo Chromium/CDP, agrupadas por HTTP e protocolo;
+- em novas AUDs, respostas de CSS e Document de subframes oriundas dos eventos CDP
+  da **mesma navegação**, sem solicitar recursos adicionais;
+- total de eventos da instrumentação de cookies (não equivale a cookies únicos),
+  sequência de navegação e limitações de rede.
+
+A captura adicional é limitada a 160 respostas CSS/subframe e grava somente
+tipo/status/protocolo/host público, sem IP, caminho, query, headers, corpos ou
+credenciais. Subframe Document só é contado quando o frameId difere do frame
+principal observado. Respostas após o encerramento da janela não são coletadas.
+
+Não associar recursos declarados a carregamentos comprovados. Hosts observados
+não comprovam servidor de origem, proxy, CDN, WAF, backend ou topologia.
+DNS, IPs, certificado e detalhes TLS continuam N/D quando não documentados;
+não são inferidos de certificados do navegador ou do nome do recurso.
+Capturas legadas registram NOT_COLLECTED, não zero. Não há alteração dos
+índices, classificadores, seletores de perfil ou auds seladas.
+
+Permanecem residuais da #657: completude causal dos requests/frames, observação
+segura e autoritativa de DNS/TLS quando pertinente e vínculo de prévia opt-in
+com nova AUD de acordo com contrato. Não atribuir encerramento total da issue
+a este incremento parcial.
