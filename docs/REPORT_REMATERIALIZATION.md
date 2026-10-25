@@ -111,3 +111,22 @@ Não transformar diferença legítima de HTML entre versões em suposta
 divergência de dado sem conferir fonte persistida. Permanecem
 independentes: #136 (smoke positivo IA) e #127/#15 (interrupção/RPR).
 A #141 só fecha após CI dirigido e esta validação humana com evidência.
+
+
+## Compatibilidade Windows na publicação final (WinError 5/32)
+
+Em estações Windows, a projeção pode ter terminado, os hashes e o pacote
+podem ter sido verificados, mas uma conexão SQLite de leitura ou um filtro de
+sistema pode impedir a movimentação do diretório de staging com
+`[WinError 5] Acesso negado` ou erro de compartilhamento equivalente.
+
+O publicador tenta primeiro a promoção por rename atômico normal. Somente
+nessa falha de permissão Windows, cria uma **segunda cópia no mesmo volume**,
+confere todos os hashes de **origem + staging + cópia, inclusive
+`report-catalog/`**, e promove atomicamente o diretório nunca utilizado para
+a leitura SQLite. Sem reexecução de IA, coletores, RPR ou regravação na origem.
+
+Se a publicação da segunda cópia também for negada, o comando permanece
+reprovado (exit code 2), não publica pasta parcial e orienta verificar
+permissões, antivírus ou sincronizadores de arquivos. Não reduz o rigor da
+integridade nem modifica os gates.

@@ -349,3 +349,88 @@ def test_read_only_rematerialization_fails_closed_on_unexpected_staging_db_write
         remat.rematerialize(audit_dir=root, output_root=output)
     assert not (output / AUD).exists()
     assert before == remat._input_files(root)
+
+
+def test_windows_locked_staging_uses_verified_copy_and_atomic_promotion(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """Simulate WinError 5 on staging rename while keeping original AUD untouched."""
+    root = _source(tmp_path)
+    _stub_canonical(monkeypatch, freshness="PRELIMINARY")
+    original = remat.Path.rename
+    refused: list[Path] = []
+
+    def windows_locked_rename(self: Path, target: Path) -> Path:
+        if self.name == AUD and self.parent.name.startswith(".rasai-report-141-"):
+            refused.append(self)
+            failure = PermissionError(13, "Access is denied")
+            failure.winerror = 5
+            raise failure
+        return original(self, target)
+
+    monkeypatch.setattr(remat.Path, "rename", windows_locked_rename)
+    initial = remat._input_files(root)
+    output = tmp_path / "reports"
+    entry = remat.rematerialize(audit_dir=root, output_root=output)
+    assert len(refused) == 1
+    assert entry.read_text(encoding="utf-8") == "new canonical report"
+    assert remat._input_files(root) == initial
+    assert remat._input_files(entry.parent.parent) == initial
+    assert (root / "report-catalog" / "index.html").read_text() == "historical"
+    assert list(output.glob(".rasai-report-141-*")) == []
+
+
+def test_windows_copy_fallback_detects_tampering_before_publishing(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    root = _source(tmp_path)
+    _stub_canonical(monkeypatch, freshness="PRELIMINARY")
+    original_rename = remat.Path.rename
+    original_copytree = remat.shutil.copytree
+
+    def locked_rename(self: Path, target: Path) -> Path:
+        if self.name == AUD and self.parent.name.startswith(".rasai-report-141-"):
+            failure = PermissionError(13, "Access is denied")
+            failure.winerror = 5
+            raise failure
+        return original_rename(self, target)
+
+    def modified_copytree(src: Path, dst: Path, *args, **kwargs):
+        result = original_copytree(src, dst, *args, **kwargs)
+        if src.name == AUD and src.parent.name.startswith(".rasai-report-141-"):
+            (dst / "report-catalog" / "index.html").write_text(
+                "unexpected modified report", encoding="utf-8",
+            )
+        return result
+
+    monkeypatch.setattr(remat.Path, "rename", locked_rename)
+    monkeypatch.setattr(remat.shutil, "copytree", modified_copytree)
+    initial = remat._input_files(root)
+    output = tmp_path / "reports"
+    with pytest.raises(RuntimeError, match="Cópia de publicação diverge"):
+        remat.rematerialize(audit_dir=root, output_root=output)
+    assert not (output / AUD).exists()
+    assert remat._input_files(root) == initial
+
+
+def test_windows_rejects_permission_denial_for_ready_copy_without_partial_output(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    root = _source(tmp_path)
+    _stub_canonical(monkeypatch, freshness="PRELIMINARY")
+    original_rename = remat.Path.rename
+
+    def locked_rename(self: Path, target: Path) -> Path:
+        if self.parent.name.startswith(".rasai-report-141-"):
+            failure = PermissionError(13, "Access is denied")
+            failure.winerror = 5
+            raise failure
+        return original_rename(self, target)
+
+    monkeypatch.setattr(remat.Path, "rename", locked_rename)
+    initial = remat._input_files(root)
+    output = tmp_path / "reports"
+    with pytest.raises(RuntimeError, match="Windows negou também"):
+        remat.rematerialize(audit_dir=root, output_root=output)
+    assert not (output / AUD).exists()
+    assert remat._input_files(root) == initial

@@ -18,7 +18,7 @@ import tempfile
 from typing import Iterator
 
 
-def _input_files(root: Path) -> dict[str, str]:
+def _input_files(root: Path, *, include_report: bool = False) -> dict[str, str]:
     """Immutable input inventory excluding derived output and transient SQLite SHM.
 
     SQLite `*-shm` is a shared-memory index for WAL mode. A read-only connection may
@@ -31,7 +31,7 @@ def _input_files(root: Path) -> dict[str, str]:
         if not item.is_file() or item.is_symlink():
             continue
         relative = item.relative_to(root)
-        if relative.parts[0] == "report-catalog":
+        if not include_report and relative.parts[0] == "report-catalog":
             continue
         if item.name.endswith("-shm"):
             continue
@@ -144,6 +144,73 @@ def _forbid_network() -> Iterator[None]:
         socket.create_connection = original_create  # type: ignore[assignment]
 
 
+def _publish_verified_staging(
+    *,
+    stage: Path,
+    destination: Path,
+    source: Path,
+    before: dict[str, str],
+) -> None:
+    """Atomically publish, including when Windows holds a staged SQLite handle.
+
+    The first rename is the normal zero-copy path. On Windows, a renderer may
+    leave a *read* handle in a SQLite database under staging: moving the whole
+    AUD directory then returns WinError 5/32. Never ignore the failure or
+    publish an incomplete destination; instead clone the *already verified*
+    immutable tree to a fresh directory, compare all bytes including the
+    report, and atomically rename only that never-opened copy.
+
+    The copy is restricted to the same output filesystem and used only for
+    the Windows rename-sharing failure. No collectors, writers or providers.
+    """
+    try:
+        stage.rename(destination)
+        return
+    except PermissionError as exc:
+        if getattr(exc, "winerror", None) not in (5, 32):
+            raise
+
+    # The original staged tree can remain locked by a reader. Its files may
+    # still be copied; do not attempt to chmod, close foreign handles or change
+    # permissions/security checks to force publication.
+    expected_tree = _input_files(stage, include_report=True)
+    if not expected_tree:
+        raise RuntimeError("Staging validado sem arquivos para publicação.")
+    ready = stage.parent / ".rasai-report-publication-ready"
+    if ready.exists():
+        raise FileExistsError(f"Área de publicação temporária já existe: {ready}")
+    try:
+        shutil.copytree(stage, ready, symlinks=False)
+        if _input_files(stage, include_report=True) != expected_tree:
+            raise RuntimeError(
+                "Staging mudou durante a cópia de publicação: resultado recusado."
+            )
+        if _input_files(ready, include_report=True) != expected_tree:
+            raise RuntimeError(
+                "Cópia de publicação diverge dos arquivos validados: resultado recusado."
+            )
+        if _input_files(source) != before:
+            raise RuntimeError(
+                "Evidência original mudou durante a publicação: resultado recusado."
+            )
+        if destination.exists():
+            raise FileExistsError(
+                f"Saída passou a existir durante a publicação: {destination}"
+            )
+        try:
+            ready.rename(destination)
+        except PermissionError as exc:
+            raise RuntimeError(
+                "Windows negou também a publicação da cópia verificada. "
+                "Verifique permissões da pasta de saída e bloqueio por "
+                "antivírus/sincronização; a AUD original permanece inalterada."
+            ) from exc
+    finally:
+        # A moved directory no longer exists under the staging parent.
+        if ready.exists():
+            shutil.rmtree(ready, ignore_errors=True)
+
+
 def rematerialize(*, audit_dir: str | Path, output_root: str | Path) -> Path:
     """Copy first, then project with canonical bindings, preserving the original AUD."""
     from rasai import entrypoint
@@ -227,7 +294,9 @@ def rematerialize(*, audit_dir: str | Path, output_root: str | Path) -> Path:
             )
         if destination.exists():
             raise FileExistsError(f"Saida passou a existir durante a materializacao: {destination}")
-        stage.rename(destination)
+        _publish_verified_staging(
+            stage=stage, destination=destination, source=source, before=before,
+        )
         return destination / "report-catalog" / "index.html"
     finally:
         # Failure never publishes a staged report or alters the original source.
