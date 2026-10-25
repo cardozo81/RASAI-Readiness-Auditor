@@ -996,7 +996,8 @@ def test_aud125_competitive_content_guard_is_presented_as_limitation():
         },
     )
     labels = {str(row[0]): row for row in rows}
-    assert "Captura M3 incompleta" in str(labels["Fonte do conteúdo do site auditado"][3])
+    assert "Captura principal incompleta" in str(labels["Fonte do conteúdo do site auditado"][3])
+    assert "M3" not in str(labels["Fonte do conteúdo do site auditado"][3])
     assert labels["Fonte do conteúdo do site auditado"][-1] == "COM LIMITAÇÃO"
     assert labels["Comparação de conteúdo"][-1] == "COM LIMITAÇÃO"
 

@@ -335,3 +335,32 @@ def test_html_dom_context_ignores_semantic_sk_identifier_without_weakening_secre
     assert sum(item.kind == "SECRET_ASSIGNMENT" for item in findings) >= 3
     assert "CREDENTIAL_URL" in kinds
 
+
+
+def test_html_assurance_ignores_semantic_data_testid_but_not_real_key_patterns() -> None:
+    # Regression: real-world framework markup repeats the same long sk-* DOM
+    # identifier in id and data-testid. The latter formerly failed assurance.
+    node = "sk-BradescoHomePageProcess123456789UI1LongIdentifier"
+    fragment = f"<div id='{node}' data-testid='{node}' class='sk-basic'></div>"
+    assert detect_secret_exposures(
+        fragment, path="catalog-report.html", strict=True, html_dom_context=True
+    ) == ()
+    assert detect_secret_exposures(
+        f"<div data-testid='{node}'></div>",
+        path="catalog-report.html", strict=True, html_dom_context=True
+    ) == ()
+
+    # Fail closed on scoped and opaque candidates even inside data-testid.
+    for candidate in (
+        "sk-proj-ABCD1234efgh5678IJKL9012mnop3456",
+        "sk-abcdefghijklmnopqrstuvwxyz1234567890AB",
+    ):
+        findings = detect_secret_exposures(
+            f"<div data-testid='{candidate}'></div>",
+            path="catalog-report.html", strict=True, html_dom_context=True,
+        )
+        assert any(item.kind == "KNOWN_SECRET_PATTERN" for item in findings)
+    assert detect_secret_exposures(
+        f"<pre>{node}</pre>",
+        path="catalog-report.html", strict=True, html_dom_context=True,
+    )

@@ -1218,3 +1218,29 @@ def test_cat07_assurance_still_rejects_real_missing_error_scope_control(
 
     assert check["passed"] is False
     assert "Escopo dos erros de requisição" in check["detail"]
+
+
+def test_global_assurance_matrix_displays_failed_controls_without_click() -> None:
+    outcome = {
+        "catalogs": [{
+            "catalog_id": "CAT-09", "selected": True,
+            "closure_eligible": False, "functional_status": "CONCLUÍDO",
+            "configurability": 100, "governance": 100, "exposure": 100,
+            "reliability": 100, "integrity": 100, "security": 80, "maturity": 96.67,
+            "checks": [{
+                "code": "SEC_OUTPUT_SECRETS", "axis": "security", "passed": False,
+                "detail": "padrão de credencial detectado no HTML",
+            }],
+        }],
+        "closure_eligible": False,
+        "closure_reason_codes": ["HIGH_ASSURANCE_TARGET_NOT_MET"],
+        "global_output_security": {"passed": True},
+    }
+    html = assurance_matrix_html(outcome)
+    assert "Controles que impedem o encerramento" in html
+    assert "CAT-09 · Segurança da saída do relatório" in html
+    assert "Ausência de credenciais na saída" in html
+    assert "padrão de credencial detectado no HTML" in html
+    assert "não constituem automaticamente vulnerabilidades da URL auditada" in html
+    assert "<details" not in html
+    assert "80.00%" in html

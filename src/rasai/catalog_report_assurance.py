@@ -1055,6 +1055,45 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         + "</div>"
         if closure_reasons else ""
     )
+    # The global matrix must explain each blocked assurance control in the
+    # visible reading flow, without requiring navigation or details toggles.
+    # These controls assess the RASAi report projection, not website risk.
+    diagnostics = []
+    axes = {
+        "configurability": "Configurabilidade",
+        "governance": "Governança",
+        "exposure": "Exposição",
+        "reliability": "Confiabilidade",
+        "integrity": "Integridade",
+        "security": "Segurança da saída do relatório",
+    }
+    for catalog in result.get("catalogs", ()):
+        if not catalog.get("selected"):
+            continue
+        for check in catalog.get("checks", ()):
+            if check.get("passed"):
+                continue
+            label = public_label(str(check.get("code") or ""))
+            if not label or label == check.get("code"):
+                label = safe_visible_fallback(check.get("code"))
+            diagnostics.append(
+                "<li><strong>" + escape(str(catalog.get("catalog_id") or "-"))
+                + " · " + escape(axes.get(str(check.get("axis") or ""), "Controle estrutural"))
+                + " · " + escape(str(label))
+                + "</strong><p>" + escape(str(check.get("detail") or "Sem detalhe persistido"))
+                + "</p></li>"
+            )
+    diagnostics_html = (
+        "<div class='notice warn' id='assurance-blockers'>"
+        "<h3>Controles que impedem o encerramento</h3>"
+        "<p>As verificações abaixo dizem respeito à integridade e segurança "
+        "da apresentação e à governança da auditoria; não constituem "
+        "automaticamente vulnerabilidades da URL auditada. "
+        "Um alerta de padrão de credencial requer triagem do conteúdo exibido "
+        "antes de concluir que houve exposição real.</p><ul>"
+        + "".join(diagnostics) + "</ul></div>"
+        if diagnostics else ""
+    )
     package_integrity = result.get("package_integrity", {}) if isinstance(result.get("package_integrity"), Mapping) else {}
     snapshot_gate = "ATENDE" if package_integrity.get("final_source_snapshot_match", True) else "PENDENTE"
     catalog_gate = "ATENDE" if all(
@@ -1104,7 +1143,7 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         f"<div class='metric'><small>Segurança das páginas transversais</small><strong>{global_output_gate}</strong></div>"
         f"<div class='metric'><small>Snapshot final da fonte</small><strong>{snapshot_gate}</strong></div>"
         f"<div class='metric'><small>Encerramento estrutural</small><strong>{close}</strong></div>"
-        "</div>" + closure_reason_html + "</section>"
+        "</div>" + closure_reason_html + diagnostics_html + "</section>"
     )
 
 

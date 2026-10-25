@@ -55,7 +55,7 @@ _PRIVATE_KEY_BLOCK_RE = re.compile(
 _OPENAI_SECRET_CANDIDATE_RE = re.compile(r"\bsk-[A-Za-z0-9_-]{24,}\b")
 _OPENAI_SCOPED_SECRET_PREFIXES = ("proj-", "svcacct-", "admin-")
 _HTML_DOM_ATTRIBUTE_RE = re.compile(
-    r"""(?is)\b(?:id|class)\s*=\s*(?:(?P<quote>["'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s>]+))"""
+    r"""(?is)\b(?:id|class|data-testid)\s*=\s*(?:(?P<quote>["'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s>]+))"""
 )
 _HTML_HREF_ATTRIBUTE_RE = re.compile(
     r"""(?is)\bhref\s*=\s*(?:(?P<quote>["'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s>]+))"""
@@ -198,7 +198,12 @@ def _looks_like_dom_identifier_openai_candidate(value: str) -> bool:
 
 
 def _html_dom_identifier_candidate_spans(text: str) -> tuple[tuple[int, int], ...]:
-    """Locate only ambiguous sk-* candidates inside explicit HTML id/class values."""
+    """Locate semantic sk-* identifiers in explicit id/class/data-testid values.
+
+    Product framework data-testid may repeat the exact DOM id. Exemption is
+    restricted to verified attribute values and semantic identifiers, never an
+    arbitrary text field, scoped token, opaque key or provider payload.
+    """
     spans: list[tuple[int, int]] = []
     for attribute in _HTML_DOM_ATTRIBUTE_RE.finditer(text):
         group_name = "quoted" if attribute.group("quoted") is not None else "bare"
@@ -476,7 +481,7 @@ def detect_secret_exposures(
 
     ``html_dom_context=True`` is reserved for rendered-HTML assurance. It suppresses
     only human-readable legacy-like ``sk-*`` candidates proven to occur inside
-    explicit ``id``/``class`` values or URL fragments in ``href``/absolute
+    explicit ``id``/``class``/``data-testid`` values or URL fragments in ``href``/absolute
     evidence URLs. Scoped OpenAI keys, opaque candidates and all non-OpenAI secret
     detectors remain fail-closed.
     """
