@@ -52,3 +52,18 @@ A camada é exclusivamente de apresentação. Ela não altera:
 - Coverage, Confidence ou Consolidation;
 - regras de release gate;
 - comparabilidade entre auditorias.
+
+## Confiança numérica declarada pela IA
+
+Nos relatórios GEO e nas superfícies de apresentação que consomem confiança
+numérica fracionária de modelos (`[0, 1]`), o valor é exibido em percentual
+pt-BR com arredondamento inteiro *half-up* (`0.82` → `82%`). Trata-se de
+**estimativa declarada pelo modelo, não calibrada nem verificada**. Ausência,
+booleanos, NaN, infinito e valores fora de `[0, 1]` são `N/D`. Rótulos
+qualitativos de confiança de medição (por exemplo `HIGH`) permanecem
+qualitativos; scores SARI/SCORE-GEO, métricas Dynatrace, JSON, evidências e
+valores persistidos não são alterados.
+
+No CAT-07, opções de KPM RUM são apresentadas por nome legível, com o código
+técnico original e sem inferir configuração de tenant. A **origem da sugestão**
+da prévia para outra AUD é proveniência da proposta, não host/rede observada.

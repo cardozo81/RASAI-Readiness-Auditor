@@ -27,13 +27,21 @@ ARCH_LABELS = {
 # Presentation-only vocabulary. Executable KPM/source enums remain unchanged
 # in SQLite and in the architecture-advisory contract.
 _KPM_LABELS = {
-    "USER_ACTION_DURATION": "Duração da ação de carregamento inicial",
+    "USER_ACTION_DURATION": "Duração da ação do usuário",
     "DOM_INTERACTIVE": "Tempo até o documento ficar interativo (DOM)",
     "LOAD_EVENT_START": "Início do evento de carregamento",
     "LOAD_EVENT_END": "Conclusão do evento de carregamento",
     "RESPONSE_START": "Início da resposta HTTP",
     "RESPONSE_END": "Conclusão da resposta HTTP",
     "LARGEST_CONTENTFUL_PAINT": "Maior pintura de conteúdo (LCP)",
+    "VISUALLY_COMPLETE": "Conclusão visual da ação",
+    "SPEED_INDEX": "Índice de velocidade da apresentação visual",
+    "FIRST_INPUT_DELAY": "Atraso da primeira interação (FID)",
+    "CUMULATIVE_LAYOUT_SHIFT": "Deslocamento acumulado de layout (CLS)",
+}
+_PREVIEW_SOURCE_LABELS = {
+    "RASAI_EXECUTABLE_DYNATRACE_LOAD_FALLBACK_REFERENCE":
+        "Referência de compatibilidade do RASAi para Load; proposta não aplicada, sem consulta ao tenant",
 }
 _ARCHITECTURE_SOURCE_LABELS = {
     "M6_OBSERVED": "Identificada pela captura desta auditoria",
@@ -129,6 +137,23 @@ def _run_config(con: sqlite3.Connection, audit_id: str) -> Mapping[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _preview_source_html(value: object) -> str:
+    """Human-facing provenance with the original code preserved for traceability."""
+    if not isinstance(value, str) or not value:
+        return "N/D"
+    return (
+        escape(_PREVIEW_SOURCE_LABELS.get(value, "Proveniência da proposta não catalogada"))
+        + " (<code>" + escape(value) + "</code>)"
+    )
+
+
+def _preview_value_html(value: object) -> str:
+    """Render future values as suggestions, without changing the proposed parameters."""
+    if isinstance(value, str) and value in _KPM_LABELS:
+        return escape(_KPM_LABELS[value]) + " (<code>" + escape(value) + "</code>)"
+    return escape(str(value)) if value is not None else "N/D"
+
+
 def _dynatrace_rum_kpm_reference_html(architecture: str) -> str:
     """Static vendor action-type options, not evidence of tenant configuration.
 
@@ -162,7 +187,8 @@ def _dynatrace_rum_kpm_reference_html(architecture: str) -> str:
     rows = "".join(
         "<tr><td><code>" + escape(label) + "</code></td><td>" + escape(context)
         + "</td><td>" + ", ".join(
-            "<code>" + escape(kpm) + "</code>"
+            escape(_KPM_LABELS.get(kpm, "Métrica sem rótulo catalogado"))
+            + " (<code>" + escape(kpm) + "</code>)"
             for kpm in sorted(KPM_BY_ACTION[key])
         )
         + "</td><td>N/D (tenant não consultado)</td></tr>"
@@ -401,14 +427,14 @@ def cat07_architecture_advice_html(
             "de precedência sobre CLI, INI ou ambiente. Confirmar novamente "
             "no console antes da execução.</p>"
             "<div class='table-wrap'><table><thead><tr>"
-            "<th>Variável</th><th>Valor proposto</th><th>Origem</th>"
+            "<th>Variável</th><th>Valor proposto</th><th>Origem da sugestão</th>"
             "<th>Substituiria valor atual?</th></tr></thead><tbody>"
         )
         for item in preview:
             parts.append(
                 "<tr><td><code>" + escape(str(item.get("variable") or "N/D"))
-                + "</code></td><td>" + escape(str(item.get("value") or "N/D"))
-                + "</td><td>" + escape(str(item.get("source") or "N/D"))
+                + "</code></td><td>" + _preview_value_html(item.get("value"))
+                + "</td><td>" + _preview_source_html(item.get("source"))
                 + "</td><td>"
                 + ("Sim - requer aceite" if item.get("would_override_current")
                    else "Não identificado")

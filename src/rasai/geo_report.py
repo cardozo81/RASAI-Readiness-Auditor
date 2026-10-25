@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
 
 from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
 from rasai.geo_query_ledger_report import geo_query_advisory_html
+from rasai.report_presentation import fractional_confidence_percentage
 
 
 def _host(url: str) -> str:
@@ -440,8 +441,8 @@ def _baseline_serp_section(database: Path, audit_id: str) -> str:
                     verify = "validar jornada, navegabilidade, clareza semântica e links internos"
                 result += "<br>Categoria: " + escape(category)
                 if opportunity.get("confidence") is not None:
-                    result += " | confiança atribuída pela análise IA: "
-                    result += escape(str(opportunity["confidence"]))
+                    result += " | Confiança estimada pela IA (não verificada): "
+                    result += escape(fractional_confidence_percentage(opportunity["confidence"]))
                 result += "<br>Área sugerida: " + escape(owner)
                 result += "<br>Ação proposta: " + escape(str(opportunity.get("recommendation") or "Revisar evidência"))
                 if opportunity.get("rationale"):

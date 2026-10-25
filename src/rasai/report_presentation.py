@@ -8,6 +8,7 @@ inside code/pre blocks remain canonical.
 from __future__ import annotations
 
 import re
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from rasai.public_language import (
     SUPPLEMENTAL_PUBLIC_LABELS,
@@ -647,6 +648,27 @@ def _standalone_concept_label(text: str, *, page_name: str | None) -> str:
     prefix = text[: len(text) - len(text.lstrip())]
     suffix = text[len(text.rstrip()):]
     return f"{prefix}{replacement}{suffix}"
+
+
+def fractional_confidence_percentage(value: object) -> str:
+    """Present a declared [0, 1] confidence as pt-BR percent, not a calibrated probability.
+
+    Presentation only: never mutate source JSON, evidence or SCORE-GEO fields.
+    Non-finite, boolean, absent and out-of-contract values are unknown.
+    """
+    if value is None or isinstance(value, bool):
+        return "N/D"
+    try:
+        raw = str(value).strip()
+        if not raw or len(raw) > 64:
+            return "N/D"
+        fraction = Decimal(raw)
+        if not fraction.is_finite() or not (Decimal(0) <= fraction <= Decimal(1)):
+            return "N/D"
+        percent = (fraction * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        return f"{int(percent)}%"
+    except (InvalidOperation, TypeError, ValueError, OverflowError):
+        return "N/D"
 
 
 def humanize_report_html(html: str, *, page_name: str | None = None) -> str:

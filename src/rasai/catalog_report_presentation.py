@@ -3,7 +3,7 @@ from math import isfinite
 from rasai.catalog_report_model import *  # noqa: F401,F403
 from rasai.time_contract import localize_html_timestamps
 from rasai.catalog_report_public_labels import public_label, public_text
-from rasai.report_presentation import humanize_report_html, public_label as common_public_label
+from rasai.report_presentation import humanize_report_html, public_label as common_public_label, fractional_confidence_percentage
 
 _EMPTY = "-"
 _RICH_TOKEN_RE = re.compile(
@@ -448,11 +448,7 @@ def _confidence_label(value: Any) -> str:
         return "Não aplicável"
     if raw in {"UNKNOWN","NOT_DETERMINABLE"}:
         return "Não determinada"
-    try:
-        number=float(value)
-        return f"{number*100:.0f}%" if 0<=number<=1 else f"{number:g}"
-    except (TypeError,ValueError):
-        return str(value or _EMPTY).replace("_"," ")
+    return fractional_confidence_percentage(value)
 
 
 def _session_label(value: Any) -> str:
