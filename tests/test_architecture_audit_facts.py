@@ -92,7 +92,7 @@ def test_catalog01_replays_structured_advisory_from_bound_raw_only(tmp_path):
     assert "Rede simulada" not in html
     assert "Scripts com telemetria de runtime" in html
     assert "Recursos declarados no DOM" in html
-    assert "CSS e subframes na rede" in html
+    assert "CSS, APIs e subframes na rede" in html
     assert "Topologia da infraestrutura" in html
     assert "Observações de mutação do DOM" in html
     assert "Limite de espera atingido" in html
