@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 from rasai.observability.store import observability_database_path
 import sqlite3
@@ -235,6 +236,7 @@ def collect_common_crawl_history(
     collection_count: int = 2,
     timeout: float = 20.0,
     min_interval_seconds: float = 0.5,
+    max_attempts_per_request: int = 2,
     opener: JsonOpener = urlopen,
 ) -> str:
     """Observe exact audited URLs in recent Common Crawl CDX indexes.
@@ -244,6 +246,8 @@ def collect_common_crawl_history(
     indexation or current reachability.
     """
     workspace = Path(audit_workspace)
+    if max_attempts_per_request not in (1, 2):
+        raise ValueError("Common Crawl attempts must be 1 or 2")
     if max_urls < 0 or max_urls > 25:
         raise ValueError("Common Crawl max_urls must be between 0 and 25")
     if collection_count < 1 or collection_count > 6:
@@ -264,9 +268,12 @@ def collect_common_crawl_history(
     )
     if not isinstance(collections, list):
         raise ValueError("Common Crawl collinfo response root must be a list")
+    # The remote collection catalog is not trusted to choose an arbitrary
+    # HTTP destination. Build only known public Common Crawl index URLs.
     usable = [
         item for item in collections
-        if isinstance(item, dict) and str(item.get("id") or "").strip() and str(item.get("cdx-api") or "").strip()
+        if isinstance(item, dict)
+        and re.fullmatch(r"CC-MAIN-[0-9]{4}-[0-9]{2}", str(item.get("id") or ""))
     ][:collection_count]
 
     observations: list[dict[str, Any]] = []
@@ -277,23 +284,52 @@ def collect_common_crawl_history(
     no_capture_details: list[dict[str, Any]] = []
     for collection in usable:
         collection_id = str(collection["id"])
-        endpoint = str(collection["cdx-api"])
+        endpoint = "https://index.commoncrawl.org/" + collection_id + "-index"
         for target_url in selected_urls:
-            if request_count:
-                time.sleep(max(0.0, float(min_interval_seconds)))
-            request_count += 1
             query = urlencode({"url": target_url, "output": "json"})
             request = Request(
                 endpoint + ("&" if "?" in endpoint else "?") + query,
                 method="GET",
                 headers={"Accept": "application/x-ndjson, application/json", "User-Agent": _common_crawl_user_agent()},
             )
-            try:
-                lines = _read_text(request, timeout=timeout, opener=opener, provider="Common Crawl CDX")
-            except (OSError, RuntimeError, ValueError) as exc:
-                error_type = type(exc).__name__
-                message = str(exc).strip()[:500]
+            lines = None
+            last_error: Exception | None = None
+            attempts = 0
+            for attempt in range(max_attempts_per_request):
+                if request_count:
+                    time.sleep(max(0.0, min(float(min_interval_seconds), 10.0)))
+                if attempt:
+                    # Bounded backoff only for transport/429/5xx. No extra
+                    # pages, no WARC, no paid requests; one retry maximum.
+                    time.sleep(2.0)
+                request_count += 1
+                attempts += 1
+                try:
+                    lines = _read_text(
+                        request, timeout=timeout, opener=opener, provider="Common Crawl CDX",
+                    )
+                    last_error = None
+                    break
+                except (OSError, RuntimeError, ValueError) as exc:
+                    last_error = exc
+                    msg = str(exc)
+                    transient = (
+                        bool(re.search(r"\bHTTP (?:429|500|502|503|504)\b", msg))
+                        or (
+                            not bool(re.search(r"\bHTTP [0-9]{3}\b", msg))
+                            and bool(re.search(
+                                r"timed?\s*out|timeout|temporar|remote.?disconnect|"
+                                r"connection.?abort|connection.?reset|network error", msg, re.I,
+                            ))
+                        )
+                    )
+                    if not transient:
+                        break
+            if last_error is not None:
+                error_type = type(last_error).__name__
+                message = str(last_error).strip()[:500]
                 detail = {
+                    "attempts": attempts,
                     "collection": collection_id,
                     "target_url": target_url,
                     "endpoint": endpoint,
@@ -307,6 +343,8 @@ def collect_common_crawl_history(
                     continue
                 errors.append(f"{collection_id}:{target_url}:{error_type}:{message}" if message else f"{collection_id}:{target_url}:{error_type}")
                 error_details.append(detail)
+                continue
+            if lines is None:
                 continue
             for raw_line in lines.splitlines()[:100]:
                 raw_line = raw_line.strip()
@@ -350,6 +388,7 @@ def collect_common_crawl_history(
         "collections": [str(item["id"]) for item in usable],
         "requested_urls": selected_urls,
         "requests": request_count,
+        "max_attempts_per_request": max_attempts_per_request,
         "errors": errors,
         "error_details": error_details,
         "no_capture_details": no_capture_details,

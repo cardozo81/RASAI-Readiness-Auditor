@@ -246,3 +246,60 @@ def test_external_data_is_projected_only_into_relevant_reports(tmp_path: Path) -
     observability = (root / "report" / "observability.html").read_text(encoding="utf-8")
     assert "Behavioral UX" in observability
     assert "Web history" in observability
+
+
+
+def test_common_crawl_retries_one_transient_502_and_succeeds(tmp_path: Path, monkeypatch) -> None:
+    from urllib.error import HTTPError
+    import io
+    from rasai.observability import external_sources as mod
+
+    root = _workspace(tmp_path)
+    monkeypatch.setattr(mod.time, "sleep", lambda _seconds: None)
+    calls = []
+
+    def opener(request, timeout):
+        calls.append(request.full_url)
+        if request.full_url.endswith("collinfo.json"):
+            return _Response([{
+                "id": "CC-MAIN-2026-34",
+                "cdx-api": "https://index.commoncrawl.org/CC-MAIN-2026-34-index",
+            }])
+        if len(calls) == 2:
+            raise HTTPError(request.full_url, 502, "Bad Gateway", {}, io.BytesIO(b"upstream unavailable"))
+        return _Response(json.dumps({
+            "url": "https://example.com/a",
+            "timestamp": "20260820112233",
+            "status": "200",
+            "mime": "text/html",
+        }) + "\n", raw=True)
+
+    collect_common_crawl_history(audit_workspace=root, max_urls=1,
+                                 collection_count=1, min_interval_seconds=0,
+                                 opener=opener)
+    assert len(calls) == 3
+    assert len(archive_rows(root)) == 1
+    assert all("data.commoncrawl.org" not in url for url in calls)
+
+
+def test_common_crawl_does_not_retry_permanent_404_or_bad_endpoint(tmp_path: Path) -> None:
+    from urllib.error import HTTPError
+    import io
+    root = _workspace(tmp_path)
+    calls = []
+
+    def opener(request, timeout):
+        calls.append(request.full_url)
+        if request.full_url.endswith("collinfo.json"):
+            return _Response([{
+                "id": "CC-MAIN-2026-34", "cdx-api": "http://127.0.0.1/internal",
+            }])
+        raise HTTPError(request.full_url, 404, "Not found", {},
+                        io.BytesIO(b'{"message":"No Captures found"}'))
+
+    collect_common_crawl_history(audit_workspace=root, max_urls=1,
+                                 collection_count=1, min_interval_seconds=0,
+                                 opener=opener)
+    assert len(calls) == 2
+    assert calls[1].startswith("https://index.commoncrawl.org/")
+    assert not any("127.0.0.1" in url for url in calls)

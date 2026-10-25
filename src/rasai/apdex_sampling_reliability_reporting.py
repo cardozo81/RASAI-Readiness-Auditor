@@ -100,8 +100,10 @@ def apdex_sampling_reliability_html(
         return prefix + (
             "<strong>LIMITADA para generalização (grupos pequenos).</strong>"
             + escape(suffix)
-            + " A execução pode ter cumprido integralmente a meta configurada, "
-            "mas o tamanho da amostra restringe conclusões gerais; "
+            + " Grupo pequeno descreve apenas a suficiência metodológica: "
+            "não é diagnóstico de falha na execução. A meta operacional "
+            "e eventuais erros devem ser verificados separadamente na tabela de amostras; "
+            "o tamanho da amostra restringe conclusões gerais; "
             "o Apdex continua sendo o índice das amostras efetivamente observadas." + closing_tag
         )
     if small:
