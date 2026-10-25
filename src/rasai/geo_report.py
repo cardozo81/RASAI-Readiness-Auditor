@@ -403,7 +403,7 @@ def _baseline_serp_section(database: Path, audit_id: str) -> str:
         result += "<p>Nenhuma URL materializada no resultado SERP elegível.</p>"
     result += "</section>"
     assessment = _prior_competitive_ai(database, audit_id, observation_id)
-    result += "<section><h2>Inteligência competitiva já produzida</h2>"
+    result += "<section class='geo-competitive-review'><h2>Inteligência competitiva já produzida</h2>"
     if assessment is None:
         result += (
             "<p>Não existe análise competitiva canônica disponível para esta "
@@ -420,18 +420,20 @@ def _baseline_serp_section(database: Path, audit_id: str) -> str:
         if assessment.get("summary"):
             result += "<p>" + escape(str(assessment["summary"])[:2200]) + "</p>"
         if assessment["opportunities"]:
-            result += "<ol>"
-            for opportunity in assessment["opportunities"][:8]:
-                result += "<li><strong>" + escape(str(opportunity.get("title") or "-"))
-                result += "</strong> (prioridade indicativa: "
-                result += escape(str(opportunity.get("priority") or "N/D")) + ")"
+            result += (
+                "<p class='geo-reader-key'><strong>Como comparar:</strong> "
+                "a prioridade é indicativa e atribuída pela análise de IA; "
+                "a confiança é declarada pelo modelo, não calibrada nem verificada. "
+                "Não ordene ações apenas pelo percentual de confiança. "
+                "Todas as propostas e respectivas limitações estão visíveis.</p>"
+                "<ol class='geo-review-list' aria-label='Oportunidades competitivas'>"
+            )
+            for index, opportunity in enumerate(assessment["opportunities"][:8], 1):
                 category = str(opportunity.get("category") or "NAO_CLASSIFICADA").upper()
                 owner, verify = _geo_review_routing({
                     "category": category,
                     "title": opportunity.get("title") or "",
                 })
-                # Competitive categories concern market/content unless the actual
-                # issue mentions technical crawling or rendering.
                 if category in {"QUERY_INTENT", "TOPIC_COVERAGE", "ENTITY_COVERAGE",
                                 "CITATION_READINESS", "EVIDENCE_TRUST"}:
                     owner = "Conteúdo/SEO editorial + especialista de produto"
@@ -439,33 +441,52 @@ def _baseline_serp_section(database: Path, audit_id: str) -> str:
                 elif category == "INFORMATION_ARCHITECTURE":
                     owner = "SEO técnico + Conteúdo/UX"
                     verify = "validar jornada, navegabilidade, clareza semântica e links internos"
-                result += "<br>Categoria: " + escape(category)
-                if opportunity.get("confidence") is not None:
-                    result += " | Confiança estimada pela IA (não verificada): "
-                    result += escape(fractional_confidence_percentage(opportunity["confidence"]))
-                result += "<br>Área sugerida: " + escape(owner)
-                result += "<br>Ação proposta: " + escape(str(opportunity.get("recommendation") or "Revisar evidência"))
-                if opportunity.get("rationale"):
-                    result += "<br>Motivo relatado: " + escape(str(opportunity["rationale"])[:450])
-                if opportunity.get("causality_note"):
-                    result += "<br>Limite causal: " + escape(str(opportunity["causality_note"])[:300])
-                result += "<br>Evidências declaradas: " + ", ".join(
-                    escape(str(evidence)) for evidence in opportunity["evidence_ids"][:8]
+                priority = escape(str(opportunity.get("priority") or "N/D"))
+                confidence = fractional_confidence_percentage(opportunity.get("confidence"))
+                result += (
+                    "<li class='geo-review-item'><article class='geo-review-card'>"
+                    "<div class='geo-review-rail'>"
+                    "<span class='geo-review-sequence'>Proposta " + str(index) + "</span>"
+                    "<div class='geo-review-indicator'><small>Prioridade indicada pela IA</small>"
+                    "<strong>" + priority + "</strong></div>"
+                    "<div class='geo-review-indicator'><small>Confiança estimada pela IA (não verificada)</small>"
+                    "<strong>" + escape(confidence) + "</strong></div>"
+                    "</div><div class='geo-review-content'><h3>"
+                    + escape(str(opportunity.get("title") or "-")) + "</h3>"
+                    "<dl class='geo-review-fields'><div><dt>Categoria</dt><dd>"
+                    + escape(category) + "</dd></div>"
+                    "<div><dt>Área sugerida</dt><dd>" + escape(owner) + "</dd></div>"
+                    "</dl><div class='geo-review-action'><h4>Ação proposta</h4><p>"
+                    + escape(str(opportunity.get("recommendation") or "Revisar evidência"))
+                    + "</p></div>"
                 )
-                result += " | Validação humana: " + escape(verify)
-                result += "</li>"
+                if opportunity.get("rationale"):
+                    result += "<div class='geo-review-note'><h4>Motivo relatado</h4><p>" + escape(
+                        str(opportunity["rationale"])[:450]) + "</p></div>"
+                if opportunity.get("causality_note"):
+                    result += "<div class='geo-review-note'><h4>Limite causal</h4><p>" + escape(
+                        str(opportunity["causality_note"])[:300]) + "</p></div>"
+                result += (
+                    "<div class='geo-review-evidence'><strong>Evidências declaradas:</strong> "
+                    + ", ".join("<code>" + escape(str(evidence)) + "</code>"
+                                for evidence in opportunity["evidence_ids"][:8])
+                    + "<br><strong>Validação humana:</strong> " + escape(verify)
+                    + "</div></div></article></li>"
+                )
             result += "</ol>"
         else:
             result += "<p>Sem oportunidades vinculadas a IDs de evidência.</p>"
-        result += ("<p>As interpretações exigem conferência nas evidências de origem; "
-                   "não estabelecem causalidade com classificação, citação ou "
-                   "presença em respostas de IA.</p>")
+        result += (
+            "<p>As interpretações exigem conferência nas evidências de origem; "
+            "não estabelecem causalidade com classificação, citação ou "
+            "presença em respostas de IA.</p>"
+        )
     return result + "</section>"
 
 
 def _baseline_findings_section(database: Path, audit_id: str) -> str:
     findings = _geo_relevant_findings(database, audit_id)
-    section = "<section><h2>Plano de revisão técnica, editorial e de negócio</h2>"
+    section = "<section class='geo-technical-review'><h2>Plano de revisão técnica, editorial e de negócio</h2>"
     if not findings:
         return section + (
             "<p>Nenhum achado elegível foi encontrado. Isso não significa "
@@ -475,27 +496,50 @@ def _baseline_findings_section(database: Path, audit_id: str) -> str:
         "<p>Priorização orientativa de achados já persistidos na auditoria. "
         "A gravidade é a classificação do catálogo original, não uma estimativa "
         "de efeito em respostas generativas. Valide cada evidência e "
-        "ação antes de autorizar mudanças.</p><ol>"
+        "ação antes de autorizar mudanças.</p>"
+        "<p class='geo-reader-key'><strong>Como comparar:</strong> "
+        "a gravidade provém das regras auditadas, não da confiança da IA. "
+        "Os achados estão em ordem de gravidade original; empates preservam "
+        "a ordenação determinística da auditoria.</p>"
+        "<ol class='geo-review-list' aria-label='Achados para revisão'>"
     )
-    for finding in findings:
-        section += "<li><strong>" + escape(str(finding.get("title") or "-"))
-        section += "</strong> | gravidade original: " + escape(str(finding.get("severity") or "-"))
-        section += " | regra: <code>" + escape(str(finding.get("rule_id") or "-")) + "</code>"
-        section += " | finding: <code>" + escape(str(finding.get("finding_id") or "-")) + "</code>"
+    for index, finding in enumerate(findings, 1):
         owner, verification = _geo_review_routing(finding)
-        section += "<br>Área: " + escape(owner) + " | Verificação: " + escape(verification)
+        section += (
+            "<li class='geo-review-item'><article class='geo-review-card'>"
+            "<div class='geo-review-rail'><span class='geo-review-sequence'>Achado "
+            + str(index) + "</span>"
+            "<div class='geo-review-indicator'><small>Gravidade original</small>"
+            "<strong>" + escape(str(finding.get("severity") or "N/D")) + "</strong>"
+            "</div></div><div class='geo-review-content'>"
+            "<h3>" + escape(str(finding.get("title") or "-")) + "</h3>"
+            "<dl class='geo-review-fields'>"
+            "<div><dt>Área responsável</dt><dd>" + escape(owner) + "</dd></div>"
+            "<div><dt>Verificação</dt><dd>" + escape(verification) + "</dd></div>"
+            "</dl>"
+        )
+        recommended = finding.get("existing_recommendation") or {}
+        if recommended.get("description"):
+            section += (
+                "<div class='geo-review-action'><h4>Ação registrada</h4><p>"
+                + escape(str(recommended["description"])[:600]) + "</p></div>"
+            )
+        section += (
+            "<div class='geo-review-evidence'><strong>Regra:</strong> <code>"
+            + escape(str(finding.get("rule_id") or "-")) + "</code>"
+            " &nbsp; <strong>Identificador do achado:</strong> <code>"
+            + escape(str(finding.get("finding_id") or "-")) + "</code>"
+        )
         try:
             evidence = json.loads(finding.get("evidence_ids") or "[]")
         except (TypeError, ValueError):
             evidence = []
         if isinstance(evidence, list) and evidence:
-            section += "<br>Evidências persistidas: " + ", ".join(
-                escape(str(ref)) for ref in evidence[:8] if isinstance(ref, str)
+            section += "<br><strong>Evidências persistidas:</strong> " + ", ".join(
+                "<code>" + escape(str(ref)) + "</code>"
+                for ref in evidence[:8] if isinstance(ref, str)
             )
-        recommended = finding.get("existing_recommendation") or {}
-        if recommended.get("description"):
-            section += "<br>Ação registrada: " + escape(str(recommended["description"])[:600])
-        section += "</li>"
+        section += "</div></div></article></li>"
     return section + "</ol></section>"
 
 
@@ -549,6 +593,72 @@ def geo_body(database: Path, audit_id: str) -> str:
     }
     .geo-view > section:focus-within {
       border-color:var(--line-strong,#c6d5db)
+    }
+    .geo-view .geo-reader-key{
+      border-left:3px solid var(--line-strong,#b8ccd2);
+      padding:11px 14px;background:var(--surface-subtle,#f7f9fa);
+      margin:14px 0;max-width:100ch
+    }
+    .geo-view .geo-review-list{list-style:none;padding:0;margin:16px 0;display:grid;gap:14px}
+    .geo-view .geo-review-item{margin:0;min-width:0}
+    .geo-view .geo-review-card{
+      display:grid;grid-template-columns:minmax(154px,190px) minmax(0,1fr);
+      border:1px solid var(--geo-border);border-radius:10px;overflow:hidden;
+      background:var(--geo-surface);min-width:0
+    }
+    .geo-view .geo-review-rail{
+      padding:18px 15px;background:var(--surface-subtle,#f7f9fa);
+      border-right:1px solid var(--geo-border);
+      display:flex;flex-direction:column;gap:14px
+    }
+    .geo-view .geo-review-sequence{
+      font-size:.78rem;letter-spacing:.025em;font-weight:700;
+      color:var(--geo-muted)
+    }
+    .geo-view .geo-review-indicator{display:grid;gap:5px}
+    .geo-view .geo-review-indicator small{
+      color:var(--geo-muted);font-size:.75rem;line-height:1.35
+    }
+    .geo-view .geo-review-indicator strong{
+      font-size:1.45rem;line-height:1.2;font-weight:750;color:var(--ink)
+    }
+    .geo-view .geo-review-content{padding:18px 20px;min-width:0}
+    .geo-view .geo-review-content h3{
+      font-size:1.12rem;line-height:1.3;margin:0 0 16px;letter-spacing:-.01em
+    }
+    .geo-view .geo-review-content h4{font-size:.84rem;margin:0 0 5px}
+    .geo-view .geo-review-fields{
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;margin:0 0 12px
+    }
+    .geo-view .geo-review-fields div{min-width:0}
+    .geo-view .geo-review-fields dt{
+      font-size:.75rem;color:var(--geo-muted);font-weight:700
+    }
+    .geo-view .geo-review-fields dd{margin:3px 0 0;overflow-wrap:anywhere}
+    .geo-view .geo-review-action{
+      margin:12px 0;padding:13px 15px;border:1px solid var(--geo-border);
+      border-radius:8px;background:var(--surface-subtle,#f7f9fa)
+    }
+    .geo-view .geo-review-action p,.geo-view .geo-review-note p{margin:0}
+    .geo-view .geo-review-note{margin:13px 0}
+    .geo-view .geo-review-evidence{
+      border-top:1px solid var(--geo-border);padding-top:12px;margin-top:14px;
+      font-size:.84rem;line-height:1.65;overflow-wrap:anywhere
+    }
+    .geo-view .geo-review-evidence code{white-space:normal;overflow-wrap:anywhere}
+    @media(max-width:800px){
+      .geo-view .geo-review-card{grid-template-columns:minmax(0,1fr)}
+      .geo-view .geo-review-rail{
+        border-right:0;border-bottom:1px solid var(--geo-border);
+        flex-direction:row;flex-wrap:wrap;align-items:baseline
+      }
+      .geo-view .geo-review-indicator{flex:1 1 145px}
+      .geo-view .geo-review-fields{grid-template-columns:minmax(0,1fr)}
+    }
+    @media print{
+      .geo-view .geo-review-card{break-inside:avoid;box-shadow:none}
+      .geo-view .geo-review-rail,.geo-view .geo-review-action{background:#fff}
     }
     @media(max-width:650px){
       .geo-view{gap:12px}

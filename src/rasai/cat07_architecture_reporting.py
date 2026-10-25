@@ -39,6 +39,11 @@ _KPM_LABELS = {
     "FIRST_INPUT_DELAY": "Atraso da primeira interação (FID)",
     "CUMULATIVE_LAYOUT_SHIFT": "Deslocamento acumulado de layout (CLS)",
 }
+_PREVIEW_VARIABLE_LABELS = {
+    "RASAI_APDEX_EXPERIENCE_KPM": "Métrica proposta para o Apdex de experiência",
+    "RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS": "Limite da faixa satisfatória (segundos)",
+    "RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS": "Limite da faixa frustrada (segundos)",
+}
 _PREVIEW_SOURCE_LABELS = {
     "RASAI_EXECUTABLE_DYNATRACE_LOAD_FALLBACK_REFERENCE":
         "Referência de compatibilidade do RASAi para Load; proposta não aplicada, sem consulta ao tenant",
@@ -141,10 +146,7 @@ def _preview_source_html(value: object) -> str:
     """Human-facing provenance with the original code preserved for traceability."""
     if not isinstance(value, str) or not value:
         return "N/D"
-    return (
-        escape(_PREVIEW_SOURCE_LABELS.get(value, "Proveniência da proposta não catalogada"))
-        + " (<code>" + escape(value) + "</code>)"
-    )
+    return escape(_PREVIEW_SOURCE_LABELS.get(value, "Proveniência da proposta não catalogada"))
 
 
 def _preview_value_html(value: object) -> str:
@@ -435,8 +437,11 @@ def cat07_architecture_advice_html(
         )
         for item in preview:
             parts.append(
-                "<tr><td><code>" + escape(str(item.get("variable") or "N/D"))
-                + "</code></td><td>" + _preview_value_html(item.get("value"))
+                "<tr><td>" + escape(_PREVIEW_VARIABLE_LABELS.get(
+                    str(item.get("variable") or ""),
+                    "Variável técnica da proposta (nome não catalogado)"
+                ))
+                + "</td><td>" + _preview_value_html(item.get("value"))
                 + "</td><td>" + _preview_source_html(item.get("source"))
                 + "</td><td>"
                 + ("Sim - requer aceite" if item.get("would_override_current")

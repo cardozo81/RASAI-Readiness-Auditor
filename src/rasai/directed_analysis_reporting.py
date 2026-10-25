@@ -671,7 +671,36 @@ def directed_analysis_body(database: Any, data: Any) -> str:
     finally:
         connection.close()
 
-    body=_audit_hero(
+    # Scoped summary layout: five complete narrative panels, never a four-column squeeze.
+    # No information is collapsed, paginated, or gated by click in this section.
+    body = """
+    <style>
+    #summary > .grid {
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:18px;align-items:start
+    }
+    #summary > .grid > .card {
+      min-width:0;padding:18px 20px;overflow-wrap:anywhere
+    }
+    #summary > .grid > .card:last-child:nth-child(odd){grid-column:1/-1}
+    #summary > .metric-grid {
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px
+    }
+    #summary > .metric-grid > .metric{min-width:0;overflow-wrap:anywhere}
+    #summary > .metric-grid > .metric:last-child:nth-child(odd){grid-column:1/-1}
+    @media(max-width:850px){
+      #summary > .grid,#summary > .metric-grid{grid-template-columns:minmax(0,1fr)}
+      #summary > .grid > .card:last-child:nth-child(odd),
+      #summary > .metric-grid > .metric:last-child:nth-child(odd){grid-column:auto}
+    }
+    @media print{
+      #summary > .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      #summary > .grid > .card{break-inside:avoid}
+    }
+    </style>
+    """
+    body+=_audit_hero(
         data,
         "Análise Direcionada",
         "Camada estratégica auditável: correlaciona os resultados já persistidos nos CATs, sem executar novas coletas e sem transformar inferência de IA em fato técnico.",
