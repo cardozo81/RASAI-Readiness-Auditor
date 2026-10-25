@@ -21,6 +21,9 @@ from rasai.architecture_raw_signals import inspect_raw_html_signals
 from rasai.architecture_hypothesis import suggest_architecture_from_raw
 from rasai.architecture_m6_evidence import _safe_artifact_reference
 from rasai.architecture_resource_budget import MAX_ROOT_BYTES
+from collections import Counter
+from urllib.parse import urlsplit
+import ipaddress
 
 VERSION = "architecture-audit-facts-v1"
 MAX_SNAPSHOTS = 100
@@ -30,6 +33,120 @@ _ARCH = frozenset({"CSR_SPA", "HYDRATED", "MIXED", "STATIC_OR_SSR", "UNKNOWN"})
 
 def _code(value: Any) -> str | None:
     return value if isinstance(value, str) and _SAFE_CODE.fullmatch(value) else None
+
+
+def _public_host(value: Any) -> str | None:
+    """Safe DNS hostname only, no IP, private names, paths or credentials."""
+    if not isinstance(value, str) or len(value) > 4096:
+        return None
+    try:
+        host = (urlsplit(value).hostname if "://" in value else value).lower().rstrip(".")
+        if not host:
+            return None
+        ipaddress.ip_address(host)
+        return None
+    except (TypeError, AttributeError, ValueError):
+        pass
+    if (len(host) > 253 or "." not in host
+            or host.endswith((".local", ".internal", ".localhost"))):
+        return None
+    if not all(re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", x)
+               for x in host.split(".")):
+        return None
+    return host
+
+
+def _network_facts(
+    db: Path, audit_id: str, snapshot_id: str, metadata: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Sources are segregated: DOM declarations != CDP response observations."""
+    declared: Counter[str] = Counter()
+    dom_hosts: Counter[str] = Counter()
+    dom_count = None
+    try:
+        with sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=2) as con:
+            con.execute("PRAGMA query_only=ON")
+            tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if "passive_security_resources" in tables:
+                columns = {r[1] for r in con.execute("PRAGMA table_info(passive_security_resources)")}
+                if {"audit_id", "snapshot_id", "resource_kind", "domain"} <= columns:
+                    rows = con.execute(
+                        """SELECT resource_kind,domain,COUNT(*) FROM passive_security_resources
+                           WHERE audit_id=? AND snapshot_id=?
+                           GROUP BY resource_kind,domain LIMIT 201""",
+                        (audit_id, snapshot_id),
+                    ).fetchall()
+                    if len(rows) <= 200:
+                        dom_count = 0
+                        for kind, domain, n in rows:
+                            if type(n) is not int or n < 0:
+                                continue
+                            dom_count += n
+                            if kind in {"IMG","SCRIPT","STYLESHEET","SOURCE","RESOURCE","IFRAME","FORM"}:
+                                declared[kind] += n
+                            host = _public_host(domain)
+                            if host:
+                                dom_hosts[host] += n
+    except (sqlite3.Error, OSError, ValueError):
+        pass
+    scripts = metadata.get("script_runtime")
+    scripts = scripts if isinstance(scripts, Mapping) else {}
+    script_rows = scripts.get("items")
+    script_rows = script_rows if isinstance(script_rows, list) else []
+    shosts: Counter[str] = Counter()
+    statuses: Counter[str] = Counter()
+    protocols: Counter[str] = Counter()
+    for item in script_rows[:200]:
+        if not isinstance(item, Mapping):
+            continue
+        host = _public_host(item.get("url"))
+        if host:
+            shosts[host] += 1
+        status = item.get("status")
+        if type(status) is int and 100 <= status <= 599:
+            statuses[str(status // 100) + "xx"] += 1
+        proto = item.get("protocol")
+        if isinstance(proto, str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9._+-]{0,20}", proto):
+            protocols[proto] += 1
+    resources = metadata.get("network_resource_observations")
+    resources = resources if isinstance(resources, Mapping) else {}
+    resource_rows = resources.get("items")
+    resource_rows = resource_rows if isinstance(resource_rows, list) else []
+    kinds: Counter[str] = Counter()
+    rhosts: Counter[str] = Counter()
+    rstatuses: Counter[str] = Counter()
+    for item in resource_rows[:160]:
+        if not isinstance(item, Mapping) or item.get("resource_type") not in {"Stylesheet","SubframeDocument"}:
+            continue
+        kinds[item["resource_type"]] += 1
+        host = _public_host(item.get("host"))
+        if host:
+            rhosts[host] += 1
+        status = item.get("status")
+        if type(status) is int and 100 <= status <= 599:
+            rstatuses[str(status // 100) + "xx"] += 1
+    cookies = metadata.get("cookie_runtime")
+    cookies = cookies if isinstance(cookies, Mapping) else {}
+    nav = metadata.get("navigation_trace")
+    def num(obj: Mapping[str, Any], key: str) -> int | None:
+        v = obj.get(key)
+        return v if type(v) is int and 0 <= v <= 100000 else None
+    def top(c: Counter[str]) -> tuple[tuple[str,int],...]:
+        return tuple(sorted(c.items(), key=lambda x:(-x[1],x[0]))[:8])
+    return {
+        "dom_count": dom_count, "dom_types": dict(declared), "dom_hosts": top(dom_hosts),
+        "script_count": num(scripts,"count"),
+        "script_state": scripts.get("state","NOT_COLLECTED"),
+        "script_statuses": dict(statuses), "script_protocols": dict(protocols),
+        "script_hosts": top(shosts),
+        "response_state": resources.get("state","NOT_COLLECTED"),
+        "response_count": num(resources,"count"), "response_types": dict(kinds),
+        "response_statuses": dict(rstatuses), "response_hosts": top(rhosts),
+        "response_truncated": resources.get("truncated") is True,
+        "navigation_count": min(len(nav),100) if isinstance(nav,list) else None,
+        "cookie_events": num(cookies,"count"),
+        "topology": "NETWORK_TOPOLOGY_NOT_DETERMINABLE",
+    }
 
 
 def _raw_from_attested_snapshot(
@@ -216,6 +333,9 @@ def read_architecture_audit_facts(
             "navigation_settle_outcome": _code(navigation.get("settle_outcome"))
             if isinstance(navigation, Mapping) else None,
             "network_error": _code(raw_http.get("network_error")),
+            "network_facts": _network_facts(
+                db, audit_id, str(row["snapshot_id"]), metadata,
+            ),
             "http_status_observed": http_status,
             "http_redirects_observed": redirects,
             "boundary": "AUD_SNAPSHOT_ONLY_NO_STANDALONE_PREVIEW",
@@ -339,7 +459,7 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             + display("Detalhes do certificado e negociação TLS", "N/D (não atestados nesta projeção)")
             + display("CDN, WAF, proxy, balanceador e backend", "N/D (topologia não determinável)")
             + display("Inventário agregado de CSS/JS/subframes e origens",
-                      "N/D (não materializado como topologia nesta projeção)")
+                      "Resumo por evidência abaixo; topologia N/D")
             + "</dl></section>"
             "<section class='architecture-fact-group'><h5>Navegador e renderização observados</h5><dl>"
             + display("Navegador da captura", row["browser_engine"] or "N/D")
@@ -372,6 +492,47 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
                        "NETWORK_IDLE": "Rede ociosa observada"}.get(
                           row["navigation_settle_outcome"], "N/D"))
             + "</dl></section></div>"
+        )
+        net = row.get("network_facts") or {}
+        def counts(v: Any) -> str:
+            return ", ".join(f"{k}: {n}" for k,n in sorted(v.items())) if isinstance(v,dict) and v else "N/D"
+        def hosts(v: Any) -> str:
+            return ", ".join(f"{k} ({n})" for k,n in v) if v else "N/D"
+        parts.append(
+            "<div class='architecture-fact-grid'>"
+            "<section class='architecture-fact-group'><h5>Recursos declarados no DOM</h5><dl>"
+            + display("Proveniência", "Segurança passiva: declarações, não downloads comprovados")
+            + display("Elementos declarados", net.get("dom_count"))
+            + display("Tipos", counts(net.get("dom_types")))
+            + display("Domínios públicos declarados, até oito", hosts(net.get("dom_hosts")))
+            + "</dl></section>"
+            "<section class='architecture-fact-group'><h5>Scripts observados na rede</h5><dl>"
+            + display("Proveniência", "Respostas Chromium/CDP nesta navegação")
+            + display("Estado", net.get("script_state"))
+            + display("Respostas de scripts", net.get("script_count"))
+            + display("Classes HTTP", counts(net.get("script_statuses")))
+            + display("Protocolos", counts(net.get("script_protocols")))
+            + display("Domínios públicos observados, até oito", hosts(net.get("script_hosts")))
+            + "</dl></section>"
+            "<section class='architecture-fact-group'><h5>CSS e subframes na rede</h5><dl>"
+            + display("Proveniência", "Somente respostas da mesma navegação; sem coleta adicional")
+            + display("Estado", net.get("response_state"))
+            + display("Respostas observadas", net.get("response_count"))
+            + display("Categorias", counts(net.get("response_types")))
+            + display("Classes HTTP", counts(net.get("response_statuses")))
+            + display("Domínios públicos observados, até oito", hosts(net.get("response_hosts")))
+            + display("Limite de observação", "Atingido" if net.get("response_truncated") else "Não evidenciado")
+            + "</dl></section>"
+            "<section class='architecture-fact-group'><h5>Contexto adicional</h5><dl>"
+            + display("Respostas de navegação registradas", net.get("navigation_count"))
+            + display("Eventos de cookies, não cookies únicos", net.get("cookie_events"))
+            + display("Topologia da infraestrutura", "Não determinável")
+            + "</dl></section></div>"
+            "<p class='architecture-limit'>Tags declaradas não comprovam requisições "
+            "concluídas; observações de rede não constituem inventário de toda a "
+            "infraestrutura. DNS, IP, TLS, CDN, WAF, balanceador e backend permanecem "
+            "não determináveis. Capturas anteriores à instrumentação adicional "
+            "exibem NOT_COLLECTED, e não zero.</p>"
         )
         hypothesis = row.get("hypothesis")
         if isinstance(hypothesis, dict):
