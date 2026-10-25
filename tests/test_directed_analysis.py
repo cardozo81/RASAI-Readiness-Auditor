@@ -336,6 +336,9 @@ def test_report_renders_strategy_and_menu_contract_contains_page(tmp_path: Path)
 
     assert "Análise Direcionada" in html
     assert "Resumo estratégico" in html
+    assert "#summary > .grid {" in html
+    assert "grid-template-columns:repeat(2,minmax(0,1fr))" in html
+    assert "#summary > .grid > .card:last-child:nth-child(odd)" in html
     assert "O que corrigir para obter maior ganho transversal" in html
     assert "Rastreabilidade CAT → seção → assunto" in html
     assert "cat-09.html#rem-jsonld-j1" in html

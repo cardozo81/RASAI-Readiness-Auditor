@@ -28,8 +28,19 @@ def fixture(tmp_path: Path, *, corrupt: bool = False) -> Path:
             "rendered_sha256": None,
             "manifest_attested": False,
         },
-        "raw_http": {"redirect_count": 1, "network_error": None},
-        "capture_quality": {"state": "INCOMPLETE"},
+        "raw_http": {"redirect_count": 1, "status": 200, "network_error": None},
+        "capture_quality": {
+            "state": "INCOMPLETE", "final": {"dom_nodes": 180, "main_text_length": 25},
+        },
+        "document_source": {"bytes": len(html)},
+        "rendered_dom": {"bytes": 230},
+        "browser_identity": {"descriptor": "Pixel 7", "tls_validation": "ENABLED"},
+        "engine": "chromium",
+        "script_runtime": {"count": 6},
+        "dom_observations": {"count": 12},
+        "runtime_diagnostics": {"count": 2},
+        "navigation": {"settle_outcome": "BOUNDED_TIMEOUT"},
+        "bounded_lazy_probe": {"attempted": False, "state": "NOT_REQUIRED"},
     }
     with sqlite3.connect(db) as con:
         con.execute("CREATE TABLE pages (page_id TEXT PRIMARY KEY, audit_id TEXT)")
@@ -64,6 +75,13 @@ def test_catalog01_replays_structured_advisory_from_bound_raw_only(tmp_path):
     assert item["hypothesis"]["confidence"] == "LOW"
     assert item["measurement_inference_authorized"] is False
     assert item["score_effect"] is False
+    assert item["http_status_observed"] == 200
+    assert item["runtime_script_resources_count"] == 6
+    assert item["runtime_dom_observations_count"] == 12
+    assert item["runtime_diagnostic_count"] == 2
+    assert item["raw_html_bytes_observed"] == len(
+        '<html><div id="root"></div><script src="/assets.js"></script></html>'
+    )
     assert not read_architecture_audit_facts(db, "AUD-1", snapshot_id="SNP-2")
     html = architecture_audit_facts_html(db, "AUD-1")
     assert "CAT" not in html or "CAT-01" not in html
@@ -71,6 +89,11 @@ def test_catalog01_replays_structured_advisory_from_bound_raw_only(tmp_path):
     assert "Arquitetura registrada (M6)" not in html
     assert "Limites da descoberta de rede" in html
     assert "Status HTTP da captura" in html
+    assert "Rede simulada" not in html
+    assert "Scripts com telemetria de runtime" in html
+    assert "Observações de mutação do DOM" in html
+    assert "Limite de espera atingido" in html
+    assert "não atesta o certificado" in html
     assert "SNP-2" not in html
     assert "Scripts externos declarados no HTML inicial" in html
 

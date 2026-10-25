@@ -97,3 +97,50 @@ def test_synthetic_profile_internal_id_is_replaced_by_observable_preset_labels()
     assert "Navegador/cliente:" in rendered
     assert "Capacidade simulada:" in rendered
     assert "RASAI_SECRET_TEST" not in str(_synthetic_profile_public_label("RASAI_SECRET_TEST"))
+
+
+def test_geo_opportunities_are_visible_structured_cards_not_flat_bullets(monkeypatch):
+    from rasai import geo_report
+    observation = {
+        "observation_id": "SERP-TEST", "query": "seguro", "engine": "google",
+        "country": "BR", "region": "RS", "language": "pt-BR",
+        "device": "mobile", "collected_at": "2026-10-25T12:00:00Z",
+    }
+    monkeypatch.setattr(geo_report, "_serp_baseline", lambda *_: (observation, []))
+    monkeypatch.setattr(geo_report, "_prior_competitive_ai", lambda *_: {
+        "provider": "offline", "model": "fixture", "evidence_ref": "EV-TEST",
+        "summary": None,
+        "opportunities": [{
+            "title": "<Gap>", "priority": "HIGH", "category": "TOPIC_COVERAGE",
+            "recommendation": "Revisar", "confidence": 0.92,
+            "evidence_ids": ["EV-001"], "rationale": "Exemplo",
+            "causality_note": "Sem causalidade",
+        }],
+    })
+    html = geo_report._baseline_serp_section(Path("unused.db"), "AUD-TEST")
+    assert "geo-review-card" in html
+    assert "geo-review-rail" in html
+    assert "<h3>&lt;Gap&gt;</h3>" in html
+    assert "Prioridade indicada pela IA" in html
+    assert "<strong>92%</strong>" in html
+    assert "Limite causal" in html
+    assert "<code>EV-001</code>" in html
+    assert "<details" not in html
+
+
+def test_geo_audited_findings_have_distinct_severity_and_evidence_lanes(monkeypatch):
+    from rasai import geo_report
+    monkeypatch.setattr(geo_report, "_geo_relevant_findings", lambda *_: [{
+        "finding_id": "FND-001", "title": "Robots com revisão necessária",
+        "severity": "HIGH", "rule_id": "BR-GEO-017",
+        "category": "ROBOTS", "evidence_ids": '["EV-001"]',
+    }])
+    html = geo_report._baseline_findings_section(Path("unused.db"), "AUD-TEST")
+    assert "geo-technical-review" in html
+    assert "geo-review-rail" in html
+    assert "Gravidade original" in html
+    assert "<strong>HIGH</strong>" in html
+    assert "<code>FND-001</code>" in html
+    assert "<code>EV-001</code>" in html
+    assert "a gravidade provém das regras auditadas" in html
+    assert "<details" not in html
