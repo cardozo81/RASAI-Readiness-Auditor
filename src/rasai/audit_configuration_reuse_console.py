@@ -444,7 +444,9 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
         _apply_search_settings(state, configuration, warnings)
 
         state.input_mode = "url"
-        state.target = targets[0]
+        from rasai.target_scope_reconciliation import canonical_target
+        state.target = canonical_target(targets[0])
+        state.current_url = state.target or "-"
 
         console_settings.sync_nonsecret_runtime_environment(state)
         if choice is None:

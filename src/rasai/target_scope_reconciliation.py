@@ -44,6 +44,82 @@ def bind(state: Any, consumer: str) -> None:
     setattr(state, attr, canonical_target(getattr(state, "target", "")))
 
 
+def propagate_target(state: Any, value: str) -> bool:
+    """Set the single effective URL and its purely derived display state.
+
+    Search query provenance and authenticated GSC properties are independent
+    operator inputs. Never silently re-bind them to conceal stale scopes.
+    """
+    old = canonical_target(getattr(state, "target", ""))
+    supplied = str(value or "").strip()
+    current = canonical_target(supplied) if supplied else ""
+    if supplied and not current:
+        raise ValueError("URL inválida para a auditoria")
+    state.target = current
+    state.current_url = current or "-"
+    # A provenance marker with no corresponding terms is not meaningful.
+    # The next explicit query edit will bind its actual target as usual.
+    if old != current and not tuple(getattr(state, "search_queries", ()) or ()) and hasattr(state, "search_scope_target"):
+        state.search_scope_target = current
+    if not (
+        tuple(getattr(state, "perplexity_queries", ()) or ())
+        or tuple(getattr(state, "perplexity_draft_queries", ()) or ())
+    ) and old != current and hasattr(state, "perplexity_scope_target"):
+        state.perplexity_scope_target = current
+    return old != current
+
+
+def adjustment_guidance(consumer: str) -> str:
+    """Operator routes, not arbitrary state fields or provider approvals."""
+    routes = {
+        "SERP": "Preparar auditoria > CAT-05 > 1 > 1 (termos); 2 (localidade)",
+        "PERPLEXITY": "Preparar auditoria > CAT-05 > 1 > P > 1 (queries) ou 9 (rascunho)",
+        "GSC": "Todas as configurações > 23579716 (propriedade GSC)",
+    }
+    if consumer not in routes:
+        raise ValueError("consumer desconhecido")
+    return routes[consumer]
+
+
+def related_scope_summary(state: Any, *, environment: dict[str, str] | None = None) -> tuple[str, ...]:
+    """Non-mutating, no-API summary for the URL editor and persistence prompt."""
+    import os
+    from rasai.gsc_scope import GSC_SITE_URL_ENV, gsc_property_covers_url
+    target = canonical_target(getattr(state, "target", ""))
+    if not target:
+        return ("URL não informada: os catálogos não possuem alvo efetivo.",)
+    lines = (
+        f"URL única: {target}",
+        "CATs técnicos/Apdex/IA: URL herdada automaticamente do alvo acima.",
+        "SERP: domínio derivado da URL; termos/localidade mantidos até revisão.",
+        "Perplexity: consultas e consentimento mantidos independentes.",
+    )
+    output = list(lines)
+    for consumer in ("SERP", "PERPLEXITY"):
+        result = consumer_status(state, consumer)
+        if result in {"ORIGIN_CHANGED", "PATH_CHANGED", "SOURCE_UNVERIFIED"}:
+            output.append(
+                f"{consumer}: {result}; associado a {bound_url_label(state, consumer)}. "
+                f"Ajustar: {adjustment_guidance(consumer)}"
+            )
+    effective_env = os.environ if environment is None else environment
+    configured_gsc = str(effective_env.get(GSC_SITE_URL_ENV) or "").strip()
+    if configured_gsc:
+        try:
+            covers = gsc_property_covers_url(configured_gsc, target)
+        except ValueError:
+            covers = False
+        if not covers:
+            output.append(
+                f"GSC: propriedade {configured_gsc!r} não cobre o alvo. "
+                f"Ajustar: {adjustment_guidance('GSC')}. "
+                "A propriedade GSC não pode ser alterada automaticamente."
+            )
+        else:
+            output.append(f"GSC: propriedade {configured_gsc!r} compatível com o endereço.")
+    return tuple(output)
+
+
 def scope_preflight(target: str, effective: str) -> None:
     if not canonical_target(target) or canonical_target(target) != canonical_target(effective):
         raise ValueError("TARGET_SCOPE_MISMATCH")
@@ -82,7 +158,8 @@ def notices(state: Any) -> tuple[str, ...]:
     return tuple(
         f"{source}: {labels[result]}; "
         f"URL dos termos: {bound_url_label(state, source)}; "
-        f"URL atual: {canonical_target(getattr(state, 'target', '')) or '<não informada>'}"
+        f"URL atual: {canonical_target(getattr(state, 'target', '')) or '<não informada>'}; "
+        f"Ajustar: {adjustment_guidance(source)}"
         for source in ("SERP", "PERPLEXITY")
         if (result := consumer_status(state, source)) in labels
     )

@@ -516,11 +516,22 @@ def _install_configure_persistence(console: ModuleType) -> None:
         print("\nDESTINO DA ALTERAÇÃO")
         print("1. Manter somente nesta sessão")
         print("2. Manter na sessão e salvar no arquivo de configuração")
+        if choice == "1":
+            print("A. Ajustar agora termos SERP, Perplexity e propriedade GSC")
+            print("   A URL técnica já foi propagada; essas fontes independentes não são sobrescritas.")
         while True:
             destination = input("Escolha: ").strip().upper()
+            if destination == "A" and choice == "1":
+                from rasai.console_target_dependency_guide import review_target_dependencies
+                review_target_dependencies(console, state)
+                print("\nDESTINO DA ALTERAÇÃO")
+                print("1. Manter somente nesta sessão")
+                print("2. Manter na sessão e salvar no arquivo de configuração")
+                print("A. Revisar novamente fontes independentes")
+                continue
             if destination in {"1", "2"}:
                 break
-            print(paint("Opção inválida.", RED, bold=True))
+            print(paint("Opção inválida: escolha 1, 2 ou A (quando disponível).", RED, bold=True))
         if destination == "2" and console._save_configuration(state):
             _set_meta(state, "saved_fingerprint", _fingerprint(state))
 

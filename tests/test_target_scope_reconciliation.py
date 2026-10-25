@@ -169,7 +169,7 @@ def test_changed_url_editor_shows_existing_origin_without_claiming_slash_change(
     view = output.getvalue()
     assert "URL normalizada não mudou" in view
     assert "https://seguros.example/vida" in view
-    assert state.target == "https://www.nytimes.com"
+    assert state.target == "https://www.nytimes.com/"
     assert state.search_queries == ("seguro de vida",)
 
 
@@ -221,3 +221,149 @@ def test_matrix_includes_actual_configured_gsc_property_without_touching_credent
     assert rows[5][2] == "https://different.example/"
     assert rows[6][2] == "sc-domain:another.example"
     assert "SECRET_DO_NOT_EXPOSE" not in str(rows)
+
+
+def test_changing_target_propagates_derived_state_but_preserves_independent_sources():
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.target_scope_reconciliation import propagate_target, related_scope_summary
+
+    state = SearchConsoleState(target="https://insurance.example/vida")
+    state.current_url = state.target
+    state.search_queries = ("seguro de vida",)
+    state.search_scope_target = "https://insurance.example/vida"
+    state.perplexity_draft_queries = ("seguro familiar",)
+    state.perplexity_scope_target = "https://insurance.example/vida"
+
+    assert propagate_target(state, "https://www.nytimes.com")
+    assert state.target == "https://www.nytimes.com/"
+    assert state.current_url == state.target
+    assert state.search_scope_target == "https://insurance.example/vida"
+    assert state.perplexity_scope_target == "https://insurance.example/vida"
+    assert state.search_queries == ("seguro de vida",)
+    assert state.perplexity_draft_queries == ("seguro familiar",)
+    lines = related_scope_summary(state, environment={
+        "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL": "sc-domain:insurance.example",
+        "RASAI_GSC_ENABLED": "false",
+    })
+    assert any("CATs técnicos/Apdex/IA" in line for line in lines)
+    assert any("23579716" in line for line in lines)
+    assert any("CAT-05 > 1 > P" in line for line in lines)
+    assert not propagate_target(state, "https://www.nytimes.com/")
+    assert state.target == "https://www.nytimes.com/"
+
+
+def test_target_change_rebinds_only_uncharged_inert_query_context():
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.target_scope_reconciliation import propagate_target
+    state = SearchConsoleState(target="https://old.example/", search_scope_target="https://old.example/")
+    state.perplexity_scope_target = "https://old.example/"
+    assert propagate_target(state, "https://new.example")
+    assert state.search_scope_target == "https://new.example/"
+    assert state.perplexity_scope_target == "https://new.example/"
+    assert state.search_queries == ()
+    assert state.perplexity_draft_queries == ()
+
+
+def test_target_roundtrip_canonicalizes_ini_without_inventing_query_provenance(tmp_path):
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai import console_settings
+    _install_search_persistence()
+    state = SearchConsoleState()
+    console_settings._assign(state, "console", "target", "https://www.nytimes.com")
+    assert state.target == state.current_url == "https://www.nytimes.com/"
+    console_settings._assign(state, "search_intelligence", "queries", "seguro de vida")
+    assert consumer_status(state, "SERP") == "SOURCE_UNVERIFIED"
+    path = tmp_path / "rasai-console.ini"
+    console_settings.save_console_config(state, path)
+    restored = SearchConsoleState()
+    console_settings.load_console_config(restored, path)
+    assert restored.target == restored.current_url == "https://www.nytimes.com/"
+    assert consumer_status(restored, "SERP") == "SOURCE_UNVERIFIED"
+
+
+def test_dependency_assistant_routes_to_existing_editors_without_network(monkeypatch):
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from types import ModuleType
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.console_target_dependency_guide import review_target_dependencies
+    from rasai import console_search_parameter_menu as menu
+    from rasai import console_ui_catalog
+
+    state = SearchConsoleState(target="https://www.nytimes.com/")
+    calls = []
+    monkeypatch.setattr(menu, "configure_search_parameters", lambda module, state: calls.append("serp"))
+    monkeypatch.setattr(menu, "_configure_perplexity", lambda module, state: calls.append("perplexity"))
+    monkeypatch.setattr(console_ui_catalog, "variable_editor", lambda module, state, spec: calls.append(spec.name))
+    answers = iter(["1", "2", "3", "V"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    with redirect_stdout(StringIO()):
+        review_target_dependencies(ModuleType("console"), state)
+    assert calls == ["serp", "perplexity", "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL"]
+
+
+def test_legacy_noop_slash_does_not_trigger_extra_save(monkeypatch):
+    from rasai import interactive_console
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.target_scope_reconciliation import propagate_target
+    state = SearchConsoleState(target="https://www.nytimes.com/")
+    monkeypatch.setattr(interactive_console, "render_header", lambda state: None)
+    monkeypatch.setattr(interactive_console, "prompt_text", lambda *a, **k: "https://www.nytimes.com")
+    interactive_console._configure(state, "1")
+    assert state.target == "https://www.nytimes.com/"
+
+
+def test_url_change_can_open_guided_edit_before_one_ini_save(monkeypatch):
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from types import ModuleType
+    from rasai import console_ui_refactor as ui
+    from rasai import console_target_dependency_guide as assistant
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.target_scope_reconciliation import propagate_target
+
+    console = ModuleType("target_session_config")
+    state = SearchConsoleState(target="https://old.example/")
+    calls = []
+    console._configure = lambda current, choice: propagate_target(current, "https://new.example/")
+    console.mark_dirty = lambda current, value=True: None
+    console._save_configuration = lambda current: calls.append(
+        ("save", current.target, current.current_url)
+    ) or True
+    monkeypatch.setattr(
+        assistant, "review_target_dependencies",
+        lambda module, current: calls.append(("guided", current.target)),
+    )
+    answer = iter(("A", "2"))
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answer))
+    ui._install_configure_persistence(console)
+    with redirect_stdout(StringIO()) as stdout:
+        console._configure(state, "1")
+    assert calls == [
+        ("guided", "https://new.example/"),
+        ("save", "https://new.example/", "https://new.example/"),
+    ]
+    assert "A. Ajustar agora" in stdout.getvalue()
+
+
+def test_url_scope_normalization_does_not_prompt_save_for_same_target(monkeypatch):
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from types import ModuleType
+    from rasai import console_ui_refactor as ui
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai.target_scope_reconciliation import propagate_target
+
+    console = ModuleType("same_target_noop")
+    state = SearchConsoleState(target="https://www.nytimes.com/")
+    console._configure = lambda current, choice: propagate_target(current, "https://www.nytimes.com")
+    console.mark_dirty = lambda current, value=True: None
+    console._save_configuration = lambda current: pytest.fail("unexpected INI write")
+    monkeypatch.setattr(
+        "builtins.input", lambda prompt="": pytest.fail("unchanged URL should not prompt persistence"),
+    )
+    ui._install_configure_persistence(console)
+    with redirect_stdout(StringIO()):
+        console._configure(state, "1")
+    assert state.target == state.current_url == "https://www.nytimes.com/"

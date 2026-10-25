@@ -416,22 +416,23 @@ def _configure(state: State, choice: str) -> None:
                 current=state.target if state.input_mode == "url" else "",
                 empty_keeps_current=False,
             )
-            previous_target = state.target
+            from rasai.target_scope_reconciliation import (
+                propagate_target, related_scope_summary,
+            )
             state.input_mode = "url"
-            state.target = target
-            state.current_url = target or "-"
-            from rasai.target_scope_reconciliation import canonical_target, notices
-            warnings = notices(state)
-            if warnings:
-                if canonical_target(previous_target) == canonical_target(target):
-                    print(paint(
-                        "  A URL normalizada não mudou; os conflitos de configuração abaixo já existiam:",
-                        YELLOW,
-                    ))
-                else:
-                    print(paint("  URL alterada: revise os vínculos abaixo:", YELLOW))
-                for note in warnings:
-                    print(paint("  Revisar configuração: " + note, YELLOW))
+            changed = propagate_target(state, target)
+            if changed:
+                print(paint("  Alvo canônico propagado para a sessão e consumidores técnicos.", GREEN))
+            else:
+                print(paint("  URL normalizada não mudou; mantidos os vínculos existentes.", DIM))
+            for line in related_scope_summary(state):
+                print(paint("  " + line, YELLOW if "Ajustar:" in line else DIM))
+            print(paint(
+                "  Ajuste guiado: use A na confirmação da alteração"
+                if changed else
+                "  Ajuste guiado: use A em INÍCIO > PREPARAR AUDITORIA.",
+                DIM,
+            ))
 
         elif choice == "2":
             state.project = prompt_text(

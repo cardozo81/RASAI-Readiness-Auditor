@@ -532,7 +532,12 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         if value != "url":
             raise ValueError("novas AUDs aceitam somente input_mode=url")
         state.input_mode = "url"
-    elif key == ("console", "target"): state.target = raw.strip()
+    elif key == ("console", "target"):
+        # Hydration updates the canonical target/display but does not bind old
+        # Search/Perplexity terms: an INI without source_target has unknown provenance.
+        from rasai.target_scope_reconciliation import canonical_target
+        state.target = canonical_target(raw) if raw.strip() else ""
+        state.current_url = state.target or "-"
     elif key == ("console", "project"): state.project = raw.strip()
     elif key == ("console", "language"): state.language = raw.strip() or state.language
     elif key == ("console", "market"): state.market = raw.strip() or state.market

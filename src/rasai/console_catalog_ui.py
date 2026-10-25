@@ -416,6 +416,7 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         if bulk_notice:
             print(paint(bulk_notice, DIM))
         print("T. Marcar todos os catálogos ainda não selecionados")
+        print("A. Revisar URL e parâmetros dependentes (SERP, Perplexity, GSC)")
         print(f"R. Executar auditoria        [{badge(plan_state)}]")
         if ai_optional(state) and not ai_required(state) and ai_provider_readiness(state)[0]:
             toggle = "Executar sem IA (recomendado)" if ai_execution_enabled(state) else "Executar com IA"
@@ -425,6 +426,11 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         raw = input("Escolha: ").strip().upper()
         if raw == "V":
             return "V"
+        if raw == "A":
+            from rasai.console_target_dependency_guide import review_target_dependencies
+            review_target_dependencies(console_module, state)
+            bulk_notice = "Revisão de contexto efetuada; salve a configuração com S, se desejar."
+            continue
         if raw == "T":
             added = select_all_unselected_catalogs(state)
             bulk_notice = f"{len(added)} catálogo(s) marcado(s) em uma única ação."
