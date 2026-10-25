@@ -445,8 +445,11 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
 
         state.input_mode = "url"
         from rasai.target_scope_reconciliation import canonical_target
-        state.target = canonical_target(targets[0])
-        state.current_url = state.target or "-"
+        # Historical AUD snapshots retain their exact persisted target.
+        # Only the session display is normalized; a new run still uses
+        # the canonical preflight without rewriting the source record.
+        state.target = targets[0]
+        state.current_url = canonical_target(state.target) or "-"
 
         console_settings.sync_nonsecret_runtime_environment(state)
         if choice is None:
