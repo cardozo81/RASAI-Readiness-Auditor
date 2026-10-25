@@ -110,6 +110,22 @@ def read_architecture_audit_facts(
     except (OSError, sqlite3.Error, ValueError):
         return []
 
+    def bounded_count(obj: Any, name: str, ceiling: int) -> int | None:
+        if not isinstance(obj, Mapping):
+            return None
+        value = obj.get(name)
+        return value if type(value) is int and 0 <= value <= ceiling else None
+
+    def bounded_label(obj: Any, name: str, *, ceiling: int = 70) -> str | None:
+        if not isinstance(obj, Mapping):
+            return None
+        value = obj.get(name)
+        if isinstance(value, str) and len(value) <= ceiling and re.fullmatch(
+            r"[a-zA-Z0-9_. -]+", value
+        ):
+            return value
+        return None
+
     result = []
     for row in rows:
         try:
@@ -136,6 +152,15 @@ def read_architecture_audit_facts(
         http_status = raw_http.get("status")
         http_status = http_status if type(http_status) is int and 100 <= http_status <= 599 else None
         signals = inspect_raw_html_signals(raw) if raw_verified else None
+        source_meta = metadata.get("document_source")
+        render_meta = metadata.get("rendered_dom")
+        runtime_scripts = metadata.get("script_runtime")
+        runtime_dom = metadata.get("dom_observations")
+        runtime_errors = metadata.get("runtime_diagnostics")
+        quality_final = quality.get("final")
+        browser_identity = metadata.get("browser_identity")
+        lazy_probe = metadata.get("bounded_lazy_probe")
+        navigation = metadata.get("navigation")
         hypothesis = (
             suggest_architecture_from_raw(signals)
             if classification == "UNKNOWN" and signals is not None else None
@@ -172,6 +197,24 @@ def read_architecture_audit_facts(
                 "method_version": hypothesis.method_version,
             } if hypothesis else None),
             "capture_quality": _code(quality.get("state")),
+            "browser_descriptor": bounded_label(browser_identity, "descriptor"),
+            "browser_engine": bounded_label(metadata, "engine"),
+            "browser_tls_validation_policy": bounded_label(browser_identity, "tls_validation"),
+            "raw_html_bytes_observed": bounded_count(source_meta, "bytes", MAX_ROOT_BYTES),
+            "rendered_dom_bytes_observed": bounded_count(render_meta, "bytes", 20_000_000),
+            "rendered_dom_nodes_observed": bounded_count(quality_final, "dom_nodes", 2_000_000),
+            "rendered_main_text_length_observed": bounded_count(
+                quality_final, "main_text_length", 20_000_000),
+            "runtime_script_resources_count": bounded_count(runtime_scripts, "count", 100_000),
+            "runtime_dom_observations_count": bounded_count(runtime_dom, "count", 100_000),
+            "runtime_diagnostic_count": bounded_count(runtime_errors, "count", 100_000),
+            "lazy_probe_state": _code(lazy_probe.get("state")) if isinstance(lazy_probe, Mapping) else None,
+            "lazy_probe_attempted": (
+                lazy_probe.get("attempted") if isinstance(lazy_probe, Mapping)
+                and type(lazy_probe.get("attempted")) is bool else None
+            ),
+            "navigation_settle_outcome": _code(navigation.get("settle_outcome"))
+            if isinstance(navigation, Mapping) else None,
             "network_error": _code(raw_http.get("network_error")),
             "http_status_observed": http_status,
             "http_redirects_observed": redirects,
@@ -286,14 +329,48 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             + display("Falha de rede registrada",
                       row["network_error"] if row["network_error"] else "Nenhuma registrada no contexto disponível")
             + display("Qualidade de captura",
-                      row["capture_quality"] if row["capture_quality"] else "N/D")
+                      {
+                          "READY": "Conteúdo materializado na captura",
+                          "INCOMPLETE": "Captura incompleta",
+                      }.get(row["capture_quality"], "N/D"))
             + "</dl></section>"
             "<section class='architecture-fact-group'><h5>Limites da descoberta de rede</h5><dl>"
             + display("DNS, IPs públicos e servidores", "N/D (não atestados nesta projeção)")
             + display("Detalhes do certificado e negociação TLS", "N/D (não atestados nesta projeção)")
             + display("CDN, WAF, proxy, balanceador e backend", "N/D (topologia não determinável)")
-            + display("Recursos e subframes carregados em runtime",
-                      "N/D (inventário de requests/frames não materializado aqui)")
+            + display("Inventário agregado de CSS/JS/subframes e origens",
+                      "N/D (não materializado como topologia nesta projeção)")
+            + "</dl></section>"
+            "<section class='architecture-fact-group'><h5>Navegador e renderização observados</h5><dl>"
+            + display("Navegador da captura", row["browser_engine"] or "N/D")
+            + display("Dispositivo emulado", row["browser_descriptor"] or "N/D")
+            + display("HTML inicial capturado (bytes)", row["raw_html_bytes_observed"])
+            + display("DOM renderizado capturado (bytes)", row["rendered_dom_bytes_observed"])
+            + display("Nós do DOM na leitura final", row["rendered_dom_nodes_observed"])
+            + display("Texto principal na leitura final (caracteres)",
+                      row["rendered_main_text_length_observed"])
+            + display("Política de validação de certificado",
+                      "Validação habilitada no navegador (não atesta o certificado)"
+                      if row["browser_tls_validation_policy"] == "ENABLED" else "N/D")
+            + "</dl></section>"
+            "<section class='architecture-fact-group'><h5>Recursos e carregamento tardio</h5><dl>"
+            + display("Scripts com telemetria de runtime",
+                      row["runtime_script_resources_count"])
+            + display("Observações de mutação do DOM",
+                      row["runtime_dom_observations_count"])
+            + display("Diagnósticos de execução registrados",
+                      row["runtime_diagnostic_count"])
+            + display("Sondagem tardia delimitada",
+                      {True: "Executada", False: "Não executada"}.get(
+                          row["lazy_probe_attempted"], "N/D"))
+            + display("Estado da sondagem tardia",
+                      {"NOT_REQUIRED": "Não necessária segundo o critério de materialidade",
+                       "COMPLETED": "Executada sob limites"}.get(
+                          row["lazy_probe_state"], "N/D"))
+            + display("Conclusão da espera de navegação",
+                      {"BOUNDED_TIMEOUT": "Limite de espera atingido",
+                       "NETWORK_IDLE": "Rede ociosa observada"}.get(
+                          row["navigation_settle_outcome"], "N/D"))
             + "</dl></section></div>"
         )
         hypothesis = row.get("hypothesis")
@@ -308,7 +385,8 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
         parts.append(
             "<p class='architecture-limit'><strong>Fronteira observacional:</strong> "
             "contagens de tags no HTML inicial não demonstram carregamento bem-sucedido "
-            "de CSS, JavaScript ou subframes; resposta HTTP e número de redirecionamentos "
+            "de CSS, JavaScript ou subframes; contagens de scripts de runtime não "
+            "substituem um inventário causal de dependências; resposta HTTP e redirecionamentos "
             "não comprovam a topologia de infraestrutura. Não houve nova coleta de rede "
             "para gerar esta apresentação.</p></article>"
         )
