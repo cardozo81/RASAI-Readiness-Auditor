@@ -72,7 +72,7 @@ def test_catalog01_replays_structured_advisory_from_bound_raw_only(tmp_path):
     assert "Limites da descoberta de rede" in html
     assert "Status HTTP da captura" in html
     assert "SNP-2" not in html
-    assert "scripts externos" in html
+    assert "Scripts externos declarados no HTML inicial" in html
 
 
 def test_digest_tamper_cannot_produce_structural_hypotheses(tmp_path):
