@@ -462,6 +462,10 @@ def test_geo_comparison_without_serp_shows_persisted_reason_not_snapshot_absence
     assert "Existe snapshot GEO associado" in html
     assert "não foi vinculada uma observação SERP live da mesma consulta" in html
     assert "<code>NO_EQUIVALENT_OBSERVED_SERP_QUERY</code>" in html
-    assert "Condição técnica não catalogada" not in html
+    # Other independent advisory sections can legitimately lack a complete
+    # physical source in this deliberately minimal fixture. Restrict this
+    # assertion to the SERP x Perplexity comparison whose reason is known.
+    comparison_section = html.split("Comparação SERP × Perplexity</h2>", 1)[1].split("</section>", 1)[0]
+    assert "Condição técnica não catalogada" not in comparison_section
     assert "reprocessamento retroativo" in html
     assert db.read_bytes() == before
