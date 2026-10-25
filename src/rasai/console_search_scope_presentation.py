@@ -123,7 +123,13 @@ def render_search_scope(state: Any) -> None:
     if advisory["review_recommended"]:
         print(paint("  REVISIONAR ANTES DA PESQUISA PAGA: termos SERP e Perplexity abaixo.", DIM))
         info("Consultas SERP", "; ".join(advisory["serp_queries"]))
-        info("Consultas Perplexity", "; ".join(advisory["perplexity_queries"]))
+        if perplexity_queries:
+            info("Consultas Perplexity autorizadas na sessão", "; ".join(perplexity_queries))
+        else:
+            info(
+                "Consultas Perplexity no rascunho",
+                f"{len(advisory['perplexity_queries'])} termo(s) - conteúdo disponível somente no editor CAT-05 > P",
+            )
         print(paint("  Ajustar: CAT-05 > 1 > 1 (SERP); CAT-05 > 1 > P > 1/6/9 (Perplexity).", DIM))
     if matching["status"] == "DIVERGENT":
         print(paint(

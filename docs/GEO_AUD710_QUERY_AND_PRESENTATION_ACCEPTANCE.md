@@ -1,4 +1,4 @@
-# AUD-71091931EC2747518B9A8CCD7E76055A — diagnóstico GEO e decisões
+# AUD-71091931EC2747518B9A8CCD7E76055A - diagnóstico GEO e decisões
 
 Origem: AUD física 25/10/2026, alvo www.nytimes.com. Ações aqui não alteram a AUD selada, seu SQLite ou seus relatórios já publicados. Somente novas gerações de relatório refletem ajustes de apresentação.
 

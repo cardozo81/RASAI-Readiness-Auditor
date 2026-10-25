@@ -454,10 +454,7 @@ def test_geo_comparison_without_serp_shows_persisted_reason_not_snapshot_absence
                 'PX-ONLY',1,'https://example.org/seguros','Fonte','snippet');
             INSERT INTO geo_observation_runs VALUES (
                 'AUD-GEO-ONLY',
-                '{"contract_version":"RASAI-GEO-OBSERVATION-8",'
-                '"perplexity_run_id":"PX-ONLY","serp_observation_id":null,'
-                '"descriptive_overlap":{"status":"NOT_COMPARABLE",'
-                '"reason":"NO_EQUIVALENT_OBSERVED_SERP_QUERY"}}',
+                '{"contract_version":"RASAI-GEO-OBSERVATION-8","perplexity_run_id":"PX-ONLY","serp_observation_id":null,"descriptive_overlap":{"status":"NOT_COMPARABLE","reason":"NO_EQUIVALENT_OBSERVED_SERP_QUERY"}}',
                 '2026-10-23T16:28:00Z');
         """)
     before = db.read_bytes()
