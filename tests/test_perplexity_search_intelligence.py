@@ -63,6 +63,7 @@ def _success_transport(expected_search_type: str = "web"):
     def transport(endpoint, headers, body, timeout):
         assert endpoint == ENDPOINT
         assert headers["Authorization"] == "Bearer TEST_ONLY_PERPLEXITY_KEY"
+        assert headers["X-Pplx-Integration"] == "rasai-readiness-auditor"
         assert "TEST_ONLY_PERPLEXITY_KEY" not in body.decode("utf-8")
         payload = json.loads(body)
         assert payload["search_type"] == expected_search_type
