@@ -380,3 +380,11 @@ Não publicar logs com URLs completas, credenciais ou arquivos de bases licencia
 
 
 Um pacote de sondagem íntegro, porém com TCP não observado, é reportado como `NETWORK_METRICS_OR_REPORT_INCOMPLETE` e **não** recebe aprovação técnica de campo. O teste físico deve preservar a diferença entre execução tentada, resposta bloqueada, conexão TCP efetivamente observada e apresentação íntegra. A aprovação por CI não substitui essa evidência.
+
+
+
+### Mapa base geográfico incorporado ao pacote offline
+
+A representação territorial contém contornos simplificados de terra da base **Natural Earth 1:110 milhões**, disponibilizada em domínio público (CC0) e convertida de `ne_110m_land.json` no projeto `martynafford/natural-earth-geojson`. O pacote distribui exclusivamente geometria SVG estática gerada, sem downloads, imagens remotas ou dependências cartográficas durante a abertura. Contornos costeiros são referência geográfica, **não são medições da infraestrutura de rede**.
+
+A origem, o instante e o raio de precisão dos marcadores GeoIP são também apresentados em uma lista textual acessível, não apenas em dicas SVG, preservando a proveniência se o catálogo transformar elementos da figura. Não são traçadas rotas físicas inferidas. Informações de localização dependem de base MMDB fornecida e autorizada separadamente.

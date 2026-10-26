@@ -22,5 +22,8 @@ def test_geo_panel_uses_approximation_without_physical_routes():
     assert "<svg" in html and "<circle" in html
     assert "Posição estimada" in html and "120 km" in html
     assert "&lt;site&gt;" in html and "<site>" not in html
-    assert "<path" not in html
+    assert "data-map-layer='land'" in html
+    assert "data-map-layer='network-route'" not in html
+    assert "Origem e precisão de cada ponto" in html
+    assert "LOCAL_MAXMIND_MMDB" in html
     assert "https:" not in html

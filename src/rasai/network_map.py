@@ -5,6 +5,8 @@ from html import escape
 from math import isfinite
 from typing import Any
 
+from rasai.network_world_land import WORLD_LAND_SVG_PATH
+
 
 def _coordinate(value: Any, lower: float, upper: float) -> float | None:
     if type(value) not in (int, float):
@@ -20,6 +22,7 @@ def network_geographic_panel(probes: list[dict]) -> str:
     a map of measured infrastructure, so absent enrichment has a logical fallback.
     """
     markers = []
+    legend = []
     for probe in probes[:32]:
         measurements = probe.get("metrics")
         if not isinstance(measurements, dict):
@@ -48,6 +51,14 @@ def network_geographic_panel(probes: list[dict]) -> str:
             f"<circle cx='{x:.2f}' cy='{y:.2f}' r='7' fill='#24578b' "
             f"stroke='#ffffff' stroke-width='2'><title>{escape(desc)}</title></circle>"
         )
+        # Public and accessible provenance outside SVG: some catalog
+        # composition layers may remove nested SVG title elements.
+        legend.append(
+            "<li><strong>" + escape(name) + "</strong>: " +
+            f"{lat:.3f}°, {lon:.3f}°; raio de precisão declarado: {radius:g} km. "
+            "Fonte: " + escape(origin) + ". Data: " + escape(capture) +
+            ". Localização aproximada da referência IP, não do servidor.</li>"
+        )
     if not markers:
         return (
             "<section class='panel'><h2>Mapa e caminho de rede</h2>"
@@ -75,8 +86,14 @@ def network_geographic_panel(probes: list[dict]) -> str:
         "<div class='table-wrap'><svg viewBox='0 0 880 430' role='img' "
         "aria-label='Representação aproximada de locais com coordenadas documentadas' "
         "style='display:block;min-width:550px;max-width:100%;background:#f2f7fb'>"
-        + "".join(grid) + "".join(markers) + "</svg></div>"
-        "<p>Escala por latitude e longitude; passe o cursor ou navegue até "
-        "os marcadores para consultar a fonte, o horário e a precisão estimada.</p>"
+        + "<path data-map-layer='land' d='" + WORLD_LAND_SVG_PATH +
+        "' fill='#e1eee7' stroke='#91a7a0' stroke-width='0.7'/>" +
+        "".join(grid) + "".join(markers) + "</svg></div>"
+        "<p>Mapa base simplificado Natural Earth, escala 1:110 milhões "
+        "(referência cartográfica de domínio público, não evidência de rede). "
+        "A posição estimada é representada apenas pelos marcadores; nenhuma "
+        "rota física é desenhada.</p>"
+        "<h3>Origem e precisão de cada ponto</h3><ul>" +
+        "".join(legend) + "</ul>"
         "</section>"
     )
