@@ -34,7 +34,7 @@ _STATE = {
 def materialize_network_report(workspace: str | Path, audit_id: str) -> Path:
     """Render stored evidence only; legacy AUDs get an explicit neutral page."""
     root = Path(workspace)
-    report = root / "report"
+    report = root / "report-catalog"
     report.mkdir(parents=True, exist_ok=True)
     observations = read_network_observations(root, audit_id)
     # A legacy audit may be viewed without writing a sidecar first.

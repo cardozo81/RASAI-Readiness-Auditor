@@ -25,3 +25,27 @@ def test_reader_rejects_foreign_audit(tmp_path):
     dest.parent.mkdir(parents=True)
     dest.write_text(json.dumps({"contract": "rasai-network-observation-v1", "audit_id": "AUD-OTHER", "observations": []}))
     assert read_network_observations(tmp_path, "AUD-LEGACY") == []
+
+
+def test_tampered_sidecar_is_rejected(tmp_path):
+    from rasai.network_observation import CONTRACT
+    import hashlib
+    dest = sidecar_path(tmp_path)
+    dest.parent.mkdir(parents=True)
+    row = {"contract": CONTRACT, "audit_id": "AUD-X", "observation_id": "SN-X",
+           "metrics": {"http_status": {"state": "OBSERVED", "value": 200}}}
+    canonical = json.dumps(row, ensure_ascii=False, sort_keys=True,
+                           separators=(",", ":"), allow_nan=False).encode("utf-8")
+    row["sha256"] = hashlib.sha256(canonical).hexdigest()
+    row["digest_scope"] = "INTEGRITY_ONLY_NOT_AUTHORSHIP"
+    payload = {"contract": CONTRACT, "audit_id": "AUD-X", "observations": [row]}
+    dest.write_text(json.dumps(payload), encoding="utf-8")
+    assert len(read_network_observations(tmp_path, "AUD-X")) == 1
+    payload["observations"][0]["metrics"]["http_status"]["value"] = 500
+    dest.write_text(json.dumps(payload), encoding="utf-8")
+    assert read_network_observations(tmp_path, "AUD-X") == []
+
+
+def test_report_written_to_canonical_catalog_directory(tmp_path):
+    page = materialize_network_report(tmp_path, "AUD-LEGACY")
+    assert page.parent.name == "report-catalog"
