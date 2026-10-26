@@ -322,3 +322,19 @@ A coleta ativa condicionada, o enriquecimento de topologia e os mapas pertencem 
 O horário apresentado em `network.html` corresponde exclusivamente ao `captured_at` do snapshot físico M3, convertido para UTC quando o banco contém fuso horário verificável. O horário de geração da projeção não substitui a captura; horário sem fuso é tratado como não observado. O destino exibido é somente o hostname público da URL final do snapshot (ou da URL solicitada, se necessário); caminhos, fragmentos, credenciais e parâmetros da URL não são divulgados.
 
 Os indicadores de transporte continuam independentes: o IP público do peer observado via CDP não comprova a infraestrutura de origem; DNS, RTT TCP/TLS, hops, ASN e localização permanecem explicitamente não observados no G1. Snapshots complementares preexistentes são imutáveis, portanto nunca são regravados para incorporar campos novos. Este ajuste não introduz sondagens ativas, nem altera `audit.db` ou pontuações.
+
+
+
+## Sondagem complementar autorizada (#659, G2 — entrega inicial)
+
+O módulo `rasai.network_active_probe` permite sondar exclusivamente o hostname público já pertencente às páginas de uma AUD existente, **somente após autorização expressa**. Não é acionado pela auditoria, reprocessamento, consolidação nem rematerialização de relatórios. Ele não substitui observações passivas nem atualiza `audit.db`, scores ou artefatos selados.
+
+Exemplo de uso **apenas para domínio cuja medição ativa esteja autorizada**:
+
+```powershell
+.\.venv\Scripts\python.exe -m rasai.network_active_probe --workspace "audits\\<AUD>" --audit-id "<AUD>" --host "dominio-autorizado.com.br" --permit-exact-host "dominio-autorizado.com.br" --authorize-active-network --port 443
+```
+
+O processo filho possui limite total de 10 segundos, usa resolução DNS limitada a 32 respostas, rejeita o conjunto inteiro se qualquer endereço não for globalmente roteável e fixa a conexão TCP ao IP previamente validado para impedir mudança silenciosa por nova resolução. Só são aceitas as portas 80 e 443; TLS usa validação padrão e nome de servidor original. Sem solicitações HTTP, seguir redirects, ICMP, privilégios administrativos ou geolocalização externa. Restrições de rede, VPN e proxy de saída não são verificáveis automaticamente. O período DNS inclui cache do resolver local, e o tempo TCP/TLS mede a sessão do próprio executor.
+
+O complemento independente fica em `artifacts/network/probes/` e é somente de criação exclusiva, com SHA-256 (integridade, não autoria). A página `network.html` lê os complementos válidos offline, sem rede nem mutação do pacote. Respostas DNS privadas, falhas de captura, campos ausentes e medições observadas permanecem estados distintos. Este estágio **não implementa** traceroute, detecção de AS/CDN e GeoIP; essas lacunas continuam pendentes no G2, assim como cartografia e topologia consultiva do G3.

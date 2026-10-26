@@ -6,6 +6,7 @@ from pathlib import Path
 
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations
+from rasai.network_active_probe import read_authorized_probes
 
 _PAGE = "network.html"
 _LABELS = {
@@ -73,6 +74,41 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             + ". Informações extraídas da captura da auditoria, sem novas sondagens.</p>"
             + "<div class='table-wrap'><table><thead><tr><th>Indicador</th><th>Resultado</th><th>Situação</th></tr></thead><tbody>"
             + "".join(cells) + "</tbody></table></div></section>"
+        )
+    probes = read_authorized_probes(root, audit_id)
+    for probe in probes:
+        metrics = probe.get("metrics") or {}
+        if not isinstance(metrics, dict):
+            continue
+        rows = []
+        for key, label in (
+            ("dns_resolution", "Endereços públicos resolvidos"),
+            ("dns_elapsed_ms", "Consulta de nomes (ms)"),
+            ("connected_public_ip", "Endereço de conexão"),
+            ("tcp_handshake_ms", "Conexão TCP (ms)"),
+            ("tls_handshake_ms", "Negociação TLS (ms)"),
+            ("tls_protocol", "Versão TLS"),
+        ):
+            observation = metrics.get(key)
+            if not isinstance(observation, dict):
+                continue
+            status = _STATE.get(observation.get("state"), "Inconclusivo")
+            value = observation.get("value") if observation.get("state") == "OBSERVED" else None
+            shown = ", ".join(str(x) for x in value) if isinstance(value, list) else (
+                str(value) if value is not None else "Sem medição disponível")
+            rows.append("<tr><th scope='row'>" + escape(label) + "</th><td>" +
+                        escape(shown) + "</td><td>" + escape(status) + "</td></tr>")
+        if not rows:
+            continue
+        blocks.append(
+            "<section class='panel'><h2>Medição complementar autorizada</h2>"
+            "<p>Destino: " + escape(str(probe.get("hostname") or "não informado")) +
+            ". Coleta independente da auditoria, a partir do processo executor em " +
+            escape(str(probe.get("capture_utc") or "data não comprovada")) +
+            ". Não demonstra localização física, rota de rede ou desempenho do usuário.</p>"
+            "<div class='table-wrap'><table><thead><tr><th>Indicador</th>"
+            "<th>Resultado</th><th>Situação</th></tr></thead><tbody>" +
+            "".join(rows) + "</tbody></table></div></section>"
         )
     if not blocks:
         blocks.append("<section class='panel'><h2>Dados ainda indisponíveis</h2>"
