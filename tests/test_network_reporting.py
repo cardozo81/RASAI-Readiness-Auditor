@@ -49,3 +49,8 @@ def test_tampered_sidecar_is_rejected(tmp_path):
 def test_report_does_not_mutate_sealed_catalog_directory(tmp_path):
     page = materialize_network_report(tmp_path, "AUD-LEGACY")
     assert page.parent.name == "report"\n    assert "network" in page.parts\n    assert not (tmp_path / "report-catalog").exists()
+
+def test_network_body_is_read_only_on_legacy(tmp_path):
+    from rasai.network_reporting import network_report_body
+    assert "Dados ainda indisponíveis" in network_report_body(tmp_path, "AUD-LEGACY")
+    assert not (tmp_path / "report-catalog").exists()

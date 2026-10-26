@@ -31,13 +31,10 @@ _STATE = {
 }
 
 
-def materialize_network_report(workspace: str | Path, audit_id: str) -> Path:
-    """Render stored evidence only; legacy AUDs get an explicit neutral page."""
+def network_report_body(workspace: str | Path, audit_id: str) -> str:
+    """Build a deterministic and offline page without writing to the AUD."""
     root = Path(workspace)
-    # The canonical report-catalog is a sealed, integrity-checked package.\n    # Do not append unregistered files after its manifest is signed.\n    report = root / "artifacts" / "network" / "report"
-    report.mkdir(parents=True, exist_ok=True)
     observations = read_network_observations(root, audit_id)
-    # A legacy audit may be viewed without writing a sidecar first.
     if not observations and not (root / "artifacts" / "network" / "network-observations.json").exists():
         observations = snapshots_from_audit(root / "audit.db", audit_id)
     blocks = []
@@ -73,6 +70,13 @@ table{width:100%;border-collapse:collapse;text-align:left}td,th{padding:.7rem;bo
 <p><a href='index.html'>Voltar à visão geral</a></p>
 <header><h1>Rede e conectividade</h1><p>Informações observadas na auditoria. Dados ausentes não são interpretados como falhas. A localização física e o caminho completo da rede não podem ser deduzidos a partir de um endereço IP.</p></header>
 """ + "".join(blocks) + """<footer><p>Esta página é consultiva, não altera pontuações ou conclusões e funciona sem conexão à internet.</p></footer></main></body></html>"""
+    return html
+
+
+def materialize_network_report(workspace: str | Path, audit_id: str) -> Path:
+    """Standalone extension preview, not the canonical signed catalog."""
+    report = Path(workspace) / "artifacts" / "network" / "report"
+    report.mkdir(parents=True, exist_ok=True)
     dest = report / _PAGE
-    dest.write_text(html, encoding="utf-8", newline="\n")
+    dest.write_text(network_report_body(workspace, audit_id), encoding="utf-8", newline="\n")
     return dest
