@@ -162,7 +162,7 @@ def _screenshots(report: Path, out: Path, *, pages: tuple[str, ...]) -> dict[str
                         raise ValueError(f"offline report JavaScript failed: {device}/{name}")
                     if page.locator("[data-shared-report-menu]").count() != 1:
                         raise ValueError(f"missing unique canonical navigation: {name}")
-                    if page.locator("nav[aria-label='Relatórios'] a").count() != 19:
+                    if page.locator("nav[aria-label='Relatórios'] a").count() != len(CATALOG_REPORT_PAGES):
                         raise ValueError(f"missing canonical menu destination: {name}")
                     if page.locator("nav[aria-label='Relatórios'] a[aria-current='page']").count() != 1:
                         raise ValueError(f"ambiguous selected menu page: {name}")
