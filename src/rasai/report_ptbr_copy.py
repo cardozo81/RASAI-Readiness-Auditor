@@ -9,6 +9,11 @@ _GEO_OLD = {
     "Preservar fatos verificaveis e acompanhar a mesma consulta em novas observacoes.": "Preservar fatos verificáveis e acompanhar a mesma consulta em novas observações.",
     "Investigar a relacao entre a URL auditada e as URLs alternativas do dominio; nao presumir problema de canonical.": "Investigar a relação entre a URL auditada e as URLs alternativas do domínio; não presumir problema de canonicalização.",
     "Revisar cobertura da intencao, clareza da oferta e evidencias no CAT-03 antes de propor remediacao.": "Revisar a cobertura da intenção, a clareza da oferta e as evidências no CAT-03 antes de propor remediação.",
+    "Alvo unico ou atribuicao por consulta indisponivel.": "Alvo único ou atribuição por consulta indisponível.",
+    "Observacao incompleta.": "Observação incompleta.",
+    "Observacao pontual; nao prova inclusao em resposta gerativa nem causa de ausencia.": "Observação pontual; não comprova inclusão em resposta generativa nem a causa da ausência.",
+    "Coincidencia textual da consulta nao comprova equivalencia de mercado, intencao, idioma, dispositivo ou motor; janela temporal de 24h e so elegibilidade observacional.": "A coincidência textual da consulta não comprova equivalência de mercado, intenção, idioma, dispositivo ou motor; a janela temporal de 24 horas indica apenas elegibilidade observacional.",
+    "A busca externa nao equivale a resposta/citacao generativa; nao ha atribuicao de fontes a consultas individuais em multi-query. Sobreposicao nao demonstra causalidade ou representatividade.": "A busca externa não equivale a resposta ou citação generativa; não há atribuição individual de fontes em múltiplas consultas. A sobreposição não demonstra causalidade nem representatividade.",
 }
 
 def public_geo_action(value: object) -> str:

@@ -927,6 +927,10 @@ def geo_body(database: Path, audit_id: str) -> str:
             summary += "<p>URL analisada: " + escape(str(target["target_url"])) + "</p>"
         if target.get("recommendation"):
             summary += "<p>Ação para avaliação: " + escape(public_geo_action(target["recommendation"])) + "</p>"
+        if target.get("explanation"):
+            summary += "<p>Limitação da observação: " + escape(public_geo_action(target["explanation"])) + "</p>"
+        if target.get("causality"):
+            summary += "<p>Limite de interpretação: " + escape(public_geo_action(target["causality"])) + "</p>"
         if target.get("evidence_run_id"):
             summary += "<p>Run de origem: " + escape(str(target["evidence_run_id"])) + "</p>"
         summary += "<p>Este resultado não determina por que uma URL foi ou não foi recuperada.</p></section>"

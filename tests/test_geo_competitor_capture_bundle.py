@@ -959,10 +959,10 @@ def test_cobs_pair_standalone_html_is_escaped_and_no_new_http_or_aud_writes(
     page = capsys.readouterr().out
     assert "<!doctype html>" in page
     assert "lang='pt-BR'" in page
-    assert "Comparacao lexical observacional - COBS" in page
-    assert "URL auditada - extrato estatico" in page
-    assert "URL concorrente - extrato estatico" in page
-    assert "Intersecoes lexicais exatas" in page
+    assert "Comparação lexical observacional - COBS" in page
+    assert "URL auditada - extrato estático" in page
+    assert "URL concorrente - extrato estático" in page
+    assert "Interseções lexicais exatas" in page
     assert "Tipos JSON-LD" in page
     assert "Mesmo conjunto" not in page  # No inferred content equivalence.
     assert "Assistência" in page
@@ -1065,7 +1065,7 @@ def test_cobs_public_competitor_pair_route_never_bootstraps_audit_or_egress(
     assert data["serp_and_html_same_population_proven"] is False
     assert entrypoint.main(["competitor-static-report", *params, "--format", "html"]) == 0
     html = capsys.readouterr().out
-    assert "Comparacao lexical observacional" in html
+    assert "Comparação lexical observacional" in html
     assert "SERP - alvo: 900s; SERP - concorrente: 4500s" in html
     assert "sem equivalencia de populacao comprovada" in html
     assert len(calls) == prior

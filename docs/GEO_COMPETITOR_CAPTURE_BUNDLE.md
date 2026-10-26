@@ -269,12 +269,12 @@ produtivo de GEO/CONS. Testes físicos e de rehash validam as diferenças
 sem adulterar `audit.db` e sem qualquer solicitação HTTP/IA.
 
 
-## Pagina HTML consultiva de comparacao COBS (#330, 13/10/2026)
+## Página HTML consultiva de comparação COBS (#330, 13/10/2026)
 
 O comparador offline admite `--format html` para produzir um
-documento HTML estatico e responsivo, totalmente separado de
+documento HTML estático e responsivo, totalmente separado de
 `report.html`, `report-catalog`, CONS, SARI e SCORE-GEO.
-O padrao continua `--format json`.
+O padrão continua `--format json`.
 
 ```powershell
 python -m rasai.geo_competitor_pair `
@@ -284,37 +284,37 @@ python -m rasai.geo_competitor_pair `
   --format html > cobs-comparacao-consultiva.html
 ```
 
-A pagina apresenta dois quadros de metadados HTTPS fisicamente
-observados (URL exata, `title`, palavras no HTML estatico,
+A página apresenta dois quadros de metadados HTTPS fisicamente
+observados (URL exata, `title`, palavras no HTML estático,
 timestamp e SHA-256), headings, tipos JSON-LD e termos de consulta
-extraidos. Os conjuntos `both/customer_only/competitor_only`
-sao exibidos explicitamente como **intersecoes lexicais exatas**
-e nao como diferencas semanticas ou lacunas editoriais. O escopo SERP,
-ID de origem e intervalo entre capturas sao informativos, sem
-alegar o mesmo browser, idioma, dispositivo ou intencao.
+extraídos. Os conjuntos `both/customer_only/competitor_only`
+são exibidos explicitamente como **interseções lexicais exatas**
+e não como diferenças semânticas ou lacunas editoriais. O escopo SERP,
+ID de origem e intervalo entre capturas são informativos, sem
+alegar o mesmo navegador, idioma, dispositivo ou intenção.
 
 O renderizador exige contrato observacional conhecido,
 `DESCRIPTIVE_STATIC_HTML_ONLY`, origem SHA-256 e as flags de
-insuficiencia de prova da comparacao: ausencia de conteudo primario
-renderizado, de autorizacao para afirmar lacuna de conteudo, de
-paridade de populacao e de citacao gerativa. Um objeto com flag
-positiva ou escrita/requests falsamente declarados nao recebe HTML.
-Todo texto externo e escapado; nao sao gerados links executaveis,
-JavaScript ou requisicoes de recursos externos. Layout para mobile
-e impressao. A visualizacao nao cria artefatos dentro da AUD; a
-gravacao opcional por redirecionamento e escolha do operador.
+insuficiência de prova da comparação: ausência de conteúdo primário
+renderizado, de autorização para afirmar lacuna de conteúdo, de
+paridade de população e de citação generativa. Um objeto com indicador
+positivo ou gravação/requisições falsamente declaradas não recebe HTML.
+Todo texto externo é escapado; não são gerados links executáveis,
+JavaScript ou requisições de recursos externos. Layout para dispositivos móveis
+e impressão. A visualização não cria artefatos dentro da AUD; a
+gravação opcional por redirecionamento é escolha do operador.
 
-Testes SQLite/COBS locais verificam renderizacao genuina, ausencia
+Testes SQLite/COBS locais verificam renderização genuína, ausência
 de novos HTTP/IA, integridade dos manifests e `audit.db`, escape de
-HTML malicioso e rejeicao de projecoes forjadas. O aprofundamento
+HTML malicioso e rejeição de projeções forjadas. O aprofundamento
 renderizado de SPA continua condicionando coleta consentida,
-comparabilidade de contexto e conteudo primario validado; este HTML
-nao satisfaz aquele gate.
+comparabilidade de contexto e conteúdo primário validado; este HTML
+não satisfaz aquele critério.
 
 
-## Comando publico e distancia temporal da SERP (#330, 13/10/2026)
+## Comando público e distância temporal da SERP (#330, 13/10/2026)
 
-O comparador consultivo agora e acessivel diretamente pela CLI principal:
+O comparador consultivo agora é acessível diretamente pela CLI principal:
 
 ```powershell
 rasai competitor-pair --audit-dir .\audits\AUD-EXEMPLO `
@@ -323,32 +323,32 @@ rasai competitor-pair --audit-dir .\audits\AUD-EXEMPLO `
   --format html
 ```
 
-`rasai competitor-static-report` e um alias. Ambos despacham
+`rasai competitor-static-report` é um alias. Ambos despacham
 antes do bootstrap de auditoria, IA, segredos e coletores;
-`--format json` continua sendo o padrao.
+`--format json` continua sendo o padrão.
 
 O comparador informa agora `serp_to_customer_html_gap_seconds`
 e `serp_to_competitor_html_gap_seconds`, calculados em UTC entre
 o instante SERP fisicamente confirmado na AUD e o instante de cada
-captura HTML dos respectivos sidecars. A classificacao
-`serp_capture_temporal_scope` distingue capturas em ate 24h
-da observacao SERP de capturas fora desse periodo. O HTML
-apresenta os intervalos e avisa quando um dos sidecars nao e
-contemporaneo da SERP, mesmo que as duas capturas sejam
-contemporaneas entre si.
+captura HTML dos respectivos sidecars. A classificação
+`serp_capture_temporal_scope` distingue capturas em até 24 horas
+da observação SERP de capturas fora desse período. O HTML
+apresenta os intervalos e avisa quando um dos sidecars não é
+contemporâneo da SERP, mesmo que as duas capturas sejam
+contemporâneas entre si.
 
-**Atencao:** diferenca menor ou igual a 24h nao comprova
-equivalencia de amostra, ranking, contexto de navegador, dispositivo
+**Atenção:** diferença menor ou igual a 24 horas não comprova
+equivalência de amostra, posicionamento em busca, contexto de navegador, dispositivo
 ou idioma do fornecedor. O campo
-`serp_and_html_same_population_proven=false` nunca e elevado
-apenas por proximidade temporal. Fora da janela, a comparacao
-dos conjuntos lexicais estaticos continua **descritiva**, nao
-transforma ausencia em lacuna ou permite recomendacoes causais.
-Um objeto externo adulterado que reivindique equivalencia
-de populacao e rejeitado pelo renderer.
+`serp_and_html_same_population_proven=false` nunca é elevado
+apenas por proximidade temporal. Fora da janela, a comparação
+dos conjuntos lexicais estáticos continua **descritiva**, não
+transforma ausência em lacuna nem permite recomendações causais.
+Um objeto externo adulterado que reivindique equivalência
+de população é rejeitado pelo renderizador.
 
-Os testes usam exclusivamente sidecars COBS/SQLite sinteticos e
-conteudo local re-hashado, sem DNS, HTTP, browser, IA ou alteracoes
+Os testes usam exclusivamente sidecars COBS/SQLite sintéticos e
+conteúdo local cujo hash foi recalculado, sem DNS, HTTP, navegador, IA ou alterações
 na AUD, no CONS, no runtime SERP ou no GEO homologado.
 
 ## Registro local de consentimento revogável

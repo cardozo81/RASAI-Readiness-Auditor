@@ -2,6 +2,14 @@
 
 **Estado:** vigente.
 
+### Regra editorial do português brasileiro
+
+Os textos **redigidos pelo RASAi** para apresentação em relatórios `.html` e documentos `.md` devem seguir a ortografia do português brasileiro: acentos, `ç`, concordância, pontuação e terminologia devem ser definidos por **revisão textual contextual**, sem transliteração para ASCII, remoção indiscriminada de diacríticos ou substituição automática de `ç` por `c`. A renderização usa UTF-8.
+
+A distinção é por **origem do texto**, não por extensão ou facilidade de implementação: identificadores técnicos, URLs, hashes, trechos externos, dados fornecidos pelo operador, evidências literais e registros persistidos devem permanecer íntegros. Em snapshots GEO históricos imutáveis (inclusive v8), somente frases **exatas, conhecidas e de autoria do produto** podem ser corrigidas em uma projeção de leitura; não se altera o fingerprint, a versão, o SQLite ou os dados de terceiros. Novas mensagens de apresentação devem ser escritas corretamente na origem, sem depender de um corretor genérico de acentuação.
+
+Mudanças em cópias públicas exigem testes focais das frases alteradas e preservação dos conteúdos de evidência. Não usar normalização global ou dicionário por palavra isolada.
+
 Este documento define regras de apresentação que são comuns ao mini-site HTML do RASAi. Ele não altera cálculo, pesos, gates, persistência ou evidência do `SARI-001` / `SCORE-GEO-004` e não altera a fórmula Apdex.
 
 ## Faixas visuais do SARI

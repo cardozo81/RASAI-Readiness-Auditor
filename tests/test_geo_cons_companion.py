@@ -161,7 +161,7 @@ def test_311_cons_companion_cli_html_does_not_change_cons_or_aud(tmp_path, capsy
     html = capsys.readouterr().out
     assert "Nenhuma coorte GEO longitudinal elegível" in html
     assert "Esta visualização não faz parte de um CONS-* canônico" in html
-    assert "Vinculo consultivo ao consolidado" in html
+    assert "Vínculo consultivo ao consolidado" in html
     assert cons.name in html
     assert ("a" * 64) in html
     assert "Sem atestado criptografico independente" in html

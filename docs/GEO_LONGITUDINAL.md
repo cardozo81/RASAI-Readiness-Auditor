@@ -131,37 +131,37 @@ Nenhuma alteração é feita no motor CONS de mesma URL,
 em AUDs seladas ou em serviços comerciais.
 
 
-## v8 - fronteira metodologica de URL exata
+## v8 - fronteira metodológica de URL exata
 
 Os novos snapshots `RASAI-GEO-OBSERVATION-8` exigem identidade exata
 mais estrita, preservando a barra final do path e recusando userinfo ou
-URLs de sintaxe ambigua. A comparacao longitudinal preserva a regra
-de normalizacao por versao ao ler v5/v6/v7; nunca reinterpreta os
-snapshots ja congelados com a politica de v8. Uma serie com versoes
-diferentes permanece em grupos distintos e sem tendencia numerica
-compartilhada. Nenhuma AUD ou registro GEO anterior e regravado.
+URLs de sintaxe ambígua. A comparação longitudinal preserva a regra
+de normalização por versão ao ler v5/v6/v7; nunca reinterpreta os
+snapshots já congelados com a política da v8. Uma série com versões
+diferentes permanece em grupos distintos e sem tendência numérica
+compartilhada. Nenhuma AUD ou registro GEO anterior é regravado.
 
-### Elegibilidade pela ultima tentativa externa (#309/#311)
+### Elegibilidade pela última tentativa externa (#309/#311)
 
-A sequencia longitudinal de snapshots `GEO v5-v8` nao pode promover uma
-observacao Search API antiga quando a mesma AUD possui tentativa posterior.
-O consumidor read-only seleciona a ultima Search API da AUD por relogios
-offset-aware convertidos a UTC. Se a mais recente falhou, se nao tem
-snapshot dela, ou se multiplos relogios sao nao comparaveis/empatados,
-a AUD e excluida com motivo estruturado
+A sequência longitudinal de snapshots `GEO v5-v8` não pode promover uma
+observação Search API antiga quando a mesma AUD possui tentativa posterior.
+O consumidor somente leitura seleciona a última Search API da AUD por relógios
+com fuso horário explícito convertidos para UTC. Se a mais recente falhou, se não tem
+snapshot associado ou se múltiplos relógios não são comparáveis ou estão empatados,
+a AUD é excluída com motivo estruturado
 (`GEO_LATEST_SEARCH_NOT_SUCCESSFUL`,
 `GEO_SNAPSHOT_NOT_FROM_LATEST_SEARCH`,
 `GEO_SEARCH_CHRONOLOGY_UNVERIFIABLE`).
 
-O inventario nao recupera automaticamente sucesso antigo nem executa
-Search API. Comprovacao de fonte adulterada continua retornando
+O inventário não recupera automaticamente sucesso antigo nem executa
+Search API. A verificação de fonte adulterada continua retornando
 `GEO_SOURCE_PROVENANCE_UNVERIFIED` antes de escolher coorte.
-Persistencia da AUD e timestamps originais nao sao alterados. Nenhuma
-metrica gerativa, ranking ou tendencia e inferida.
+Persistência da AUD e registros originais de data/hora não são alterados. Nenhuma
+métrica generativa, posição em busca ou tendência é inferida.
 
-Suplementos externos pos-AUD seguem independentes do snapshot original,
-nao entram silenciosamente na serie CONS-*: esta lacuna exige adaptador
-dedicado com proveniencia completa antes de ativacao.
+Suplementos externos pós-AUD seguem independentes do snapshot original,
+não entram silenciosamente na série CONS-*: essa lacuna exige um adaptador
+dedicado com proveniência completa antes de ativação.
 
 ## HTML standalone read-only: quadro de observações para discussão de CONS (#311)
 
