@@ -116,3 +116,85 @@ def test_blocked_probe_does_not_pass_field_acceptance(tmp_path, monkeypatch):
         permitted_hostname="approved.example.org", authorized=True)
     assert result["status"] == "NETWORK_METRICS_OR_REPORT_INCOMPLETE"
     assert result["observed_tcp"] is False
+
+
+def test_replay_uses_existing_packet_without_new_network(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from rasai import network_acceptance as a
+    from rasai import network_active_probe as p
+    from rasai import report_completion as completion
+    from rasai import catalog_report_site as catalog
+    _workspace(tmp_path)
+    def no_probe(*args, **kw):
+        raise AssertionError("Replay cannot perform any active network probe")
+    monkeypatch.setattr(p, "collect_authorized_probe", no_probe)
+    monkeypatch.setattr(p, "read_authorized_probes", lambda *args: [{
+        "audit_id": "AUD-659", "hostname": "approved.example.org",
+        "port": 443, "series_id": "homologacao-g2-01",
+        "state": "OBSERVED",
+        "metrics": {"tcp_handshake_ms": {"state": "OBSERVED", "value": 13.1}},
+    }])
+    def render(*, audit_id, workspace, read_only):
+        assert read_only
+        report = workspace.root / "report-catalog"
+        report.mkdir(exist_ok=True)
+        (report / "network.html").write_text(
+            "Medição complementar autorizada approved.example.org",
+            encoding="utf-8",
+        )
+        return SimpleNamespace(renderer_errors=())
+    monkeypatch.setattr(completion, "materialize_catalog_report_projection", render)
+    monkeypatch.setattr(catalog, "verify_catalog_report_package", lambda root: (True, ()))
+    monkeypatch.setattr(catalog, "catalog_report_is_fresh", lambda **kwargs: True)
+    original = a._sha256_file(tmp_path / "audit.db")
+    result = a.run_acceptance(
+        tmp_path, "AUD-659", host="approved.example.org",
+        replay_existing=True, series_id="homologacao-g2-01",
+    )
+    assert result["status"] == "TECHNICAL_ACCEPTANCE_READY_FOR_HUMAN_REVIEW"
+    assert result["probe_reused"] is True
+    assert result["active_probe_executed"] is False
+    assert result["audit_database_unchanged"] is True
+    assert a._sha256_file(tmp_path / "audit.db") == original
+
+
+def test_replay_reports_safe_error_location_and_no_retry(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from rasai import network_acceptance as a
+    from rasai import network_active_probe as p
+    from rasai import report_completion as completion
+    _workspace(tmp_path)
+    monkeypatch.setattr(
+        p, "collect_authorized_probe",
+        lambda *args, **kw: (_ for _ in ()).throw(AssertionError("probe forbidden"))
+    )
+    monkeypatch.setattr(p, "read_authorized_probes", lambda *args: [{
+        "audit_id": "AUD-659", "hostname": "approved.example.org",
+        "port": 443, "series_id": "homologacao-g2-01",
+        "state": "OBSERVED",
+        "metrics": {"tcp_handshake_ms": {"state": "OBSERVED", "value": 13.1}},
+    }])
+    monkeypatch.setattr(
+        completion, "materialize_catalog_report_projection",
+        lambda **kwargs: SimpleNamespace(
+            renderer_errors=("catalog-report:TypeError:catalog_report_site.py:_load_data:12",)
+        )
+    )
+    result = a.run_acceptance(
+        tmp_path, "AUD-659", host="approved.example.org",
+        replay_existing=True, series_id="homologacao-g2-01",
+    )
+    assert result["status"] == "CATALOG_REBUILD_FAILED"
+    assert result["catalog_error_types"] == ["TypeError"]
+    assert result["catalog_error_origin"] == ["catalog_report_site.py:_load_data:12"]
+    assert result["active_probe_executed"] is False
+
+
+def test_replay_forbids_authorizing_new_probe(tmp_path):
+    _workspace(tmp_path)
+    from rasai import network_acceptance as a
+    result = a.run_acceptance(
+        tmp_path, "AUD-659", host="approved.example.org",
+        replay_existing=True, authorized=True,
+    )
+    assert result["status"] == "REPLAY_MUST_NOT_AUTHORIZE_NEW_PROBE"

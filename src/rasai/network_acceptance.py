@@ -26,6 +26,7 @@ def run_acceptance(
     permitted_hostname: str | None = None, authorized: bool = False,
     include_traceroute: bool = False, series_id: str | None = None,
     asn_database: str | None = None, city_database: str | None = None,
+    replay_existing: bool = False,
 ) -> dict[str, Any]:
     """Create at most one approved probe and rebuild only derived catalog HTML."""
     from rasai.network_active_probe import (
@@ -71,27 +72,38 @@ def run_acceptance(
         return result
 
     result["audit_database_unchanged"] = True
-    if not authorized:
+    if replay_existing and authorized:
+        result["status"] = "REPLAY_MUST_NOT_AUTHORIZE_NEW_PROBE"
+        return result
+    if not authorized and not replay_existing:
         result["status"] = "PREFLIGHT_READ_ONLY"
         return result
-    try:
-        same_host_approved = (permitted_hostname is not None and
-                              _host(permitted_hostname) == validated_host)
-    except ValueError:
-        same_host_approved = False
-    if (validated_host is None or not same_host_approved
-            or not result["target_in_original_audit"]):
+    if validated_host is None or not result["target_in_original_audit"]:
         result["status"] = "ACTIVE_SCOPE_NOT_AUTHORIZED"
         return result
+    if not replay_existing:
+        try:
+            same_host_approved = (permitted_hostname is not None and
+                                  _host(permitted_hostname) == validated_host)
+        except ValueError:
+            same_host_approved = False
+        if not same_host_approved:
+            result["status"] = "ACTIVE_SCOPE_NOT_AUTHORIZED"
+            return result
 
     try:
-        _package_path = collect_authorized_probe(
-            root, audit_id, validated_host, permitted_hostname=permitted_hostname,
-            authorized=True, include_traceroute=include_traceroute,
-            series_id=series_id, asn_database=asn_database,
-            city_database=city_database,
-        )
-        result["active_probe_executed"] = True
+        if replay_existing:
+            # Reuse the immutable and integrity-checked packet. No socket,
+            # DNS lookup, traceroute or GeoIP enrichment is performed.
+            result["probe_reused"] = True
+        else:
+            collect_authorized_probe(
+                root, audit_id, validated_host, permitted_hostname=permitted_hostname,
+                authorized=True, include_traceroute=include_traceroute,
+                series_id=series_id, asn_database=asn_database,
+                city_database=city_database,
+            )
+            result["active_probe_executed"] = True
         accepted = read_authorized_probes(root, audit_id)
         current = [
             row for row in accepted
@@ -101,7 +113,10 @@ def run_acceptance(
             and row.get("series_id") == series_id
         ]
         if len(current) != 1:
-            result["status"] = "PROBE_INTEGRITY_FAILED"
+            result["status"] = (
+                "EXISTING_PROBE_NOT_FOUND_OR_INVALID" if replay_existing
+                else "PROBE_INTEGRITY_FAILED"
+            )
             return result
         metrics = current[0].get("metrics") or {}
         observed_tcp = (isinstance(metrics, dict)
@@ -126,6 +141,13 @@ def run_acceptance(
             result["status"] = "CATALOG_REBUILD_FAILED"
             result["catalog_error_types"] = [
                 text.split(":", 2)[1] if ":" in text else "RuntimeError"
+                for text in completion.renderer_errors[:4]
+            ]
+            # Only source basename, function and line; never exception
+            # messages, private paths, URLs, credentials or stack locals.
+            result["catalog_error_origin"] = [
+                text.split(":", 2)[2] if text.startswith("catalog-report:")
+                else "INDETERMINATE"
                 for text in completion.renderer_errors[:4]
             ]
             return result
@@ -174,6 +196,8 @@ def main() -> int:
     parser.add_argument("--permit-exact-host", help="Hostname com autorização expressa")
     parser.add_argument("--authorize-active-network", action="store_true",
                         help="Permite uma sondagem ativa delimitada; sem este flag só há leitura")
+    parser.add_argument("--replay-existing", action="store_true",
+                        help="Reusa pacote imutável G2 e rematerializa o HTML sem nova sondagem")
     parser.add_argument("--include-traceroute", action="store_true")
     parser.add_argument("--series-id")
     parser.add_argument("--asn-db")
@@ -185,6 +209,7 @@ def main() -> int:
         authorized=args.authorize_active_network,
         include_traceroute=args.include_traceroute, series_id=args.series_id,
         asn_database=args.asn_db, city_database=args.city_db,
+        replay_existing=args.replay_existing,
     )
     print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
     return 0 if report["status"] in {

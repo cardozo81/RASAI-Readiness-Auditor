@@ -85,3 +85,29 @@ def test_network_probes_enter_sealed_offline_catalog_without_changing_aud(tmp_pa
     assert valid, reasons
     assert catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace)
     assert (workspace.root / "audit.db").read_bytes() == before
+
+
+def test_failed_network_catalog_rebuild_keeps_previously_published_package(
+        tmp_path, monkeypatch):
+    import pytest
+    import rasai.catalog_report_site as catalog
+    workspace, _ = _workspace(tmp_path)
+    report = materialize_catalog_report_site(
+        audit_id=AUDIT_ID, workspace=workspace,
+    ).parent
+    before = {
+        "manifest": (report / "manifest.json").read_bytes(),
+        "index": (report / "index.html").read_bytes(),
+    }
+    def damaged_legacy_projection(*args, **kwargs):
+        raise TypeError("legacy page, must not delete previous report")
+    monkeypatch.setattr(catalog, "_load_data", damaged_legacy_projection)
+    with pytest.raises(TypeError):
+        catalog.materialize_catalog_report_site(
+            audit_id=AUDIT_ID, workspace=workspace,
+        )
+    assert report.is_dir()
+    assert (report / "manifest.json").read_bytes() == before["manifest"]
+    assert (report / "index.html").read_bytes() == before["index"]
+    assert not list(workspace.root.glob(".report-catalog.stale-*"))
+    assert not list(workspace.root.glob(".report-catalog.tmp-*"))

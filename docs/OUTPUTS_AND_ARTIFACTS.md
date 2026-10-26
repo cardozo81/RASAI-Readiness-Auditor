@@ -388,3 +388,19 @@ Um pacote de sondagem íntegro, porém com TCP não observado, é reportado como
 A representação territorial contém contornos simplificados de terra da base **Natural Earth 1:110 milhões**, disponibilizada em domínio público (CC0) e convertida de `ne_110m_land.json` no projeto `martynafford/natural-earth-geojson`. O pacote distribui exclusivamente geometria SVG estática gerada, sem downloads, imagens remotas ou dependências cartográficas durante a abertura. Contornos costeiros são referência geográfica, **não são medições da infraestrutura de rede**.
 
 A origem, o instante e o raio de precisão dos marcadores GeoIP são também apresentados em uma lista textual acessível, não apenas em dicas SVG, preservando a proveniência se o catálogo transformar elementos da figura. Não são traçadas rotas físicas inferidas. Informações de localização dependem de base MMDB fornecida e autorizada separadamente.
+
+
+
+## Recuperação de sondagem física já coletada: relatório legado (#659)
+
+A coleta ativa autorizada grava pacote **imutável**, independente da projeção HTML. Se a medição registrar `observed_tcp=true` mas o catálogo retornar `CATALOG_REBUILD_FAILED`, não execute outra sondagem com um identificador novo apenas para recriar o relatório. A partir da branch corrigida, reexecute somente a projeção:
+
+```powershell
+git fetch origin refs/heads/feat/network-path-observatory:refs/remotes/origin/feat/network-path-observatory
+git switch feat/network-path-observatory
+git pull --ff-only
+$env:PYTHONPATH = (Resolve-Path ".\\src").Path
+& ".\\.venv\\Scripts\\python.exe" -m rasai.network_acceptance --workspace $Aud.FullName --audit-id $Aud.Name --host $DominioAlvo --series-id "homologacao-g2-01" --replay-existing
+```
+
+`--replay-existing` valida o pacote já persistido e a associação à AUD, sem DNS, TCP, TLS, traceroute, GeoIP ou API remota. É mutuamente exclusivo com `--authorize-active-network`. No erro de projeção, o JSON entrega `catalog_error_origin` restrito a arquivo-função-linha da aplicação, sem stack, caminhos absolutos ou dados da auditoria. O relatório anteriormente publicado é restaurado caso a rematerialização falhe; nunca promover pacote incompleto. Não interpretar o sucesso da coleta como sucesso do relatório.

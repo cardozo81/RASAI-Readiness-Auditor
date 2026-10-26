@@ -860,18 +860,23 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
                 +" ; ".join(dependency_errors)
             )
         staging.replace(report_dir)
-        _discard_tree(quarantine)
     except Exception:
         end_source_dependency_capture(dependency_token)
         _discard_tree(staging)
+        # Roll back to the existing published package. An optional network
+        # projection must not delete a previously published report.
         _discard_tree(report_dir)
-        _discard_tree(quarantine)
+        if quarantine.exists() or quarantine.is_symlink():
+            quarantine.replace(report_dir)
         raise
 
     end_source_dependency_capture(dependency_token)
     if not catalog_report_is_fresh(audit_id=audit_id,workspace=workspace):
         _discard_tree(report_dir)
+        if quarantine.exists() or quarantine.is_symlink():
+            quarantine.replace(report_dir)
         raise RuntimeError("catalog report freshness/integrity verification failed after promotion")
+    _discard_tree(quarantine)
     return report_dir/"index.html"
 
 
