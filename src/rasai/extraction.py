@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from html.parser import HTMLParser
+from hashlib import sha256
 import json
 import re
 from typing import Any
@@ -13,6 +14,28 @@ _WHITESPACE = re.compile(r"\s+")
 _SKIP_CONTENT = {"script", "style", "noscript", "template", "svg"}
 _BOILERPLATE = {"nav", "header", "footer", "aside"}
 _HEADINGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
+_INLINE_HIDDEN = re.compile(
+    r"(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|"
+    r"opacity\s*:\s*0(?:\.0+)?)\s*(?:!important)?\s*(?:;|$)", re.I
+)
+
+
+def _hidden_marker(values: dict[str, str], markers: dict[str, frozenset[str]] | None) -> bool:
+    """Suppress proven-hidden DOM text; unseen CSS stays UNKNOWN, never inferred."""
+    if "hidden" in values or "inert" in values or values.get("aria-hidden", "").lower() == "true":
+        return True
+    if _INLINE_HIDDEN.search(values.get("style", "")):
+        return True
+    if not markers:
+        return False
+    element_id = values.get("id", "")
+    if element_id and sha256(element_id.encode("utf-8")).hexdigest() in markers.get("id", frozenset()):
+        return True
+    return any(
+        sha256(name.encode("utf-8")).hexdigest() in markers.get("class", frozenset())
+        for name in values.get("class", "").split()
+    )
+
 
 
 def _clean_text(value: str) -> str:
@@ -82,18 +105,23 @@ class ExtractedPage:
 class ContentExtractor:
     """Extract deterministic page features without semantic interpretation."""
 
-    def extract(self, html: str) -> ExtractedPage:
-        parser = _ExtractionParser()
+    def extract(
+        self, html: str, *,
+        hidden_markers: dict[str, frozenset[str]] | None = None,
+    ) -> ExtractedPage:
+        parser = _ExtractionParser(hidden_markers=hidden_markers)
         parser.feed(html)
         parser.close()
         return parser.result()
 
 
 class _ExtractionParser(HTMLParser):
-    def __init__(self) -> None:
+    def __init__(self, *, hidden_markers: dict[str, frozenset[str]] | None = None) -> None:
         super().__init__(convert_charrefs=True)
-        self.stack: list[tuple[str, bool, bool, bool]] = []
+        self.hidden_markers = hidden_markers
+        self.stack: list[tuple[str, bool, bool, bool, bool]] = []
         self.skip_depth = 0
+        self.hidden_depth = 0
         self.boilerplate_depth = 0
         self.main_depth = 0
         self.body_depth = 0
@@ -117,23 +145,26 @@ class _ExtractionParser(HTMLParser):
         tag = tag.lower()
         values = _attrs(attrs)
         starts_skip = tag in _SKIP_CONTENT
+        starts_hidden = _hidden_marker(values, self.hidden_markers)
         starts_boilerplate = tag in _BOILERPLATE
         role = values.get("role", "").lower()
         starts_main = tag in {"main", "article"} or role == "main"
-        self.stack.append((tag, starts_skip, starts_boilerplate, starts_main))
+        self.stack.append((tag, starts_skip, starts_boilerplate, starts_main, starts_hidden))
 
         if tag == "body":
             self.body_depth += 1
         if starts_skip:
             self.skip_depth += 1
+        if starts_hidden:
+            self.hidden_depth += 1
         if starts_boilerplate:
             self.boilerplate_depth += 1
         if starts_main:
             self.main_depth += 1
         # HTML document title is the direct child of <head>; SVG <title>
         # describes graphics and must not contaminate SEO findings.
-        if (tag == "title" and len(self.stack) >= 2
-                and self.stack[-2][0] == "head" and not self.title_seen):
+        if (tag == "title" and not self.title_seen and self.skip_depth == 0
+                and any(parent[0] == "head" for parent in self.stack[:-1])):
             self.title_depth = 1
             self.title_seen = True
 
@@ -151,10 +182,10 @@ class _ExtractionParser(HTMLParser):
             if "canonical" in rel_tokens and href and self.canonical is None:
                 self.canonical = href
 
-        if tag in _HEADINGS and self.skip_depth == 0:
+        if tag in _HEADINGS and self.skip_depth == 0 and self.hidden_depth == 0:
             self.current_heading = (int(tag[1]), [])
 
-        if tag == "a" and self.skip_depth == 0:
+        if tag == "a" and self.skip_depth == 0 and self.hidden_depth == 0:
             href = values.get("href", "").strip()
             rel = tuple(token.lower() for token in values.get("rel", "").split() if token)
             self.current_link = (href, rel, [])
@@ -202,7 +233,7 @@ class _ExtractionParser(HTMLParser):
             self.current_jsonld = None
 
         for position in range(len(self.stack) - 1, -1, -1):
-            stack_tag, starts_skip, starts_boilerplate, starts_main = self.stack[position]
+            stack_tag, starts_skip, starts_boilerplate, starts_main, starts_hidden = self.stack[position]
             if stack_tag != tag:
                 continue
             del self.stack[position:]
@@ -212,6 +243,8 @@ class _ExtractionParser(HTMLParser):
                 self.title_depth = 0
             if starts_skip and self.skip_depth:
                 self.skip_depth -= 1
+            if starts_hidden and self.hidden_depth:
+                self.hidden_depth -= 1
             if starts_boilerplate and self.boilerplate_depth:
                 self.boilerplate_depth -= 1
             if starts_main and self.main_depth:
@@ -229,12 +262,12 @@ class _ExtractionParser(HTMLParser):
         if self.title_depth:
             self.title_parts.append(text)
 
-        if self.current_heading is not None:
+        if self.current_heading is not None and self.hidden_depth == 0:
             self.current_heading[1].append(text)
-        if self.current_link is not None:
+        if self.current_link is not None and self.hidden_depth == 0:
             self.current_link[2].append(text)
 
-        if self.body_depth and self.skip_depth == 0:
+        if self.body_depth and self.skip_depth == 0 and self.hidden_depth == 0:
             self.body_parts.append(text)
             if self.boilerplate_depth == 0:
                 self.text_blocks.append(text)
