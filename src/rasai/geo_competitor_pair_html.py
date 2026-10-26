@@ -223,7 +223,7 @@ def render_cobs_static_pair_html(projection: Mapping[str, Any]) -> str:
         f"<p class='muted'>Intervalo entre capturas: {gap:.0f} segundos. Proximidade não comprova equivalência de intenção, idioma, dispositivo ou sessão.</p>",
         f"<p class='muted'>Relógio SERP versus capturas: {escape(chronology)}. {escape(time_status)}.</p>",
         "</header>",
-        "<p class='warning'><strong>Limite de inferência:</strong> somente texto e metadados do HTML estatico coletado. "
+        "<p class='warning'><strong>Limite de inferência:</strong> somente texto e metadados do HTML estático coletado. "
         "Elementos ausentes na extração não são lacunas editoriais comprovadas; "
         "não gerar priorização, recomendação comercial, percentual de qualidade ou pontuação.</p>",
         "<main><div class='grid'>",
