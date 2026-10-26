@@ -5,6 +5,8 @@ This projection must never create a search request or write to audit.db.
 """
 from __future__ import annotations
 
+from rasai.report_ptbr_copy import public_geo_action
+
 from contextlib import closing
 
 from collections import Counter
@@ -924,7 +926,7 @@ def geo_body(database: Path, audit_id: str) -> str:
         if target.get("target_url"):
             summary += "<p>URL analisada: " + escape(str(target["target_url"])) + "</p>"
         if target.get("recommendation"):
-            summary += "<p>Ação para avaliação: " + escape(str(target["recommendation"])) + "</p>"
+            summary += "<p>Ação para avaliação: " + escape(public_geo_action(target["recommendation"])) + "</p>"
         if target.get("evidence_run_id"):
             summary += "<p>Run de origem: " + escape(str(target["evidence_run_id"])) + "</p>"
         summary += "<p>Este resultado não determina por que uma URL foi ou não foi recuperada.</p></section>"

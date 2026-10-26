@@ -6,6 +6,8 @@ reprocessing, retry, stale-success promotion or inference of generative cites.
 """
 from __future__ import annotations
 
+from rasai.report_ptbr_copy import public_geo_action
+
 from hashlib import sha256
 from html import escape
 import json
@@ -186,7 +188,7 @@ def geo_snapshot_context_html(
         action = target.get("recommendation")
         return details + (
             "<p>Orientação determinística da observação: "
-            + _text(action, 320)
+            + _text(public_geo_action(action).rstrip(" ."), 320)
             + ". Validar com achado e responsável; isto não cria, substitui "
             "ou pontua uma recomendação canônica.</p>"
         )

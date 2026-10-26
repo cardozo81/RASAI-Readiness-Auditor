@@ -81,23 +81,23 @@ def _recorded_run_context(config: Mapping[str, Any] | None) -> dict[str, Any]:
 
 _NOTICE_BY_ARCH = {
     "STATIC_OR_SSR": (
-        "Load Action pode representar navegacao de documento completa; "
-        "nao comprova readiness ou interatividade."
+        "Load Action pode representar navegação completa do documento; "
+        "não comprova prontidão ou interatividade."
     ),
     "CSR_SPA": (
         "Load Action cobre a entrada inicial. Soft navigations XHR/Fetch "
-        "nao sao medidas como acoes autonomas pelo M25."
+        "não são medidas como ações autônomas pelo M25."
     ),
     "HYDRATED": (
-        "HTML inicial pode anteceder hidratacao/interatividade. "
-        "Load nao demonstra prontidao interativa."
+        "O HTML inicial pode anteceder a hidratação/interatividade. "
+        "Load não demonstra prontidão interativa."
     ),
     "MIXED": (
-        "Load pode cobrir apenas parte das rotas/secoes; "
-        "nao presume uma unica arquitetura para a aplicacao."
+        "Load pode cobrir apenas parte das rotas/seções; "
+        "não presume uma única arquitetura para a aplicação."
     ),
-    "UNKNOWN": "Arquitetura nao comprovada; recomendacao por classe N/D.",
-    "AUTO": "Arquitetura nao identificada na configuracao previa; default RASAi nao e classificacao M6.",
+    "UNKNOWN": "Arquitetura não comprovada; recomendação por classe N/D.",
+    "AUTO": "Arquitetura não identificada na configuração prévia; o padrão do RASAi não equivale à classificação M6.",
 }
 
 
@@ -201,7 +201,7 @@ def resolve_experience_architecture_guidance(
         reasons.append("DECLARED_VS_OBSERVED_ARCHITECTURE_MISMATCH")
         next_actions.append({
             "scope": "RASAI_EXECUTABLE_NOW",
-            "text": "Conferir classificacao M6 e arquitetura declarada por URL/dispositivo antes de nova AUD.",
+            "text": "Conferir a classificação M6 e a arquitetura declarada por URL/dispositivo antes de uma nova AUD.",
         })
     if mode == "UNKNOWN":
         reasons.append("PROFILE_MODE_NOT_RECOGNIZED")
@@ -216,11 +216,11 @@ def resolve_experience_architecture_guidance(
         reasons.append("INITIAL_LOAD_DOES_NOT_COVER_WIDER_EXPERIENCE")
         next_actions.append({
             "scope": "DYNATRACE_EXTERNAL",
-            "text": "Avaliar XHR/soft navigation, custom actions e interatividade em RUM; M25 nao executa essas acoes autonomamente.",
+            "text": "Avaliar XHR/navegação suave, ações personalizadas e interatividade em RUM; o M25 não executa essas ações autonomamente.",
         })
     next_actions.append({
         "scope": "FUTURE_CAPABILITY",
-        "text": "Prontidao real de conteudo na mesma amostra exige o gate fisico #322.",
+        "text": "A prontidão real do conteúdo na mesma amostra exige a validação física #322.",
     })
     differences = {
         key: {"effective": values.get(key), "guided": proposed[key],
@@ -242,17 +242,17 @@ def resolve_experience_architecture_guidance(
             reasons.append("GUIDED_PRESET_CONFLICTS_WITH_EFFECTIVE_FIELDS")
         next_actions.append({
             "scope": "RASAI_EXECUTABLE_NOW",
-            "text": "Aprovar explicitamente os parametros guiados ou manter a configuracao atual; nao alterar amostras, device ou politicas de carga.",
+            "text": "Aprovar explicitamente os parâmetros guiados ou manter a configuração atual; não alterar amostras, dispositivo ou políticas de carga.",
         })
     if mode == "DYNATRACE_IMPORTED":
         next_actions.append({
             "scope": "RASAI_EXECUTABLE_NOW",
-            "text": "Preservar parser e precedencia da importacao atual; indicar fallback somente quando comprovado no registro de calibracao.",
+            "text": "Preservar o analisador e a precedência da importação atual; indicar alternativa somente quando comprovada no registro de calibração.",
         })
     if mode == "CUSTOM":
         next_actions.append({
             "scope": "RASAI_EXECUTABLE_NOW",
-            "text": "Manter valores explicitos do operador; validar dominios e origem por campo sem sobrescrever com preset.",
+            "text": "Manter valores explícitos do operador; validar domínios e origem por campo sem sobrescrever com a predefinição.",
         })
     adequate_scope = (
         not invalid and mode != "UNKNOWN"

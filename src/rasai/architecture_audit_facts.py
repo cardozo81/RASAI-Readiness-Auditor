@@ -35,6 +35,19 @@ def _code(value: Any) -> str | None:
     return value if isinstance(value, str) and _SAFE_CODE.fullmatch(value) else None
 
 
+def _architecture_runtime_state_label(value: Any) -> str:
+    """Portuguese labels only for observed states, never inferred network facts."""
+    states = {
+        "CAPTURED": "Capturado nesta auditoria",
+        "NO_OBSERVATIONS": "Instrumentação executada; nenhuma resposta observada",
+        "UNAVAILABLE": "Instrumentação indisponível nesta captura",
+        "UNAVAILABLE_RENDER_FAILURE": "Instrumentação indisponível por falha de renderização",
+        "NOT_COLLECTED": "Não coletado nesta auditoria (instrumentação posterior à captura)",
+        "OBSERVED_MAIN_DOCUMENT_RESPONSE": "Resposta principal observada pelo navegador",
+    }
+    return states.get(str(value or ""), "N/D (estado da observação não reconhecido)")
+
+
 def _public_host(value: Any) -> str | None:
     """Safe DNS hostname only, no IP, private names, paths or credentials."""
     if not isinstance(value, str) or len(value) > 4096:
@@ -538,7 +551,7 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             + "</dl></section>"
             "<section class='architecture-fact-group'><h5>CSS, APIs e subframes na rede</h5><dl>"
             + display("Proveniência", "Somente respostas da mesma navegação; sem coleta adicional")
-            + display("Estado", net.get("response_state"))
+            + display("Estado", _architecture_runtime_state_label(net.get("response_state")))
             + display("Respostas observadas", net.get("response_count"))
             + display("Categorias", counts(net.get("response_types")))
             + display("Classes HTTP", counts(net.get("response_statuses")))
@@ -554,13 +567,13 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             "concluídas; observações de rede não constituem inventário de toda a "
             "infraestrutura. DNS, cadeia TLS completa, CDN, WAF, balanceador e backend permanecem "
             "não determináveis. Capturas anteriores à instrumentação adicional "
-            "exibem NOT_COLLECTED, e não zero.</p>"
+            "são descritas como não coletadas, não como zero recursos.</p>"
         )
         sec = net.get("main_response_security") or {}
         parts.append(
             "<div class='architecture-fact-grid'><section class='architecture-fact-group'>"
             "<h5>Resposta principal: transporte e TLS observados</h5><dl>"
-            + display("Estado da observação", net.get("main_response_state"))
+            + display("Estado da observação", _architecture_runtime_state_label(net.get("main_response_state")))
             + display("Protocolo HTTP informado", sec.get("http_protocol"))
             + display("Versão TLS informada", sec.get("tls_protocol"))
             + display("Emissor do certificado informado", sec.get("tls_issuer"))

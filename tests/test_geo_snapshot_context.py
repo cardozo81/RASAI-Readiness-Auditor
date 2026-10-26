@@ -202,3 +202,28 @@ def test_missing_or_inconsistent_url_denominators_abstain_in_cat05(tmp_path):
     html = catalog_geo_context(db, "AUD-A", "CAT-05")
     assert "denominadores persistidos inconsistentes" in html
     assert "2 em comum" not in html
+
+
+def test_legacy_ptbr_geo_snapshot_is_read_only_and_escaped(tmp_path):
+    from rasai.geo_catalog_context import catalog_geo_context
+    from rasai.report_ptbr_copy import public_geo_action
+    db = tmp_path / "audit.db"
+    _prepare(db)
+    with sqlite3.connect(db) as con:
+        projection = json.loads(con.execute(
+            "SELECT projection_json FROM geo_observation_runs WHERE audit_id='AUD-A'"
+        ).fetchone()[0])
+        projection["target_observation"]["recommendation"] = (
+            "Revisar cobertura da intencao, clareza da oferta e evidencias no CAT-03 antes de propor remediacao."
+        )
+        con.execute(
+            "UPDATE geo_observation_runs SET projection_json=? WHERE audit_id='AUD-A'",
+            (json.dumps(projection, ensure_ascii=False),),
+        )
+    frozen = db.read_bytes()
+    html = catalog_geo_context(db, "AUD-A", "CAT-09")
+    assert "a cobertura da intenção, a clareza da oferta e as evidências" in html
+    assert "antes de propor remediação. Validar" in html
+    assert "intencao" not in html
+    assert db.read_bytes() == frozen
+    assert public_geo_action("<img src=x onerror=alert(1)>") == "<img src=x onerror=alert(1)>"
