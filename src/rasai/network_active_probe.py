@@ -34,6 +34,12 @@ def _host(value: str) -> str:
     if not isinstance(value, str):
         raise ValueError("Destino inválido")
     host = value.lower().rstrip(".")
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        raise ValueError("IP literal não é um hostname autorizado")
     if (len(host) > 253 or "." not in host or
             host.endswith((".local", ".internal", ".localhost", ".test", ".invalid")) or
             any(not _LABEL.fullmatch(part) for part in host.split("."))):
@@ -228,15 +234,18 @@ def read_authorized_probes(workspace: str | Path, audit_id: str) -> list[dict]:
         return []
     rows = []
     # Fail closed for unexpectedly large collections.
-    paths = list(directory.iterdir())
+    try:
+        paths = list(directory.iterdir())
+    except OSError:
+        return []
     if len(paths) > 32:
         return []
     for path in sorted(paths):
         if path.suffix != ".json" or path.is_symlink() or not path.is_file():
             continue
-        if path.stat().st_size > _MAX_RESULT_BYTES:
-            continue
         try:
+            if path.stat().st_size > _MAX_RESULT_BYTES:
+                continue
             row = json.loads(path.read_text(encoding="utf-8"))
             if not isinstance(row, dict) or row.get("audit_id") != audit_id:
                 continue

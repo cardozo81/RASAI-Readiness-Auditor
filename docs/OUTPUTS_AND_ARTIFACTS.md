@@ -325,7 +325,7 @@ Os indicadores de transporte continuam independentes: o IP público do peer obse
 
 
 
-## Sondagem complementar autorizada (#659, G2 — entrega inicial)
+## Sondagem complementar autorizada (#659, G2 - entrega inicial)
 
 O módulo `rasai.network_active_probe` permite sondar exclusivamente o hostname público já pertencente às páginas de uma AUD existente, **somente após autorização expressa**. Não é acionado pela auditoria, reprocessamento, consolidação nem rematerialização de relatórios. Ele não substitui observações passivas nem atualiza `audit.db`, scores ou artefatos selados.
 
