@@ -2,7 +2,7 @@ name: Network G1 focused validation
 
 on:
   push:
-    branches: [feat/network-path-observatory]
+    branches: [main, feat/network-path-observatory]
     paths:
       - 'src/rasai/network_*.py'
       - 'src/rasai/catalog_report_site.py'
