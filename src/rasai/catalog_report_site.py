@@ -627,9 +627,12 @@ def verify_catalog_report_package(report_dir: str|Path) -> tuple[bool,tuple[str,
     return not errors,tuple(errors)
 
 
-def catalog_report_is_fresh(*,audit_id: str,workspace: Any) -> bool:
-    """Return True only when the published tree is internally valid and matches live state."""
-    report_dir=Path(workspace.root)/CATALOG_REPORT_DIR
+def catalog_report_is_fresh(*,audit_id: str,workspace: Any,report_dir: Path | None = None) -> bool:
+    """Verify a package against live state, including a quarantined candidate.
+
+    A failed rebuild must never publish a stale or structurally invalid catalog.
+    """
+    report_dir=Path(report_dir) if report_dir is not None else Path(workspace.root)/CATALOG_REPORT_DIR
     manifest_path=report_dir/"manifest.json"
     if not manifest_path.is_file():
         return False
@@ -866,15 +869,27 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
         # Roll back to the existing published package. An optional network
         # projection must not delete a previously published report.
         _discard_tree(report_dir)
-        if quarantine.exists() or quarantine.is_symlink():
+        # Never restore a stale package. A previously published catalog may
+        # return only if manifest, original AUD state and sidecars still agree.
+        if (quarantine.is_dir() and not quarantine.is_symlink()
+                and catalog_report_is_fresh(
+                    audit_id=audit_id, workspace=workspace, report_dir=quarantine,
+                )):
             quarantine.replace(report_dir)
+        else:
+            _discard_tree(quarantine)
         raise
 
     end_source_dependency_capture(dependency_token)
     if not catalog_report_is_fresh(audit_id=audit_id,workspace=workspace):
         _discard_tree(report_dir)
-        if quarantine.exists() or quarantine.is_symlink():
+        if (quarantine.is_dir() and not quarantine.is_symlink()
+                and catalog_report_is_fresh(
+                    audit_id=audit_id, workspace=workspace, report_dir=quarantine,
+                )):
             quarantine.replace(report_dir)
+        else:
+            _discard_tree(quarantine)
         raise RuntimeError("catalog report freshness/integrity verification failed after promotion")
     _discard_tree(quarantine)
     return report_dir/"index.html"

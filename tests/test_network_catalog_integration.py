@@ -111,3 +111,22 @@ def test_failed_network_catalog_rebuild_keeps_previously_published_package(
     assert (report / "index.html").read_bytes() == before["index"]
     assert not list(workspace.root.glob(".report-catalog.stale-*"))
     assert not list(workspace.root.glob(".report-catalog.tmp-*"))
+
+
+def test_failed_rebuild_does_not_republish_catalog_made_stale_by_new_probe(
+        tmp_path, monkeypatch):
+    import pytest
+    import rasai.catalog_report_site as catalog
+    workspace, _ = _workspace(tmp_path)
+    published = materialize_catalog_report_site(
+        audit_id=AUDIT_ID, workspace=workspace,
+    ).parent
+    _write_verified_packet(workspace, "new-capture")
+    assert not catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace)
+    monkeypatch.setattr(
+        catalog, "_load_data",
+        lambda *_a, **_k: (_ for _ in ()).throw(TypeError("legacy report error")),
+    )
+    with pytest.raises(TypeError):
+        catalog.materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace)
+    assert not published.exists(), "Old package is stale and must not be publicly restored"
