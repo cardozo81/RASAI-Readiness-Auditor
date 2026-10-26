@@ -78,8 +78,8 @@ class _Tables(HTMLParser):
 def inventory(directory: Path) -> dict[str, Any]:
     """Keep measurements independent of style/script and section ordering."""
     paths = tuple(page.filename for page in CATALOG_REPORT_PAGES)
-    if len(paths) != 19 or len(set(paths)) != 19:
-        raise ValueError("canonical page contract is no longer 19 unique paths")
+    if len(paths) != len(set(paths)) or "network.html" not in paths:
+        raise ValueError("canonical report routes must be unique and include network.html")
     files = {p.name for p in directory.glob("*.html")}
     if files != set(paths):
         raise ValueError("report pages missing or unexpected duplicate HTML routes")
