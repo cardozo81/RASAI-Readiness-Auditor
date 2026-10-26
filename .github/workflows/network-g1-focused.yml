@@ -39,6 +39,7 @@ jobs:
           tests/test_network_observation.py
           tests/test_network_active_probe.py
           tests/test_network_acceptance.py
+          tests/test_network_catalog_integration.py
           tests/test_network_enrichment.py
           tests/test_network_traceroute.py
           tests/test_network_progression.py
