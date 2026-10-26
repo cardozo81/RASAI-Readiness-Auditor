@@ -404,3 +404,14 @@ $env:PYTHONPATH = (Resolve-Path ".\\src").Path
 ```
 
 `--replay-existing` valida o pacote já persistido e a associação à AUD, sem DNS, TCP, TLS, traceroute, GeoIP ou API remota. É mutuamente exclusivo com `--authorize-active-network`. No erro de projeção, o JSON entrega `catalog_error_origin` restrito a arquivo-função-linha da aplicação, sem stack, caminhos absolutos ou dados da auditoria. O relatório anteriormente publicado só é restaurado se sua integridade e **frescor em relação à AUD e a todos os complementos** forem novamente comprovados. Se existir conteúdo obsoleto, o catálogo permanece indisponível em vez de divulgar dados desatualizados. Nunca promover pacote incompleto. Não interpretar o sucesso da coleta como sucesso do relatório.
+
+
+### Compatibilidade CAT-09 com orientações M24 de auditorias existentes
+
+Ao rematerializar uma AUD que já possui orientações técnicas M24, a
+apresentação do CAT-09 utiliza a função de título específica para **ações de IA**
+(um argumento; retorna título e prioridade), e não o título do diagnóstico
+determinístico de descoberta (dois argumentos; retorna um texto). A assinatura
+das funções não é intercambiável. O contrato protege auditorias legadas e
+independe da ordem de instalação dos refinamentos opcionais de apresentação,
+sem alterar a evidência original, a recomendação persistida nem o score.
