@@ -89,7 +89,11 @@ def read_network_ai(workspace: str | Path, assessment: Mapping[str, Any]) -> dic
                 or packet.get("contract") != AI_CONTRACT
                 or packet.get("audit_id") != assessment["audit_id"]
                 or packet.get("evidence_sha256") != assessment["evidence_sha256"]
-                or packet.get("digest_scope") != "INTEGRITY_ONLY_NOT_AUTHORSHIP"):
+                or packet.get("digest_scope") != "INTEGRITY_ONLY_NOT_AUTHORSHIP"
+                or not isinstance(packet.get("provider"), str)
+                or not packet.get("provider")
+                or not isinstance(packet.get("model"), str)
+                or not packet.get("model")):
             return None
         stored = packet.get("sha256")
         if not isinstance(stored, str) or len(stored) != 64:

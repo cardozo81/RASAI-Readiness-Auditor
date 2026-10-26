@@ -430,7 +430,7 @@ aparecem antes da representação geográfica: sem coordenadas verificadas, esta
 última explica a indisponibilidade em vez de desenhar um mapa fictício.
 
 
-## Network Intelligence — análise consultiva de rede (issue #663)
+## Network Intelligence - análise consultiva de rede (issue #663)
 
 O `report-catalog/network.html` apresenta agora o **Diagnóstico de Rede e
 Conectividade**, elaborado somente a partir de evidências verificadas G1/G2/G3.

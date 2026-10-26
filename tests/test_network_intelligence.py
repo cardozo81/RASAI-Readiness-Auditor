@@ -133,6 +133,8 @@ def test_tampered_or_stale_ai_packet_is_never_displayed(tmp_path, monkeypatch):
         "contract": ai.AI_CONTRACT,
         "audit_id": "AUD-NET-1",
         "evidence_sha256": assessment["evidence_sha256"],
+        "provider": "TEST_PROVIDER",
+        "model": "TEST_MODEL",
         "analysis": {
             "summary": "Leitura consultiva das evidências.",
             "insights": [{
@@ -167,3 +169,64 @@ def test_report_never_calls_provider_even_if_sidecar_absent(tmp_path, monkeypatc
         raise AssertionError("Provider cannot be called when rendering")
     monkeypatch.setattr(ai, "run_network_ai", forbidden)
     assert "Diagnóstico de Rede" in report.network_intelligence_section(tmp_path, "AUD-NET-1")
+
+
+
+def test_explicit_ai_one_attempt_is_persisted_and_reused(tmp_path, monkeypatch):
+    from rasai import ai_orchestration_unification as canonical
+    from rasai import improvement_intelligence as improvement
+
+    (tmp_path / "audit.db").write_bytes(b"TEST_ONLY_DB")
+    _mock_sources(monkeypatch)
+    assessment = ni.build_network_assessment(tmp_path, "AUD-NET-1")
+    selected = next(f for f in assessment["findings"] if f["evidence_refs"])
+    response = {
+        "summary": "Uma leitura restrita às observações pontuais.",
+        "insights": [{
+            "finding_id": selected["id"],
+            "evidence_refs": selected["evidence_refs"],
+            "confidence": selected["confidence"],
+            "interpretation": "Medição de uma única sessão.",
+            "limitation": "Não representa visitantes.",
+            "recommendation": "Coletar outras sessões somente quando autorizado.",
+            "validation": "Repetir testes com escopo conhecido.",
+        }],
+    }
+    sent = []
+    class FakeProvider:
+        name = "COPILOT"
+        model = "test-model"
+        api_key = "TEST_ONLY_NOT_REAL"
+        def _headers(self):
+            return {}
+        def _transport(self, endpoint, headers, body, timeout):
+            sent.append(json.loads(body))
+            return {"content": "synthetic"}
+        def _native_error(self, raw):
+            return None
+        def _usage(self, raw):
+            return None
+        def _extract_payload(self, raw):
+            return response
+
+        endpoint = "https://not-called.example.invalid"
+
+    monkeypatch.setattr(improvement, "_build_provider", lambda cfg: FakeProvider())
+    monkeypatch.setattr(canonical, "_attempt", lambda *a, **kw: SimpleNamespace(
+        estimated_cost=None, cost_currency=None
+    ))
+    before = (tmp_path / "audit.db").read_bytes()
+    result = ai.run_network_ai(
+        tmp_path, "AUD-NET-1", authorized=True, provider="openai",
+    )
+    assert result["status"] == "AI_ANALYZED"
+    assert result["request_executed"] is True
+    assert len(sent) == 1
+    assert ai.read_network_ai(tmp_path, assessment) is not None
+    result2 = ai.run_network_ai(
+        tmp_path, "AUD-NET-1", authorized=True, provider="openai",
+    )
+    assert result2["status"] == "REUSED"
+    assert result2["request_executed"] is False
+    assert len(sent) == 1
+    assert (tmp_path / "audit.db").read_bytes() == before
