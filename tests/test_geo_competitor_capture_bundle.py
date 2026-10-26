@@ -1067,7 +1067,7 @@ def test_cobs_public_competitor_pair_route_never_bootstraps_audit_or_egress(
     html = capsys.readouterr().out
     assert "Comparação lexical observacional" in html
     assert "SERP - alvo: 900s; SERP - concorrente: 4500s" in html
-    assert "sem equivalencia de populacao comprovada" in html
+    assert "sem equivalência de população comprovada" in html
     assert len(calls) == prior
     assert (folder / "audit.db").read_bytes() == db_bytes
 
@@ -1107,7 +1107,7 @@ def test_cobs_pair_discloses_remote_serp_to_html_window_without_editorial_claims
     assert result["primary_content_comparison_eligible"] is False
     assert result["static_text_differences_are_editorial_gaps"] is False
     html = render_cobs_static_pair_html(result)
-    assert "fora da janela SERP de 24h" in html
+    assert "fora da janela SERP de 24 horas" in html
     assert "lacunas editoriais comprovadas" in html
     assert len(calls) == count
     assert (folder / "audit.db").read_bytes() == db_bytes
