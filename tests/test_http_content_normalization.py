@@ -56,7 +56,7 @@ def test_corrupt_oversized_unsupported_encoding_abstains_and_plain_remains():
     with pytest.raises(ValueError):
         normalize_http_content(b"plain", content_encoding="br")
     assert normalize_http_content(b"plain") == b"plain"
-    assert decode_captured_text(b"<h1>Olá</h1>") == "<h1>Olá</h1>"
+    assert decode_captured_text("<h1>Olá</h1>".encode("utf-8")) == "<h1>Olá</h1>"
 
 
 def test_gzip_robots_retains_declared_sitemap_distinct_from_conventional():
