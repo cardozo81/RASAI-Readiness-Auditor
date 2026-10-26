@@ -1,0 +1,31 @@
+name: Canonical extraction and HTTP interpretation regressions
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/extraction.py'
+      - 'src/rasai/secret_safety.py'
+      - 'src/rasai/geo_report.py'
+      - 'src/rasai/catalog_report_public_labels.py'
+      - 'src/rasai/acquisition.py'
+      - 'src/rasai/discovery.py'
+      - 'src/rasai/m24_discovery_extensions.py'
+      - 'src/rasai/m4.py'
+      - 'src/rasai/m5.py'
+      - 'src/rasai/m6.py'
+      - 'src/rasai/architecture_audit_facts.py'
+      - 'tests/test_canonical_capture_regressions.py'
+      - 'tests/test_http_content_normalization.py'
+      - '.github/workflows/canonical-capture-regressions.yml'
+  workflow_dispatch:
+jobs:
+  focused-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e . pytest
+      - run: python -m compileall -q src/rasai/extraction.py src/rasai/secret_safety.py src/rasai/acquisition.py src/rasai/discovery.py src/rasai/m24_discovery_extensions.py src/rasai/m4.py src/rasai/m5.py src/rasai/m6.py src/rasai/architecture_audit_facts.py
+      - run: python -m pytest -q tests/test_canonical_capture_regressions.py tests/test_http_content_normalization.py tests/test_m4_extraction_evidence.py tests/test_m2_discovery_http.py tests/test_architecture_audit_facts.py tests/test_secret_safety.py

@@ -43,7 +43,7 @@ def test_r05_real_uri_userinfo_remains_blocked_and_redacted():
         assert "synthetic_password_93af" not in redact_text(url)
     assert any(f.kind == "BEARER_TOKEN" for f in detect_secret_exposures("Bearer synthetic_token_93af"))
     assert any(f.kind == "KNOWN_SECRET_PATTERN" for f in detect_secret_exposures(
-        "sk-proj-" + "A" * 28, strict=True, html_dom_context=True))
+        "sk-proj-" + "A" * 28 + "9", strict=True, html_dom_context=True))
 
 
 def test_r06_only_known_normative_labels_are_localized():
