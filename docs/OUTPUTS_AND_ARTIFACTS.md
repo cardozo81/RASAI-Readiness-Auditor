@@ -368,6 +368,8 @@ O argumento opcional `--series-id` identifica uma nova medição autorizada sem 
 O pré-voo local é **somente leitura** e não faz requisições de rede. No PowerShell, a partir do repositório atualizado, execute:
 
 ```powershell
+git fetch origin feat/network-path-observatory
+git switch feat/network-path-observatory
 git pull --ff-only
 & ".\\.venv\\Scripts\\python.exe" -m rasai.network_acceptance --workspace "audits\\<AUD-ID>" --audit-id "<AUD-ID>" --host "<HOST-PUBLICO-DA-AUD>"
 ```
@@ -375,3 +377,6 @@ git pull --ff-only
 O comando devolve JSON com `PREFLIGHT_READ_ONLY`, escopo, existência de pacote e integridade do banco original. Verifique a autorização de testar o hostname antes de seguir. Para **uma medição ativa expressamente autorizada**, execute o mesmo comando acrescentando `--permit-exact-host "<HOST-PUBLICO-DA-AUD>" --authorize-active-network --include-traceroute --series-id "homologacao-01"`. O procedimento grava somente um pacote complementar, verifica seu hash, rematerializa o catálogo pelo caminho `read_only=True`, verifica integridade e testa a presença dos dados em `network.html`. Produz `TECHNICAL_ACCEPTANCE_READY_FOR_HUMAN_REVIEW` apenas se esses controles estiverem comprovados; o aceite humano ainda depende da inspeção visual e do contexto da rede real.
 
 Não publicar logs com URLs completas, credenciais ou arquivos de bases licenciadas. Traceroute pode retornar caminho parcial sem que isso signifique indisponibilidade do destino. Sem base MMDB local, o mapa não inventa coordenadas. O status de aceite não comprova sozinho ganho incremental representativo e nunca autoriza merge automaticamente.
+
+
+Um pacote de sondagem íntegro, porém com TCP não observado, é reportado como `NETWORK_METRICS_OR_REPORT_INCOMPLETE` e **não** recebe aprovação técnica de campo. O teste físico deve preservar a diferença entre execução tentada, resposta bloqueada, conexão TCP efetivamente observada e apresentação íntegra. A aprovação por CI não substitui essa evidência.

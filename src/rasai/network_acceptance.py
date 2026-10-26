@@ -56,7 +56,11 @@ def run_acceptance(
         from rasai.network_active_probe import read_authorized_probes
         result["existing_probe_count"] = len(read_authorized_probes(root, audit_id))
         if host is not None:
-            validated_host = _host(host)
+            try:
+                validated_host = _host(host)
+            except ValueError:
+                result["status"] = "INVALID_TARGET"
+                return result
             result["target_in_original_audit"] = _audit_has_target(
                 root, audit_id, validated_host,
             )
@@ -70,14 +74,18 @@ def run_acceptance(
     if not authorized:
         result["status"] = "PREFLIGHT_READ_ONLY"
         return result
-    if (validated_host is None or permitted_hostname is None
-            or _host(permitted_hostname) != validated_host
+    try:
+        same_host_approved = (permitted_hostname is not None and
+                              _host(permitted_hostname) == validated_host)
+    except ValueError:
+        same_host_approved = False
+    if (validated_host is None or not same_host_approved
             or not result["target_in_original_audit"]):
         result["status"] = "ACTIVE_SCOPE_NOT_AUTHORIZED"
         return result
 
     try:
-        path = collect_authorized_probe(
+        _package_path = collect_authorized_probe(
             root, audit_id, validated_host, permitted_hostname=permitted_hostname,
             authorized=True, include_traceroute=include_traceroute,
             series_id=series_id, asn_database=asn_database,
@@ -85,10 +93,25 @@ def run_acceptance(
         )
         result["active_probe_executed"] = True
         accepted = read_authorized_probes(root, audit_id)
-        if not any(row.get("audit_id") == audit_id and
-                   row.get("hostname") == validated_host for row in accepted):
+        current = [
+            row for row in accepted
+            if row.get("audit_id") == audit_id
+            and row.get("hostname") == validated_host
+            and row.get("port") == 443
+            and row.get("series_id") == series_id
+        ]
+        if len(current) != 1:
             result["status"] = "PROBE_INTEGRITY_FAILED"
             return result
+        metrics = current[0].get("metrics") or {}
+        observed_tcp = (isinstance(metrics, dict)
+                        and isinstance(metrics.get("tcp_handshake_ms"), dict)
+                        and metrics["tcp_handshake_ms"].get("state") == "OBSERVED")
+        result["observed_tcp"] = observed_tcp
+        result["traceroute_state"] = (
+            (metrics.get("traceroute") or {}).get("state")
+            if isinstance(metrics, dict) and include_traceroute else "NOT_REQUESTED"
+        )
         result["verified_probe_count"] = len(accepted)
         result["probe_states"] = sorted({
             row.get("state") for row in accepted if isinstance(row.get("state"), str)
@@ -124,8 +147,9 @@ def run_acceptance(
         result["status"] = (
             "TECHNICAL_ACCEPTANCE_READY_FOR_HUMAN_REVIEW"
             if result["catalog_integrity_verified"] and
-               result["offline_report_includes_probe"]
-            else "REPORT_EVIDENCE_INCOMPLETE"
+               result["offline_report_includes_probe"] and
+               result["observed_tcp"]
+            else "NETWORK_METRICS_OR_REPORT_INCOMPLETE"
         )
     except (OSError, ValueError, TypeError, RuntimeError, TimeoutError, FileExistsError) as error:
         result["status"] = "ACCEPTANCE_FAILED"
