@@ -106,3 +106,49 @@ def test_parent_enforces_end_to_end_timeout(tmp_path, monkeypatch):
             permitted_hostname="website.example.org", authorized=True,
         )
     assert not list((tmp_path / "artifacts").glob("**/*.json"))
+
+
+
+def test_worker_cli_requires_aud_scope_before_any_network(tmp_path, monkeypatch):
+    import sys
+    from rasai import network_active_probe as p
+    _audit(tmp_path)
+    def forbidden(*_a, **_kw):
+        raise AssertionError("network must not start")
+    monkeypatch.setattr(p, "_worker_probe", forbidden)
+    monkeypatch.setattr(sys, "argv", [
+        "rasai.network_active_probe", "--worker",
+        "--host", "other.example.org", "--port", "443",
+        "--authorize-active-network", "--workspace", str(tmp_path),
+        "--audit-id", "AUD-G2", "--permit-exact-host", "other.example.org",
+    ])
+    with pytest.raises(SystemExit) as exc:
+        p.main()
+    assert exc.value.code != 0
+    monkeypatch.setattr(sys, "argv", [
+        "rasai.network_active_probe", "--worker",
+        "--host", "website.example.org", "--port", "443",
+        "--authorize-active-network",
+    ])
+    with pytest.raises(SystemExit) as exc:
+        p.main()
+    assert exc.value.code != 0
+
+
+def test_child_command_carries_original_audit_scope(tmp_path, monkeypatch):
+    _audit(tmp_path)
+    from rasai import network_active_probe as p
+    def controlled_child(cmd, **kwargs):
+        assert "--audit-id" in cmd and cmd[cmd.index("--audit-id") + 1] == "AUD-G2"
+        assert "--workspace" in cmd and cmd[cmd.index("--workspace") + 1] == str(tmp_path)
+        assert "--permit-exact-host" in cmd
+        assert "--authorize-active-network" in cmd
+        return SimpleNamespace(returncode=0, stdout=json.dumps({
+            "contract": p.CONTRACT, "hostname": "website.example.org",
+            "port": 443, "state": "BLOCKED", "metrics": {},
+        }))
+    monkeypatch.setattr(p.subprocess, "run", controlled_child)
+    assert p.collect_authorized_probe(
+        tmp_path, "AUD-G2", "website.example.org",
+        permitted_hostname="website.example.org", authorized=True,
+    ).is_file()

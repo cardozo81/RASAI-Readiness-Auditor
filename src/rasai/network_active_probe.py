@@ -207,7 +207,8 @@ def collect_authorized_probe(
     if path.exists() or path.is_symlink():
         raise FileExistsError("Sondagem já registrada; pacote imutável")
     cmd = [sys.executable, "-m", "rasai.network_active_probe", "--worker",
-           "--host", host, "--port", str(port)]
+           "--host", host, "--port", str(port), "--audit-id", audit_id,
+           "--workspace", str(root), "--permit-exact-host", host]
     cmd.append("--authorize-active-network")
     if include_traceroute:
         cmd.append("--include-traceroute")
@@ -312,11 +313,19 @@ def main() -> None:
     parser.add_argument("--series-id", help="Rótulo da nova medição independente")
     args = parser.parse_args()
     if args.worker:
-        # Worker is an implementation boundary; it does not write artifacts.
-        if not args.authorize_active_network:
-            parser.error("Sondagem ativa requer autorização expressa")
+        # Child entry point is not an authorization bypass. Require the same
+        # explicit AUD ownership, exact-host approval, and public-only scope.
+        # It remains a local executor, not a remotely trusted attestation.
+        if not (args.authorize_active_network and args.workspace and
+                args.audit_id and args.permit_exact_host):
+            parser.error("Sondagem ativa requer autorização e auditoria vinculada")
+        host = _host(args.host)
+        if (_host(args.permit_exact_host) != host or
+                not _ID.fullmatch(args.audit_id) or
+                not _audit_has_target(Path(args.workspace), args.audit_id, host)):
+            parser.error("Destino não vinculado à auditoria autorizada")
         print(json.dumps(_worker_probe(
-            _host(args.host), args.port, include_traceroute=args.include_traceroute
+            host, args.port, include_traceroute=args.include_traceroute
         ), ensure_ascii=False))
     else:
         if not args.workspace or not args.audit_id or not args.permit_exact_host:

@@ -360,3 +360,18 @@ Bases MaxMind MMDB locais podem ser passadas opcionalmente por `--asn-db` e `--c
 ## Histórico de sondagens independentes (#659)
 
 O argumento opcional `--series-id` identifica uma nova medição autorizada sem sobrescrever coletas anteriores (1 a 32 caracteres seguros). Cada novo pacote é imutável. Com duas datas distintas e métricas comparáveis do mesmo hostname e porta, o relatório mostra a diferença observada de TCP/TLS sem inferir causa, experiência real de usuários ou persistência da mesma rede de saída. Saltos são detalhados com ocultação de endereços privados, sem desenhos de rotas físicas.
+
+
+
+## Aceite técnico controlado da observabilidade de rede (#659)
+
+O pré-voo local é **somente leitura** e não faz requisições de rede. No PowerShell, a partir do repositório atualizado, execute:
+
+```powershell
+git pull --ff-only
+& ".\\.venv\\Scripts\\python.exe" -m rasai.network_acceptance --workspace "audits\\<AUD-ID>" --audit-id "<AUD-ID>" --host "<HOST-PUBLICO-DA-AUD>"
+```
+
+O comando devolve JSON com `PREFLIGHT_READ_ONLY`, escopo, existência de pacote e integridade do banco original. Verifique a autorização de testar o hostname antes de seguir. Para **uma medição ativa expressamente autorizada**, execute o mesmo comando acrescentando `--permit-exact-host "<HOST-PUBLICO-DA-AUD>" --authorize-active-network --include-traceroute --series-id "homologacao-01"`. O procedimento grava somente um pacote complementar, verifica seu hash, rematerializa o catálogo pelo caminho `read_only=True`, verifica integridade e testa a presença dos dados em `network.html`. Produz `TECHNICAL_ACCEPTANCE_READY_FOR_HUMAN_REVIEW` apenas se esses controles estiverem comprovados; o aceite humano ainda depende da inspeção visual e do contexto da rede real.
+
+Não publicar logs com URLs completas, credenciais ou arquivos de bases licenciadas. Traceroute pode retornar caminho parcial sem que isso signifique indisponibilidade do destino. Sem base MMDB local, o mapa não inventa coordenadas. O status de aceite não comprova sozinho ganho incremental representativo e nunca autoriza merge automaticamente.
