@@ -752,8 +752,8 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
         ):
             bodies[geo_page] += geo_surface_context(database, audit_id, scope)
         # Include network projection before the sealed package file inventory.
-        from rasai.network_reporting import network_report_body
-        network_page_html = network_report_body(root, audit_id)
+        from rasai.network_reporting import network_catalog_sections
+        bodies["network.html"] = network_catalog_sections(root, audit_id)
         bodies["index.html"] += (
             "<section class='panel'><h2>Rede e conectividade</h2>"
             "<p>Observações consultivas de infraestrutura, sem impacto na pontuação. "
@@ -796,9 +796,6 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
                 body=_audit_hero(data,page.label,"Superfície sem projeção específica disponível.")
             (staging/page.filename).write_text(_shell(page,audit_id,body),encoding="utf-8",newline="\n")
 
-        (staging/"network.html").write_text(
-            network_page_html, encoding="utf-8", newline="\n"
-        )
         assurance_path=staging/"integrity"/"catalog-assurance.json"
         assurance_path.write_text(
             json.dumps(assurance,ensure_ascii=False,indent=2)+"\n",

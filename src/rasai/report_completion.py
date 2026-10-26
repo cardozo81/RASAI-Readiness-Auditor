@@ -102,6 +102,12 @@ def materialize_catalog_report_projection(
     # evidence. Offline report replay must not write to audit.db nor create
     # sidecars when older AUDs lack them. Missing data remains N/D.
     if not read_only:
+        # Sidecar is optional and external to immutable AUD evidence.
+        try:
+            from rasai.network_observation_store import persist_network_observations
+            persist_network_observations(Path(workspace.root), audit_id)
+        except (OSError, ValueError, TypeError):
+            pass
         try:
             from rasai.geo_observation import materialize_geo_observation
             materialize_geo_observation(Path(workspace.database), audit_id)
