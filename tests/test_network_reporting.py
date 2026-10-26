@@ -46,6 +46,6 @@ def test_tampered_sidecar_is_rejected(tmp_path):
     assert read_network_observations(tmp_path, "AUD-X") == []
 
 
-def test_report_written_to_canonical_catalog_directory(tmp_path):
+def test_report_does_not_mutate_sealed_catalog_directory(tmp_path):
     page = materialize_network_report(tmp_path, "AUD-LEGACY")
-    assert page.parent.name == "report-catalog"
+    assert page.parent.name == "report"\n    assert "network" in page.parts\n    assert not (tmp_path / "report-catalog").exists()

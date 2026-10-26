@@ -34,7 +34,7 @@ _STATE = {
 def materialize_network_report(workspace: str | Path, audit_id: str) -> Path:
     """Render stored evidence only; legacy AUDs get an explicit neutral page."""
     root = Path(workspace)
-    report = root / "report-catalog"
+    # The canonical report-catalog is a sealed, integrity-checked package.\n    # Do not append unregistered files after its manifest is signed.\n    report = root / "artifacts" / "network" / "report"
     report.mkdir(parents=True, exist_ok=True)
     observations = read_network_observations(root, audit_id)
     # A legacy audit may be viewed without writing a sidecar first.
