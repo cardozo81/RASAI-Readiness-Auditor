@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from hashlib import sha256
 import json
 from pathlib import Path
 
@@ -70,7 +71,14 @@ def execute_m4(
             source_name, source_ref, html = source
 
             try:
-                extracted = active_extractor.extract(html)
+                # Optional live computed-style visibility is applied only to
+                # its exact bound rendered artifact. Other audit paths retain
+                # the original deterministic extractor contract.
+                markers = _attested_hidden_markers(snapshot, workspace, source_name, source_ref)
+                if markers is not None and type(active_extractor) is ContentExtractor:
+                    extracted = active_extractor.extract(html, hidden_markers=markers)
+                else:
+                    extracted = active_extractor.extract(html)
                 main_content_ref = _write_main_content(workspace, snapshot, extracted.main_content, artifact_namespace=artifact_namespace)
                 structured_data_ref = _write_structured_data(workspace, snapshot, extracted.structured_data, artifact_namespace=artifact_namespace)
                 enriched = replace(
@@ -104,6 +112,46 @@ def execute_m4(
                 )
 
     return M4ExecutionResult(evidence_ids=evidence_ids, failures=tuple(failures))
+
+
+def _attested_hidden_markers(
+    snapshot: PageSnapshot,
+    workspace: AuditWorkspace,
+    source_name: str,
+    source_ref: str,
+) -> dict[str, frozenset[str]] | None:
+    if source_name != "RENDERED_DOM" or source_ref != snapshot.rendered_artifact_ref:
+        return None
+    metadata = snapshot.browser_metadata
+    if not isinstance(metadata, dict):
+        return None
+    visibility = metadata.get("dom_visibility")
+    binding = metadata.get("architecture_artifact_binding")
+    if (not isinstance(visibility, dict) or not isinstance(binding, dict)
+            or visibility.get("version") != "dom-visibility-v1"
+            or visibility.get("source") != "CHROMIUM_COMPUTED_STYLE"
+            or visibility.get("status") not in {"OBSERVED", "PARTIAL"}):
+        return None
+    expected = visibility.get("rendered_sha256")
+    if (not isinstance(expected, str) or len(expected) != 64
+            or binding.get("rendered_sha256") != expected):
+        return None
+    try:
+        actual = sha256((workspace.root / source_ref).read_bytes()).hexdigest()
+    except OSError:
+        return None
+    if actual != expected:
+        return None
+    markers: dict[str, frozenset[str]] = {}
+    for key, output in (("hidden_ids_sha256", "id"), ("hidden_classes_sha256", "class")):
+        values = visibility.get(key)
+        if not isinstance(values, list) or len(values) > 128:
+            return None
+        if not all(isinstance(v, str) and len(v) == 64
+                   and all(c in "0123456789abcdef" for c in v) for v in values):
+            return None
+        markers[output] = frozenset(values)
+    return markers
 
 
 def _load_extraction_input(

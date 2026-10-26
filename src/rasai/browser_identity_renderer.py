@@ -335,6 +335,7 @@ class BrowserIdentityRenderer(BrowserRenderer):
                 "viewport_height": profile.viewport_height,
             }
             metadata["dom_observations"] = {"state": observation_state, "count": len(observations)}
+            metadata["dom_visibility"] = self._capture_dom_visibility(page)
             metadata["capture_quality"] = capture_quality
             headers = response.headers if response is not None else {}
             return BrowserRenderResult(

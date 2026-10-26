@@ -121,6 +121,12 @@ def persist_render_capture(
     browser_metadata["architecture_artifact_binding"] = capture_artifact_binding(
         workspace.root, raw_artifact_ref, rendered_artifact_ref,
     )
+    visibility = browser_metadata.get("dom_visibility")
+    if isinstance(visibility, dict) and visibility.get("version") == "dom-visibility-v1":
+        browser_metadata["dom_visibility"] = {
+            **visibility,
+            "rendered_sha256": browser_metadata["architecture_artifact_binding"].get("rendered_sha256"),
+        }
     # Optional independent Ed25519 signature over this snapshot's canonical
     # capture identity and on-disk artifact hashes. No key => no signature;
     # other audit catalogs remain available.

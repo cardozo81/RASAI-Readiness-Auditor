@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from hashlib import sha256
 import os
 from typing import Any
 
@@ -211,6 +212,7 @@ class BrowserRenderer:
                 "state": observation_state,
                 "count": len(observations),
             }
+            metadata["dom_visibility"] = self._capture_dom_visibility(page)
             return BrowserRenderResult(
                 requested_url=url,
                 final_url=page.url,
@@ -238,6 +240,87 @@ class BrowserRenderer:
                     context.close()
                 except PlaywrightError:
                     pass
+
+    @staticmethod
+    def _capture_dom_visibility(page: Any) -> dict[str, Any]:
+        """Attest only CSS-hidden selectors observed in THIS live DOM.
+
+        No text, HTML or raw element identifiers leave this boundary. A class
+        is retained only when unique within the DOM; all values are SHA-256.
+        Uninspected/ambiguous elements remain UNKNOWN (not 'visible').
+        """
+        unavailable = {
+            "version": "dom-visibility-v1", "source": "CHROMIUM_COMPUTED_STYLE",
+            "status": "UNAVAILABLE", "hidden_ids_sha256": [],
+            "hidden_classes_sha256": [], "inspected": 0,
+        }
+        try:
+            observed = page.evaluate(r"""
+            () => {
+              const nodes = document.querySelectorAll('[id], [class]');
+              const cap = 6000, maxMarkers = 128, cache = new WeakMap();
+              const hidden = (el) => {
+                if (!el) return false;
+                if (cache.has(el)) return cache.get(el);
+                const style = getComputedStyle(el);
+                const local = el.hidden || el.inert ||
+                  el.getAttribute('aria-hidden') === 'true' ||
+                  style.display === 'none' ||
+                  style.visibility === 'hidden' ||
+                  style.visibility === 'collapse' ||
+                  Number(style.opacity) === 0;
+                const result = local || hidden(el.parentElement);
+                cache.set(el, result);
+                return result;
+              };
+              const markers = [];
+              let partial = nodes.length > cap;
+              for (let i = 0; i < Math.min(nodes.length, cap); i++) {
+                const el = nodes[i];
+                if (!hidden(el)) continue;
+                let marker = null;
+                if (el.id && el.id.length <= 128 &&
+                    document.querySelectorAll('#' + CSS.escape(el.id)).length === 1) {
+                  marker = {kind: 'id', value: el.id};
+                } else {
+                  for (const cls of Array.from(el.classList).slice(0, 6)) {
+                    if (cls.length <= 128 &&
+                        document.querySelectorAll('.' + CSS.escape(cls)).length === 1) {
+                      marker = {kind: 'class', value: cls};
+                      break;
+                    }
+                  }
+                }
+                if (marker) markers.push(marker);
+                if (markers.length >= maxMarkers) { partial = true; break; }
+              }
+              return {
+                status: partial ? 'PARTIAL' : 'OBSERVED',
+                inspected: Math.min(nodes.length, cap),
+                markers
+              };
+            }""")
+        except (PlaywrightError, TypeError, ValueError):
+            return unavailable
+        if not isinstance(observed, dict) or observed.get("status") not in {"OBSERVED", "PARTIAL"}:
+            return unavailable
+        values: dict[str, set[str]] = {"id": set(), "class": set()}
+        for item in observed.get("markers", ())[:128]:
+            if (not isinstance(item, dict) or item.get("kind") not in values
+                    or not isinstance(item.get("value"), str)
+                    or not 0 < len(item["value"]) <= 128):
+                continue
+            values[item["kind"]].add(sha256(item["value"].encode("utf-8")).hexdigest())
+        return {
+            "version": "dom-visibility-v1",
+            "source": "CHROMIUM_COMPUTED_STYLE",
+            "status": observed["status"],
+            "inspected": max(0, min(6000, int(observed.get("inspected", 0)))),
+            "hidden_ids_sha256": sorted(values["id"]),
+            "hidden_classes_sha256": sorted(values["class"]),
+            "hidden_interpretation": "DOM_PRESENT_HIDDEN_IN_CAPTURED_STATE",
+            "after_interaction": "NOT_OBSERVED",
+        }
 
     @staticmethod
     def _capture_element_observations(page: Any) -> tuple[RenderedElementObservation, ...]:
