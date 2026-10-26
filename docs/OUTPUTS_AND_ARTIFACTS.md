@@ -314,3 +314,11 @@ A fonte primária continua sendo `audit.db` (snapshots M3/M6 já capturados). Qu
 Um IP público observado identifica o par da conexão do navegador, não a localização física do servidor nem o caminho de rede. Campos DNS, TCP, TLS, ASN, geolocalização e traceroute só apresentam dados quando a fonte correspondente os comprova; a ausência de valores é diferenciada de erro e de pacote inválido. Este G1 não realiza traceroute, consultas GeoIP/ASN ou chamadas de IA, nem altera scores, catálogos, motores, arquitetura ou evidências de uma AUD selada.
 
 A coleta ativa condicionada, o enriquecimento de topologia e os mapas pertencem às etapas G2/G3 da #659 e não devem ser considerados implementados por esta página. Para auditorias anteriores sem observações compatíveis, o relatório declara a limitação sem simular medições.
+
+
+
+### Proveniência temporal da observabilidade de rede (#659, G1)
+
+O horário apresentado em `network.html` corresponde exclusivamente ao `captured_at` do snapshot físico M3, convertido para UTC quando o banco contém fuso horário verificável. O horário de geração da projeção não substitui a captura; horário sem fuso é tratado como não observado. O destino exibido é somente o hostname público da URL final do snapshot (ou da URL solicitada, se necessário); caminhos, fragmentos, credenciais e parâmetros da URL não são divulgados.
+
+Os indicadores de transporte continuam independentes: o IP público do peer observado via CDP não comprova a infraestrutura de origem; DNS, RTT TCP/TLS, hops, ASN e localização permanecem explicitamente não observados no G1. Snapshots complementares preexistentes são imutáveis, portanto nunca são regravados para incorporar campos novos. Este ajuste não introduz sondagens ativas, nem altera `audit.db` ou pontuações.

@@ -38,6 +38,19 @@ def _public_ip(value: Any) -> str | None:
         return None
 
 
+def _utc_capture_time(value: Any) -> str | None:
+    """Normalize only zone-aware capture timestamps; naive time is unknown."""
+    if not isinstance(value, str) or len(value) > 48:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            return None
+        return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    except (ValueError, OverflowError):
+        return None
+
+
 def snapshots_from_audit(database: str | Path, audit_id: str) -> list[dict[str, Any]]:
     """Project only persisted facts. No network, writes, or refresh of sealed AUD."""
     records = read_architecture_audit_facts(database, audit_id)
@@ -51,6 +64,7 @@ def snapshots_from_audit(database: str | Path, audit_id: str) -> list[dict[str, 
             "UNAVAILABLE_RENDER_FAILURE", None,
         ) else "INCONCLUSIVE"
         peer = _public_ip(sec.get("remote_public_peer_ip"))
+        captured_utc = _utc_capture_time(record.get("captured_at"))
         metrics = {
             "connected_public_ip": _item(peer, source="CDP_MAIN_DOCUMENT_RESPONSE",
                                          state="OBSERVED" if peer else absent),
@@ -75,8 +89,11 @@ def snapshots_from_audit(database: str | Path, audit_id: str) -> list[dict[str, 
             "device": record.get("device"),
             "method": "PASSIVE_READ_ONLY",
             "measurement_origin": "AUD_PERSISTED_CAPTURE",
-            "capture_utc": None,
-            "capture_time_state": "NOT_OBSERVED",
+            "capture_utc": captured_utc,
+            "capture_time_state": "OBSERVED" if captured_utc else "NOT_OBSERVED",
+            "target_host": record.get("target_host"),
+            "target_host_source": record.get("target_host_source", "NOT_OBSERVED"),
+            "source_artifact": "AUD_PERSISTED_PAGE_SNAPSHOT",
             "topology_state": "INCONCLUSIVE",
             "confidence": "OBSERVED_FIELDS_ONLY",
             "source_contract": record.get("contract"),

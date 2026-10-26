@@ -242,10 +242,19 @@ def read_architecture_audit_facts(
                     "rendered_artifact_ref", "browser_metadata",
                     "architecture_classification"}.issubset(fields):
                 return []
-            sql = """
+            # Older audits may omit the optional timestamp/URL columns.
+            # Do not manufacture these facts or substitute report-generation time.
+            optional = {
+                name: (f"s.{name}" if name in fields else "NULL")
+                for name in ("captured_at", "final_url", "requested_url")
+            }
+            sql = f"""
                 SELECT s.snapshot_id,s.page_id,s.device,s.raw_artifact_ref,
                        s.rendered_artifact_ref,s.browser_metadata,
-                       s.architecture_classification
+                       s.architecture_classification,
+                       {optional['captured_at']} AS captured_at,
+                       {optional['final_url']} AS final_url,
+                       {optional['requested_url']} AS requested_url
                   FROM page_snapshots s
                   JOIN pages p ON p.page_id=s.page_id
                  WHERE p.audit_id=?
@@ -323,6 +332,17 @@ def read_architecture_audit_facts(
             "page_id": str(row["page_id"]),
             "snapshot_id": str(row["snapshot_id"]),
             "device": str(row["device"]),
+            # A public hostname is safe to display; never project full URLs
+            # containing query strings, tokens, credentials or fragments.
+            "target_host": (
+                _public_host(row["final_url"]) or _public_host(row["requested_url"])
+            ),
+            "target_host_source": (
+                "PAGE_SNAPSHOT_FINAL_URL" if _public_host(row["final_url"])
+                else ("PAGE_SNAPSHOT_REQUESTED_URL"
+                      if _public_host(row["requested_url"]) else "NOT_OBSERVED")
+            ),
+            "captured_at": row["captured_at"],
             "observed_architecture": classification,
             "classification_source": "M6_PERSISTED_SNAPSHOT",
             "raw_verified_against_capture_digest": raw_verified,

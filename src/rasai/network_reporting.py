@@ -58,10 +58,19 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
                 f"<tr><th scope='row'>{escape(label)}</th>"
                 f"<td>{escape(shown)}</td><td>{escape(status)}</td></tr>"
             )
+        host = item.get("target_host")
+        host_label = escape(str(host)) if host else "Destino não identificado"
+        timestamp = item.get("capture_utc")
+        capture_label = (
+            "Registro da captura: " + escape(str(timestamp))
+            if timestamp and item.get("capture_time_state") == "OBSERVED"
+            else "Data da captura não comprovada"
+        )
         blocks.append(
             "<section class='panel'><h2>Observação do dispositivo "
             + escape(str(item.get("device") or "não informado"))
-            + "</h2><p>Informações extraídas da captura da auditoria, sem novas sondagens.</p>"
+            + "</h2><p>Destino: " + host_label + ". " + capture_label
+            + ". Informações extraídas da captura da auditoria, sem novas sondagens.</p>"
             + "<div class='table-wrap'><table><thead><tr><th>Indicador</th><th>Resultado</th><th>Situação</th></tr></thead><tbody>"
             + "".join(cells) + "</tbody></table></div></section>"
         )
