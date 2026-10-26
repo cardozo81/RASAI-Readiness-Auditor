@@ -50,14 +50,14 @@ def render_geo_longitudinal_html(preview: Mapping[str, Any]) -> str:
     cons_ref = preview.get("cons_reference")
     if isinstance(cons_ref, Mapping):
         parts.extend([
-            "<section><h2>Vinculo consultivo ao consolidado</h2>",
+            "<section><h2>Vínculo consultivo ao consolidado</h2>",
             "<p>Identificador CONS: <code>", _value(cons_ref.get("cons_id")),
             "</code>; hash do pedido do consolidado: <code>",
             _value(cons_ref.get("manifest_request_fingerprint")), "</code>.</p>",
-            "<p>Esta leitura usa apenas a relacao de AUDs declaradas no",
-            " manifesto e nao modifica relatorio, fonte, indices ou metadados",
-            " do consolidado. Sem atestado criptografico independente.",
-            " O inventario e consultivo, nao integracao nativa CONS.</p>",
+            "<p>Esta leitura usa apenas a relação de AUDs declaradas no",
+            " manifesto e não modifica relatório, fonte, índices ou metadados",
+            " do consolidado. Sem atestado criptográfico independente.",
+            " O inventário é consultivo, não uma integração nativa com o CONS.</p>",
             "</section>",
         ])
     coverage = preview.get("observation_coverage")
@@ -162,7 +162,7 @@ def render_geo_longitudinal_html(preview: Mapping[str, Any]) -> str:
         "significa citação ou preferência por assistentes de IA. "
         "Não converter estas sequências em taxas de evolução ou conclusões "
         "causais sem calibração empírica adicional.</p></section>",
-        "<footer><small>Relatório independente, advisory, read-only. "
+        "<footer><small>Relatório consultivo independente, somente leitura. "
         "Zero chamadas externas e nenhuma modificação em AUD/CONS.</small>",
         "</footer></body></html>",
     ])

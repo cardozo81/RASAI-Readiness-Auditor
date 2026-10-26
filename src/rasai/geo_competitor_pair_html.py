@@ -32,7 +32,7 @@ def _safe_list(values: object) -> str:
     if any(not isinstance(v, str) or len(v) > 500 for v in values):
         return "<span class='nd'>N/D</span>"
     if not values:
-        return "<span class='nd'>Nenhum item no extrato estatico observado</span>"
+        return "<span class='nd'>Nenhum item no extrato estático observado</span>"
     return "<ul>" + "".join(f"<li>{_safe(item)}</li>" for item in values) + "</ul>"
 
 
@@ -40,7 +40,7 @@ def _card(title: str, facts: Mapping[str, Any]) -> str:
     cells = [
         ("URL exata", _safe(facts.get("url"))),
         ("Title observado", _safe(facts.get("title"))),
-        ("Palavras no HTML estatico", _count(facts.get("word_count_observed_static"))),
+        ("Palavras no HTML estático", _count(facts.get("word_count_observed_static"))),
         ("Captura HTTP", _safe(facts.get("html_fetch_timestamp"))),
         ("SHA-256 do HTML", _safe(facts.get("content_sha256"))),
     ]
@@ -53,7 +53,7 @@ def _card(title: str, facts: Mapping[str, Any]) -> str:
         "<table>" + table + "</table>"
         "<h3>Headings observados</h3>" + _safe_list(facts.get("headings"))
         + "<h3>Tipos JSON-LD observados</h3>" + _safe_list(facts.get("jsonld_types"))
-        + "<h3>Termos de consulta no HTML estatico</h3>"
+        + "<h3>Termos de consulta no HTML estático</h3>"
         + _safe_list(facts.get("query_body_terms")) + "</section>"
     )
 
@@ -181,9 +181,9 @@ def render_cobs_static_pair_html(projection: Mapping[str, Any]) -> str:
     else:
         chronology = "N/D"
     if projection.get("serp_capture_temporal_scope") == "BOTH_CAPTURES_WITHIN_24H_OF_SERP":
-        time_status = "Capturas em ate 24h da SERP, sem equivalencia de populacao comprovada"
+        time_status = "Capturas em até 24 horas da SERP, sem equivalência de população comprovada"
     elif projection.get("serp_capture_temporal_scope") == "SERP_CAPTURE_TEMPORAL_SCOPE_NOT_COMPARABLE":
-        time_status = "Pelo menos uma captura fora da janela SERP de 24h; escopo temporal nao comparavel"
+        time_status = "Pelo menos uma captura fora da janela SERP de 24 horas; escopo temporal não comparável"
     else:
         time_status = "Proximidade temporal da SERP N/D"
     source = _safe(projection.get("source_audit_id"))
@@ -200,7 +200,7 @@ def render_cobs_static_pair_html(projection: Mapping[str, Any]) -> str:
         "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>",
         "<meta name='viewport' content='width=device-width,initial-scale=1'>",
         "<meta http-equiv='Content-Security-Policy' content=\"default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; form-action 'none'; base-uri 'none'\">",
-        "<title>RASAi - Comparacao lexical estatica COBS</title>",
+        "<title>RASAi - Comparação lexical estática COBS</title>",
         "<style>",
         ":root{color-scheme:light;font-family:system-ui,-apple-system,sans-serif;color:#193248}",
         "body{margin:auto;max-width:1160px;padding:clamp(16px,3vw,34px);background:#f5f8fc}",
@@ -216,31 +216,31 @@ def render_cobs_static_pair_html(projection: Mapping[str, Any]) -> str:
         "@media(max-width:720px){.grid{grid-template-columns:1fr}body{padding:14px}}",
         "@media print{body{background:#fff}.panel,.lexical{break-inside:avoid}header{background:#fff}}",
         "</style></head><body>",
-        "<header><h1>Comparacao lexical observacional - COBS</h1>",
-        "<p>Previa independente de HTML estatico autorizado. Nao e comparacao profunda de conteudo renderizado, ranking ou relatorio GEO canônico.</p>",
+        "<header><h1>Comparação lexical observacional - COBS</h1>",
+        "<p>Prévia independente de HTML estático autorizado. Não é uma comparação aprofundada de conteúdo renderizado, posicionamento em busca ou relatório GEO canônico.</p>",
         f"<p><strong>AUD:</strong> {source} &middot; <strong>SERP:</strong> {observation}</p>",
         f"<p class='muted'>Escopo SERP: {scope_text}</p>",
-        f"<p class='muted'>Intervalo entre capturas: {gap:.0f} segundos. Proximidade nao prova equivalencia de intencao, idioma, dispositivo ou sessao.</p>",
-        f"<p class='muted'>Relogio SERP vs capturas: {escape(chronology)}. {escape(time_status)}.</p>",
+        f"<p class='muted'>Intervalo entre capturas: {gap:.0f} segundos. Proximidade não comprova equivalência de intenção, idioma, dispositivo ou sessão.</p>",
+        f"<p class='muted'>Relógio SERP versus capturas: {escape(chronology)}. {escape(time_status)}.</p>",
         "</header>",
-        "<p class='warning'><strong>Limite de inferencia:</strong> somente texto e metadados do HTML estatico coletado. "
-        "Elementos ausentes na extracao NAO sao lacunas editoriais comprovadas; "
-        "nao gerar priorizacao, recomendacao comercial, percentual de qualidade ou score.</p>",
+        "<p class='warning'><strong>Limite de inferência:</strong> somente texto e metadados do HTML estático coletado. "
+        "Elementos ausentes na extração não são lacunas editoriais comprovadas; "
+        "não gerar priorização, recomendação comercial, percentual de qualidade ou pontuação.</p>",
         "<main><div class='grid'>",
-        _card("URL auditada - extrato estatico", projection["customer"]),
-        _card("URL concorrente - extrato estatico", projection["competitor"]),
-        "</div><h2>Extracao OCI offline persistida (quando observada)</h2><div class='grid'>",
+        _card("URL auditada - extrato estático", projection["customer"]),
+        _card("URL concorrente - extrato estático", projection["competitor"]),
+        "</div><h2>Extração OCI offline persistida (quando observada)</h2><div class='grid'>",
         _offline_replay_card("Alvo", projection["customer"]),
         _offline_replay_card("Concorrente", projection["competitor"]),
-        "</div><h2>Intersecoes lexicais exatas (nao semanticas)</h2><div class='grid'>",
+        "</div><h2>Interseções lexicais exatas (não semânticas)</h2><div class='grid'>",
         _lexical_group("Headings", projection, "observed_heading_text_"),
         _lexical_group("Termos de consulta", projection, "observed_query_body_terms_"),
         "</div><section class='lexical'><h3>Tipos JSON-LD</h3><div class='grid'>",
         _lexical_group("No mesmo conjunto", projection, "observed_jsonld_types_"),
         "</div></section></main>",
         "<footer class='muted'><p>Origem: dois sidecars COBS content-addressed, confrontados offline com SQLite e SERP da AUD. "
-        "O SHA-256 local nao atesta autenticidade do fornecedor. Sem JS, DNS, HTTP, IA, AUD writes, "
-        "SARI, SCORE-GEO ou alteracoes no CONS.</p></footer></body></html>",
+        "O SHA-256 local não atesta a autenticidade do fornecedor. Sem JS, DNS, HTTP, IA, AUD writes, "
+        "SARI, SCORE-GEO ou alterações no CONS.</p></footer></body></html>",
     ]
     return "".join(parts)
 

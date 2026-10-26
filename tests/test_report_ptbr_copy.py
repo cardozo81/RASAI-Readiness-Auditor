@@ -9,6 +9,15 @@ def test_only_known_legacy_geo_copy_is_rewritten():
     value = public_geo_action(source)
     assert value == "Revisar a cobertura da intenção, a clareza da oferta e as evidências no CAT-03 antes de propor remediação."
     assert public_geo_action("https://example.org/intencao") == "https://example.org/intencao"
+    # Texto histórico v8: somente frases exatas do produto são reescritas.
+    assert public_geo_action("Alvo unico ou atribuicao por consulta indisponivel.") == "Alvo único ou atribuição por consulta indisponível."
+    assert public_geo_action("Observacao incompleta.") == "Observação incompleta."
+    assert public_geo_action("Observacao pontual; nao prova inclusao em resposta gerativa nem causa de ausencia.") == "Observação pontual; não comprova inclusão em resposta generativa nem a causa da ausência."
+    assert public_geo_action("Coincidencia textual da consulta nao comprova equivalencia de mercado, intencao, idioma, dispositivo ou motor; janela temporal de 24h e so elegibilidade observacional.").startswith("A coincidência textual da consulta não comprova equivalência")
+    assert "citação generativa" in public_geo_action("A busca externa nao equivale a resposta/citacao generativa; nao ha atribuicao de fontes a consultas individuais em multi-query. Sobreposicao nao demonstra causalidade ou representatividade.")
+    # Dados externos, URLs e trechos não conhecidos permanecem literais.
+    assert public_geo_action("Texto externo sem acentos e URL /acao") == "Texto externo sem acentos e URL /acao"
+    assert public_geo_action(value) == value
 
 
 def test_cat07_guided_advisory_is_ptbr_without_mutating_executable_settings():
