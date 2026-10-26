@@ -75,3 +75,44 @@ def test_reader_handles_missing_and_oversized_packet(tmp_path):
     path.parent.mkdir(parents=True)
     path.write_bytes(b"x" * 2_000_001)
     assert read_network_observations(tmp_path, "AUD-X") == []
+
+
+
+def test_network_metric_presentation_localizes_only_display_values() -> None:
+    from rasai.network_reporting import _display_observed_metric
+
+    assert _display_observed_metric("dns_elapsed_ms", 91.62) == "91,62"
+    assert _display_observed_metric("tcp_handshake_ms", 24.57) == "24,57"
+    assert _display_observed_metric("tls_handshake_ms", 32.11) == "32,11"
+    assert _display_observed_metric("tls_protocol", "TLSv1.3") == "TLS 1.3"
+    assert _display_observed_metric("connected_public_ip", "54.207.44.85") == "54.207.44.85"
+    assert _display_observed_metric("dns_resolution", None) == "Sem medição disponível"
+
+
+def test_network_capture_and_complement_are_explained_before_map(tmp_path, monkeypatch) -> None:
+    from rasai import network_reporting as report
+
+    root = tmp_path
+    audit_id = "AUD-659"
+    original = {
+        "audit_id": audit_id,
+        "target_host": "example.org",
+        "device": "MOBILE",
+        "capture_utc": "2026-10-25T12:00:00Z",
+        "capture_time_state": "OBSERVED",
+        "metrics": {"tcp_handshake_ms": {"state": "NOT_OBSERVED"}},
+    }
+    complementary = {
+        "audit_id": audit_id,
+        "hostname": "example.org",
+        "capture_utc": "2026-10-26T12:00:00Z",
+        "metrics": {"tcp_handshake_ms": {"state": "OBSERVED", "value": 24.57}},
+    }
+    monkeypatch.setattr(report, "read_network_observations", lambda *_: [original])
+    monkeypatch.setattr(report, "read_authorized_probes", lambda *_: [complementary])
+    html = report.network_report_body(root, audit_id)
+    assert "Como interpretar as medições" in html
+    assert "registros independentes" in html
+    assert "24,57" in html
+    assert html.index("Como interpretar as medições") < html.index("Observação do dispositivo")
+    assert html.index("Medição complementar autorizada") < html.index("Mapa e caminho de rede")

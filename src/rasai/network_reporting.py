@@ -35,6 +35,18 @@ _STATE = {
 }
 
 
+def _display_observed_metric(key: str, value: object) -> str:
+    """Presentation only: use pt-BR decimals, never modify measured values."""
+    if value is None:
+        return "Sem medição disponível"
+    if key in {"dns_elapsed_ms", "tcp_handshake_ms", "tls_handshake_ms"} \
+            and type(value) in (float, int):
+        return str(value).replace(".", ",")
+    if key == "tls_protocol" and isinstance(value, str) and value.startswith("TLSv"):
+        return "TLS " + value.removeprefix("TLSv")
+    return str(value)
+
+
 def network_report_body(workspace: str | Path, audit_id: str) -> str:
     """Build a deterministic and offline page without writing to the AUD."""
     root = Path(workspace)
@@ -61,7 +73,7 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             metric = item.get("metrics", {}).get(key, {})
             status = _STATE.get(metric.get("state"), "Inconclusivo")
             value = metric.get("value") if metric.get("state") == "OBSERVED" else None
-            shown = str(value) if value is not None else "Sem medição disponível"
+            shown = _display_observed_metric(key, value)
             cells.append(
                 f"<tr><th scope='row'>{escape(label)}</th>"
                 f"<td>{escape(shown)}</td><td>{escape(status)}</td></tr>"
@@ -83,14 +95,17 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             + "".join(cells) + "</tbody></table></div></section>"
         )
     probes = read_authorized_probes(root, audit_id)
-    blocks.append(network_geographic_panel(probes))
-    if probes:
-        route_html = route_panels(probes)
-        history_html = temporal_panel(probes)
-        if route_html:
-            blocks.append(route_html)
-        if history_html:
-            blocks.append(history_html)
+    if observations and probes:
+        blocks.insert(0,
+            "<section class='panel'><h2>Como interpretar as medições</h2>"
+            "<p>A captura original e a medição complementar são registros "
+            "independentes, feitos em momentos e ambientes diferentes. "
+            "Uma informação não medida na captura pode estar disponível "
+            "na medição complementar. Endereços IP e tempos podem variar "
+            "entre as coletas; os resultados não comprovam a causa "
+            "dessas diferenças nem o desempenho percebido pelos usuários.</p>"
+            "</section>"
+        )
     for probe in probes:
         metrics = probe.get("metrics") or {}
         if not isinstance(metrics, dict):
@@ -129,7 +144,7 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             elif isinstance(value, list):
                 shown = ", ".join(str(x) for x in value[:32])
             else:
-                shown = str(value) if value is not None else "Sem medição disponível"
+                shown = _display_observed_metric(key, value)
             rows.append("<tr><th scope='row'>" + escape(label) + "</th><td>" +
                         escape(shown) + "</td><td>" + escape(status) + "</td></tr>")
         if not rows:
@@ -144,6 +159,16 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             "<th>Resultado</th><th>Situação</th></tr></thead><tbody>" +
             "".join(rows) + "</tbody></table></div></section>"
         )
+    # Geographic context follows the measured tables rather than separating
+    # the capture from its authorized complementary observations.
+    blocks.append(network_geographic_panel(probes))
+    if probes:
+        route_html = route_panels(probes)
+        history_html = temporal_panel(probes)
+        if route_html:
+            blocks.append(route_html)
+        if history_html:
+            blocks.append(history_html)
     if not observations and not probes and not (packet.exists() or packet.is_symlink()):
         blocks.append("<section class='panel'><h2>Dados ainda indisponíveis</h2>"
                       "<p>Esta auditoria não possui observações de rede utilizáveis. "

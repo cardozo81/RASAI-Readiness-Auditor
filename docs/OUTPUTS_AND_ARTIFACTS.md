@@ -415,3 +415,16 @@ determinístico de descoberta (dois argumentos; retorna um texto). A assinatura
 das funções não é intercambiável. O contrato protege auditorias legadas e
 independe da ordem de instalação dos refinamentos opcionais de apresentação,
 sem alterar a evidência original, a recomendação persistida nem o score.
+
+
+
+### Leitura consultiva do `network.html`: captura original e sonda complementar
+
+A tela apresenta as observações feitas durante a auditoria separadamente da
+medição complementar autorizada. Elas podem diferir no endereço público, no
+momento e no ambiente de execução, sem que isso constitua contradição. Ausência
+de cronômetro TCP/TLS na captura original não invalida um tempo efetivamente
+medido na sonda posterior. Os tempos em milissegundos são exibidos com
+separador decimal pt-BR, preservando o valor persistido. As tabelas de medição
+aparecem antes da representação geográfica: sem coordenadas verificadas, esta
+última explica a indisponibilidade em vez de desenhar um mapa fictício.
