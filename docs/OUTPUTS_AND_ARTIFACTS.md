@@ -428,3 +428,47 @@ medido na sonda posterior. Os tempos em milissegundos são exibidos com
 separador decimal pt-BR, preservando o valor persistido. As tabelas de medição
 aparecem antes da representação geográfica: sem coordenadas verificadas, esta
 última explica a indisponibilidade em vez de desenhar um mapa fictício.
+
+
+## Network Intelligence - análise consultiva de rede (issue #663)
+
+O `report-catalog/network.html` apresenta agora o **Diagnóstico de Rede e
+Conectividade**, elaborado somente a partir de evidências verificadas G1/G2/G3.
+Para cada conclusão, informa evidências associadas, confiança **na observação
+pontual**, limitações, recomendação e modo de validação. A confiança geral é
+`limitada` em uma única sessão e só passa a `moderada para comparar amostras`
+quando há medições temporais comparáveis do mesmo host e porta; **não é
+percentual de acerto, SLA, causalidade ou qualidade de rede global**.
+Sem medições, declara insuficiência; não interpreta ausência como falha.
+
+A seção opcional `Interpretação complementar por IA` é exibida **apenas
+quando um pacote válido e atual existe**. A renderização HTML, a auditoria
+original, RPR e CONS não invocam provedor, nem geram custo de IA implicitamente.
+Para uma consulta **expressamente autorizada**, com provedor já configurado,
+a partir de um diretório de AUD existente e usando `main` atualizada:
+
+```powershell
+& ".\.venv\Scripts\python.exe" -m rasai.network_intelligence_ai --workspace "audits\<AUD-ID>" --audit-id "<AUD-ID>"
+# Apenas se desejar contratar uma análise por IA e aceitar seu custo:
+& ".\.venv\Scripts\python.exe" -m rasai.network_intelligence_ai --workspace "audits\<AUD-ID>" --audit-id "<AUD-ID>" --authorize-ai --provider openai
+# Depois, reconstituir o catálogo no procedimento normal (somente leitura).
+```
+
+O comando sem `--authorize-ai` é **apenas um pré-voo local**. O comando
+autorizado faz no máximo **uma** tentativa externa sem retry automático,
+utilizando seleção explícita do provedor, schema estruturado e componentes
+existentes da infraestrutura canônica. `AUTO` não é aceito nesse primeiro
+contrato, para não disparar fallback/custo não deliberado. A resposta só é
+aceita se referenciar achados e evidências da avaliação determinística,
+sem aumentar a confiança declarada; conclusões de IA seguem sujeitas a
+revisão humana. O pacote é criado por escrita exclusiva em
+`artifacts/network/intelligence/assessment-<hash>.json`, ligado ao digest
+da evidência e sem modificação de `audit.db`. Um pacote desatualizado,
+adulterado ou de outra AUD é ignorado; o manifesto do catálogo monitora
+a presença e o conteúdo desses complementos para exigir rematerialização.
+
+Esta evolução **não altera M3/M6, sondagem G2, catálogo de regras, índices,
+scores, motores de AI/GEO, análise direcionada ou providência comercial dos
+provedores**. Como medições de rede não comprovam impacto em busca, rankings
+ou citações por IA, a integração com análise direcionada/GEO se limita ao
+link consultivo existente na visão geral, sem promover hipóteses a achados.

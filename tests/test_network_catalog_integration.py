@@ -64,6 +64,9 @@ def test_network_probes_enter_sealed_offline_catalog_without_changing_aud(tmp_pa
     ).parent
     page = (report / "network.html").read_text(encoding="utf-8")
     assert "Medição complementar autorizada" in page
+    assert "Diagnóstico de Rede e Conectividade" in page
+    assert "Confiabilidade da conclusão geral" in page
+    assert "Interpretação complementar por IA" not in page  # No implicit provider call.
     assert "Mapa geográfico consultivo" in page
     assert "<svg" in page and "<circle" in page
     assert "Base de referência local controlada" in page
