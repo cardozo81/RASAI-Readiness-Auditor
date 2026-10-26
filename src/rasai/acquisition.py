@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from io import BytesIO
+import gzip
 from enum import StrEnum
 import http.client
 import socket
@@ -295,12 +297,55 @@ def _classify_network_error(reason: object) -> NetworkError:
     return NetworkError(NetworkErrorKind.UNKNOWN, message)
 
 
-def decode_body(result: HttpAcquisitionResult) -> str:
-    """Decode response bytes for HTML/XML parsing without altering the artifact bytes."""
+# Common bounded representation layer. Raw bytes and hashes remain unchanged.
+MAX_DECODED_HTTP_BYTES = 8 * 1024 * 1024
 
-    content_type = result.header("Content-Type") or ""
-    charset = "utf-8"
-    for parameter in content_type.split(";")[1:]:
+
+def normalize_http_content(
+    body: bytes,
+    *,
+    content_encoding: str | None = None,
+    max_output_bytes: int = MAX_DECODED_HTTP_BYTES,
+    max_input_bytes: int = MAX_DECODED_HTTP_BYTES,
+) -> bytes:
+    """Normalize captured gzip safely, including attested legacy magic bytes."""
+    if not isinstance(body, bytes) or max_output_bytes <= 0 or max_input_bytes <= 0:
+        raise ValueError("INVALID_HTTP_DECODE_INPUT")
+    if len(body) > max_input_bytes:
+        raise ValueError("HTTP_ENCODED_BODY_LIMIT")
+    encoding = (content_encoding or "identity").strip().casefold()
+    if encoding not in {"identity", "gzip", "x-gzip"}:
+        raise ValueError("UNSUPPORTED_HTTP_CONTENT_ENCODING")
+    is_gzip = body.startswith(b"\x1f\x8b")
+    if encoding in {"gzip", "x-gzip"} and not is_gzip:
+        raise ValueError("HTTP_GZIP_SIGNATURE_INVALID")
+    if is_gzip:
+        try:
+            with gzip.GzipFile(fileobj=BytesIO(body)) as stream:
+                decoded = stream.read(max_output_bytes + 1)
+        except (OSError, EOFError, ValueError) as exc:
+            raise ValueError("INVALID_HTTP_GZIP") from exc
+    else:
+        decoded = body
+    if len(decoded) > max_output_bytes:
+        raise ValueError("HTTP_DECODED_BODY_LIMIT")
+    return decoded
+
+
+def decode_captured_text(
+    body: bytes, *,
+    content_encoding: str | None = None,
+    content_type: str | None = None,
+    max_output_bytes: int = MAX_DECODED_HTTP_BYTES,
+    max_input_bytes: int = MAX_DECODED_HTTP_BYTES,
+) -> str:
+    """Decode captured bytes under budgets, without changing persisted data."""
+    payload = normalize_http_content(
+        body, content_encoding=content_encoding,
+        max_output_bytes=max_output_bytes, max_input_bytes=max_input_bytes,
+    )
+    charset = "utf-8-sig"
+    for parameter in (content_type or "").split(";")[1:]:
         key, separator, value = parameter.partition("=")
         if separator and key.strip().casefold() == "charset":
             candidate = value.strip().strip('"\'')
@@ -308,6 +353,15 @@ def decode_body(result: HttpAcquisitionResult) -> str:
                 charset = candidate
                 break
     try:
-        return result.body.decode(charset, errors="replace")
+        return payload.decode(charset, errors="replace")
     except LookupError:
-        return result.body.decode("utf-8", errors="replace")
+        return payload.decode("utf-8-sig", errors="replace")
+
+
+def decode_body(result: HttpAcquisitionResult) -> str:
+    """Decode HTTP response bytes for HTML/XML/robots interpretation."""
+    return decode_captured_text(
+        result.body,
+        content_encoding=result.header("Content-Encoding"),
+        content_type=result.header("Content-Type"),
+    )

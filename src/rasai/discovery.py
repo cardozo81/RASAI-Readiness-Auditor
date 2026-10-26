@@ -4,13 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-import gzip
 from html.parser import HTMLParser
-from io import BytesIO
 from urllib import robotparser
 import xml.etree.ElementTree as ET
 
-from rasai.acquisition import HttpAcquisitionResult, HttpClient, decode_body
+from rasai.acquisition import HttpAcquisitionResult, HttpClient, decode_body, normalize_http_content
 from rasai.domain import DiscoverySource
 from rasai.url_utils import is_same_origin, normalize_url, normalized_origin, resolve_http_url
 
@@ -383,7 +381,10 @@ class DiscoveryEngine:
 
         parser = robotparser.RobotFileParser()
         parser.set_url(robots_url)
-        parser.parse(decode_body(acquisition).splitlines())
+        try:
+            parser.parse(decode_body(acquisition).splitlines())
+        except ValueError:
+            return RobotsState.HTTP_ERROR, None, ()
         raw_sitemaps = parser.site_maps() or []
         normalized_sitemaps: list[str] = []
         for raw_sitemap in raw_sitemaps:
@@ -404,17 +405,16 @@ class DiscoveryEngine:
         if acquisition.status is None or not 200 <= acquisition.status <= 299:
             return SitemapResult(sitemap_url, SitemapState.HTTP_ERROR, acquisition)
 
-        payload = acquisition.body
-        if sitemap_url.casefold().endswith(".gz") or "gzip" in (acquisition.header("Content-Type") or "").casefold():
-            try:
-                payload = gzip.GzipFile(fileobj=BytesIO(payload)).read()
-            except OSError as exc:
-                return SitemapResult(
-                    sitemap_url,
-                    SitemapState.INVALID,
-                    acquisition,
-                    error=f"invalid gzip sitemap: {exc}",
-                )
+        try:
+            payload = normalize_http_content(
+                acquisition.body,
+                content_encoding=acquisition.header("Content-Encoding"),
+                max_output_bytes=50 * 1024 * 1024,
+                max_input_bytes=50 * 1024 * 1024,
+            )
+        except ValueError:
+            return SitemapResult(sitemap_url, SitemapState.INVALID, acquisition,
+                                 error="invalid or oversized sitemap encoding")
         try:
             root = ET.fromstring(payload)
         except ET.ParseError as exc:

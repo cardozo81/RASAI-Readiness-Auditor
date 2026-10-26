@@ -7,11 +7,10 @@ bounded llms.txt v2 discovery for root/scoped files explicitly advertised by the
 """
 from __future__ import annotations
 
-import gzip
-from io import BytesIO
 from urllib import robotparser
 import xml.etree.ElementTree as ET
 
+from rasai.acquisition import decode_body, normalize_http_content
 from rasai.discovery import (
     DiscoveryEngine,
     RobotsState,
@@ -60,7 +59,10 @@ def _interpret_robots_m24(
 
     parser = robotparser.RobotFileParser()
     parser.set_url(robots_url)
-    parser.parse(acquisition.body.decode("utf-8", errors="replace").splitlines())
+    try:
+        parser.parse(decode_body(acquisition).splitlines())
+    except ValueError:
+        return RobotsState.HTTP_ERROR, None, ()
     raw_sitemaps = parser.site_maps() or []
     normalized_sitemaps: list[str] = []
     for raw_sitemap in raw_sitemaps:
@@ -86,26 +88,17 @@ def _acquire_sitemap_m24(
     if acquisition.status is None or not 200 <= acquisition.status <= 299:
         return SitemapResult(sitemap_url, SitemapState.HTTP_ERROR, acquisition)
 
-    payload = acquisition.body
     content_type = (acquisition.header("Content-Type") or "").casefold()
-    # Content may already have been transparently decompressed by HTTP.
-    if payload.startswith(b"\x1f\x8b"):
-        try:
-            payload = gzip.GzipFile(fileobj=BytesIO(payload)).read(MAX_SITEMAP_BYTES + 1)
-        except OSError as exc:
-            return SitemapResult(
-                sitemap_url,
-                SitemapState.INVALID,
-                acquisition,
-                error=f"invalid gzip sitemap: {exc}",
-            )
-    if len(payload) > MAX_SITEMAP_BYTES:
-        return SitemapResult(
-            sitemap_url,
-            SitemapState.INVALID,
-            acquisition,
-            error="sitemap exceeds 50 MB uncompressed limit",
+    try:
+        payload = normalize_http_content(
+            acquisition.body,
+            content_encoding=acquisition.header("Content-Encoding"),
+            max_output_bytes=MAX_SITEMAP_BYTES,
+            max_input_bytes=MAX_SITEMAP_BYTES,
         )
+    except ValueError:
+        return SitemapResult(sitemap_url, SitemapState.INVALID, acquisition,
+                             error="invalid or oversized sitemap encoding")
 
     stripped = payload.lstrip(b"\xef\xbb\xbf \t\r\n")
     if _looks_like_text_sitemap(sitemap_url, content_type, stripped):
