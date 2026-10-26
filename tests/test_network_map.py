@@ -25,5 +25,6 @@ def test_geo_panel_uses_approximation_without_physical_routes():
     assert "data-map-layer='land'" in html
     assert "data-map-layer='network-route'" not in html
     assert "Origem e precisão de cada ponto" in html
-    assert "LOCAL_MAXMIND_MMDB" in html
+    assert "Base local de geolocalização IP (GeoIP)" in html
+    assert "LOCAL_MAXMIND_MMDB" not in html
     assert "https:" not in html

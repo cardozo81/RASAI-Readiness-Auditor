@@ -34,7 +34,7 @@ def _write_verified_packet(workspace, series_id: str) -> None:
             "geoip": {"state": "OBSERVED", "value": {
                 "latitude": -30.0, "longitude": -51.2,
                 "accuracy_radius_km": 100,
-                "source": "TEST_ONLY_LOCAL_FIXTURE",
+                "source": "Base de referência local controlada",
             }},
             "traceroute": {"state": "OBSERVED", "value": {
                 "target_reached": False,
@@ -66,7 +66,7 @@ def test_network_probes_enter_sealed_offline_catalog_without_changing_aud(tmp_pa
     assert "Medição complementar autorizada" in page
     assert "Mapa geográfico consultivo" in page
     assert "<svg" in page and "<circle" in page
-    assert "TEST_ONLY_LOCAL_FIXTURE" in page
+    assert "Base de referência local controlada" in page
     assert "Etapas conhecidas do caminho" in page
     assert "192.168." not in page
     assert "Caminho completo não confirmado" in page

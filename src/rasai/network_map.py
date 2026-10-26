@@ -15,6 +15,17 @@ def _coordinate(value: Any, lower: float, upper: float) -> float | None:
     return number if isfinite(number) and lower <= number <= upper else None
 
 
+def _public_source_label(value: Any) -> str:
+    """Keep a meaningful source category without leaking internal machine IDs."""
+    if value in ("LOCAL_MMDB_CITY", "LOCAL_MAXMIND_MMDB"):
+        return "Base local de geolocalização IP (GeoIP)"
+    if isinstance(value, str) and 1 <= len(value) <= 100:
+        # A supplied human-readable source name is safe to display escaped.
+        if not (value.isupper() and "_" in value):
+            return value
+    return "Base de referência geográfica informada na medição"
+
+
 def network_geographic_panel(probes: list[dict]) -> str:
     """Render only approximate positions explicitly supplied by verified sidecars.
 
@@ -39,7 +50,7 @@ def network_geographic_panel(probes: list[dict]) -> str:
         if lat is None or lon is None or radius is None:
             continue
         name = str(probe.get("hostname") or "Destino público")
-        origin = str(value.get("source") or "Base geográfica local")
+        origin = _public_source_label(value.get("source"))
         capture = str(probe.get("capture_utc") or "Data não comprovada")
         desc = (f"{name}. Posição estimada em {lat:.3f}°, {lon:.3f}°. "
                 f"Precisão declarada: raio de {radius:g} km. "
