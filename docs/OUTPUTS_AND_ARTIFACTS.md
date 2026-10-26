@@ -313,7 +313,7 @@ A fonte primária continua sendo `audit.db` (snapshots M3/M6 já capturados). Qu
 
 Um IP público observado identifica o par da conexão do navegador, não a localização física do servidor nem o caminho de rede. Campos DNS, TCP, TLS, ASN, geolocalização e traceroute só apresentam dados quando a fonte correspondente os comprova; a ausência de valores é diferenciada de erro e de pacote inválido. Este G1 não realiza traceroute, consultas GeoIP/ASN ou chamadas de IA, nem altera scores, catálogos, motores, arquitetura ou evidências de uma AUD selada.
 
-A coleta ativa condicionada, o enriquecimento de topologia e os mapas pertencem às etapas G2/G3 da #659 e não devem ser considerados implementados por esta página. Para auditorias anteriores sem observações compatíveis, o relatório declara a limitação sem simular medições.
+A coleta ativa G2 e a cartografia G3 são extensões opcionais independentes da captura passiva G1, já integradas ao relatório com evidências complementares válidas. Sem coleta autorizada, traceroute ou coordenadas verificadas, o relatório informa as limitações sem simular medições ou mapas.
 
 
 
@@ -337,7 +337,7 @@ Exemplo de uso **apenas para domínio cuja medição ativa esteja autorizada**:
 
 O processo filho possui limite total de 10 segundos, usa resolução DNS limitada a 32 respostas, rejeita o conjunto inteiro se qualquer endereço não for globalmente roteável e fixa a conexão TCP ao IP previamente validado para impedir mudança silenciosa por nova resolução. Só são aceitas as portas 80 e 443; TLS usa validação padrão e nome de servidor original. Sem solicitações HTTP, seguir redirects, ICMP, privilégios administrativos ou geolocalização externa. Restrições de rede, VPN e proxy de saída não são verificáveis automaticamente. O período DNS inclui cache do resolver local, e o tempo TCP/TLS mede a sessão do próprio executor.
 
-O complemento independente fica em `artifacts/network/probes/` e é somente de criação exclusiva, com SHA-256 (integridade, não autoria). A página `network.html` lê os complementos válidos offline, sem rede nem mutação do pacote. Respostas DNS privadas, falhas de captura, campos ausentes e medições observadas permanecem estados distintos. Este estágio **não implementa** traceroute, detecção de AS/CDN e GeoIP; essas lacunas continuam pendentes no G2, assim como cartografia e topologia consultiva do G3.
+O complemento independente fica em `artifacts/network/probes/` e é somente de criação exclusiva, com SHA-256 (integridade, não autoria). A página `network.html` lê os complementos válidos offline, sem rede nem mutação do pacote. Respostas DNS privadas, falhas de captura, campos ausentes e medições observadas permanecem estados distintos. O procedimento básico não solicita traceroute nem enriquecimento local por padrão. A extensão posterior suporta traceroute autorizado e atribuições ASN/GeoIP somente com bases locais opcionais. Não há identificação automática de CDN, origem física ou rota completa por inferência.
 
 
 
@@ -368,8 +368,8 @@ O argumento opcional `--series-id` identifica uma nova medição autorizada sem 
 O pré-voo local é **somente leitura** e não faz requisições de rede. No PowerShell, a partir do repositório atualizado, execute:
 
 ```powershell
-git fetch origin feat/network-path-observatory
-git switch feat/network-path-observatory
+git fetch origin --prune
+git switch main
 git pull --ff-only
 & ".\\.venv\\Scripts\\python.exe" -m rasai.network_acceptance --workspace "audits\\<AUD-ID>" --audit-id "<AUD-ID>" --host "<HOST-PUBLICO-DA-AUD>"
 ```
@@ -396,8 +396,8 @@ A origem, o instante e o raio de precisão dos marcadores GeoIP são também apr
 A coleta ativa autorizada grava pacote **imutável**, independente da projeção HTML. Se a medição registrar `observed_tcp=true` mas o catálogo retornar `CATALOG_REBUILD_FAILED`, não execute outra sondagem com um identificador novo apenas para recriar o relatório. A partir da branch corrigida, reexecute somente a projeção:
 
 ```powershell
-git fetch origin refs/heads/feat/network-path-observatory:refs/remotes/origin/feat/network-path-observatory
-git switch feat/network-path-observatory
+git fetch origin --prune
+git switch main
 git pull --ff-only
 $env:PYTHONPATH = (Resolve-Path ".\\src").Path
 & ".\\.venv\\Scripts\\python.exe" -m rasai.network_acceptance --workspace $Aud.FullName --audit-id $Aud.Name --host $DominioAlvo --series-id "homologacao-g2-01" --replay-existing
