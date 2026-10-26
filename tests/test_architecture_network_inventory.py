@@ -31,6 +31,7 @@ def test_snapshot_resource_declaration_not_misclassified_as_network(tmp_path):
             "state":"OBSERVED_MAIN_DOCUMENT_RESPONSE",
             "http_protocol":"h2","tls_protocol":"TLS 1.3",
             "tls_issuer":"Public CA", "remote_public_peer_ip":"8.8.8.8",
+            "remote_public_peer_ip_source": "PLAYWRIGHT_MAIN_NAVIGATION_RESPONSE_SERVER_ADDR",
             "tls_valid_from":1790000000,
         },
     }
@@ -45,6 +46,9 @@ def test_snapshot_resource_declaration_not_misclassified_as_network(tmp_path):
     assert result["topology"] == "NETWORK_TOPOLOGY_NOT_DETERMINABLE"
     assert result["main_response_security"]["tls_protocol"] == "TLS 1.3"
     assert result["main_response_security"]["remote_public_peer_ip"] == "8.8.8.8"
+    assert result["main_response_security"]["remote_public_peer_ip_source"] == (
+        "PLAYWRIGHT_MAIN_NAVIGATION_RESPONSE_SERVER_ADDR"
+    )
     assert "private" not in repr(result)
 
 

@@ -66,3 +66,75 @@ def test_cdp_same_page_observes_fetch_stylesheet_subframes_and_public_tls_only()
     assert "hidden" not in repr(items)
     assert "token" not in repr(items)
     assert capture["main_response_network"]["remote_public_peer_ip"] is None
+
+
+
+def test_navigation_response_fallback_uses_same_connection_and_preserves_cdp():
+    from rasai.device_context_capture import _backfill_main_public_peer_from_navigation
+
+    class Response:
+        url = "https://www.example.org/path?session=do-not-store"
+        calls = 0
+
+        def server_addr(self):
+            self.calls += 1
+            return {"ipAddress": "8.8.4.4", "port": 443}
+
+    existing = {"state": "OBSERVED_MAIN_DOCUMENT_RESPONSE",
+                "remote_public_peer_ip": None,
+                "from_service_worker": False, "from_disk_cache": False}
+    capture = {"response_url": "https://www.example.org/path",
+               "main_response_network": existing}
+    response = Response()
+    _backfill_main_public_peer_from_navigation(response, capture)
+    assert existing["remote_public_peer_ip"] == "8.8.4.4"
+    assert existing["remote_public_peer_ip_source"] == "PLAYWRIGHT_MAIN_NAVIGATION_RESPONSE_SERVER_ADDR"
+    assert response.calls == 1
+
+    # An already observed CDP peer remains authoritative.
+    existing["remote_public_peer_ip"] = "8.8.8.8"
+    _backfill_main_public_peer_from_navigation(response, capture)
+    assert existing["remote_public_peer_ip"] == "8.8.8.8"
+    assert response.calls == 1
+
+
+def test_navigation_peer_fallback_rejects_unattributed_cached_and_private():
+    from rasai.device_context_capture import _backfill_main_public_peer_from_navigation
+
+    class Response:
+        def __init__(self, url, addr):
+            self.url, self.addr = url, addr
+
+        def server_addr(self):
+            return {"ipAddress": self.addr, "port": 443}
+
+    for overrides, url, ip in (
+        ({}, "https://different.example.org/", "8.8.4.4"),
+        ({}, "https://www.example.org/", "10.0.0.1"),
+        ({"from_service_worker": True}, "https://www.example.org/", "8.8.4.4"),
+        ({"from_disk_cache": True}, "https://www.example.org/", "8.8.4.4"),
+    ):
+        observed = {"state": "OBSERVED_MAIN_DOCUMENT_RESPONSE",
+                    "remote_public_peer_ip": None, **overrides}
+        capture = {"response_url": "https://www.example.org/",
+                   "main_response_network": observed}
+        _backfill_main_public_peer_from_navigation(Response(url, ip), capture)
+        assert observed["remote_public_peer_ip"] is None
+        assert "remote_public_peer_ip_source" not in observed
+
+
+def test_navigation_peer_fallback_is_optional_if_server_address_unavailable():
+    from rasai.device_context_capture import _backfill_main_public_peer_from_navigation
+
+    class Response:
+        url = "https://www.example.org/"
+
+        def server_addr(self):
+            raise RuntimeError("Browser server address unavailable")
+
+    observed = {"state": "OBSERVED_MAIN_DOCUMENT_RESPONSE",
+                "remote_public_peer_ip": None}
+    _backfill_main_public_peer_from_navigation(
+        Response(), {"response_url": Response.url, "main_response_network": observed}
+    )
+    assert observed["remote_public_peer_ip"] is None

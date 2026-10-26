@@ -56,3 +56,25 @@ def test_passive_snapshot_host_and_utc_are_scoped_to_original_capture(tmp_path):
     assert "public.example" in page and "2026-10-26T09:00:00Z" in page
     assert "SECRET" not in page and "password" not in page
     assert db.read_bytes() == original
+
+
+
+def test_observation_retains_explicit_same_navigation_peer_source(monkeypatch):
+    from rasai import network_observation as network_module
+    facts = {
+        "audit_id": "AUD-1", "snapshot_id": "SN-1", "page_id": "PAGE-1",
+        "captured_at": "2026-10-26T12:00:00Z",
+        "network_facts": {
+            "main_response_state": "OBSERVED_MAIN_DOCUMENT_RESPONSE",
+            "main_response_security": {
+                "remote_public_peer_ip": "8.8.4.4",
+                "remote_public_peer_ip_source": "PLAYWRIGHT_MAIN_NAVIGATION_RESPONSE_SERVER_ADDR",
+            },
+        },
+    }
+    monkeypatch.setattr(network_module, "read_architecture_audit_facts", lambda *_: [facts])
+    observation = network_module.snapshots_from_audit("unused.db", "AUD-1")[0]
+    metric = observation["metrics"]["connected_public_ip"]
+    assert metric["state"] == "OBSERVED"
+    assert metric["value"] == "8.8.4.4"
+    assert metric["source"] == "PLAYWRIGHT_MAIN_NAVIGATION_RESPONSE_SERVER_ADDR"

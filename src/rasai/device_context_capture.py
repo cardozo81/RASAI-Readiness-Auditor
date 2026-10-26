@@ -288,6 +288,9 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
                     "capture_method": "SAME_NAVIGATION_CDP_RESPONSE_RECEIVED",
                     "http_protocol": str(response.get("protocol") or "")[:24] or None,
                     "remote_public_peer_ip": public_peer,
+                    "remote_public_peer_ip_source": (
+                        "CDP_MAIN_DOCUMENT_RESPONSE" if public_peer else None
+                    ),
                     "tls_protocol": tls_label("protocol"),
                     "tls_issuer": tls_label("issuer"),
                     "tls_subject": tls_label("subjectName"),
@@ -326,6 +329,40 @@ def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[s
     except Exception as exc:
         state["setup_error"] = type(exc).__name__
         return None, state
+
+
+def _backfill_main_public_peer_from_navigation(response: Any, capture: dict[str, Any]) -> None:
+    """Fallback from the same Playwright navigation; never resolve or reconnect.
+
+    A missing CDP remoteIPAddress is not proof of a network block. Attribute
+    the peer only when the CDP main-frame response URL matches the navigation.
+    """
+    observed = capture.get("main_response_network")
+    if not isinstance(observed, dict) or observed.get("state") != "OBSERVED_MAIN_DOCUMENT_RESPONSE":
+        return
+    if (observed.get("remote_public_peer_ip") or observed.get("from_service_worker")
+            or observed.get("from_disk_cache")):
+        return
+    captured_url = capture.get("response_url")
+    if not captured_url:
+        return
+    try:
+        if _safe_url(response.url) != captured_url:
+            return
+        server = response.server_addr()
+    except Exception:
+        # Optional browser diagnostic: do not fail or retry a successful AUD.
+        return
+    if not isinstance(server, dict):
+        return
+    try:
+        peer = ipaddress.ip_address(str(server.get("ipAddress") or ""))
+    except ValueError:
+        return
+    if not peer.is_global:
+        return
+    observed["remote_public_peer_ip"] = str(peer)
+    observed["remote_public_peer_ip_source"] = "PLAYWRIGHT_MAIN_NAVIGATION_RESPONSE_SERVER_ADDR"
 
 
 def _document_source_metadata(
@@ -1064,6 +1101,7 @@ def _install_browser_capture() -> None:
             stage = "NAVIGATION"
             navigation_started_ns = time.monotonic_ns()
             response = page.goto(url, wait_until="domcontentloaded", timeout=self.navigation_timeout_ms)
+            _backfill_main_public_peer_from_navigation(response, cdp_capture)
             stage = "SETTLE"
             try:
                 page.wait_for_load_state("networkidle", timeout=self.settle_timeout_ms)

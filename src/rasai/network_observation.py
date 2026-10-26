@@ -64,9 +64,15 @@ def snapshots_from_audit(database: str | Path, audit_id: str) -> list[dict[str, 
             "UNAVAILABLE_RENDER_FAILURE", None,
         ) else "INCONCLUSIVE"
         peer = _public_ip(sec.get("remote_public_peer_ip"))
+        peer_source = sec.get("remote_public_peer_ip_source")
+        if peer_source not in {
+            "CDP_MAIN_DOCUMENT_RESPONSE",
+            "PLAYWRIGHT_MAIN_NAVIGATION_RESPONSE_SERVER_ADDR",
+        }:
+            peer_source = "CDP_MAIN_DOCUMENT_RESPONSE"
         captured_utc = _utc_capture_time(record.get("captured_at"))
         metrics = {
-            "connected_public_ip": _item(peer, source="CDP_MAIN_DOCUMENT_RESPONSE",
+            "connected_public_ip": _item(peer, source=peer_source,
                                          state="OBSERVED" if peer else absent),
             "tls_protocol": _item(sec.get("tls_protocol"), source="CDP_MAIN_DOCUMENT_RESPONSE",
                                   state="OBSERVED" if sec.get("tls_protocol") else absent),
