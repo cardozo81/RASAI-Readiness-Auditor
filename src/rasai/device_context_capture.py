@@ -991,11 +991,11 @@ def _promote_bounded_lazy_dom(
 
 
 def _capture_bound_dom_visibility(renderer: Any, page: Any, rendered_html: str) -> dict[str, Any]:
-    """Capture CSS-hidden selectors for the exact frozen M3 rendered DOM only.
+    """Bind existing Chromium CSS evidence to the exact accepted M3 DOM.
 
-    The device-scoped installer overrides BrowserIdentityRenderer._render_once,
-    so the canonical computed-style observation must be forwarded here.
-    Abstain if the accepted DOM changes before or during this observation.
+    Observing immediately after the accepted DOM is selected minimizes a
+    stale-DOM window. Never apply hidden selectors from another DOM state.
+    Distinct, non-sensitive failure reasons make a physical miss actionable.
     """
     unavailable = {
         "version": "dom-visibility-v1",
@@ -1004,18 +1004,36 @@ def _capture_bound_dom_visibility(renderer: Any, page: Any, rendered_html: str) 
         "hidden_ids_sha256": [],
         "hidden_classes_sha256": [],
         "inspected": 0,
-        "reason": "FROZEN_DOM_MISMATCH_OR_UNAVAILABLE",
     }
-    frozen_digest = hashlib.sha256(rendered_html.encode("utf-8")).hexdigest()
+
+    def abstain(reason: str) -> dict[str, Any]:
+        return {**unavailable, "reason": reason}
+
+    if not isinstance(rendered_html, str):
+        return abstain("ACCEPTED_DOM_NOT_AVAILABLE")
+    expected = hashlib.sha256(rendered_html.encode("utf-8")).hexdigest()
     try:
-        if hashlib.sha256(page.content().encode("utf-8")).hexdigest() != frozen_digest:
-            return unavailable
+        before = page.content()
+    except (PlaywrightError, TypeError, ValueError, AttributeError, RuntimeError):
+        return abstain("DOM_READ_BEFORE_STYLE_FAILED")
+    if not isinstance(before, str) or hashlib.sha256(before.encode("utf-8")).hexdigest() != expected:
+        return abstain("DOM_CHANGED_BEFORE_STYLE_OBSERVATION")
+    try:
         observed = renderer._capture_dom_visibility(page)
-        if hashlib.sha256(page.content().encode("utf-8")).hexdigest() != frozen_digest:
-            return unavailable
-        return observed if isinstance(observed, dict) else unavailable
-    except (PlaywrightError, TypeError, ValueError, AttributeError):
-        return unavailable
+    except (PlaywrightError, TypeError, ValueError, AttributeError, RuntimeError):
+        return abstain("COMPUTED_STYLE_OBSERVER_ERROR")
+    try:
+        after = page.content()
+    except (PlaywrightError, TypeError, ValueError, AttributeError, RuntimeError):
+        return abstain("DOM_READ_AFTER_STYLE_FAILED")
+    if not isinstance(after, str) or hashlib.sha256(after.encode("utf-8")).hexdigest() != expected:
+        return abstain("DOM_CHANGED_DURING_STYLE_OBSERVATION")
+    if (not isinstance(observed, dict)
+            or observed.get("version") != "dom-visibility-v1"
+            or observed.get("source") != "CHROMIUM_COMPUTED_STYLE"
+            or observed.get("status") not in {"OBSERVED", "PARTIAL"}):
+        return abstain("COMPUTED_STYLE_OBSERVATION_UNAVAILABLE")
+    return observed
 
 
 def _install_browser_capture() -> None:
@@ -1156,6 +1174,12 @@ def _install_browser_capture() -> None:
             rendered_html, capture_quality = _promote_bounded_lazy_dom(
                 rendered_html, capture_quality, lazy_probe, lazy_candidate,
             )
+            # R02: bind observed CSS selectors near the accepted DOM read,
+            # before screenshots, runtime probes and optional interactions.
+            # The M3 snapshot later attaches the accepted artifact's digest.
+            dom_visibility = _capture_bound_dom_visibility(
+                self, page, rendered_html,
+            )
             headers = response.headers if response is not None else {}
             stage = "DOCUMENT_SOURCE"
             document_source = _document_source_metadata(
@@ -1204,6 +1228,11 @@ def _install_browser_capture() -> None:
                 # The authoritative M3 artifact and its metadata MUST hash the same
                 # accepted HTML. The early and later hashes remain in correlation.
                 rendered_dom = _rendered_dom_metadata(rendered_html)
+                # The accepted DOM changed: prior CSS selectors do not carry
+                # across versions, even when both are from the same page.
+                dom_visibility = _capture_bound_dom_visibility(
+                    self, page, rendered_html,
+                )
 
             # The diagnostic interaction was completed before the authoritative
             # screenshot and DOM artifact were frozen; no second navigation.
@@ -1307,12 +1336,7 @@ def _install_browser_capture() -> None:
             metadata["capture_scope"] = ContextScope.DEVICE_SNAPSHOT.value
             metadata["document_source"] = document_source
             metadata["rendered_dom"] = rendered_dom
-            # #665 R02: the device-scoped _render_once overrides the base
-            # renderer's visibility capture. Restore it for the frozen DOM,
-            # then M3 binds it to the persisted rendered-artifact SHA-256.
-            metadata["dom_visibility"] = _capture_bound_dom_visibility(
-                self, page, rendered_html,
-            )
+            metadata["dom_visibility"] = dom_visibility
             metadata["script_runtime"] = script_runtime
             metadata["network_resource_observations"] = _observed_resource_metadata(cdp_capture)
             metadata["main_response_network"] = cdp_capture.get("main_response_network")

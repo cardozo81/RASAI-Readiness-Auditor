@@ -128,6 +128,7 @@ def test_device_scoped_renderer_persists_visibility_only_for_frozen_dom() -> Non
         renderer, Page([html + " changed"]), html,
     )
     assert changed_before["status"] == "UNAVAILABLE"
+    assert changed_before["reason"] == "DOM_CHANGED_BEFORE_STYLE_OBSERVATION"
     assert changed_before["hidden_classes_sha256"] == []
     assert renderer.calls == 1
 
@@ -135,6 +136,7 @@ def test_device_scoped_renderer_persists_visibility_only_for_frozen_dom() -> Non
         renderer, Page([html, html + " changed"]), html,
     )
     assert changed_after["status"] == "UNAVAILABLE"
+    assert changed_after["reason"] == "DOM_CHANGED_DURING_STYLE_OBSERVATION"
     assert changed_after["hidden_classes_sha256"] == []
     assert renderer.calls == 2
 
@@ -144,5 +146,49 @@ def test_device_scoped_installer_uses_bound_visibility_observation() -> None:
     import inspect
     from rasai import device_context_capture
     source = inspect.getsource(device_context_capture._install_browser_capture)
-    assert 'metadata["dom_visibility"] = _capture_bound_dom_visibility(' in source
+    assert 'metadata["dom_visibility"] = dom_visibility' in source
+
+def test_device_scoped_css_observer_abstains_without_fabricating_visibility() -> None:
+    from rasai.device_context_capture import _capture_bound_dom_visibility
+
+    html = "<html><body><main>example</main></body></html>"
+
+    class Page:
+        def content(self) -> str:
+            return html
+
+    class Unavailable:
+        def _capture_dom_visibility(self, _page: object) -> dict[str, object]:
+            return {
+                "version": "dom-visibility-v1", "source": "CHROMIUM_COMPUTED_STYLE",
+                "status": "UNAVAILABLE", "hidden_classes_sha256": [],
+                "hidden_ids_sha256": [], "inspected": 0,
+            }
+
+    class Raising:
+        def _capture_dom_visibility(self, _page: object) -> dict[str, object]:
+            raise ValueError("no style observation")
+
+    empty = _capture_bound_dom_visibility(Unavailable(), Page(), html)
+    assert empty["status"] == "UNAVAILABLE"
+    assert empty["reason"] == "COMPUTED_STYLE_OBSERVATION_UNAVAILABLE"
+    assert empty["inspected"] == 0
+    failure = _capture_bound_dom_visibility(Raising(), Page(), html)
+    assert failure["reason"] == "COMPUTED_STYLE_OBSERVER_ERROR"
+    assert failure["hidden_classes_sha256"] == []
+
+
+def test_device_scoped_capture_observes_after_accepted_dom_and_rebinds_on_recovery() -> None:
+    import inspect
+    from rasai import device_context_capture
+
+    source = inspect.getsource(device_context_capture._install_browser_capture)
+    stage = source.index('rendered_html, capture_quality = _promote_bounded_lazy_dom(')
+    css = source.index('dom_visibility = _capture_bound_dom_visibility(')
+    dom = source.index('headers = response.headers if response is not None else {}', stage)
+    assert stage < css < dom
+    late = source.index('rendered_dom = _rendered_dom_metadata(rendered_html)', css)
+    rebind = source.index('dom_visibility = _capture_bound_dom_visibility(', late)
+    assert late < rebind
+    assert 'metadata["dom_visibility"] = dom_visibility' in source
 
