@@ -194,3 +194,34 @@ def test_dependency_verifier_rejects_path_escape(tmp_path: Path) -> None:
     )
     assert ok is False
     assert errors
+
+
+
+def test_directory_source_dependency_tracks_new_and_changed_probe(tmp_path):
+    from rasai.catalog_source_dependencies import (
+        begin_source_dependency_capture, captured_source_dependencies,
+        end_source_dependency_capture, record_source_dependency,
+        verify_source_dependencies,
+    )
+    directory = tmp_path / "artifacts" / "network" / "probes"
+    token = begin_source_dependency_capture(tmp_path)
+    try:
+        record_source_dependency(directory)
+        missing = captured_source_dependencies()
+    finally:
+        end_source_dependency_capture(token)
+    assert missing[0]["state"] == "MISSING"
+    assert verify_source_dependencies(tmp_path, missing)[0]
+    directory.mkdir(parents=True)
+    (directory / "first.json").write_text('{"state":"OBSERVED"}', encoding="utf-8")
+    assert not verify_source_dependencies(tmp_path, missing)[0]
+    token = begin_source_dependency_capture(tmp_path)
+    try:
+        record_source_dependency(directory)
+        before = captured_source_dependencies()
+    finally:
+        end_source_dependency_capture(token)
+    assert before[0]["state"] == "DIRECTORY"
+    assert verify_source_dependencies(tmp_path, before)[0]
+    (directory / "second.json").write_text("{}", encoding="utf-8")
+    assert not verify_source_dependencies(tmp_path, before)[0]

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations
+from rasai.catalog_source_dependencies import record_source_dependency
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_map import network_geographic_panel
 from rasai.network_progression import route_panels, temporal_panel
@@ -39,6 +40,10 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
     root = Path(workspace)
     from rasai.network_observation_store import sidecar_path
     packet = sidecar_path(root)
+    # A complement created after the report is sealed must invalidate catalog
+    # freshness, including when the probes directory was previously absent.
+    record_source_dependency(packet)
+    record_source_dependency(root / "artifacts" / "network" / "probes")
     observations = read_network_observations(root, audit_id)
     if not observations and not packet.exists() and not packet.is_symlink():
         observations = snapshots_from_audit(root / "audit.db", audit_id)

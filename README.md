@@ -339,6 +339,12 @@ A arquitetura alvo para SaaS usa control plane PostgreSQL e workers Linux/contai
 
 Detalhes: [docs/PRODUCT_PLATFORM_ARCHITECTURE.md](docs/PRODUCT_PLATFORM_ARCHITECTURE.md).
 
+## Observabilidade de rede (issue #659)
+
+A auditoria oferece a página consultiva `network.html` com dados passivos das conexões observadas e informações explícitas sobre o que não foi medido. A extensão opcional `rasai.network_active_probe` executa somente mediante autorização expressa do operador, limitada ao hostname público já pertencente à AUD e às portas 80/443. DNS, TCP/TLS e, quando solicitado, até oito saltos de rede podem ser registrados em pacotes independentes, sem alterar a auditoria original.
+
+Enriquecimento por ASN/GeoIP exige bases MMDB locais opcionais, não realiza downloads ou chamadas pagas. O mapa de coordenadas e as comparações entre sessões funcionam offline e diferenciam fatos, estimativas e lacunas; a localização IP não comprova a posição física de servidores nem a rota. O relatório canônico detecta alterações posteriores nos pacotes complementares e exige nova materialização somente leitura para incorporar novas medições. Uso, limitações e comandos: [docs/OUTPUTS_AND_ARTIFACTS.md](docs/OUTPUTS_AND_ARTIFACTS.md).
+
 ## Fonte de verdade e segurança
 
 Princípios:

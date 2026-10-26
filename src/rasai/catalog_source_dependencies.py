@@ -53,6 +53,22 @@ def _snapshot_dependency(root: Path, path: Path) -> dict[str, Any] | None:
         return None
     relative_text = relative.as_posix()
     try:
+        if candidate.is_dir():
+            # Include directory membership in the manifest. Otherwise a newly
+            # collected sidecar would leave a previously sealed HTML report
+            # incorrectly classified as fresh.
+            children = sorted(candidate.iterdir(), key=lambda entry: entry.name)
+            lines = []
+            for child in children[:128]:
+                if child.is_symlink() or not child.is_file():
+                    lines.append((child.name, "UNSUPPORTED"))
+                    continue
+                length = child.stat().st_size
+                digest = _sha256_file(child) if length <= 2_000_000 else "OVERSIZED"
+                lines.append((child.name, length, digest))
+            raw = repr((len(children), lines)).encode("utf-8")
+            return {"path": relative_text, "state": "DIRECTORY",
+                    "entries": len(children), "sha256": sha256(raw).hexdigest()}
         if not candidate.is_file():
             return {"path": relative_text, "state": "MISSING"}
         size = candidate.stat().st_size
@@ -127,6 +143,13 @@ def verify_source_dependencies(
                 "path": relative,
                 "state": "PRESENT",
                 "size_bytes": expected.get("size_bytes"),
+                "sha256": str(expected.get("sha256") or ""),
+            }
+        elif expected.get("state") == "DIRECTORY":
+            expected = {
+                "path": relative,
+                "state": "DIRECTORY",
+                "entries": expected.get("entries"),
                 "sha256": str(expected.get("sha256") or ""),
             }
         else:
