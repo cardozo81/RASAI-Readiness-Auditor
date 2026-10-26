@@ -61,3 +61,20 @@ def test_no_table_and_legacy_audit_keep_unknown_distinct_from_zero(tmp_path):
     assert result["response_state"] == "NOT_COLLECTED"
     assert result["response_count"] is None
     assert result["main_response_state"] == "NOT_COLLECTED"
+
+
+
+def test_untrusted_peer_source_metadata_does_not_break_network_projection(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE dummy (id TEXT)")
+    metadata = {
+        "main_response_network": {
+            "state": "OBSERVED_MAIN_DOCUMENT_RESPONSE",
+            "remote_public_peer_ip": "8.8.4.4",
+            "remote_public_peer_ip_source": ["unexpected", "unhashable"],
+        },
+    }
+    facts = _network_facts(db, "AUD-1", "SN-1", metadata)
+    assert facts["main_response_security"]["remote_public_peer_ip"] == "8.8.4.4"
+    assert "remote_public_peer_ip_source" not in facts["main_response_security"]

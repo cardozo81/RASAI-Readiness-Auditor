@@ -78,3 +78,22 @@ def test_observation_retains_explicit_same_navigation_peer_source(monkeypatch):
     assert metric["state"] == "OBSERVED"
     assert metric["value"] == "8.8.4.4"
     assert metric["source"] == "PLAYWRIGHT_MAIN_NAVIGATION_RESPONSE_SERVER_ADDR"
+
+
+
+def test_untrusted_peer_source_in_observation_is_treated_as_legacy(monkeypatch):
+    from rasai import network_observation as network_module
+    facts = {
+        "audit_id": "AUD-1", "snapshot_id": "SN-1", "page_id": "PAGE-1",
+        "network_facts": {
+            "main_response_state": "OBSERVED_MAIN_DOCUMENT_RESPONSE",
+            "main_response_security": {
+                "remote_public_peer_ip": "8.8.4.4",
+                "remote_public_peer_ip_source": ["untrusted"],
+            },
+        },
+    }
+    monkeypatch.setattr(network_module, "read_architecture_audit_facts", lambda *_: [facts])
+    metric = network_module.snapshots_from_audit("unused.db", "AUD-1")[0]["metrics"]["connected_public_ip"]
+    assert metric["state"] == "OBSERVED"
+    assert metric["source"] == "CDP_MAIN_DOCUMENT_RESPONSE"

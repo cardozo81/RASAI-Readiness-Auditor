@@ -157,10 +157,10 @@ def _network_facts(
             if ip.is_global:
                 tls_fields["remote_public_peer_ip"] = str(ip)
                 source = doc.get("remote_public_peer_ip_source")
-                if source in {
+                if source in (
                     "CDP_MAIN_DOCUMENT_RESPONSE",
                     "PLAYWRIGHT_MAIN_NAVIGATION_RESPONSE_SERVER_ADDR",
-                }:
+                ):
                     tls_fields["remote_public_peer_ip_source"] = source
         except ValueError:
             pass
