@@ -12,6 +12,7 @@ from typing import Any
 
 _WHITESPACE = re.compile(r"\s+")
 _SKIP_CONTENT = {"script", "style", "noscript", "template", "svg"}
+_VOID_ELEMENTS = frozenset({"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"})
 _BOILERPLATE = {"nav", "header", "footer", "aside"}
 _HEADINGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 _INLINE_HIDDEN = re.compile(
@@ -145,7 +146,7 @@ class _ExtractionParser(HTMLParser):
         tag = tag.lower()
         values = _attrs(attrs)
         starts_skip = tag in _SKIP_CONTENT
-        starts_hidden = _hidden_marker(values, self.hidden_markers)
+        starts_hidden = tag not in _VOID_ELEMENTS and _hidden_marker(values, self.hidden_markers)
         starts_boilerplate = tag in _BOILERPLATE
         role = values.get("role", "").lower()
         starts_main = tag in {"main", "article"} or role == "main"
