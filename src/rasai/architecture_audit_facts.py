@@ -17,7 +17,8 @@ import re
 import sqlite3
 from typing import Any, Mapping
 
-from rasai.architecture_raw_signals import inspect_raw_html_signals
+from rasai.architecture_raw_signals import inspect_raw_html_signals, MAX_HTML_CHARS
+from rasai.acquisition import decode_captured_text
 from rasai.architecture_hypothesis import suggest_architecture_from_raw
 from rasai.architecture_m6_evidence import _safe_artifact_reference
 from rasai.architecture_resource_budget import MAX_ROOT_BYTES
@@ -221,9 +222,14 @@ def _raw_from_attested_snapshot(
         blob = target.read_bytes()
         if len(blob) != size or hashlib.sha256(blob).hexdigest() != expected:
             return None
-        # Snapshot metadata binds these bytes, but not their trust anchor.
-        # Decompression is deliberately out of scope for this projection.
-        return blob.decode("utf-8-sig", errors="replace")
+        # Digest verification precedes interpretation. Historic captures lack
+        # Content-Encoding metadata: gzip magic is then the safe fallback.
+        raw_http = metadata.get("raw_http")
+        encoding = raw_http.get("content_encoding") if isinstance(raw_http, Mapping) else None
+        return decode_captured_text(
+            blob, content_encoding=encoding,
+            max_input_bytes=MAX_ROOT_BYTES, max_output_bytes=MAX_HTML_CHARS,
+        )
     except (OSError, ValueError, UnicodeError):
         return None
 

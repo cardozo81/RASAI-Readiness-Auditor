@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from rasai.acquisition import decode_captured_text
 from rasai.domain import (
     ArchitectureClassification,
     DeviceContext,
@@ -319,7 +320,10 @@ def _read(workspace: AuditWorkspace, reference: str | None) -> str | None:
     path = workspace.root / reference
     if not path.is_file():
         return None
-    return path.read_text(encoding="utf-8", errors="replace")
+    try:
+        return decode_captured_text(path.read_bytes())
+    except (OSError, ValueError):
+        return None
 
 
 def _unknown(reason: str, expected: str) -> RuleEvaluation:

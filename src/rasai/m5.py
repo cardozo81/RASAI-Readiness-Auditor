@@ -7,6 +7,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
+from rasai.acquisition import decode_captured_text
 from rasai.discovery import RobotsState, SitemapState
 from rasai.domain import (
     Audit,
@@ -558,7 +559,10 @@ def _artifact_text(workspace: AuditWorkspace, reference: str | None) -> str | No
     path = workspace.root / reference
     if not path.is_file():
         return None
-    return path.read_text(encoding="utf-8", errors="replace")
+    try:
+        return decode_captured_text(path.read_bytes())
+    except (OSError, ValueError):
+        return None
 
 
 def _canonical_values(snapshot: Any, workspace: AuditWorkspace) -> tuple[str, ...]:

@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 import json
 from pathlib import Path
 
+from rasai.acquisition import decode_captured_text
 from rasai.domain import DeviceContext, EvidenceType, PageSnapshot
 from rasai.evidence import EvidenceManager
 from rasai.extraction import ContentExtractor, ExtractedPage, StructuredDataBlock
@@ -119,7 +120,10 @@ def _load_extraction_input(
         path = workspace.root / artifact_ref
         if not path.is_file():
             continue
-        return source_name, artifact_ref, path.read_text(encoding="utf-8", errors="replace")
+        try:
+            return source_name, artifact_ref, decode_captured_text(path.read_bytes())
+        except (OSError, ValueError):
+            continue
     return None
 
 

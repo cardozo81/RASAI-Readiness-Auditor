@@ -96,6 +96,11 @@ def persist_render_capture(
         "requested_url": acquisition.requested_url,
         "final_url": acquisition.final_url,
         "status": acquisition.status,
+        "content_encoding": (
+            acquisition.header("Content-Encoding")
+            if (acquisition.header("Content-Encoding") or "").lower() in {"gzip", "x-gzip", "identity"}
+            else None
+        ),
         "redirect_count": len(acquisition.redirects),
         "redirects": [
             {
