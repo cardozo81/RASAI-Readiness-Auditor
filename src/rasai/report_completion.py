@@ -106,8 +106,14 @@ def materialize_catalog_report_projection(
         try:
             from rasai.network_observation_store import persist_network_observations
             persist_network_observations(Path(workspace.root), audit_id)
-        except (OSError, ValueError, TypeError):
-            pass
+        except (OSError, ValueError, TypeError) as exc:
+            # Keep extension failure advisory but make it visible to operators.
+            # Never overwrite an immutable packet or retry network collection.
+            import logging
+            logging.getLogger(__name__).warning(
+                "G1 network observation unavailable for %s (%s)",
+                audit_id, type(exc).__name__,
+            )
         try:
             from rasai.geo_observation import materialize_geo_observation
             materialize_geo_observation(Path(workspace.database), audit_id)

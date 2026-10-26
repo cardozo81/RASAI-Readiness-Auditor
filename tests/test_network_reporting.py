@@ -56,3 +56,22 @@ def test_network_body_is_read_only_on_legacy(tmp_path):
     from rasai.network_reporting import network_report_body
     assert "Dados ainda indisponíveis" in network_report_body(tmp_path, "AUD-LEGACY")
     assert not (tmp_path / "report-catalog").exists()
+
+
+def test_invalid_packet_is_explicitly_reported(tmp_path):
+    from rasai.network_reporting import network_report_body
+    path = sidecar_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text('{"contract":"invalid"}', encoding="utf-8")
+    page = network_report_body(tmp_path, "AUD-X")
+    assert "Dados de rede não verificáveis" in page
+    assert "não passou na validação" in page
+    assert "Endereço público da conexão observada</th><td>" not in page
+
+
+def test_reader_handles_missing_and_oversized_packet(tmp_path):
+    assert read_network_observations(tmp_path, "AUD-X") == []
+    path = sidecar_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"x" * 2_000_001)
+    assert read_network_observations(tmp_path, "AUD-X") == []

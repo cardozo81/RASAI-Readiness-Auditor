@@ -34,10 +34,19 @@ _STATE = {
 def network_report_body(workspace: str | Path, audit_id: str) -> str:
     """Build a deterministic and offline page without writing to the AUD."""
     root = Path(workspace)
+    from rasai.network_observation_store import sidecar_path
+    packet = sidecar_path(root)
     observations = read_network_observations(root, audit_id)
-    if not observations and not (root / "artifacts" / "network" / "network-observations.json").exists():
+    if not observations and not packet.exists() and not packet.is_symlink():
         observations = snapshots_from_audit(root / "audit.db", audit_id)
     blocks = []
+    if (packet.exists() or packet.is_symlink()) and not observations:
+        blocks.append(
+            "<section class='panel'><h2>Dados de rede não verificáveis</h2>"
+            "<p>O pacote complementar existe, mas não passou na validação de "
+            "integridade, identidade ou formato. Seus valores não são apresentados. "
+            "A auditoria original permanece preservada.</p></section>"
+        )
     for item in observations[:100]:
         cells = []
         for key, label in _LABELS.items():

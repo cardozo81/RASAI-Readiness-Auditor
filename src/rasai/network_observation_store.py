@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import hmac
 import os
 from pathlib import Path
 import re
@@ -60,7 +61,12 @@ def read_network_observations(workspace: str | Path, audit_id: str) -> list[dict
     if not _SAFETY_ID.fullmatch(audit_id):
         return []
     path = sidecar_path(workspace)
-    if not path.is_file() or path.is_symlink() or path.stat().st_size > 2_000_000:
+    if path.is_symlink() or not path.is_file():
+        return []
+    try:
+        if path.stat().st_size > 2_000_000:
+            return []
+    except OSError:
         return []
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -81,8 +87,11 @@ def read_network_observations(workspace: str | Path, audit_id: str) -> list[dict
         if not isinstance(digest, str) or len(digest) != 64:
             return []
         base = {k: v for k, v in item.items() if k not in ("sha256", "digest_scope")}
-        canonical = json.dumps(base, ensure_ascii=False, sort_keys=True,
-                               separators=(",", ":"), allow_nan=False).encode("utf-8")
-        if hashlib.sha256(canonical).hexdigest() != digest:
+        try:
+            canonical = json.dumps(base, ensure_ascii=False, sort_keys=True,
+                                   separators=(",", ":"), allow_nan=False).encode("utf-8")
+        except (TypeError, ValueError, UnicodeError):
+            return []
+        if not hmac.compare_digest(hashlib.sha256(canonical).hexdigest(), digest):
             return []
     return observations
