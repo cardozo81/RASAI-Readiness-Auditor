@@ -337,7 +337,7 @@ def _secret_free_configuration(data: Any) -> tuple[bool, str]:
                 allowed_sensitive_boolean_keys=safe_boolean_keys,
             )
     if failures:
-        return False, "valor sensível persistido em: " + ", ".join(failures[:8])
+        return False, f"{len(failures)} campo(s) sensível(is) detectado(s) na configuração persistida; valores e nomes internos omitidos"
     return True, "snapshot e itens de trabalho sem valores de credenciais em chaves sensíveis"
 
 

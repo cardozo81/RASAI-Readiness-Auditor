@@ -102,6 +102,18 @@ def materialize_catalog_report_projection(
     # evidence. Offline report replay must not write to audit.db nor create
     # sidecars when older AUDs lack them. Missing data remains N/D.
     if not read_only:
+        # Sidecar is optional and external to immutable AUD evidence.
+        try:
+            from rasai.network_observation_store import persist_network_observations
+            persist_network_observations(Path(workspace.root), audit_id)
+        except (OSError, ValueError, TypeError) as exc:
+            # Keep extension failure advisory but make it visible to operators.
+            # Never overwrite an immutable packet or retry network collection.
+            import logging
+            logging.getLogger(__name__).warning(
+                "G1 network observation unavailable for %s (%s)",
+                audit_id, type(exc).__name__,
+            )
         try:
             from rasai.geo_observation import materialize_geo_observation
             materialize_geo_observation(Path(workspace.database), audit_id)
@@ -117,7 +129,23 @@ def materialize_catalog_report_projection(
     try:
         materialize_catalog_report_site(audit_id=audit_id, workspace=workspace)
     except Exception as exc:
-        errors.append(f"catalog-report:{type(exc).__name__}:{str(exc)[:240]}")
+        # A public-facing diagnostic must not reproduce exception messages,
+        # absolute Windows paths, URLs, raw HTML, tokens or SQL parameters.
+        # File basename + function/line identifies the failing code boundary.
+        import re
+        import traceback
+        frames = traceback.extract_tb(exc.__traceback__)
+        origin = frames[-1] if frames else None
+        safe_file = Path(origin.filename).name if origin else "unknown"
+        safe_file = re.sub(r"[^A-Za-z0-9_.-]", "_", safe_file)[:72]
+        safe_function = re.sub(
+            r"[^A-Za-z0-9_]", "_", origin.name if origin else "unknown"
+        )[:72]
+        safe_line = origin.lineno if origin else 0
+        errors.append(
+            f"catalog-report:{type(exc).__name__}:"
+            f"{safe_file}:{safe_function}:{safe_line}"
+        )
 
     if not errors:
         try:

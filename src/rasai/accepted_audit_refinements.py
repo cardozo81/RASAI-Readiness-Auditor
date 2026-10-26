@@ -960,6 +960,7 @@ def _w3c_remediation_html(database: Any, audit_id: str, a: Any) -> tuple[list[Se
 def _remediation_html(database: Any, data: Any) -> str:
     from rasai import catalog_report_analysis as a
     from rasai.improvement_intelligence import _safe_ai_suggested_text
+    from rasai.accepted_report_compat import _discovery_title as _ai_discovery_title
     con = sqlite3.connect(database); con.row_factory = sqlite3.Row
     try:
         roots = a._audit_rows(con, "root_cause_analyses", data.audit_id)
@@ -988,7 +989,7 @@ def _remediation_html(database: Any, data: Any) -> str:
     if "M24-SITEMAP-ABSENT" in ai_codes: suppressed_rules.update({"BR-GEO-003", "BR-GEO-055"})
 
     for action in ai_discovery:
-        index += 1; code = str(action.get("diagnostic_code") or ""); modal_id = _stable_report_anchor("rem-discovery", code, index); title, priority = a._discovery_title(action)
+        index += 1; code = str(action.get("diagnostic_code") or ""); modal_id = _stable_report_anchor("rem-discovery", code, index); title, priority = _ai_discovery_title(action)
         priority_display=a._priority_text(priority)
         rows.append((title, a._domain_label("FILES_DISCOVERY"), priority_display, "CAT-01 → CAT-09 · IA técnica", a._modal_button(modal_id, "Ver orientação")))
         body = a._kv((("Situação / objetivo", title), ("Como proceder", action.get("recommended_change_pt") or "-"), ("Validação humana necessária", "Sim" if action.get("human_validation_required") else "Não"), ("Evidências", ", ".join(str(v) for v in action.get("evidence_ids", []) if str(v)) or "-"))) + _technical_reference_links("FILES_DISCOVERY", source_text=title)

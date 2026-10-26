@@ -1,0 +1,205 @@
+"""Offline, read-only HTML projection of #659 passive network evidence."""
+from __future__ import annotations
+
+from html import escape
+from pathlib import Path
+
+from rasai.network_observation import snapshots_from_audit
+from rasai.network_observation_store import read_network_observations
+from rasai.catalog_source_dependencies import record_source_dependency
+from rasai.network_active_probe import read_authorized_probes
+from rasai.network_map import network_geographic_panel
+from rasai.network_progression import route_panels, temporal_panel
+
+_PAGE = "network.html"
+_LABELS = {
+    "connected_public_ip": "Endereço público da conexão observada",
+    "http_protocol": "Protocolo HTTP",
+    "tls_protocol": "Versão TLS",
+    "http_status": "Resposta HTTP",
+    "redirect_count": "Redirecionamentos HTTP",
+    "dns_resolution": "Resolução DNS",
+    "tcp_handshake_ms": "Conexão TCP",
+    "tls_handshake_ms": "Negociação TLS",
+    "traceroute": "Caminho de rede",
+    "asn": "Operador de rede",
+    "geoip": "Localização aproximada",
+}
+_STATE = {
+    "OBSERVED": "Observado",
+    "NOT_OBSERVED": "Não observado",
+    "BLOCKED": "Bloqueado",
+    "NOT_APPLICABLE": "Não aplicável",
+    "INCONCLUSIVE": "Inconclusivo",
+    "COLLECTION_FAILED": "Falha na coleta",
+}
+
+
+def _display_observed_metric(key: str, value: object) -> str:
+    """Presentation only: use pt-BR decimals, never modify measured values."""
+    if value is None:
+        return "Sem medição disponível"
+    if key in {"dns_elapsed_ms", "tcp_handshake_ms", "tls_handshake_ms"} \
+            and type(value) in (float, int):
+        return str(value).replace(".", ",")
+    if key == "tls_protocol" and isinstance(value, str) and value.startswith("TLSv"):
+        return "TLS " + value.removeprefix("TLSv")
+    return str(value)
+
+
+def network_report_body(workspace: str | Path, audit_id: str) -> str:
+    """Build a deterministic and offline page without writing to the AUD."""
+    root = Path(workspace)
+    from rasai.network_observation_store import sidecar_path
+    packet = sidecar_path(root)
+    # A complement created after the report is sealed must invalidate catalog
+    # freshness, including when the probes directory was previously absent.
+    record_source_dependency(packet)
+    record_source_dependency(root / "artifacts" / "network" / "probes")
+    observations = read_network_observations(root, audit_id)
+    if not observations and not packet.exists() and not packet.is_symlink():
+        observations = snapshots_from_audit(root / "audit.db", audit_id)
+    blocks = []
+    if (packet.exists() or packet.is_symlink()) and not observations:
+        blocks.append(
+            "<section class='panel'><h2>Dados de rede não verificáveis</h2>"
+            "<p>O pacote complementar existe, mas não passou na validação de "
+            "integridade, identidade ou formato. Seus valores não são apresentados. "
+            "A auditoria original permanece preservada.</p></section>"
+        )
+    for item in observations[:100]:
+        cells = []
+        for key, label in _LABELS.items():
+            metric = item.get("metrics", {}).get(key, {})
+            status = _STATE.get(metric.get("state"), "Inconclusivo")
+            value = metric.get("value") if metric.get("state") == "OBSERVED" else None
+            shown = _display_observed_metric(key, value)
+            cells.append(
+                f"<tr><th scope='row'>{escape(label)}</th>"
+                f"<td>{escape(shown)}</td><td>{escape(status)}</td></tr>"
+            )
+        host = item.get("target_host")
+        host_label = escape(str(host)) if host else "Destino não identificado"
+        timestamp = item.get("capture_utc")
+        capture_label = (
+            "Registro da captura: " + escape(str(timestamp))
+            if timestamp and item.get("capture_time_state") == "OBSERVED"
+            else "Data da captura não comprovada"
+        )
+        blocks.append(
+            "<section class='panel'><h2>Observação do dispositivo "
+            + escape(str(item.get("device") or "não informado"))
+            + "</h2><p>Destino: " + host_label + ". " + capture_label
+            + ". Informações extraídas da captura da auditoria, sem novas sondagens.</p>"
+            + "<div class='table-wrap'><table><thead><tr><th>Indicador</th><th>Resultado</th><th>Situação</th></tr></thead><tbody>"
+            + "".join(cells) + "</tbody></table></div></section>"
+        )
+    probes = read_authorized_probes(root, audit_id)
+    if observations and probes:
+        blocks.insert(0,
+            "<section class='panel'><h2>Como interpretar as medições</h2>"
+            "<p>A captura original e a medição complementar são registros "
+            "independentes, feitos em momentos e ambientes diferentes. "
+            "Uma informação não medida na captura pode estar disponível "
+            "na medição complementar. Endereços IP e tempos podem variar "
+            "entre as coletas; os resultados não comprovam a causa "
+            "dessas diferenças nem o desempenho percebido pelos usuários.</p>"
+            "</section>"
+        )
+    for probe in probes:
+        metrics = probe.get("metrics") or {}
+        if not isinstance(metrics, dict):
+            continue
+        rows = []
+        for key, label in (
+            ("dns_resolution", "Endereços públicos resolvidos"),
+            ("dns_elapsed_ms", "Consulta de nomes (ms)"),
+            ("connected_public_ip", "Endereço de conexão"),
+            ("tcp_handshake_ms", "Conexão TCP (ms)"),
+            ("tls_handshake_ms", "Negociação TLS (ms)"),
+            ("tls_protocol", "Versão TLS"),
+            ("asn", "Operador de rede (base local)"),
+            ("geoip", "Localização IP aproximada (base local)"),
+            ("traceroute", "Saltos lógicos de rede"),
+        ):
+            observation = metrics.get(key)
+            if not isinstance(observation, dict):
+                continue
+            status = _STATE.get(observation.get("state"), "Inconclusivo")
+            value = observation.get("value") if observation.get("state") == "OBSERVED" else None
+            if isinstance(value, dict):
+                if key == "asn":
+                    shown = "AS" + str(value.get("number", "?")) + " - " + str(value.get("organization") or "operador não identificado")
+                elif key == "geoip":
+                    shown = ("Estimativa: " + str(value.get("latitude")) + "°, " +
+                             str(value.get("longitude")) + "°; precisão ±" +
+                             str(value.get("accuracy_radius_km")) + " km")
+                elif key == "traceroute":
+                    hops = value.get("hops") or []
+                    shown = (str(len(hops)) + " saltos com informações parciais; " +
+                             ("destino alcançado" if value.get("target_reached")
+                              else "caminho completo não confirmado"))
+                else:
+                    shown = "Informação estruturada"
+            elif isinstance(value, list):
+                shown = ", ".join(str(x) for x in value[:32])
+            else:
+                shown = _display_observed_metric(key, value)
+            rows.append("<tr><th scope='row'>" + escape(label) + "</th><td>" +
+                        escape(shown) + "</td><td>" + escape(status) + "</td></tr>")
+        if not rows:
+            continue
+        blocks.append(
+            "<section class='panel'><h2>Medição complementar autorizada</h2>"
+            "<p>Destino: " + escape(str(probe.get("hostname") or "não informado")) +
+            ". Coleta independente da auditoria, a partir do processo executor em " +
+            escape(str(probe.get("capture_utc") or "data não comprovada")) +
+            ". Não demonstra localização física, rota de rede ou desempenho do usuário.</p>"
+            "<div class='table-wrap'><table><thead><tr><th>Indicador</th>"
+            "<th>Resultado</th><th>Situação</th></tr></thead><tbody>" +
+            "".join(rows) + "</tbody></table></div></section>"
+        )
+    # Geographic context follows the measured tables rather than separating
+    # the capture from its authorized complementary observations.
+    blocks.append(network_geographic_panel(probes))
+    if probes:
+        route_html = route_panels(probes)
+        history_html = temporal_panel(probes)
+        if route_html:
+            blocks.append(route_html)
+        if history_html:
+            blocks.append(history_html)
+    if not observations and not probes and not (packet.exists() or packet.is_symlink()):
+        blocks.append("<section class='panel'><h2>Dados ainda indisponíveis</h2>"
+                      "<p>Esta auditoria não possui observações de rede utilizáveis. "
+                      "Não significa que houve falha de conexão.</p></section>")
+    html = """<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Rede e conectividade — RASAi</title>
+<style>body{font:16px/1.55 system-ui,sans-serif;color:#263449;background:#f6f7fb;margin:0}
+main{max-width:1050px;margin:auto;padding:2rem 1rem}.panel,header{background:white;border:1px solid #e1e4ea;border-radius:6px;padding:1.3rem;margin-bottom:1rem}
+table{width:100%;border-collapse:collapse;text-align:left}td,th{padding:.7rem;border-bottom:1px solid #eceef2}
+.table-wrap{overflow:auto}a{color:#254c91}</style></head><body><main>
+<p><a href='index.html'>Voltar à visão geral</a></p>
+<header><h1>Rede e conectividade</h1><p>Informações observadas na auditoria. Dados ausentes não são interpretados como falhas. A localização física e o caminho completo da rede não podem ser deduzidos a partir de um endereço IP.</p></header>
+""" + "".join(blocks) + """<footer><p>Esta página é consultiva, não altera pontuações ou conclusões e funciona sem conexão à internet.</p></footer></main></body></html>"""
+    return html
+
+
+def network_catalog_sections(workspace: str | Path, audit_id: str) -> str:
+    """Reusable canonical catalog body, without nested html/head/body tags."""
+    page = network_report_body(workspace, audit_id)
+    start = page.find("<header><h1>")
+    end = page.find("<footer>", start)
+    if start < 0 or end < 0:
+        raise ValueError("Projeção de rede incompatível")
+    return page[start:end]
+
+
+def materialize_network_report(workspace: str | Path, audit_id: str) -> Path:
+    """Standalone extension preview, not the canonical signed catalog."""
+    report = Path(workspace) / "artifacts" / "network" / "report"
+    report.mkdir(parents=True, exist_ok=True)
+    dest = report / _PAGE
+    dest.write_text(network_report_body(workspace, audit_id), encoding="utf-8", newline="\n")
+    return dest

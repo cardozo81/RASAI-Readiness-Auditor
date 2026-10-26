@@ -215,7 +215,8 @@ def test_nonsecret_cat10_cookie_toggle_is_not_treated_as_persisted_credential() 
     passed, detail = _secret_free_configuration(data)
 
     assert passed is False
-    assert "RASAI_OPENAI_API_KEY" in detail
+    assert "campo(s) sensível(is) detectado(s)" in detail
+    assert "RASAI_OPENAI_API_KEY" not in detail
 
 def test_passive_security_cookie_toggle_in_work_item_is_not_a_secret() -> None:
     data = _data()
@@ -250,7 +251,8 @@ def test_passive_security_cookie_toggle_does_not_allow_cookie_material() -> None
     passed, detail = _secret_free_configuration(data)
 
     assert passed is False
-    assert "configuration.cookies" in detail
+    assert "campo(s) sensível(is) detectado(s)" in detail
+    assert "configuration.cookies" not in detail
 
 
 def test_cookie_named_configuration_outside_passive_security_remains_sensitive() -> None:
@@ -266,7 +268,8 @@ def test_cookie_named_configuration_outside_passive_security_remains_sensitive()
     passed, detail = _secret_free_configuration(data)
 
     assert passed is False
-    assert "configuration.cookies" in detail
+    assert "campo(s) sensível(is) detectado(s)" in detail
+    assert "configuration.cookies" not in detail
 
 
 def test_catalog_assurance_reaches_closure_targets_when_all_controls_pass(monkeypatch, tmp_path: Path) -> None:

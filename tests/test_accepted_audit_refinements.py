@@ -125,3 +125,50 @@ def test_improvement_deadline_is_wall_clock_bounded() -> None:
     assert elapsed < 0.15
     assert status is AttemptStatus.TECHNICAL_ERROR
     assert getattr(diagnostic, "error_code", None) == "IMPROVEMENT_WALL_CLOCK_TIMEOUT"
+
+
+def test_cat09_m24_ai_discovery_renderer_is_independent_of_legacy_title_signature(
+    tmp_path, monkeypatch,
+) -> None:
+    """#659 field regression: legacy two-argument title must not be used for M24 AI."""
+    from types import SimpleNamespace
+    from rasai import catalog_report_analysis as analysis
+    from rasai.accepted_audit_refinements import _remediation_html
+    from rasai.catalog_report_evidence import _discovery_title as legacy_discovery_title
+    from tests.test_catalog_report_site import AUDIT_ID, _workspace
+
+    workspace, _ = _workspace(tmp_path)
+    monkeypatch.setattr(analysis, "_discovery_title", legacy_discovery_title)
+    assert legacy_discovery_title.__code__.co_argcount == 2
+    monkeypatch.setattr(
+        analysis, "_m24_ai_guidance",
+        lambda database, audit_id: (
+            [
+                {
+                    "diagnostic_code": "M24-ROBOTS-ABSENT",
+                    "objective_pt": "Considerar publicação de robots.txt",
+                    "recommended_change_pt": "Avaliar a publicação do recurso.",
+                    "human_validation_required": True,
+                    "evidence_ids": ["EV-001"],
+                },
+                {
+                    "diagnostic_code": "M24-SITEMAP-ABSENT",
+                    "objective_pt": "Avaliar sitemap",
+                    "recommended_change_pt": "Conferir política de descoberta.",
+                    "human_validation_required": True,
+                    "evidence_ids": ["EV-002"],
+                },
+            ],
+            "Validar a política aplicável antes da publicação.",
+        ),
+    )
+    original = (workspace.root / "audit.db").read_bytes()
+    html = _remediation_html(
+        workspace.database, SimpleNamespace(audit_id=AUDIT_ID)
+    )
+    assert "Considerar publicar robots.txt explícito" in html
+    assert "Avaliar publicação e localização do sitemap" in html
+    assert "Avaliar a publicação do recurso." in html
+    assert "EV-001" in html
+    assert "EV-002" in html
+    assert (workspace.root / "audit.db").read_bytes() == original

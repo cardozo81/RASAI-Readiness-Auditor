@@ -305,7 +305,8 @@ def test_new_shared_report_shell_navigation_is_accessible_in_all_canonical_pages
     """#633: one DOM nav, one disclosure, no second route or hidden static content."""
     workspace, _non_catalog = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
-    assert len(CATALOG_REPORT_PAGES) == 19
+    assert len(CATALOG_REPORT_PAGES) == 20
+    assert "network.html" in CATALOG_REPORT_FILENAMES
     expected_links = set(page.filename for page in CATALOG_REPORT_PAGES)
     assert expected_links == set(file.name for file in report.glob("*.html"))
     for page in CATALOG_REPORT_PAGES:
@@ -649,7 +650,7 @@ def test_633_all_pages_share_method_reading_patterns(tmp_path: Path) -> None:
     from rasai.catalog_report_style import _CSS
     workspace, _ = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
-    assert len(tuple(report.glob("*.html"))) == 19
+    assert len(tuple(report.glob("*.html"))) == len(CATALOG_REPORT_PAGES)
     for page in CATALOG_REPORT_PAGES:
         body = (report / page.filename).read_text(encoding="utf-8")
         assert "href='css/site.css'" in body
