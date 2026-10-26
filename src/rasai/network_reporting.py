@@ -73,6 +73,16 @@ table{width:100%;border-collapse:collapse;text-align:left}td,th{padding:.7rem;bo
     return html
 
 
+def network_catalog_sections(workspace: str | Path, audit_id: str) -> str:
+    """Reusable canonical catalog body, without nested html/head/body tags."""
+    page = network_report_body(workspace, audit_id)
+    start = page.find("<header><h1>")
+    end = page.find("<footer>", start)
+    if start < 0 or end < 0:
+        raise ValueError("Projeção de rede incompatível")
+    return page[start:end]
+
+
 def materialize_network_report(workspace: str | Path, audit_id: str) -> Path:
     """Standalone extension preview, not the canonical signed catalog."""
     report = Path(workspace) / "artifacts" / "network" / "report"
