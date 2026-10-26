@@ -54,7 +54,7 @@ def test_probes_require_explicit_consent_and_matching_aud_scope(tmp_path, monkey
 def test_authorized_probe_writes_immutable_verified_sidecar(tmp_path, monkeypatch):
     _audit(tmp_path)
     def fake_worker(cmd, **kwargs):
-        assert cmd[3] == "--worker" and kwargs["timeout"] == 10
+        assert cmd[3] == "--worker" and "--authorize-active-network" in cmd and kwargs["timeout"] == 10
         row = p._worker_probe.__name__
         assert row
         payload = {

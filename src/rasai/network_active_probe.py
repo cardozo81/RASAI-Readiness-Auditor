@@ -23,6 +23,9 @@ import sys
 import time
 from urllib.parse import urlsplit
 
+from rasai.network_enrichment import enrich_public_ip
+from rasai.network_traceroute import bounded_trace
+
 CONTRACT = "rasai-network-active-probe-v1"
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 _LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
@@ -69,7 +72,7 @@ def _metric(state: str = "NOT_OBSERVED", value=None, error: str | None = None) -
             "error": error}
 
 
-def _worker_probe(host: str, port: int) -> dict:
+def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> dict:
     """Worker only: pinned public-IP connection with valid SNI and TLS checks."""
     started = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     metrics = {
@@ -132,6 +135,8 @@ def _worker_probe(host: str, port: int) -> dict:
             metrics["tls_handshake_ms"] = _metric("NOT_APPLICABLE")
             metrics["tls_protocol"] = _metric("NOT_APPLICABLE")
         record["state"] = "OBSERVED"
+        if include_traceroute:
+            metrics["traceroute"] = bounded_trace(ip, port)
     except (OSError, ssl.SSLError):
         record["state"] = "COLLECTION_FAILED"
         if metrics["tcp_handshake_ms"]["state"] != "OBSERVED":
@@ -182,6 +187,8 @@ def _canonical(row: dict) -> bytes:
 def collect_authorized_probe(
     workspace: str | Path, audit_id: str, hostname: str, *,
     permitted_hostname: str, authorized: bool, port: int = 443,
+    include_traceroute: bool = False, asn_database: str | None = None,
+    city_database: str | None = None,
 ) -> Path:
     """Explicit operator consent and exact AUD target scope. No silent retries."""
     host = _host(hostname)
@@ -196,9 +203,13 @@ def collect_authorized_probe(
         raise FileExistsError("Sondagem já registrada; pacote imutável")
     cmd = [sys.executable, "-m", "rasai.network_active_probe", "--worker",
            "--host", host, "--port", str(port)]
+    cmd.append("--authorize-active-network")
+    if include_traceroute:
+        cmd.append("--include-traceroute")
+    budget = _TIMEOUT_SECONDS + (9 if include_traceroute else 0)
     try:
         child = subprocess.run(cmd, capture_output=True, text=True,
-                               timeout=_TIMEOUT_SECONDS, check=False)
+                               timeout=budget, check=False)
     except subprocess.TimeoutExpired as exc:
         raise TimeoutError("Limite total de sondagem excedido") from exc
     if child.returncode or len(child.stdout) > _MAX_RESULT_BYTES:
@@ -213,6 +224,12 @@ def collect_authorized_probe(
             {"OBSERVED", "INCONCLUSIVE", "BLOCKED", "COLLECTION_FAILED"}):
         raise RuntimeError("Proveniência da sondagem inválida")
     record["audit_id"] = audit_id
+    peer = (record.get("metrics") or {}).get("connected_public_ip") or {}
+    peer_ip = peer.get("value") if peer.get("state") == "OBSERVED" else None
+    if peer_ip:
+        record["metrics"].update(enrich_public_ip(
+            peer_ip, asn_database=asn_database, city_database=city_database,
+        ))
     # Digest is for integrity, never identity of the collector/author.
     record["sha256"] = hashlib.sha256(_canonical(record)).hexdigest()
     record["digest_scope"] = "INTEGRITY_ONLY_NOT_AUTHORSHIP"
@@ -277,10 +294,17 @@ def main() -> None:
     parser.add_argument("--workspace")
     parser.add_argument("--permit-exact-host")
     parser.add_argument("--authorize-active-network", action="store_true")
+    parser.add_argument("--include-traceroute", action="store_true")
+    parser.add_argument("--asn-db", help="Arquivo MMDB ASN local, opcional")
+    parser.add_argument("--city-db", help="Arquivo MMDB GeoIP local, opcional")
     args = parser.parse_args()
     if args.worker:
         # Worker is an implementation boundary; it does not write artifacts.
-        print(json.dumps(_worker_probe(_host(args.host), args.port), ensure_ascii=False))
+        if not args.authorize_active_network:
+            parser.error("Sondagem ativa requer autorização expressa")
+        print(json.dumps(_worker_probe(
+            _host(args.host), args.port, include_traceroute=args.include_traceroute
+        ), ensure_ascii=False))
     else:
         if not args.workspace or not args.audit_id or not args.permit_exact_host:
             parser.error("workspace, audit-id e permit-exact-host são obrigatórios")
@@ -288,6 +312,8 @@ def main() -> None:
             args.workspace, args.audit_id, args.host,
             permitted_hostname=args.permit_exact_host,
             authorized=args.authorize_active_network, port=args.port,
+            include_traceroute=args.include_traceroute,
+            asn_database=args.asn_db, city_database=args.city_db,
         )
         print("Pacote complementar persistido:", path)
 

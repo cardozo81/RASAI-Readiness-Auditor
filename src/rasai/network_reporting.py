@@ -90,14 +90,33 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             ("tcp_handshake_ms", "Conexão TCP (ms)"),
             ("tls_handshake_ms", "Negociação TLS (ms)"),
             ("tls_protocol", "Versão TLS"),
+            ("asn", "Operador de rede (base local)"),
+            ("geoip", "Localização IP aproximada (base local)"),
+            ("traceroute", "Saltos lógicos de rede"),
         ):
             observation = metrics.get(key)
             if not isinstance(observation, dict):
                 continue
             status = _STATE.get(observation.get("state"), "Inconclusivo")
             value = observation.get("value") if observation.get("state") == "OBSERVED" else None
-            shown = ", ".join(str(x) for x in value) if isinstance(value, list) else (
-                str(value) if value is not None else "Sem medição disponível")
+            if isinstance(value, dict):
+                if key == "asn":
+                    shown = "AS" + str(value.get("number", "?")) + " - " + str(value.get("organization") or "operador não identificado")
+                elif key == "geoip":
+                    shown = ("Estimativa: " + str(value.get("latitude")) + "°, " +
+                             str(value.get("longitude")) + "°; precisão ±" +
+                             str(value.get("accuracy_radius_km")) + " km")
+                elif key == "traceroute":
+                    hops = value.get("hops") or []
+                    shown = (str(len(hops)) + " saltos com informações parciais; " +
+                             ("destino alcançado" if value.get("target_reached")
+                              else "caminho completo não confirmado"))
+                else:
+                    shown = "Informação estruturada"
+            elif isinstance(value, list):
+                shown = ", ".join(str(x) for x in value[:32])
+            else:
+                shown = str(value) if value is not None else "Sem medição disponível"
             rows.append("<tr><th scope='row'>" + escape(label) + "</th><td>" +
                         escape(shown) + "</td><td>" + escape(status) + "</td></tr>")
         if not rows:
@@ -112,7 +131,7 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             "<th>Resultado</th><th>Situação</th></tr></thead><tbody>" +
             "".join(rows) + "</tbody></table></div></section>"
         )
-    if not blocks:
+    if not observations and not probes and not (packet.exists() or packet.is_symlink()):
         blocks.append("<section class='panel'><h2>Dados ainda indisponíveis</h2>"
                       "<p>Esta auditoria não possui observações de rede utilizáveis. "
                       "Não significa que houve falha de conexão.</p></section>")

@@ -346,3 +346,11 @@ O complemento independente fica em `artifacts/network/probes/` e é somente de c
 O relatório de rede pode apresentar um mapa de coordenadas em SVG local, sem scripts, imagens ou mapas externos. Os marcadores exigem um complemento válido, métrica GeoIP observada, latitude/longitude finitas e raio de precisão informado. Cada marcador diferencia estimativa da referência IP de localização física do servidor e apresenta fonte, precisão e data. O desenho **não interpola rota física** a partir dos pontos. Sem coordenadas sustentadas, a página explica a ausência e utiliza as tabelas lógicas de DNS/conexão em vez de simular um mapa.
 
 O mapa não afeta indicadores ou resultados da auditoria e é reconstituído em modo somente leitura.
+
+
+
+## Caminho de rede e enriquecimento local (#659, G2 complementar)
+
+A opção `--include-traceroute` tenta observar, sob autorização expressa, até oito saltos para o mesmo IP público já validado na medição TCP. O limite do comando de sistema é de oito segundos; se não houver suporte a traceroute TCP (Linux) ou `tracert` (Windows), a ausência é declarada. A apresentação distingue caminhos parciais, destino não confirmado e ausência de resposta. Endereços privados de intermediários são ocultados. Latências por hop **não** são diferenças entre saltos, nem comprovam enlace físico ou localização.
+
+Bases MaxMind MMDB locais podem ser passadas opcionalmente por `--asn-db` e `--city-db`. Isso requer biblioteca `maxminddb` instalada e arquivos fornecidos pelo operador: não há download automático, consulta de API, compra ou chamadas de IA. O leitor valida limites, conteúdo, latitude, longitude, raio de precisão e SHA-256 da base. Dados de ASN representam atribuição aproximada de rede, não prova de propriedade do servidor; GeoIP representa localização estimada do IP, não localização física comprovada. CDN é informada apenas se houver evidência externa independente, não inferida de ASN ou GeoIP. Sem bases, esses campos permanecem como não observados. Pacotes já criados são imutáveis e não recebem medições posteriores.
