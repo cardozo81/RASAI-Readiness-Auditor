@@ -303,3 +303,14 @@ Apenas a página atual recebe o estado ativo.
 - operações pós-auditoria não devem alterar o hash do `audit.db` de origem.
 
 Detalhes: [CATALOG_AND_REPORT_SURFACES.md](CATALOG_AND_REPORT_SURFACES.md), [REPORT_GUIDE.md](REPORT_GUIDE.md), [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md), [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md) e [SCORE_GEO.md](SCORE_GEO.md).
+
+
+## Observabilidade de rede (issue #659, G1)
+
+A página `report-catalog/network.html` reúne observações **passivas** relacionadas à conexão e às respostas capturadas durante a auditoria. Ela é gerada junto das demais páginas, antes da assinatura lógica do pacote de integridade e de sua promoção final. O link na visão geral permite consultar as informações disponíveis por dispositivo.
+
+A fonte primária continua sendo `audit.db` (snapshots M3/M6 já capturados). Quando o fluxo permite persistência complementar, o RASAi cria `artifacts/network/network-observations.json`, um pacote versionado independente. Sua escrita é exclusiva e idempotente: divergências não sobrescrevem evidências anteriores. O leitor verifica a identidade da AUD e o SHA-256 de cada observação; esse digest **não** autentica o responsável pela captura. A rematerialização somente leitura não gera novos pacotes nem executa sondagens.
+
+Um IP público observado identifica o par da conexão do navegador, não a localização física do servidor nem o caminho de rede. Campos DNS, TCP, TLS, ASN, geolocalização e traceroute só apresentam dados quando a fonte correspondente os comprova; a ausência de valores é diferenciada de erro e de pacote inválido. Este G1 não realiza traceroute, consultas GeoIP/ASN ou chamadas de IA, nem altera scores, catálogos, motores, arquitetura ou evidências de uma AUD selada.
+
+A coleta ativa condicionada, o enriquecimento de topologia e os mapas pertencem às etapas G2/G3 da #659 e não devem ser considerados implementados por esta página. Para auditorias anteriores sem observações compatíveis, o relatório declara a limitação sem simular medições.
