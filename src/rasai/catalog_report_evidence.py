@@ -2,6 +2,8 @@
 from rasai.catalog_report_metrics import *  # noqa: F401,F403
 from rasai.catalog_report_public_labels import public_label, public_text
 from rasai.catalog_source_dependencies import record_source_dependency
+from rasai.secret_safety import redact_text, redact_value
+from urllib.parse import quote
 
 
 def _artifact_path(root: Path, reference: Any) -> Path|None:
@@ -375,6 +377,119 @@ def _semantic_provenance_notice(assessments: Sequence[Mapping[str, Any]]) -> str
     return note + "</div>"
 
 
+
+_MAX_INLINE_JSONLD_BYTES = 1024 * 1024
+
+
+def _structured_documents_html(database: Path, data: _ReportData) -> str:
+    """Display actual extracted JSON-LD in CAT-03, not just its rule outcomes.
+
+    This is a read-only rendering of snapshot-bound artifacts. It never
+    changes raw/parsed evidence, the capture, scoring, or provider execution.
+    """
+    snapshots = _capture_snapshots(database, data.audit_id)
+    if not snapshots:
+        return "<p class='muted'>Nenhuma captura disponível para inventariar documentos JSON-LD.</p>"
+
+    cards = []
+    for index, snap in enumerate(snapshots, 1):
+        url = redact_text(str(
+            snap.get("page_url") or snap.get("final_url") or
+            snap.get("requested_url") or "-"
+        ))
+        device = _device_label(snap.get("device"))
+        snapshot_id = str(snap.get("snapshot_id") or "-")
+        ref = str(snap.get("structured_data_ref") or "").strip()
+        card = (
+            f"<article class='page-card jsonld-inline-document' id='jsonld-capture-{index}'>"
+            "<h4>JSON-LD extraído · " + escape(str(device)) + "</h4>"
+            "<p><strong>URL:</strong> " + escape(url)
+            + " · <strong>Snapshot:</strong> <code>" + escape(snapshot_id)
+            + "</code></p>"
+        )
+        if not ref:
+            cards.append(card + "<p class='muted'>Nenhum artefato JSON-LD foi persistido nesta captura; "
+                         "a marcação pode estar ausente ou a extração indisponível.</p></article>")
+            continue
+
+        artifact = _artifact_path(database.parent, ref)
+        if artifact is None:
+            cards.append(card + "<p class='notice warn'>Artefato não disponível ou "
+                         "referência fora da auditoria. Nenhum JSON-LD inferido.</p></article>")
+            continue
+
+        href = "../" + quote(ref.replace("\\", "/").lstrip("/"), safe="/")
+        provenance = (
+            "<p><strong>Artefato de origem:</strong> <code>"
+            + escape(redact_text(ref)) + "</code> · <a href='"
+            + escape(href, quote=True) + "'>Abrir arquivo original</a></p>"
+        )
+        try:
+            artifact_size = artifact.stat().st_size
+        except OSError:
+            cards.append(card + "<p class='notice warn'>Leitura do JSON-LD indisponível.</p></article>")
+            continue
+
+        if artifact_size > _MAX_INLINE_JSONLD_BYTES:
+            cards.append(card + provenance +
+                         "<p class='notice warn'>Documento acima de 1 MiB. Exibição direta "
+                         "limitada para proteger o desempenho do relatório; o arquivo "
+                         "original permanece acessível.</p></article>")
+            continue
+
+        payload = _read_json_artifact(database.parent, ref, max_bytes=_MAX_INLINE_JSONLD_BYTES)
+        blocks = payload.get("blocks") if isinstance(payload, dict) else None
+        if not isinstance(blocks, list):
+            cards.append(card + provenance + "<p class='notice warn'>Artefato presente, "
+                         "mas não interpretável no formato persistido.</p></article>")
+            continue
+
+        displayed = []
+        for number, block in enumerate(blocks, 1):
+            if not isinstance(block, dict):
+                displayed.append(f"<p class='notice warn'>Bloco {number}: formato inválido.</p>")
+                continue
+            error = block.get("parse_error")
+            parsed = block.get("parsed")
+            types = block.get("types")
+            types_label = ", ".join(str(item) for item in types) if isinstance(types, list) else ""
+            if error or parsed is None:
+                state = "Não interpretado"
+                document = redact_text(str(block.get("raw") or "(conteúdo indisponível)"))
+            else:
+                state = "Interpretado"
+                document = json.dumps(redact_value(parsed), ensure_ascii=False, indent=2)
+            displayed.append(
+                "<section class='jsonld-captured-block'>"
+                f"<h5>Bloco {number} · {state}</h5>"
+                "<p><strong>Tipos:</strong> " + escape(redact_text(types_label or "não identificados"))
+                + " · <strong>Erro:</strong> " + escape(str(error or "Nenhum")) + "</p>"
+                "<pre class='pre jsonld-captured-json' "
+                "style='white-space:pre-wrap;overflow-wrap:anywhere'>"
+                + escape(document) + "</pre></section>"
+            )
+
+        cards.append(
+            card + provenance +
+            "<p><strong>Blocos extraídos:</strong> " + str(len(blocks)) +
+            ". Projeção sanitizada do JSON-LD observado, não uma proposta da IA. "
+            "A presença no contexto não comprova uso efetivo por um modelo.</p>" +
+            ("".join(displayed) if displayed else
+             "<p class='muted'>Nenhum bloco extraído neste artefato.</p>") +
+            "</article>"
+        )
+
+    return (
+        "<div class='subsection' id='jsonld-documentos-extraidos'>"
+        "<h3>Documentos JSON-LD extraídos — visualização direta</h3>"
+        "<p class='section-lead'>Os documentos são exibidos nesta página, por URL, "
+        "dispositivo e captura, sem abertura de modal. Campos sensíveis são suprimidos "
+        "somente nesta visualização, sem alterar o artefato original.</p>"
+        + "".join(cards) + "</div>"
+    )
+
+
+
 def _semantic_html(database: Path, data: _ReportData) -> str:
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row
     try:
@@ -386,7 +501,8 @@ def _semantic_html(database: Path, data: _ReportData) -> str:
         entity_labels={"ORGANIZATION":"Organização","PERSON":"Pessoa","PRODUCT":"Produto","SERVICE":"Serviço","PLACE":"Local","EVENT":"Evento","TOPIC":"Tópico"}
         rows=[(r.get("name"),entity_labels.get(_norm(r.get("entity_type")),public_label(r.get("entity_type")) or str(r.get("entity_type") or "-").replace("_"," ").title()),_confidence_label(r.get("confidence"))) for r in entities]
         blocks.append("<div class='subsection'><h3>Entidades identificadas</h3>"+_table(("Entidade","Tipo","Confiança"),rows,sortable=True,page_size=10 if len(rows)>10 else None)+"</div>")
-    blocks.append("<div class='subsection'><h3>Dados estruturados / JSON-LD</h3>"+_structured_data_html(database,data)+"</div>")
+    blocks.append(_structured_documents_html(database, data))
+    blocks.append("<div class='subsection'><h3>Validações de dados estruturados / JSON-LD</h3>"+_structured_data_html(database,data)+"</div>")
     if assessments:
         blocks.append(_semantic_provenance_notice(assessments))
     return "".join(blocks)

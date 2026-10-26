@@ -1,0 +1,22 @@
+name: CAT-03 Inline JSON-LD Evidence
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/catalog_report_evidence.py'
+      - 'tests/test_cat03_jsonld_inline.py'
+      - '.github/workflows/cat03-jsonld-inline.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  focused-evidence-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e . pytest
+      - run: python -m pytest -q tests/test_cat03_jsonld_inline.py tests/test_semantic_summary_provenance.py tests/test_m20_jsonld_artifact_view.py
