@@ -24,6 +24,7 @@ from rasai.domain import (
 from rasai.evidence import EvidenceManager
 from rasai.extraction import ContentExtractor
 from rasai.m3 import M3ExecutionResult
+from rasai.m4 import _attested_hidden_markers
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.render_materiality import capture_quality_block_reason
 from rasai.rules import RuleDefinition, RuleScope
@@ -97,7 +98,7 @@ def execute_content_extractability(
             persisted_main = _read(workspace, snapshot.main_content_ref)
             quality_reason = capture_quality_block_reason(snapshot.browser_metadata)
             extracted = (
-                extractor.extract(rendered_html)
+                _extract_for_comparison(extractor, rendered_html, snapshot, workspace)
                 if quality_reason is None and rendered_html is not None
                 else None
             )
@@ -177,6 +178,26 @@ def execute_content_extractability(
                     finding_ids.append(finding.finding_id)
 
     return ContentExtractabilityResult(tuple(execution_ids), tuple(finding_ids))
+
+
+def _extract_for_comparison(
+    extractor: ContentExtractor,
+    rendered_html: str,
+    snapshot: object,
+    workspace: AuditWorkspace,
+) -> object:
+    """Align BR-GEO-025..027 with M4's attested rendered-DOM visibility.
+
+    M4 suppresses only hidden text proven by the matching rendered artifact's
+    CSS witness. A fresh bare-DOM extraction here would misinterpret those
+    intentionally suppressed amounts as lost essential information.
+    """
+    rendered_ref = snapshot.rendered_artifact_ref
+    markers = (
+        _attested_hidden_markers(snapshot, workspace, "RENDERED_DOM", rendered_ref)
+        if rendered_ref else None
+    )
+    return extractor.extract(rendered_html, hidden_markers=markers)
 
 
 def _unknown_evaluations(reason: str) -> dict[str, tuple[RuleResult, object, str, str | None]]:
