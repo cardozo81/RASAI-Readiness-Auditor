@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import gc
 from pathlib import Path
 import sqlite3
 from tempfile import TemporaryDirectory
@@ -271,6 +272,11 @@ def test_reprocess_is_noop_after_success_and_does_not_repeat_successful_item() -
         assert second.reprocess_id is None
         assert second.processing_status == COMPLETE
         assert second.consolidation_eligible is True
+        # sqlite3 connection/cursor reference cycles are finalized lazily by
+        # CPython. Windows prevents TemporaryDirectory from unlinking audit.db
+        # while any such finalized-but-not-yet-collected handle remains open.
+        # Collect at the fixture boundary, without weakening the cleanup check.
+        gc.collect()
 
 def test_m20_exception_does_not_leave_required_work_item_pending() -> None:
     from rasai.audit_fulfillment_runtime import _wrap_m20
