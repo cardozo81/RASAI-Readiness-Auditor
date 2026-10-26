@@ -338,3 +338,11 @@ Exemplo de uso **apenas para domínio cuja medição ativa esteja autorizada**:
 O processo filho possui limite total de 10 segundos, usa resolução DNS limitada a 32 respostas, rejeita o conjunto inteiro se qualquer endereço não for globalmente roteável e fixa a conexão TCP ao IP previamente validado para impedir mudança silenciosa por nova resolução. Só são aceitas as portas 80 e 443; TLS usa validação padrão e nome de servidor original. Sem solicitações HTTP, seguir redirects, ICMP, privilégios administrativos ou geolocalização externa. Restrições de rede, VPN e proxy de saída não são verificáveis automaticamente. O período DNS inclui cache do resolver local, e o tempo TCP/TLS mede a sessão do próprio executor.
 
 O complemento independente fica em `artifacts/network/probes/` e é somente de criação exclusiva, com SHA-256 (integridade, não autoria). A página `network.html` lê os complementos válidos offline, sem rede nem mutação do pacote. Respostas DNS privadas, falhas de captura, campos ausentes e medições observadas permanecem estados distintos. Este estágio **não implementa** traceroute, detecção de AS/CDN e GeoIP; essas lacunas continuam pendentes no G2, assim como cartografia e topologia consultiva do G3.
+
+
+
+## Cartografia offline orientada a evidências (#659, G3)
+
+O relatório de rede pode apresentar um mapa de coordenadas em SVG local, sem scripts, imagens ou mapas externos. Os marcadores exigem um complemento válido, métrica GeoIP observada, latitude/longitude finitas e raio de precisão informado. Cada marcador diferencia estimativa da referência IP de localização física do servidor e apresenta fonte, precisão e data. O desenho **não interpola rota física** a partir dos pontos. Sem coordenadas sustentadas, a página explica a ausência e utiliza as tabelas lógicas de DNS/conexão em vez de simular um mapa.
+
+O mapa não afeta indicadores ou resultados da auditoria e é reconstituído em modo somente leitura.

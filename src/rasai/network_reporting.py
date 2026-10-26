@@ -7,6 +7,7 @@ from pathlib import Path
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations
 from rasai.network_active_probe import read_authorized_probes
+from rasai.network_map import network_geographic_panel
 
 _PAGE = "network.html"
 _LABELS = {
@@ -76,6 +77,7 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             + "".join(cells) + "</tbody></table></div></section>"
         )
     probes = read_authorized_probes(root, audit_id)
+    blocks.append(network_geographic_panel(probes))
     for probe in probes:
         metrics = probe.get("metrics") or {}
         if not isinstance(metrics, dict):
