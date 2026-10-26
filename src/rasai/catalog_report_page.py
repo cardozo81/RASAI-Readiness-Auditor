@@ -1,5 +1,6 @@
 """Shared CAT page assembly preserving the stable section order."""
 import sqlite3
+from math import isfinite
 from rasai.catalog_report_analysis import *  # noqa: F401,F403
 from rasai.catalog_report_public_labels import public_contract_label, public_label, public_text
 from rasai.secret_safety import redact_text
@@ -144,6 +145,92 @@ def _web_performance_diagnostics_html(database: Path, data: _ReportData) -> str:
     return attempt_table+f"<div class='notice{tone}'><strong>Estado no fulfillment:</strong>{fulfillment}</div>"
 
 
+def _core_web_vitals_explanation_html(observation: dict[str, Any]) -> str:
+    """Explain the persisted field outcome, without recrawling or changing it.
+
+    Threshold comparisons are explanatory only. A field source assessment is
+    authoritative when present; URL and origin populations are never merged.
+    """
+    status = str(observation.get("cwv_assessment") or "").strip().upper()
+    if status not in {"PASS", "FAIL", "INCOMPLETE"}:
+        return ""
+    scope = str(observation.get("field_scope") or "").strip().upper()
+    population = (
+        "URL observada pela fonte" if scope == "URL"
+        else "origem agregada (ORIGIN), não necessariamente a URL auditada"
+        if scope in {"ORIGIN", "ORIGIN_ONLY"}
+        else "escopo não comprovado; não atribuir o resultado à URL"
+    )
+    metrics = (
+        ("LCP · carregamento", "lcp_p75_ms", 2500.0, 4000.0, "ms"),
+        ("INP · resposta às interações", "inp_p75_ms", 200.0, 500.0, "ms"),
+        ("CLS · estabilidade visual", "cls_p75", 0.1, 0.25, ""),
+    )
+    rows = []
+    outside_good = []
+    for label, field, good_limit, bad_limit, unit in metrics:
+        raw = observation.get(field)
+        try:
+            measured = float(raw) if raw is not None else None
+            if measured is not None and not isfinite(measured):
+                measured = None
+        except (ValueError, TypeError, OverflowError):
+            measured = None
+        if measured is None:
+            display = "N/D"
+            quality = "Sem medição atribuível"
+        else:
+            display = (
+                f"{int(measured):,}".replace(",", ".") + " ms"
+                if unit else f"{measured:.3f}".rstrip("0").rstrip(".").replace(".", ",")
+            )
+            quality = (
+                "Bom" if measured <= good_limit
+                else "Precisa melhorar" if measured <= bad_limit else "Ruim"
+            )
+            if measured > good_limit:
+                outside_good.append(label.split(" · ")[0])
+        limit_label = (
+            f"≤ {int(good_limit):,}".replace(",", ".") + " ms"
+            if unit else "≤ 0,1"
+        )
+        rows.append((label, display, limit_label, quality))
+    if status == "FAIL":
+        reason = (
+            "O resultado não foi aprovado porque "
+            + ", ".join(outside_good)
+            + (" ultrapassaram" if len(outside_good) > 1 else " ultrapassou")
+            + " o respectivo limite de boa experiência no percentil 75."
+            if outside_good
+            else "A fonte persistiu não aprovação, mas os valores disponíveis "
+                 "não permitem identificar a causa métrica com segurança."
+        )
+    elif status == "PASS":
+        reason = "A fonte registrou aprovação desta população de campo."
+    else:
+        reason = "A fonte não dispôs de todos os dados necessários para uma avaliação completa."
+    return (
+        "<div class='subsection' id='cwv-explanation'>"
+        "<h3>Por que Core Web Vitals recebeu essa avaliação?</h3>"
+        "<div class='notice'><strong>Resultado de experiência real (CrUX), "
+        "não falha do RASAi:</strong> " + escape(reason)
+        + "</div><p class='section-lead'><strong>Escopo:</strong> "
+        + escape(population)
+        + ". A avaliação usa métricas de usuários reais no percentil 75; "
+        "todas as métricas aplicáveis precisam atingir a categoria Boa. "
+        "Os limites abaixo são os critérios públicos de Core Web Vitals, "
+        "não metas proprietárias do RASAi.</p>"
+        + _table(
+            ("Métrica", "p75 observado", "Limite para Bom", "Diagnóstico"),
+            rows,
+        )
+        + "<p class='muted'>Classificações calculadas apenas para explicar os "
+        "valores já persistidos. Lighthouse é uma medição de laboratório "
+        "separada e não substitui o CrUX; reprocessar apenas o HTML não "
+        "altera o resultado de campo nem executa nova medição.</p></div>"
+    )
+
+
 def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) -> str:
     metrics=_catalog_metrics(database,data,catalog_id)
     display_metrics=_catalog_metric_rows(catalog_id,metrics)
@@ -182,7 +269,7 @@ def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) ->
         provenance=_crux_provenance_html(database,data)
         diagnostics="<div class='subsection'><h3>Diagnóstico das fontes externas</h3>"+_web_performance_diagnostics_html(database,data)+"</div>"
         javascript="<div class='subsection'><h3>JavaScript · custo por recurso</h3>"+_script_performance_html(database,data)+"</div>"
-        return base+provenance+assessments+javascript+diagnostics
+        return base+provenance+_core_web_vitals_explanation_html(obs)+assessments+javascript+diagnostics
     if catalog_id=="CAT-05":
         return base+"<div class='subsection'><h3>Observações de busca</h3>"+_search_intelligence_html(database,data)+"</div>"
     if catalog_id=="CAT-06":
