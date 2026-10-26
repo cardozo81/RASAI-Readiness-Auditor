@@ -6,6 +6,7 @@ This projection must never create a search request or write to audit.db.
 from __future__ import annotations
 
 from rasai.report_ptbr_copy import public_geo_action
+from rasai.catalog_report_public_labels import public_label
 
 from contextlib import closing
 
@@ -514,7 +515,7 @@ def _baseline_findings_section(database: Path, audit_id: str) -> str:
             "<div class='geo-review-indicator'><small>Gravidade original</small>"
             "<strong>" + escape(str(finding.get("severity") or "N/D")) + "</strong>"
             "</div></div><div class='geo-review-content'>"
-            "<h3>" + escape(str(finding.get("title") or "-")) + "</h3>"
+            "<h3>" + escape(public_label(finding.get("title")) or str(finding.get("title") or "-")) + "</h3>"
             "<dl class='geo-review-fields'>"
             "<div><dt>Área responsável</dt><dd>" + escape(owner) + "</dd></div>"
             "<div><dt>Verificação</dt><dd>" + escape(verification) + "</dd></div>"

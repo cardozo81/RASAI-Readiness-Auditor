@@ -746,6 +746,11 @@ PUBLIC_VALUE_LABELS.update({
 })
 
 PUBLIC_PHRASE_LABELS: dict[str, str] = {
+    # #665 R06: translate only attested public rule titles at the read-only
+    # presentation boundary. Persisted normative titles and IDs stay intact.
+    "canonical declarations must be interpretable and non-conflicting": "As declarações canonical devem ser interpretáveis e não conflitantes",
+    "robots.txt must be interpretable when present": "O robots.txt deve ser interpretável quando estiver presente",
+    "sitemap resources must be acquired and interpreted when available": "Os recursos de sitemap devem ser adquiridos e interpretados quando disponíveis",
     "external organic result; business equivalence is not inferred": "Resultado orgânico externo; equivalência comercial não é inferida",
     "public-authority domain heuristic": "Heurística de domínio de autoridade pública",
 }

@@ -98,6 +98,7 @@ class _ExtractionParser(HTMLParser):
         self.main_depth = 0
         self.body_depth = 0
         self.title_depth = 0
+        self.title_seen = False
         self.title_parts: list[str] = []
         self.description: str | None = None
         self.canonical: str | None = None
@@ -129,8 +130,12 @@ class _ExtractionParser(HTMLParser):
             self.boilerplate_depth += 1
         if starts_main:
             self.main_depth += 1
-        if tag == "title":
-            self.title_depth += 1
+        # HTML document title is the direct child of <head>; SVG <title>
+        # describes graphics and must not contaminate SEO findings.
+        if (tag == "title" and len(self.stack) >= 2
+                and self.stack[-2][0] == "head" and not self.title_seen):
+            self.title_depth = 1
+            self.title_seen = True
 
         if tag == "meta":
             name = values.get("name", "").strip().lower()
@@ -204,7 +209,7 @@ class _ExtractionParser(HTMLParser):
             if tag == "body" and self.body_depth:
                 self.body_depth -= 1
             if tag == "title" and self.title_depth:
-                self.title_depth -= 1
+                self.title_depth = 0
             if starts_skip and self.skip_depth:
                 self.skip_depth -= 1
             if starts_boilerplate and self.boilerplate_depth:

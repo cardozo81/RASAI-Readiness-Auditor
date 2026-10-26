@@ -32,7 +32,17 @@ _SENSITIVE_ARG_NAMES = frozenset({
     "DATABASE_URL", "DB_URL", "DSN", "CONNECTION_STRING", "CONNECTION_URL",
 })
 _ENV_NAME_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
-_URI_WITH_AUTH_RE = re.compile(r"\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s/@:]+:[^\s/@]+@[^\s]+")
+# Match URI userinfo under URI syntax, not arbitrary text across JSON/HTML
+# quotation marks, escapes or field delimiters (issue #665 R05).
+# Keep the same detector for both redaction and output assurance.
+_URI_WITH_AUTH_RE = re.compile(
+    r"\b[a-zA-Z][a-zA-Z0-9+.-]*://"
+    r"[A-Za-z0-9._~!_URI_WITH_AUTH_RE = re.compile(r"\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s/@:]+:[^\s/@]+@[^\s]+")'()*+,;=%-]+:"
+    r"[A-Za-z0-9._~!_URI_WITH_AUTH_RE = re.compile(r"\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s/@:]+:[^\s/@]+@[^\s]+")'()*+,;=:%-]+@"
+    r"(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)"
+    r"(?::[0-9]{1,5})?"
+    r"(?:/[^\s\"'\\<>]*)?"
+)
 _BEARER_RE = re.compile(r"(?i)\bBearer\s+([^\s,;]+)")
 _HEADER_RE = re.compile(
     r"(?im)^(\s*(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|api-key)\s*:\s*)(.+)$"
