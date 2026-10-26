@@ -174,8 +174,10 @@ def _audit_has_target(workspace: Path, audit_id: str, host: str) -> bool:
     return False
 
 
-def probe_path(workspace: Path, audit_id: str, host: str, port: int) -> Path:
-    fingerprint = hashlib.sha256(f"{audit_id}\n{host}\n{port}".encode()).hexdigest()[:32]
+def probe_path(workspace: Path, audit_id: str, host: str, port: int,
+               series_id: str | None = None) -> Path:
+    scope = f"{audit_id}\n{host}\n{port}" + ("\n" + series_id if series_id is not None else "")
+    fingerprint = hashlib.sha256(scope.encode()).hexdigest()[:32]
     return workspace / "artifacts" / "network" / "probes" / (fingerprint + ".json")
 
 
@@ -189,16 +191,19 @@ def collect_authorized_probe(
     permitted_hostname: str, authorized: bool, port: int = 443,
     include_traceroute: bool = False, asn_database: str | None = None,
     city_database: str | None = None,
+    series_id: str | None = None,
 ) -> Path:
     """Explicit operator consent and exact AUD target scope. No silent retries."""
     host = _host(hostname)
     if (not authorized or _host(permitted_hostname) != host or
             not _ID.fullmatch(audit_id) or type(port) is not int or port not in (80, 443)):
         raise ValueError("Sondagem não autorizada para o destino informado")
+    if series_id is not None and (not _ID.fullmatch(series_id) or len(series_id) > 32):
+        raise ValueError("Identificador de série inválido")
     root = Path(workspace)
     if not _audit_has_target(root, audit_id, host):
         raise ValueError("Destino não vinculado à auditoria informada")
-    path = probe_path(root, audit_id, host, port)
+    path = probe_path(root, audit_id, host, port, series_id)
     if path.exists() or path.is_symlink():
         raise FileExistsError("Sondagem já registrada; pacote imutável")
     cmd = [sys.executable, "-m", "rasai.network_active_probe", "--worker",
@@ -224,6 +229,8 @@ def collect_authorized_probe(
             {"OBSERVED", "INCONCLUSIVE", "BLOCKED", "COLLECTION_FAILED"}):
         raise RuntimeError("Proveniência da sondagem inválida")
     record["audit_id"] = audit_id
+    if series_id is not None:
+        record["series_id"] = series_id
     peer = (record.get("metrics") or {}).get("connected_public_ip") or {}
     peer_ip = peer.get("value") if peer.get("state") == "OBSERVED" else None
     if peer_ip:
@@ -270,7 +277,12 @@ def read_authorized_probes(workspace: str | Path, audit_id: str) -> list[dict]:
                 continue
             host = _host(row.get("hostname"))
             port = row.get("port")
-            if port not in (80, 443) or probe_path(root, audit_id, host, port) != path:
+            series_id = row.get("series_id")
+            if series_id is not None and (not isinstance(series_id, str)
+                                          or not _ID.fullmatch(series_id)
+                                          or len(series_id) > 32):
+                continue
+            if port not in (80, 443) or probe_path(root, audit_id, host, port, series_id) != path:
                 continue
             sha = row.pop("sha256", None)
             digest_scope = row.pop("digest_scope", None)
@@ -297,6 +309,7 @@ def main() -> None:
     parser.add_argument("--include-traceroute", action="store_true")
     parser.add_argument("--asn-db", help="Arquivo MMDB ASN local, opcional")
     parser.add_argument("--city-db", help="Arquivo MMDB GeoIP local, opcional")
+    parser.add_argument("--series-id", help="Rótulo da nova medição independente")
     args = parser.parse_args()
     if args.worker:
         # Worker is an implementation boundary; it does not write artifacts.
@@ -314,6 +327,7 @@ def main() -> None:
             authorized=args.authorize_active_network, port=args.port,
             include_traceroute=args.include_traceroute,
             asn_database=args.asn_db, city_database=args.city_db,
+            series_id=args.series_id,
         )
         print("Pacote complementar persistido:", path)
 

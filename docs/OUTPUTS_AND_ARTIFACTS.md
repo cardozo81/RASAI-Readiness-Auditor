@@ -354,3 +354,9 @@ O mapa não afeta indicadores ou resultados da auditoria e é reconstituído em 
 A opção `--include-traceroute` tenta observar, sob autorização expressa, até oito saltos para o mesmo IP público já validado na medição TCP. O limite do comando de sistema é de oito segundos; se não houver suporte a traceroute TCP (Linux) ou `tracert` (Windows), a ausência é declarada. A apresentação distingue caminhos parciais, destino não confirmado e ausência de resposta. Endereços privados de intermediários são ocultados. Latências por hop **não** são diferenças entre saltos, nem comprovam enlace físico ou localização.
 
 Bases MaxMind MMDB locais podem ser passadas opcionalmente por `--asn-db` e `--city-db`. Isso requer biblioteca `maxminddb` instalada e arquivos fornecidos pelo operador: não há download automático, consulta de API, compra ou chamadas de IA. O leitor valida limites, conteúdo, latitude, longitude, raio de precisão e SHA-256 da base. Dados de ASN representam atribuição aproximada de rede, não prova de propriedade do servidor; GeoIP representa localização estimada do IP, não localização física comprovada. CDN é informada apenas se houver evidência externa independente, não inferida de ASN ou GeoIP. Sem bases, esses campos permanecem como não observados. Pacotes já criados são imutáveis e não recebem medições posteriores.
+
+
+
+## Histórico de sondagens independentes (#659)
+
+O argumento opcional `--series-id` identifica uma nova medição autorizada sem sobrescrever coletas anteriores (1 a 32 caracteres seguros). Cada novo pacote é imutável. Com duas datas distintas e métricas comparáveis do mesmo hostname e porta, o relatório mostra a diferença observada de TCP/TLS sem inferir causa, experiência real de usuários ou persistência da mesma rede de saída. Saltos são detalhados com ocultação de endereços privados, sem desenhos de rotas físicas.

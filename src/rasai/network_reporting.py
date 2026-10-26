@@ -8,6 +8,7 @@ from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_map import network_geographic_panel
+from rasai.network_progression import route_panels, temporal_panel
 
 _PAGE = "network.html"
 _LABELS = {
@@ -78,6 +79,13 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
         )
     probes = read_authorized_probes(root, audit_id)
     blocks.append(network_geographic_panel(probes))
+    if probes:
+        route_html = route_panels(probes)
+        history_html = temporal_panel(probes)
+        if route_html:
+            blocks.append(route_html)
+        if history_html:
+            blocks.append(history_html)
     for probe in probes:
         metrics = probe.get("metrics") or {}
         if not isinstance(metrics, dict):

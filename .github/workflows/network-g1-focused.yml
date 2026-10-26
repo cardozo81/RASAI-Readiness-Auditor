@@ -40,6 +40,7 @@ jobs:
           tests/test_network_active_probe.py
           tests/test_network_enrichment.py
           tests/test_network_traceroute.py
+          tests/test_network_progression.py
           tests/test_network_map.py
           tests/test_network_reporting.py
           tests/test_catalog_report_site.py
