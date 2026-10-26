@@ -88,3 +88,61 @@ def test_live_browser_identifier_values_are_hashed_before_persistence():
     assert _hash("fundraising-modal") in observed["hidden_ids_sha256"]
     assert "overlay-banner-main" not in str(observed)
     assert "fundraising-modal" not in str(observed)
+
+def test_device_scoped_renderer_persists_visibility_only_for_frozen_dom() -> None:
+    """#665 R02: the device capture path must not silently omit CSS markers."""
+    from rasai.device_context_capture import _capture_bound_dom_visibility
+
+    html = "<html><main><div class='overlay-banner-main'>hidden</div></main></html>"
+
+    class Page:
+        def __init__(self, values: list[str]) -> None:
+            self.values = iter(values)
+
+        def content(self) -> str:
+            return next(self.values)
+
+    class Renderer:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def _capture_dom_visibility(self, _page: object) -> dict[str, object]:
+            self.calls += 1
+            return {
+                "version": "dom-visibility-v1",
+                "source": "CHROMIUM_COMPUTED_STYLE",
+                "status": "OBSERVED",
+                "hidden_ids_sha256": [],
+                "hidden_classes_sha256": [_hash("overlay-banner-main")],
+                "inspected": 1,
+            }
+
+    renderer = Renderer()
+    stable = _capture_bound_dom_visibility(renderer, Page([html, html]), html)
+    assert stable["status"] == "OBSERVED"
+    assert _hash("overlay-banner-main") in stable["hidden_classes_sha256"]
+    assert renderer.calls == 1
+    assert "rendered_sha256" not in stable  # SHA identity is owned by M3
+
+    changed_before = _capture_bound_dom_visibility(
+        renderer, Page([html + " changed"]), html,
+    )
+    assert changed_before["status"] == "UNAVAILABLE"
+    assert changed_before["hidden_classes_sha256"] == []
+    assert renderer.calls == 1
+
+    changed_after = _capture_bound_dom_visibility(
+        renderer, Page([html, html + " changed"]), html,
+    )
+    assert changed_after["status"] == "UNAVAILABLE"
+    assert changed_after["hidden_classes_sha256"] == []
+    assert renderer.calls == 2
+
+
+def test_device_scoped_installer_uses_bound_visibility_observation() -> None:
+    """Guard the overridden production renderer, not just the helper."""
+    import inspect
+    from rasai import device_context_capture
+    source = inspect.getsource(device_context_capture._install_browser_capture)
+    assert 'metadata["dom_visibility"] = _capture_bound_dom_visibility(' in source
+

@@ -989,6 +989,35 @@ def _promote_bounded_lazy_dom(
     }
 
 
+
+def _capture_bound_dom_visibility(renderer: Any, page: Any, rendered_html: str) -> dict[str, Any]:
+    """Capture CSS-hidden selectors for the exact frozen M3 rendered DOM only.
+
+    The device-scoped installer overrides BrowserIdentityRenderer._render_once,
+    so the canonical computed-style observation must be forwarded here.
+    Abstain if the accepted DOM changes before or during this observation.
+    """
+    unavailable = {
+        "version": "dom-visibility-v1",
+        "source": "CHROMIUM_COMPUTED_STYLE",
+        "status": "UNAVAILABLE",
+        "hidden_ids_sha256": [],
+        "hidden_classes_sha256": [],
+        "inspected": 0,
+        "reason": "FROZEN_DOM_MISMATCH_OR_UNAVAILABLE",
+    }
+    frozen_digest = hashlib.sha256(rendered_html.encode("utf-8")).hexdigest()
+    try:
+        if hashlib.sha256(page.content().encode("utf-8")).hexdigest() != frozen_digest:
+            return unavailable
+        observed = renderer._capture_dom_visibility(page)
+        if hashlib.sha256(page.content().encode("utf-8")).hexdigest() != frozen_digest:
+            return unavailable
+        return observed if isinstance(observed, dict) else unavailable
+    except (PlaywrightError, TypeError, ValueError, AttributeError):
+        return unavailable
+
+
 def _install_browser_capture() -> None:
     from rasai.browser_identity_renderer import BrowserIdentityRenderer
     from rasai.browser_render_failure import render_failure_context
@@ -1278,6 +1307,12 @@ def _install_browser_capture() -> None:
             metadata["capture_scope"] = ContextScope.DEVICE_SNAPSHOT.value
             metadata["document_source"] = document_source
             metadata["rendered_dom"] = rendered_dom
+            # #665 R02: the device-scoped _render_once overrides the base
+            # renderer's visibility capture. Restore it for the frozen DOM,
+            # then M3 binds it to the persisted rendered-artifact SHA-256.
+            metadata["dom_visibility"] = _capture_bound_dom_visibility(
+                self, page, rendered_html,
+            )
             metadata["script_runtime"] = script_runtime
             metadata["network_resource_observations"] = _observed_resource_metadata(cdp_capture)
             metadata["main_response_network"] = cdp_capture.get("main_response_network")

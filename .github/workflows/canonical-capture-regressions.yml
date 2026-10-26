@@ -18,6 +18,7 @@ on:
       - 'tests/test_http_content_normalization.py'
       - 'tests/test_captured_dom_visibility.py'
       - 'src/rasai/browser_identity_renderer.py'
+      - 'src/rasai/device_context_capture.py'
       - 'src/rasai/rendering.py'
       - '.github/workflows/canonical-capture-regressions.yml'
   workflow_dispatch:
