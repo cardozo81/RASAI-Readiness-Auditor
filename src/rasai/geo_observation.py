@@ -137,7 +137,7 @@ def _target_observation(
     if len(targets) != 1 or not isinstance(queries, list) or len(queries) != 1:
         return {
             "status": "NOT_COMPARABLE",
-            "explanation": "Alvo único ou atribuição por consulta indisponível.",
+            "explanation": "Alvo unico ou atribuicao por consulta indisponivel.",
             "recommendation": None,
             "evidence_run_id": run["run_id"],
         }
@@ -145,7 +145,7 @@ def _target_observation(
     desired = _canonical_url(target)
     domain = _host(target)
     if not desired or not domain or str(run["status"]).upper() != "SUCCESS":
-        return {"status": "UNAVAILABLE", "explanation": "Observação incompleta.",
+        return {"status": "UNAVAILABLE", "explanation": "Observacao incompleta.",
                 "recommendation": None, "evidence_run_id": run["run_id"]}
     source_urls = [str(item["url"]) for item in sources]
     exact = [url for url in source_urls if _canonical_url(url) == desired]
@@ -154,13 +154,13 @@ def _target_observation(
     competitors = [url for url in source_urls if _host(url) and _host(url) != domain]
     if exact:
         status = "EXACT_URL_OBSERVED"
-        action = "Preservar fatos verificáveis e acompanhar a mesma consulta em novas observações."
+        action = "Preservar fatos verificaveis e acompanhar a mesma consulta em novas observacoes."
     elif alternatives:
         status = "DOMAIN_ALTERNATIVE_OBSERVED"
-        action = "Investigar a relação entre a URL auditada e as URLs alternativas do domínio; não presumir problema de canonicalização."
+        action = "Investigar a relacao entre a URL auditada e as URLs alternativas do dominio; nao presumir problema de canonical."
     else:
         status = "TARGET_NOT_IN_RETURNED_SOURCES"
-        action = "Revisar a cobertura da intenção, a clareza da oferta e as evidências no CAT-03 antes de propor remediação."
+        action = "Revisar cobertura da intencao, clareza da oferta e evidencias no CAT-03 antes de propor remediacao."
     return {
         "status": status,
         "target_url": target,
@@ -170,7 +170,7 @@ def _target_observation(
         "domain_alternatives": alternatives,
         "other_domain_sources": competitors,
         "recommendation": action,
-        "causality": "Observação pontual; não prova inclusão em resposta generativa nem causa da ausência.",
+        "causality": "Observacao pontual; nao prova inclusao em resposta gerativa nem causa de ausencia.",
     }
 
 
@@ -364,8 +364,8 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
                     "geography_language_device": None,
                 },
                 "limitation": (
-                    "Coincidência textual da consulta não comprova equivalência "
-                    "de mercado, intenção, idioma, dispositivo ou motor; a janela temporal de 24h indica apenas elegibilidade observacional."
+                    "Coincidencia textual da consulta nao comprova equivalencia "
+                    "de mercado, intencao, idioma, dispositivo ou motor; janela temporal de 24h e so elegibilidade observacional."
                 ),
             },
             "serp_url_count": len(serp_urls) if serp_id else None,
@@ -373,9 +373,9 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
             "url_overlap_count": len(source_urls & serp_urls) if serp_id else None,
             "descriptive_overlap": overlap_metrics,
             "limitation": (
-                "A busca externa não equivale a resposta/citação generativa; "
-                "não há atribuição de fontes a consultas individuais em consultas múltiplas. "
-                "Sobreposição não demonstra causalidade ou representatividade."
+                "A busca externa nao equivale a resposta/citacao generativa; "
+                "nao ha atribuicao de fontes a consultas individuais em multi-query. "
+                "Sobreposicao nao demonstra causalidade ou representatividade."
             ),
         }
         inputs = {"run": run, "sources": sources, "target": target_observation, "serp": comparable,
