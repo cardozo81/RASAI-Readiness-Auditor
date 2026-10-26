@@ -727,7 +727,6 @@ def _target_label(target: Mapping[str,Any]) -> str:
 def _improvement_html(database: Any, data: Any) -> str:
     from rasai import catalog_report_analysis as a
     from rasai.improvement_intelligence import _safe_ai_suggested_text
-    from rasai.accepted_report_compat import _discovery_title as _ai_discovery_title
     con = sqlite3.connect(database); con.row_factory = sqlite3.Row
     try:
         run = a._last(con, "improvement_intelligence_runs", data.audit_id)
@@ -961,6 +960,7 @@ def _w3c_remediation_html(database: Any, audit_id: str, a: Any) -> tuple[list[Se
 def _remediation_html(database: Any, data: Any) -> str:
     from rasai import catalog_report_analysis as a
     from rasai.improvement_intelligence import _safe_ai_suggested_text
+    from rasai.accepted_report_compat import _discovery_title as _ai_discovery_title
     con = sqlite3.connect(database); con.row_factory = sqlite3.Row
     try:
         roots = a._audit_rows(con, "root_cause_analyses", data.audit_id)
