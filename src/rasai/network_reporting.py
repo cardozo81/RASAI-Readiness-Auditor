@@ -59,7 +59,8 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
     observations = read_network_observations(root, audit_id)
     if not observations and not packet.exists() and not packet.is_symlink():
         observations = snapshots_from_audit(root / "audit.db", audit_id)
-    blocks = []
+    from rasai.network_intelligence_reporting import network_intelligence_section
+    blocks = [network_intelligence_section(root, audit_id)]
     if (packet.exists() or packet.is_symlink()) and not observations:
         blocks.append(
             "<section class='panel'><h2>Dados de rede não verificáveis</h2>"

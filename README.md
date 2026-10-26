@@ -388,3 +388,12 @@ RASAi fornece auditoria técnica/semântica, evidência, heurísticas proprietá
 ## Contrato da documentação
 
 A documentação está organizada em [`docs/README.md`](docs/README.md). A release pública atual é `v0.5.0`, e o desenvolvimento contínuo ocorre na linha pós-release; o **Método de Pontuação de Prontidão**, versão pública **001**, permanece como a metodologia vigente; `SCORE-GEO-004` permanece como contrato técnico.
+
+
+### Network Intelligence consultiva
+O relatório `network.html` inclui diagnóstico explicativo baseado em
+evidências, com confiança por escopo e limitações. A interpretação adicional
+por IA é **opt-in**, via `python -m rasai.network_intelligence_ai`,
+com `--authorize-ai --provider <provedor-configurado>`; nunca é acionada
+durante AUD/RPR/CONS ou geração offline de relatórios e não altera scores.
+Ver `docs/OUTPUTS_AND_ARTIFACTS.md` para contrato e pré-voo.
