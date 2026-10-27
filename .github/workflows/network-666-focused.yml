@@ -1,0 +1,35 @@
+name: Issue 666 Network GeoIP Focused
+on:
+  pull_request:
+    paths:
+      - "src/rasai/network_*.py"
+      - "src/rasai/console_provider_environment.py"
+      - "pyproject.toml"
+      - "tests/test_network_*.py"
+      - ".github/workflows/network-666-focused.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  network-666-focal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install focal test dependencies
+        run: python -m pip install -e ".[geoip]" pytest
+      - name: Run issue 666 regression tests without external probes
+        run: |
+          python -m pytest -q \
+            tests/test_network_traceroute.py \
+            tests/test_network_route_g1.py \
+            tests/test_network_map.py \
+            tests/test_network_active_policy.py \
+            tests/test_network_geoip_install.py \
+            tests/test_network_geoip_operations.py \
+            tests/test_network_geoip_schedule.py
