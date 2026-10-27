@@ -43,12 +43,13 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
   com `--license-accepted` e `--allow-install` quando autorizado.
 - Agendamento Windows opcional: `--schedule --authorize-schedule`, revogável
   com `--unschedule --authorize-schedule`. Nunca persistir chave na tarefa.
-- **Pendente antes do aceite integral:** bootstrap/reconciliação do binário
-  no fluxo oficial de instalação; homologação física do agendamento e atualização,
+- Bootstrap/reconciliação do binário integrada ao launcher oficial, apenas após
+  `RASAI_GEOIP_ACQUIRE_TOOLS=true` explicitamente persistido.
+- **Pendente antes do aceite integral:** homologação física do agendamento e atualização,
   retenção/licença e atomicidade de bases no ambiente Windows.
 
 ## G4 - Critérios de saída
-- Registro canônico e round-trip do INI para os quatro parâmetros de rede
+- Registro canônico e round-trip do INI para os parâmetros de rede
   não sensíveis. Segredos nunca no INI, log ou relatório.
 - `RASAI_NETWORK_GEOIP_SOURCE=LOCAL_FIRST` como padrão; `DISABLED` impede
   enriquecimento sem afetar evidência de rede.
@@ -65,6 +66,7 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
 - `tests/test_network_map.py`: mapa por hop, lacunas e caminhos consultivos.
 - `tests/test_network_geoip_install.py`,
   `tests/test_network_geoip_operations.py`,
+  `tests/test_network_geoip_bootstrap.py`,
   `tests/test_network_geoip_maintenance.py`,
   `tests/test_network_geoip_schedule.py`: manutenção local.
 - `tests/test_network_active_policy.py` e
