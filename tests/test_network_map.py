@@ -28,3 +28,27 @@ def test_geo_panel_uses_approximation_without_physical_routes():
     assert "Base local de geolocalização IP (GeoIP)" in html
     assert "LOCAL_MAXMIND_MMDB" not in html
     assert "https:" not in html
+
+
+def test_map_renders_observed_hops_with_independent_geoip_asn():
+    row = {"hostname": "example.org", "capture_utc": "2026-10-26T10:00:00Z",
+           "metrics": {"traceroute": {"state": "OBSERVED", "value": {
+               "hops": [
+                   {"hop": 1, "state": "PUBLIC_HOP", "public_ip": "8.8.8.8",
+                    "rtt_ms": 12.5, "enrichment": {
+                        "geoip": {"state": "OBSERVED", "value": {
+                            "latitude": 37.4, "longitude": -122.1,
+                            "accuracy_radius_km": 50, "source": "LOCAL_MMDB_CITY"}},
+                        "asn": {"state": "OBSERVED", "value": {
+                            "number": 15169, "organization": "Example Operator"}}}},
+                   {"hop": 2, "state": "NO_REPLY", "public_ip": None},
+                   {"hop": 3, "state": "PUBLIC_HOP", "public_ip": "1.1.1.1",
+                    "enrichment": {"asn": {"state": "OBSERVED", "value": {
+                        "number": 13335, "organization": "Other Operator"}}}}
+               ]}}}}
+    html = network_geographic_panel([row])
+    assert html.count("<circle") == 1
+    assert "Hop 1: 8.8.8.8" in html
+    assert "AS15169" in html and "12.5 ms" in html
+    assert "Hop 2:" not in html and "Hop 3:" not in html
+    assert "data-map-layer='network-route'" not in html
