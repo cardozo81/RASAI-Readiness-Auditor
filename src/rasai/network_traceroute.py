@@ -53,7 +53,7 @@ def parse_trace(text: str, destination: str, *, max_hops: int = MAX_HOPS) -> dic
             "rtt_ms": elapsed,
             "rtt_samples_ms": samples,
         })
-    return {"hops": hops, "last_responding_hop": max(
+    return {"schema": "rasai-network-logical-trace-v2", "hops": hops, "last_responding_hop": max(
         (row["hop"] for row in hops if row["state"] != "NO_REPLY"), default=None),
         "target_reached": any(
         row["public_ip"] == str(dest) for row in hops
@@ -82,6 +82,9 @@ def _result(raw: str, destination: str, *, timed_out: bool = False,
     parsed = parse_trace(raw, destination, max_hops=max_hops)
     has_hops = bool(parsed["hops"])
     parsed["partial"] = timed_out or not parsed["target_reached"]
+    parsed["probe_protocol"] = "ICMP" if os.name == "nt" else "TCP"
+    parsed["method"] = "WINDOWS_TRACERT" if os.name == "nt" else "LINUX_TRACEROUTE_TCP"
+    parsed["measurement_origin"] = "LOCAL_OPERATOR_PROCESS"
     parsed["collection_status"] = ("TIME_BUDGET_EXCEEDED" if timed_out else
                                    "NONZERO_EXIT" if returncode != 0 else "COMPLETED_PROCESS")
     return {
