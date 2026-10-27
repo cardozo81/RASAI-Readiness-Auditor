@@ -476,3 +476,22 @@ As variáveis de volume usam `CONTENT_UNITS` no nome para não serem confundidas
 - `RASAI_APDEX_EXPERIENCE_PROFILE_MODE`: calibration intent for Experience Apdex. Accepted: `CUSTOM` (default), `DYNATRACE_GUIDED`, `DYNATRACE_IMPORTED`. A guided console preview proposes only the existing executable Load action reference (USER_ACTION_DURATION and 3s/12s thresholds) after explicit approval. Custom keeps the user's KPM/thresholds; Imported continues to use the existing validated Dynatrace import path.
 
 Both values are nonsecret metadata in the interactive console, its INI and menu "6. Todas as configurações". They do not independently dispatch a provider, synthesize XHR/Custom actions, or change M25 calculations. The canonical console audit configuration handoff freezes the selected metadata for **new** executions; reports of older AUDs show N/D when no hash-verifiable stored selection exists.
+
+
+## Observabilidade de rede e GeoIP local (#666)
+
+A auditoria mantém a coleta passiva independentemente da disponibilidade das bases GeoIP.
+A medição ativa complementar utiliza autorização persistida e hostname público exato;
+ausência ou revogação desabilita novas sondagens. Não existe fallback pago implícito.
+
+| Variável | Padrão | Uso |
+| --- | --- | --- |
+| `RASAI_GEOIP_ACQUIRE_TOOLS` | `false` | Autoriza baixar e instalar o utilitário oficial MaxMind no perfil do operador pelo launcher. |
+| `RASAI_NETWORK_ACTIVE_ENABLED` | `false` | Autoriza sonda complementar em uma nova AUD; não ativa RPR, CONS ou replay. |
+| `RASAI_NETWORK_ACTIVE_HOST` | Não definido | Hostname público exato e pertencente à AUD; obrigatório com sondagem ativa. |
+| `RASAI_NETWORK_GEOIP_SOURCE` | `LOCAL_FIRST` | `LOCAL_FIRST` usa City/ASN locais; `DISABLED` impede enriquecimento. |
+| `RASAI_NETWORK_MAX_HOPS` | `8` | Limite de hops de 1 a 16 com orçamento de tempo limitado. |
+
+Credenciais e licença MaxMind não são persistidas no INI. A instalação do updater
+não substitui consentimento de licença para aquisição das bases. A manutenção diária
+é independente do fluxo de AUD e não altera `audit.db`.
