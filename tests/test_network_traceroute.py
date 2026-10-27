@@ -25,7 +25,41 @@ def test_bounded_trace_uses_only_vetted_destination(monkeypatch):
     monkeypatch.setattr(t.subprocess, "run", fake)
     result = t.bounded_trace("8.8.8.8", 443)
     assert result["state"] == "OBSERVED"
-    assert seen[0][1]["timeout"] == 8
+    assert seen[0][1]["timeout"] == t.TRACE_TIMEOUT_SECONDS
     assert seen[0][0][-1] == "8.8.8.8"
     with pytest.raises(ValueError):
         t.bounded_trace("192.168.1.2", 443)
+
+
+def test_hetzner_windows_eight_hops_six_public_and_two_no_reply():
+    destination = "2a01:4f8:0:1::7:4"
+    stdout = ("Rastreando a rota para " + destination + "\n"
+              "  1     1 ms     2 ms     1 ms  2804:d51:21d:ff89::1\n"
+              "  2     6 ms     6 ms     6 ms  2804:d50:1:3000::6\n"
+              "  3     *        *        *     Esgotado o tempo limite do pedido.\n"
+              "  4     *        *        *     Esgotado o tempo limite do pedido.\n"
+              "  5    40 ms    41 ms    39 ms  2804:4f7c:200:74:74:1217:0:a\n"
+              "  6    60 ms    61 ms    62 ms  2800:6e0:0:1::23:24\n"
+              "  7    88 ms    89 ms    87 ms  2800:6e0:0:1::16:1\n"
+              "  8   131 ms   132 ms   133 ms  2800:6e0:0:1::1:1\n")
+    parsed = t.parse_trace(stdout, destination)
+    assert len(parsed["hops"]) == 8
+    assert len([h for h in parsed["hops"] if h["state"] == "PUBLIC_HOP"]) == 6
+    assert [h["hop"] for h in parsed["hops"] if h["state"] == "NO_REPLY"] == [3, 4]
+    assert parsed["target_reached"] is False
+
+
+def test_timeout_keeps_partial_stdout(monkeypatch):
+    import subprocess
+    stdout = (" 1  2804:d51:21d:ff89::1  1 ms\n"
+              " 2  2804:d50:1:3000::6  5 ms\n"
+              " 3  * * *\n").encode("utf-8")
+    def fake(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs["timeout"], output=stdout)
+    monkeypatch.setattr(t.subprocess, "run", fake)
+    result = t.bounded_trace("2a01:4f8:0:1::7:4", 443)
+    assert result["state"] == "OBSERVED"
+    assert result["error"] == "TRACE_TIME_BUDGET_EXCEEDED"
+    assert result["value"]["partial"] is True
+    assert len(result["value"]["hops"]) == 3
+    assert result["value"]["target_reached"] is False
