@@ -24,6 +24,7 @@ import time
 from urllib.parse import urlsplit
 
 from rasai.network_enrichment import enrich_public_ip
+from rasai.network_geoip_operations import local_databases
 from rasai.network_traceroute import bounded_trace
 
 CONTRACT = "rasai-network-active-probe-v1"
@@ -232,6 +233,13 @@ def collect_authorized_probe(
     record["audit_id"] = audit_id
     if series_id is not None:
         record["series_id"] = series_id
+    # Only local, already-provisioned databases are inspected. Never update
+    # databases or invoke remote providers inside a probe or audit.
+    managed = local_databases()
+    if asn_database is None:
+        asn_database = managed["asn_database"]
+    if city_database is None:
+        city_database = managed["city_database"]
     peer = (record.get("metrics") or {}).get("connected_public_ip") or {}
     peer_ip = peer.get("value") if peer.get("state") == "OBSERVED" else None
     if peer_ip:
