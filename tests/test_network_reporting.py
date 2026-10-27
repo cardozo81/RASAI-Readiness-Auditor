@@ -255,3 +255,61 @@ def test_h2_dns_resolution_failure_explains_missing_traceroute_and_map(
     }
     html = report.network_report_body(tmp_path, "AUD-H2")
     assert "Por que não há rastreamento ou mapa" not in html
+
+
+
+@pytest.mark.parametrize("code,category,attempts,expected", [
+    ("DNS_TEMPORARY_FAILURE", "TEMPORARY", 2,
+     "O resolvedor informou indisponibilidade temporária"),
+    ("DNS_NAME_RESOLUTION_FAILED", "NAME_RESOLUTION", 1,
+     "rejeitou a resolução do hostname"),
+    ("DNS_RESOLVER_OS_ERROR", "OS_ERROR", 1,
+     "erro de sistema não classificado como falha de nome"),
+])
+def test_dns_failure_classification_is_visible_without_os_secrets(
+    tmp_path, monkeypatch, code, category, attempts, expected,
+) -> None:
+    """#666: diagnostic from approved probe, bounded and without raw OS details."""
+    from rasai import network_reporting as report
+    row = {
+        "hostname": "www.hetzner.com",
+        "resolver_diagnostics": {
+            "source": "SYSTEM_GETADDRINFO", "category": category,
+            "status": "FAILED", "attempts": attempts,
+        },
+        "metrics": {
+            "dns_resolution": {"state": "COLLECTION_FAILED", "error": code},
+            "traceroute": {"state": "NOT_OBSERVED"},
+        },
+    }
+    monkeypatch.setattr(report, "read_network_observations", lambda *_: [])
+    monkeypatch.setattr(report, "read_authorized_probes", lambda *_: [row])
+    monkeypatch.setattr(
+        "rasai.network_intelligence_reporting.network_intelligence_section",
+        lambda *_: "<section>Consulta local</section>",
+    )
+    html = report.network_report_body(tmp_path, "AUD-DNS")
+    assert expected in html
+    assert "Tentativas DNS registradas: " + str(attempts) in html
+    assert "<svg" not in html
+    assert "resolver exception message" not in html
+
+
+def test_legacy_unclassified_dns_failure_remains_explicit(tmp_path, monkeypatch) -> None:
+    from rasai import network_reporting as report
+    monkeypatch.setattr(report, "read_network_observations", lambda *_: [])
+    monkeypatch.setattr(report, "read_authorized_probes", lambda *_: [{
+        "hostname": "www.hetzner.com",
+        "metrics": {
+            "dns_resolution": {
+                "state": "COLLECTION_FAILED", "error": "DNS_LOOKUP_FAILED",
+            },
+            "traceroute": {"state": "NOT_OBSERVED"},
+        },
+    }])
+    monkeypatch.setattr(
+        "rasai.network_intelligence_reporting.network_intelligence_section",
+        lambda *_: "",
+    )
+    html = report.network_report_body(tmp_path, "AUD-H2")
+    assert "pacote histórico não distingue falha DNS temporária" in html
