@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from configparser import ConfigParser, Error as ConfigError
 import os
+import sqlite3
 from pathlib import Path
 import subprocess
 import sys
@@ -55,7 +56,7 @@ def _sealed_primary_host(workspace: Path, audit_id: str) -> str | None:
         if not isinstance(targets, list) or len(targets) != 1:
             return None
         return hostname_from_audit_url(targets[0])
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError, TypeError, sqlite3.Error):
         return None
 
 
