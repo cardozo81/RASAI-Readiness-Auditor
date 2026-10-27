@@ -149,3 +149,61 @@ def test_trace_failure_is_explained_without_exposing_raw_errors_or_hops(
     assert error not in page
     assert "Etapas conhecidas do caminho" not in page
     assert not (tmp_path / "report-catalog").exists()
+
+
+def test_incomplete_sealed_network_consent_is_explained_without_new_probe(tmp_path):
+    """#666 Windows H1: enabled=true + authorized host blank is NOT consent."""
+    import sqlite3
+    import json
+    import hashlib
+    from rasai.network_reporting import (
+        _incomplete_network_consent_notice, network_report_body,
+    )
+
+    audit_id = "AUD-TEST-NETWORK"
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as cx:
+        cx.execute(
+            "CREATE TABLE audit_execution_configurations "
+            "(audit_id TEXT, configuration_kind TEXT, configuration_json TEXT)"
+        )
+        payload = {"settings": {"environment": {
+            "RASAI_NETWORK_ACTIVE_ENABLED": "true",
+            "RASAI_NETWORK_ACTIVE_HOST": "",
+            "RASAI_NETWORK_MAX_HOPS": "16",
+        }}, "targets": ["https://www.hetzner.com/"]}
+        cx.execute(
+            "INSERT INTO audit_execution_configurations VALUES (?, ?, ?)",
+            (audit_id, "CONSOLE", json.dumps(payload)),
+        )
+    original_hash = hashlib.sha256(db.read_bytes()).hexdigest()
+
+    notice = _incomplete_network_consent_notice(tmp_path, audit_id)
+    assert "Sonda ativa: autorização incompleta" in notice
+    assert "hostname autorizado" in notice
+    assert "www.hetzner.com" not in notice  # never infer a grant from target
+    assert "bloqueio de rede" in notice
+    html = network_report_body(tmp_path, audit_id)
+    assert "Sonda ativa: autorização incompleta" in html
+    assert "Mapa e caminho de rede" in html
+    assert "nenhum ponto ou trajeto físico" in html
+    assert hashlib.sha256(db.read_bytes()).hexdigest() == original_hash
+    assert not (tmp_path / "artifacts" / "network" / "probes").exists()
+
+    # An exact authorized hostname should not trigger the incomplete notice.
+    payload["settings"]["environment"]["RASAI_NETWORK_ACTIVE_HOST"] = "www.hetzner.com"
+    with sqlite3.connect(db) as cx:
+        cx.execute(
+            "UPDATE audit_execution_configurations SET configuration_json=? "
+            "WHERE audit_id=?",
+            (json.dumps(payload), audit_id),
+        )
+    assert _incomplete_network_consent_notice(tmp_path, audit_id) == ""
+
+
+def test_incomplete_consent_notice_fails_closed_on_old_audit_without_config(tmp_path):
+    from rasai.network_reporting import _incomplete_network_consent_notice
+
+    assert _incomplete_network_consent_notice(tmp_path, "AUD-OLD") == ""
+    (tmp_path / "audit.db").write_bytes(b"not-a-database")
+    assert _incomplete_network_consent_notice(tmp_path, "AUD-OLD") == ""
