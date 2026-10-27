@@ -238,6 +238,27 @@ def collect_authorized_probe(
         record["metrics"].update(enrich_public_ip(
             peer_ip, asn_database=asn_database, city_database=city_database,
         ))
+    # Enrich only observed, public hop IPs; missing or invalid databases are
+    # non-blocking and do not change the original measurement.
+    trace = (record.get("metrics") or {}).get("traceroute") or {}
+    route = trace.get("value")
+    if isinstance(route, dict) and isinstance(route.get("hops"), list):
+        enriched_by_ip = {}
+        for hop in route["hops"][:8]:
+            if not isinstance(hop, dict) or hop.get("state") != "PUBLIC_HOP":
+                continue
+            address = hop.get("public_ip")
+            try:
+                vetted = ipaddress.ip_address(address)
+                if not vetted.is_global:
+                    continue
+                normalized = str(vetted)
+            except (TypeError, ValueError):
+                continue
+            if normalized not in enriched_by_ip:
+                enriched_by_ip[normalized] = enrich_public_ip(
+                    normalized, asn_database=asn_database, city_database=city_database)
+            hop["enrichment"] = enriched_by_ip[normalized]
     # Digest is for integrity, never identity of the collector/author.
     record["sha256"] = hashlib.sha256(_canonical(record)).hexdigest()
     record["digest_scope"] = "INTEGRITY_ONLY_NOT_AUTHORSHIP"
