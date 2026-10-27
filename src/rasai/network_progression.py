@@ -5,6 +5,38 @@ from ipaddress import ip_address
 from math import isfinite
 
 
+_TRACE_METHODS = {
+    "WINDOWS_TRACERT": "tracert (Windows)",
+    "LINUX_TRACEROUTE_TCP": "traceroute TCP (Linux)",
+}
+_TRACE_PROTOCOLS = {"ICMP": "ICMP", "TCP": "TCP"}
+_TRACE_COLLECTION = {
+    "COMPLETED_PROCESS": "processo concluído",
+    "TIME_BUDGET_EXCEEDED": "limite de tempo excedido",
+    "COMMAND_FAILED": "processo encerrado com erro",
+}
+_TRACE_ORIGINS = {"LOCAL_OPERATOR_PROCESS": "processo local autorizado"}
+
+
+def _trace_provenance(value):
+    """Project only allowlisted method/protocol/collector metadata."""
+    def known(mapping, key):
+        item = value.get(key)
+        return mapping.get(item, "não informado") if isinstance(item, str) else "não informado"
+
+    limit = value.get("max_hops")
+    limit_text = str(limit) if type(limit) is int and 1 <= limit <= 16 else "não informado"
+    return (
+        "<p>Proveniência do rastreamento: método "
+        + escape(known(_TRACE_METHODS, "method"))
+        + "; protocolo " + escape(known(_TRACE_PROTOCOLS, "probe_protocol"))
+        + "; executor " + escape(known(_TRACE_ORIGINS, "measurement_origin"))
+        + "; coleta " + escape(known(_TRACE_COLLECTION, "collection_status"))
+        + "; limite de saltos " + limit_text + ". "
+        "A conclusão do processo não comprova que o destino respondeu.</p>"
+    )
+
+
 def route_panels(probes):
     output = []
     for row in probes[:32]:
@@ -52,7 +84,8 @@ def route_panels(probes):
                       "<p>Destino: " + escape(str(row.get("hostname") or "-")) +
                       ". Caminho lógico, possivelmente parcial. Endereços privados não "
                       "são divulgados. RTT por salto não mede a latência de cada enlace.</p>"
-                      "<div class='table-wrap'><table><thead><tr><th>Salto</th>"
+                      + _trace_provenance(data)
+                      + "<div class='table-wrap'><table><thead><tr><th>Salto</th>"
                       "<th>Situação</th><th>Endereço público</th><th>Tempo</th>"
                       "</tr></thead><tbody>" + "".join(lines) + "</tbody></table></div>"
                       "<p>" + ("Destino alcançado." if data.get("target_reached") else

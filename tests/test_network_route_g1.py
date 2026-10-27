@@ -34,3 +34,39 @@ def test_timeout_message_preserves_partial_route_detail():
     assert "8.8.8.8" in html
     assert "Sem resposta" in html
     assert "Destino alcançado." not in html
+
+
+def test_trace_provenance_allowlist_and_unconfirmed_destination():
+    row = {"hostname": "example.org", "metrics": {"traceroute": {
+        "state": "OBSERVED", "value": {
+            "hops": [{"hop": 1, "state": "PUBLIC_HOP",
+                      "public_ip": "8.8.8.8", "rtt_ms": 8.0}],
+            "method": "WINDOWS_TRACERT", "probe_protocol": "ICMP",
+            "collection_status": "COMPLETED_PROCESS",
+            "measurement_origin": "LOCAL_OPERATOR_PROCESS",
+            "max_hops": 16, "target_reached": False}}}}
+    html = route_panels([row])
+    assert "tracert (Windows)" in html
+    assert "protocolo ICMP" in html
+    assert "processo local autorizado" in html
+    assert "processo concluído" in html
+    assert "limite de saltos 16" in html
+    assert "Caminho completo não confirmado" in html
+    assert "Destino alcançado." not in html
+    row["metrics"]["traceroute"]["value"]["method"] = "<script>bad</script>"
+    html = route_panels([row])
+    assert "<script>" not in html and "método não informado" in html
+
+
+def test_linux_tcp_trace_provenance():
+    row = {"hostname": "example.org", "metrics": {"traceroute": {
+        "state": "OBSERVED", "value": {
+            "hops": [{"hop": 1, "state": "NO_REPLY"}],
+            "method": "LINUX_TRACEROUTE_TCP", "probe_protocol": "TCP",
+            "collection_status": "TIME_BUDGET_EXCEEDED",
+            "measurement_origin": "LOCAL_OPERATOR_PROCESS",
+            "max_hops": 8, "target_reached": False}}}}
+    html = route_panels([row])
+    assert "traceroute TCP (Linux)" in html
+    assert "protocolo TCP" in html
+    assert "limite de tempo excedido" in html
