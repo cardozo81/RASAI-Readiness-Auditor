@@ -20,9 +20,12 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
 - Configuração canônica: `RASAI_NETWORK_ACTIVE_ENABLED` (false),
   `RASAI_NETWORK_ACTIVE_HOST` (host exato) e `RASAI_NETWORK_MAX_HOPS` (8).
   Ausência, alteração ou remoção de permissão bloqueia novo tráfego automático.
-- **Pendente antes do aceite integral:** comprovar agendamento automático exclusivo
-  de AUD inicial (nunca RPR/CONS/replay), depois de consentimento persistente,
-  sem atraso relevante no caminho crítico.
+- Despacho automático implementado exclusivamente após a nova AUD concluída;
+  usa `network_acceptance` canônico em subprocesso independente após consentimento,
+  sem aguardar traceroute no caminho crítico.
+- **Pendente antes do aceite integral:** comprovar em Windows que o despacho
+  foi iniciado, que a atualização posterior do HTML é íntegra e que revogação,
+  RPR, CONS e replay não iniciam novas sondagens.
 
 ## G2 - Critérios de saída
 - Apenas IP público realmente observado recebe enriquecimento.
@@ -56,8 +59,10 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
 - API remota: não habilitada por padrão; orçamento pago zero. **Deferir**
   implementações sem amostra técnica que comprove ganho líquido de cobertura,
   precisão ou custo em comparação à MMDB local.
-- **Pendente antes do aceite integral:** alinhar habilitação automática da AUD
-  à autorização persistente e demonstrar restauração/revogação em sessão real.
+- A AUD inicial usa host exato persistido e habilitação explícita no console;
+  execução complementar é isolada e não bloqueante.
+- **Pendente antes do aceite integral:** demonstração de restauração/revogação
+  em sessão real, sem consultas remotas inesperadas.
 
 ## Matriz de validação automatizada
 - `tests/test_network_traceroute.py`, `tests/test_network_route_g1.py`
