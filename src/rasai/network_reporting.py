@@ -271,6 +271,9 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
                     "O pacote histórico não distingue falha DNS temporária de "
                     "outra falha do resolvedor. "
                 )
+            if (category in {"TEMPORARY", "NAME_RESOLUTION", "OS_ERROR"}
+                    and type(attempts) is int and 1 <= attempts <= 2):
+                reason += "Tentativas DNS registradas: " + str(attempts) + ". "
             blocks.append(
                 "<section class='panel'><h2>Por que não há rastreamento ou mapa</h2>"
                 "<p>A medição complementar foi iniciada, mas o processo executor "
