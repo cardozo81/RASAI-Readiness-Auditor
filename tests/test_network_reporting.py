@@ -187,6 +187,10 @@ def test_incomplete_sealed_network_consent_is_explained_without_new_probe(tmp_pa
     # browser capture fallback is outside this test's scope.
     from rasai import network_reporting as report
     monkeypatch.setattr(report, "snapshots_from_audit", lambda *_: [])
+    monkeypatch.setattr(
+        "rasai.network_intelligence_reporting.network_intelligence_section",
+        lambda *_: "<section class='panel'>Sem medição</section>",
+    )
     html = network_report_body(tmp_path, audit_id)
     assert "Sonda ativa: autorização incompleta" in html
     assert "Mapa e caminho de rede" in html
