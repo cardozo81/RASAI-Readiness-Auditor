@@ -43,7 +43,7 @@ def confirm_draft_for_this_aud(state: Any, *, read: Callable[[str], str] | None 
     print(f"Configuração salva    : {len(queries)} query(s) | {mode}")
     for index, query in enumerate(queries, 1):
         print(f"  {index}. {query}")
-    from rasai.search_geo_alignment import geo_query_alignment
+    from rasai.geo_search_alignment import geo_query_alignment
     aligned = geo_query_alignment(
         tuple(getattr(state, "search_queries", ()) or ()), queries,
     )
@@ -103,7 +103,7 @@ def install(console_module: ModuleType) -> None:
                 bind(state, source)
         # Advisory GEO gate: independent terms are allowed, but the operator
         # must acknowledge non-comparability before any optional Search API.
-        from rasai.search_geo_alignment import geo_configuration_view
+        from rasai.geo_search_alignment import geo_configuration_view
         from rasai.console_catalog_plan import selected_catalog_ids
         px_active = bool(tuple(getattr(state, "perplexity_queries", ()) or ()))
         px_draft_pending = draft_pending_confirmation(state)

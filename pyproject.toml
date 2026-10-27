@@ -25,6 +25,9 @@ web = [
 copilot = [
     "github-copilot-sdk>=1,<2",
 ]
+geoip = [
+    "maxminddb>=2.6,<4",
+]
 attestation = [
     "cryptography>=42,<50",
 ]

@@ -214,6 +214,11 @@ ENV_NAMES = tuple(
             *_PLATFORM_ENV_NAMES,
             *_API_ENV_NAMES,
             *_REMOTE_ENV_NAMES,
+            "RASAI_GEOIP_ACQUIRE_TOOLS",
+            "RASAI_NETWORK_ACTIVE_ENABLED",
+            "RASAI_NETWORK_ACTIVE_HOST",
+            "RASAI_NETWORK_GEOIP_SOURCE",
+            "RASAI_NETWORK_MAX_HOPS",
         )
     )
 )
@@ -662,6 +667,32 @@ def _provider_specs() -> tuple[EnvironmentSpec, ...]:
 
 def environment_specs() -> tuple[EnvironmentSpec, ...]:
     known = {spec.name: spec for spec in (*_fixed_specs(), *_provider_specs())}
+    # #666 - Public operational network controls belong to the base catalog,
+    # not a second feature-local configuration registry.
+    for spec in (
+        EnvironmentSpec("RASAI_GEOIP_ACQUIRE_TOOLS", "Search Intelligence / Observability",
+                        "Autoriza baixar o utilitário oficial MaxMind fora da auditoria.",
+                        "booleano", ("true", "false"), "false",
+                        impact="Quando ativo, permite download controlado no início do console."),
+        EnvironmentSpec("RASAI_NETWORK_ACTIVE_ENABLED", "Search Intelligence / Observability",
+                        "Autoriza sonda de rede complementar após nova auditoria.",
+                        "booleano", ("true", "false"), "false",
+                        impact="Quando ativo e combinado com host exato, gera tráfego de rede."),
+        EnvironmentSpec("RASAI_NETWORK_ACTIVE_HOST", "Search Intelligence / Observability",
+                        "Hostname público exato autorizado para medição complementar.",
+                        "hostname público", default=None,
+                        required_when="Necessário somente com RASAI_NETWORK_ACTIVE_ENABLED=true.",
+                        impact="Limita a sonda a um destino que já pertença à auditoria."),
+        EnvironmentSpec("RASAI_NETWORK_GEOIP_SOURCE", "Search Intelligence / Observability",
+                        "Política local-first de enriquecimento GeoIP por MMDB.",
+                        "enum", ("LOCAL_FIRST", "DISABLED"), "LOCAL_FIRST",
+                        impact="DISABLED impede enriquecimento geográfico; não suprime rede."),
+        EnvironmentSpec("RASAI_NETWORK_MAX_HOPS", "Search Intelligence / Observability",
+                        "Teto de saltos na medição ativa autorizada.",
+                        "inteiro 1..16", default="8",
+                        impact="Limite maior pode ampliar a duração da sonda, máximo 16."),
+    ):
+        known[spec.name] = spec
     return tuple(
         known.get(
             name,
@@ -758,6 +789,11 @@ def _absolute_url(value: str, *, https_only: bool = False, loopback_http: bool =
 
 
 def _validate(name: str, raw: str) -> str:
+    if name in {"RASAI_GEOIP_ACQUIRE_TOOLS", "RASAI_NETWORK_ACTIVE_ENABLED",
+                "RASAI_NETWORK_ACTIVE_HOST", "RASAI_NETWORK_GEOIP_SOURCE",
+                "RASAI_NETWORK_MAX_HOPS"}:
+        from rasai.network_active_policy import validate_network_setting
+        return validate_network_setting(name, raw)
     value = validate_existing(name, raw)
     if name.startswith(PERPLEXITY_PREFIX) and name.removeprefix(PERPLEXITY_PREFIX) in PERPLEXITY_OPTION_FIELDS:
         return validate_perplexity_option(name, value)

@@ -116,3 +116,200 @@ def test_network_capture_and_complement_are_explained_before_map(tmp_path, monke
     assert "24,57" in html
     assert html.index("Como interpretar as medições") < html.index("Observação do dispositivo")
     assert html.index("Medição complementar autorizada") < html.index("Mapa e caminho de rede")
+
+
+@pytest.mark.parametrize(
+    "error, expected",
+    [
+        ("TRACE_TIME_BUDGET_EXCEEDED", "Tempo limite excedido durante o rastreamento"),
+        ("UNTRUSTED_SECRET_VALUE", "Rastreamento inconclusivo por falha técnica"),
+    ],
+)
+def test_trace_failure_is_explained_without_exposing_raw_errors_or_hops(
+        tmp_path, monkeypatch, error, expected) -> None:
+    from rasai import network_reporting as report
+
+    monkeypatch.setattr(report, "read_network_observations", lambda *_: [])
+    monkeypatch.setattr(report, "read_authorized_probes", lambda *_: [{
+        "audit_id": "AUD-666",
+        "hostname": "example.org",
+        "capture_utc": "2026-10-26T22:49:48Z",
+        "metrics": {
+            "traceroute": {
+                "state": "INCONCLUSIVE",
+                "error": error,
+                "value": None,
+            },
+        },
+    }])
+
+    page = report.network_report_body(tmp_path, "AUD-666")
+    assert "Saltos lógicos de rede" in page
+    assert expected in page
+    assert error not in page
+    assert "Etapas conhecidas do caminho" not in page
+    assert not (tmp_path / "report-catalog").exists()
+
+
+def test_incomplete_sealed_network_consent_is_explained_without_new_probe(tmp_path, monkeypatch):
+    """#666 Windows H1: enabled=true + authorized host blank is NOT consent."""
+    import sqlite3
+    import json
+    import hashlib
+    from rasai.network_reporting import (
+        _incomplete_network_consent_notice, network_report_body,
+    )
+
+    audit_id = "AUD-TEST-NETWORK"
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as cx:
+        cx.execute(
+            "CREATE TABLE audit_execution_configurations "
+            "(audit_id TEXT, configuration_kind TEXT, configuration_json TEXT)"
+        )
+        payload = {"settings": {"environment": {
+            "RASAI_NETWORK_ACTIVE_ENABLED": "true",
+            "RASAI_NETWORK_ACTIVE_HOST": "",
+            "RASAI_NETWORK_MAX_HOPS": "16",
+        }}, "targets": ["https://www.hetzner.com/"]}
+        cx.execute(
+            "INSERT INTO audit_execution_configurations VALUES (?, ?, ?)",
+            (audit_id, "CONSOLE", json.dumps(payload)),
+        )
+    original_hash = hashlib.sha256(db.read_bytes()).hexdigest()
+
+    notice = _incomplete_network_consent_notice(tmp_path, audit_id)
+    assert "Sonda ativa: autorização incompleta" in notice
+    assert "hostname autorizado" in notice
+    assert "www.hetzner.com" not in notice  # never infer a grant from target
+    assert "bloqueio de rede" in notice
+    # This focused SQLite fixture contains only the canonical consent record;
+    # browser capture fallback is outside this test's scope.
+    from rasai import network_reporting as report
+    monkeypatch.setattr(report, "snapshots_from_audit", lambda *_: [])
+    monkeypatch.setattr(
+        "rasai.network_intelligence_reporting.network_intelligence_section",
+        lambda *_: "<section class='panel'>Sem medição</section>",
+    )
+    html = network_report_body(tmp_path, audit_id)
+    assert "Sonda ativa: autorização incompleta" in html
+    assert "Mapa e caminho de rede" in html
+    assert "nenhum ponto ou trajeto físico" in html
+    assert hashlib.sha256(db.read_bytes()).hexdigest() == original_hash
+    assert not (tmp_path / "artifacts" / "network" / "probes").exists()
+
+    # An exact authorized hostname should not trigger the incomplete notice.
+    payload["settings"]["environment"]["RASAI_NETWORK_ACTIVE_HOST"] = "www.hetzner.com"
+    with sqlite3.connect(db) as cx:
+        cx.execute(
+            "UPDATE audit_execution_configurations SET configuration_json=? "
+            "WHERE audit_id=?",
+            (json.dumps(payload), audit_id),
+        )
+    assert _incomplete_network_consent_notice(tmp_path, audit_id) == ""
+
+
+def test_incomplete_consent_notice_fails_closed_on_old_audit_without_config(tmp_path):
+    from rasai.network_reporting import _incomplete_network_consent_notice
+
+    assert _incomplete_network_consent_notice(tmp_path, "AUD-OLD") == ""
+    (tmp_path / "audit.db").write_bytes(b"not-a-database")
+    assert _incomplete_network_consent_notice(tmp_path, "AUD-OLD") == ""
+
+
+def test_h2_dns_resolution_failure_explains_missing_traceroute_and_map(
+    tmp_path, monkeypatch,
+) -> None:
+    """H2: authorization + valid probe with DNS failure never implies a route."""
+    from rasai import network_reporting as report
+
+    captured = {
+        "audit_id": "AUD-H2",
+        "hostname": "www.hetzner.com",
+        "capture_utc": "2026-10-27T17:54:58Z",
+        "metrics": {
+            "dns_resolution": {
+                "state": "COLLECTION_FAILED", "error": "DNS_LOOKUP_FAILED", "value": None,
+            },
+            "traceroute": {"state": "NOT_OBSERVED", "value": None, "error": None},
+            "geoip": {"state": "NOT_OBSERVED", "value": None, "error": None},
+        },
+    }
+    monkeypatch.setattr(report, "read_network_observations", lambda *_: [])
+    monkeypatch.setattr(report, "read_authorized_probes", lambda *_: [captured])
+    monkeypatch.setattr(
+        "rasai.network_intelligence_reporting.network_intelligence_section",
+        lambda *_: "<section class='panel'>Resumo das evidências</section>",
+    )
+    html = report.network_report_body(tmp_path, "AUD-H2")
+    assert "Medição complementar autorizada" in html
+    assert "Por que não há rastreamento ou mapa" in html
+    assert "não conseguiu resolver o nome do destino" in html
+    assert "encerrou antes de executar TCP, traceroute e enriquecimento" in html
+    assert "presença das bases MaxMind não resolve" in html
+    assert "<svg" not in html
+    assert "destino bloqueou" not in html
+
+    captured["metrics"]["dns_resolution"] = {
+        "state": "OBSERVED", "value": ["203.0.113.7"], "error": None,
+    }
+    html = report.network_report_body(tmp_path, "AUD-H2")
+    assert "Por que não há rastreamento ou mapa" not in html
+
+
+
+@pytest.mark.parametrize("code,category,attempts,expected", [
+    ("DNS_TEMPORARY_FAILURE", "TEMPORARY", 2,
+     "O resolvedor informou indisponibilidade temporária"),
+    ("DNS_NAME_RESOLUTION_FAILED", "NAME_RESOLUTION", 1,
+     "rejeitou a resolução do hostname"),
+    ("DNS_RESOLVER_OS_ERROR", "OS_ERROR", 1,
+     "erro de sistema não classificado como falha de nome"),
+])
+def test_dns_failure_classification_is_visible_without_os_secrets(
+    tmp_path, monkeypatch, code, category, attempts, expected,
+) -> None:
+    """#666: diagnostic from approved probe, bounded and without raw OS details."""
+    from rasai import network_reporting as report
+    row = {
+        "hostname": "www.hetzner.com",
+        "resolver_diagnostics": {
+            "source": "SYSTEM_GETADDRINFO", "category": category,
+            "status": "FAILED", "attempts": attempts,
+        },
+        "metrics": {
+            "dns_resolution": {"state": "COLLECTION_FAILED", "error": code},
+            "traceroute": {"state": "NOT_OBSERVED"},
+        },
+    }
+    monkeypatch.setattr(report, "read_network_observations", lambda *_: [])
+    monkeypatch.setattr(report, "read_authorized_probes", lambda *_: [row])
+    monkeypatch.setattr(
+        "rasai.network_intelligence_reporting.network_intelligence_section",
+        lambda *_: "<section>Consulta local</section>",
+    )
+    html = report.network_report_body(tmp_path, "AUD-DNS")
+    assert expected in html
+    assert "Tentativas DNS registradas: " + str(attempts) in html
+    assert "<svg" not in html
+    assert "resolver exception message" not in html
+
+
+def test_legacy_unclassified_dns_failure_remains_explicit(tmp_path, monkeypatch) -> None:
+    from rasai import network_reporting as report
+    monkeypatch.setattr(report, "read_network_observations", lambda *_: [])
+    monkeypatch.setattr(report, "read_authorized_probes", lambda *_: [{
+        "hostname": "www.hetzner.com",
+        "metrics": {
+            "dns_resolution": {
+                "state": "COLLECTION_FAILED", "error": "DNS_LOOKUP_FAILED",
+            },
+            "traceroute": {"state": "NOT_OBSERVED"},
+        },
+    }])
+    monkeypatch.setattr(
+        "rasai.network_intelligence_reporting.network_intelligence_section",
+        lambda *_: "",
+    )
+    html = report.network_report_body(tmp_path, "AUD-H2")
+    assert "pacote histórico não distingue falha DNS temporária" in html

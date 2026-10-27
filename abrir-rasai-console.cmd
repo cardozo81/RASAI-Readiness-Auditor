@@ -49,6 +49,13 @@ if "!NEED_INSTALL!"=="0" (
     if errorlevel 1 set "NEED_INSTALL=1"
 )
 
+rem GeoIP MMDB files are local to the app. Their Python reader must be
+rem installed even when an old .venv stamp erroneously claims all extras ready.
+if "!NEED_INSTALL!"=="0" (
+    "%VENV_PY%" -c "import maxminddb" >nul 2>&1
+    if errorlevel 1 set "NEED_INSTALL=1"
+)
+
 if "!NEED_INSTALL!"=="1" (
     if defined OPTIONAL_EXTRAS (
         echo [RASAi] Instalando ou atualizando dependencias obrigatorias e opcionais: !OPTIONAL_EXTRAS!...
@@ -71,6 +78,11 @@ if errorlevel 1 (
     "%VENV_PY%" -m playwright install chromium
     if errorlevel 1 goto :fail
 )
+
+rem Optional MaxMind helper: acquires software only after explicit persisted consent.
+rem Never blocks console startup or runs in the critical AUD execution path.
+"%VENV_PY%" -m rasai.network_geoip_bootstrap >nul 2>&1
+if errorlevel 1 echo [RASAi] Aviso: preparacao GeoIP indisponivel; auditorias nao sao bloqueadas.
 
 cls
 "%CONSOLE_EXE%"

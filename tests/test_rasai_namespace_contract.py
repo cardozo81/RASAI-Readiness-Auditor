@@ -35,7 +35,9 @@ def _old_product_geo_labels() -> tuple[str, ...]:
 
 def _included(path: Path) -> bool:
     relative = path.relative_to(ROOT)
-    return not any(part in EXCLUDED_DIRS for part in relative.parts)
+    # Build-generated egg-info is not tracked source and may retain stale names.
+    return not any(part in EXCLUDED_DIRS or part.endswith(".egg-info")
+                   for part in relative.parts)
 
 
 def test_runtime_audit_artifacts_are_outside_source_naming_policy() -> None:

@@ -116,6 +116,13 @@ def _export_settings(state: Any, targets: tuple[str, ...] | list[str]) -> dict[s
             section: {name: value for name, value in parser.items(section, raw=True)}
             for section in parser.sections()
         }
+        # A session-only consent is deliberately excluded from the INI writer.
+        # The *execution snapshot* must instead reflect the exact pair sent to
+        # the audit subprocess, without promoting it into persistent settings.
+        from rasai.console_session import get_volatile_network_consent
+        if get_volatile_network_consent(state) is not None:
+            for name in ("RASAI_NETWORK_ACTIVE_ENABLED", "RASAI_NETWORK_ACTIVE_HOST"):
+                settings["environment"][name] = os.environ.get(name, "")
         # Apply exactly the same GSC bounds as operator-INI restoration to a
         # *new* reusable AUD snapshot. A malformed policy cannot become a
         # sealed source for a future run just because it was in os.environ.

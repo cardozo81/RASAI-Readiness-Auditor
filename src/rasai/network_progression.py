@@ -5,6 +5,38 @@ from ipaddress import ip_address
 from math import isfinite
 
 
+_TRACE_METHODS = {
+    "WINDOWS_TRACERT": "tracert (Windows)",
+    "LINUX_TRACEROUTE_TCP": "traceroute TCP (Linux)",
+}
+_TRACE_PROTOCOLS = {"ICMP": "ICMP", "TCP": "TCP"}
+_TRACE_COLLECTION = {
+    "COMPLETED_PROCESS": "processo concluído",
+    "TIME_BUDGET_EXCEEDED": "limite de tempo excedido",
+    "COMMAND_FAILED": "processo encerrado com erro",
+}
+_TRACE_ORIGINS = {"LOCAL_OPERATOR_PROCESS": "processo local autorizado"}
+
+
+def _trace_provenance(value):
+    """Project only allowlisted method/protocol/collector metadata."""
+    def known(mapping, key):
+        item = value.get(key)
+        return mapping.get(item, "não informado") if isinstance(item, str) else "não informado"
+
+    limit = value.get("max_hops")
+    limit_text = str(limit) if type(limit) is int and 1 <= limit <= 16 else "não informado"
+    return (
+        "<p>Proveniência do rastreamento: método "
+        + escape(known(_TRACE_METHODS, "method"))
+        + "; protocolo " + escape(known(_TRACE_PROTOCOLS, "probe_protocol"))
+        + "; executor " + escape(known(_TRACE_ORIGINS, "measurement_origin"))
+        + "; coleta " + escape(known(_TRACE_COLLECTION, "collection_status"))
+        + "; limite de saltos " + limit_text + ". "
+        "A conclusão do processo não comprova que o destino respondeu.</p>"
+    )
+
+
 def route_panels(probes):
     output = []
     for row in probes[:32]:
@@ -13,11 +45,16 @@ def route_panels(probes):
         if not isinstance(data, dict) or not isinstance(data.get("hops"), list):
             continue
         lines = []
-        for item in data["hops"][:8]:
+        last_responding = data.get("last_responding_hop")
+        if type(last_responding) is not int:
+            last_responding = max((h.get("hop") for h in data["hops"] if isinstance(h, dict)
+                                   and h.get("state") in ("PUBLIC_HOP", "PRIVATE_HOP_REDACTED")
+                                   and type(h.get("hop")) is int), default=None)
+        for item in data["hops"][:16]:
             if not isinstance(item, dict):
                 continue
             n, state = item.get("hop"), item.get("state")
-            if type(n) is not int or not 1 <= n <= 8 or state not in (
+            if type(n) is not int or not 1 <= n <= 16 or state not in (
                     "PUBLIC_HOP", "PRIVATE_HOP_REDACTED", "NO_REPLY"):
                 continue
             address = item.get("public_ip")
@@ -29,9 +66,17 @@ def route_panels(probes):
             rtt = item.get("rtt_ms")
             timing = (f"{rtt:.2f} ms" if type(rtt) in (float, int) and
                       isfinite(rtt) and 0 <= rtt <= 60000 else "Não observado")
+            samples = item.get("rtt_samples_ms")
+            if isinstance(samples, list):
+                valid_samples = [v for v in samples[:3] if type(v) in (float, int)
+                                 and isfinite(v) and 0 <= v <= 60000]
+                if valid_samples:
+                    timing = ", ".join(f"{v:.2f} ms" for v in valid_samples)
             status = {"PUBLIC_HOP": "Resposta pública", "PRIVATE_HOP_REDACTED": "Endereço reservado",
                       "NO_REPLY": "Sem resposta"}[state]
-            lines.append(f"<tr><th>{n}</th><td>{status}</td><td>{escape(address or 'Oculto')}</td>"
+            marker = " (último respondente)" if n == last_responding else ""
+            shown_address = address or ("Oculto" if state == "PRIVATE_HOP_REDACTED" else "Sem IP")
+            lines.append(f"<tr><th scope='row'>{n}</th><td>{status}{marker}</td><td>{escape(shown_address)}</td>"
                          f"<td>{timing}</td></tr>")
         if not lines:
             continue
@@ -39,11 +84,17 @@ def route_panels(probes):
                       "<p>Destino: " + escape(str(row.get("hostname") or "-")) +
                       ". Caminho lógico, possivelmente parcial. Endereços privados não "
                       "são divulgados. RTT por salto não mede a latência de cada enlace.</p>"
-                      "<div class='table-wrap'><table><thead><tr><th>Salto</th>"
+                      + _trace_provenance(data)
+                      + "<div class='table-wrap'><table><thead><tr><th>Salto</th>"
                       "<th>Situação</th><th>Endereço público</th><th>Tempo</th>"
                       "</tr></thead><tbody>" + "".join(lines) + "</tbody></table></div>"
                       "<p>" + ("Destino alcançado." if data.get("target_reached") else
-                               "Caminho completo não confirmado.") + "</p></section>")
+                               "Caminho completo não confirmado.") +
+                      (" A coleta excedeu o limite de tempo; os saltos anteriores foram preservados."
+                       if trace.get("error") == "TRACE_TIME_BUDGET_EXCEEDED" else
+                       " O processo de sondagem terminou com erro; os saltos observados foram preservados."
+                       if trace.get("error") == "TRACE_COMMAND_FAILED" else "") +
+                      "</p></section>")
     return "".join(output)
 
 

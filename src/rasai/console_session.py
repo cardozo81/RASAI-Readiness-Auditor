@@ -11,6 +11,9 @@ class SessionMeta:
     config_path: Path | None = None
     dirty: bool = False
     volatile_secrets: set[str] = field(default_factory=set)
+    # Exact persistent baseline retained while this session overrides network consent.
+    # The execution process sees the override; unrelated INI saves must not.
+    volatile_network_consent: dict[str, str] | None = None
 
 
 _META: dict[int, SessionMeta] = {}
@@ -46,6 +49,15 @@ def clear_secret_volatile(state: Any, name: str) -> None:
 
 def has_volatile_secrets(state: Any) -> bool:
     return bool(_meta(state).volatile_secrets)
+
+
+def get_volatile_network_consent(state: Any) -> dict[str, str] | None:
+    value = _meta(state).volatile_network_consent
+    return dict(value) if value is not None else None
+
+
+def set_volatile_network_consent(state: Any, values: dict[str, str] | None) -> None:
+    _meta(state).volatile_network_consent = dict(values) if values is not None else None
 
 
 def clear_session_meta(state: Any) -> None:

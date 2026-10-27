@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from html import escape
+import json
 from pathlib import Path
+import sqlite3
 
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations
@@ -34,6 +36,19 @@ _STATE = {
     "COLLECTION_FAILED": "Falha na coleta",
 }
 
+# Technical failures are described from an allowlist, never from arbitrary
+# subprocess output or exception text persisted in complementary packets.
+_TRACE_NO_HOPS_REASON = {
+    "TRACE_TIME_BUDGET_EXCEEDED": (
+        "Tempo limite excedido durante o rastreamento; "
+        "nenhum salto verificável foi preservado nesta medição."
+    ),
+    "TRACE_COMMAND_NOT_AVAILABLE": "Ferramenta local de rastreamento indisponível.",
+    "TRACE_COMMAND_FAILED": "O comando de rastreamento terminou com erro, sem saltos verificáveis.",
+    "TRACE_COLLECTION_FAILED": "Falha técnica na coleta do rastreamento de rede.",
+    "ROUTE_NOT_CONFIRMED": "Não foi possível confirmar o percurso até o destino.",
+}
+
 
 def _display_observed_metric(key: str, value: object) -> str:
     """Presentation only: use pt-BR decimals, never modify measured values."""
@@ -45,6 +60,49 @@ def _display_observed_metric(key: str, value: object) -> str:
     if key == "tls_protocol" and isinstance(value, str) and value.startswith("TLSv"):
         return "TLS " + value.removeprefix("TLSv")
     return str(value)
+
+
+def _incomplete_network_consent_notice(workspace: Path, audit_id: str) -> str:
+    """Show an audit-owned, non-blocking diagnosis without running any probe.
+
+    Report HTML must not infer physical network failure from missing measurements.
+    Only a verified, sealed console configuration with enabled=true and an empty
+    authorized hostname supports this precise advisory; other states stay silent.
+    """
+    db = workspace / "audit.db"
+    if workspace.is_symlink() or db.is_symlink() or not db.is_file():
+        return ""
+    try:
+        with sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=2) as cx:
+            row = cx.execute(
+                "SELECT configuration_json FROM audit_execution_configurations "
+                "WHERE audit_id=? AND configuration_kind='CONSOLE'",
+                (audit_id,),
+            ).fetchone()
+        if row is None or not isinstance(row[0], str) or len(row[0]) > 2_000_000:
+            return ""
+        parsed = json.loads(row[0])
+        environment = parsed.get("settings", {}).get("environment", {})
+        if not isinstance(environment, dict):
+            return ""
+        enabled = environment.get("RASAI_NETWORK_ACTIVE_ENABLED")
+        host = environment.get("RASAI_NETWORK_ACTIVE_HOST")
+        if (isinstance(enabled, str)
+                and enabled.strip().casefold() in {"true", "1", "yes", "on"}
+                and (not isinstance(host, str) or not host.strip())):
+            return (
+                "<section class='panel'><h2>Sonda ativa: autorização incompleta</h2>"
+                "<p>A configuração selada desta auditoria indica sondagem ativa "
+                "habilitada, mas não contém hostname autorizado. Sem um par de "
+                "autorização válido, o RASAi não pode iniciar automaticamente o "
+                "rastreamento desse domínio. No console, abra CAT-01 &gt; N e "
+                "autorize explicitamente o hostname exato para uma nova auditoria. "
+                "A ausência de saltos ou mapa aqui não comprova bloqueio de rede "
+                "nem indisponibilidade do domínio.</p></section>"
+            )
+    except (OSError, sqlite3.Error, ValueError, TypeError, AttributeError, json.JSONDecodeError):
+        pass
+    return ""
 
 
 def network_report_body(workspace: str | Path, audit_id: str) -> str:
@@ -96,6 +154,10 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             + "".join(cells) + "</tbody></table></div></section>"
         )
     probes = read_authorized_probes(root, audit_id)
+    if not probes:
+        notice = _incomplete_network_consent_notice(root, audit_id)
+        if notice:
+            blocks.append(notice)
     if observations and probes:
         blocks.insert(0,
             "<section class='panel'><h2>Como interpretar as medições</h2>"
@@ -146,6 +208,12 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
                 shown = ", ".join(str(x) for x in value[:32])
             else:
                 shown = _display_observed_metric(key, value)
+            if key == "traceroute" and observation.get("state") != "OBSERVED":
+                trace_error = observation.get("error")
+                if isinstance(trace_error, str) and trace_error:
+                    shown = _TRACE_NO_HOPS_REASON.get(
+                        trace_error, "Rastreamento inconclusivo por falha técnica."
+                    )
             rows.append("<tr><th scope='row'>" + escape(label) + "</th><td>" +
                         escape(shown) + "</td><td>" + escape(status) + "</td></tr>")
         if not rows:
@@ -160,6 +228,67 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             "<th>Resultado</th><th>Situação</th></tr></thead><tbody>" +
             "".join(rows) + "</tbody></table></div></section>"
         )
+        # A DNS failure before acquiring a vetted public IP stops the canonical
+        # worker before its TCP, traceroute and local GeoIP stages. Explain the
+        # observed dependency failure rather than showing unexplained blanks or
+        # claiming the destination blocked the route. Never infer another IP.
+        dns = metrics.get("dns_resolution")
+        trace = metrics.get("traceroute")
+        dns_error = dns.get("error") if isinstance(dns, dict) else None
+        if (isinstance(dns, dict)
+                and dns.get("state") == "COLLECTION_FAILED"
+                and dns_error in {
+                    "DNS_LOOKUP_FAILED",  # immutable historical H2/H3 packet
+                    "DNS_TEMPORARY_FAILURE",
+                    "DNS_NAME_RESOLUTION_FAILED",
+                    "DNS_RESOLVER_OS_ERROR",
+                }
+                and isinstance(trace, dict)
+                and trace.get("state") == "NOT_OBSERVED"):
+            diagnostic = probe.get("resolver_diagnostics")
+            category = (diagnostic.get("category")
+                        if isinstance(diagnostic, dict) else None)
+            attempts = (diagnostic.get("attempts")
+                        if isinstance(diagnostic, dict) else None)
+            if dns_error == "DNS_TEMPORARY_FAILURE":
+                reason = (
+                    "O resolvedor informou indisponibilidade temporária. "
+                    "O RASAi tentou novamente uma única vez para o mesmo hostname, "
+                    "sem conseguir obter um IP público validado. "
+                )
+            elif dns_error == "DNS_NAME_RESOLUTION_FAILED":
+                reason = (
+                    "O resolvedor do sistema rejeitou a resolução do hostname. "
+                    "O RASAi não repetiu uma falha classificada como não transitória. "
+                )
+            elif dns_error == "DNS_RESOLVER_OS_ERROR":
+                reason = (
+                    "O resolvedor do sistema retornou um erro de sistema não "
+                    "classificado como falha de nome. O RASAi não fez retentativa. "
+                )
+            else:
+                reason = (
+                    "O pacote histórico não distingue falha DNS temporária de "
+                    "outra falha do resolvedor. "
+                )
+            if (category in {"TEMPORARY", "NAME_RESOLUTION", "OS_ERROR"}
+                    and type(attempts) is int and 1 <= attempts <= 2):
+                reason += "Tentativas DNS registradas: " + str(attempts) + ". "
+            blocks.append(
+                "<section class='panel'><h2>Por que não há rastreamento ou mapa</h2>"
+                "<p>A medição complementar foi iniciada, mas o processo executor "
+                "não conseguiu resolver o nome do destino pela pilha DNS local. "
+                + reason +
+                "Sem um IP público validado, a sondagem encerrou antes de executar "
+                "TCP, traceroute e enriquecimento GeoIP/ASN. Não houve saltos "
+                "medidos e, portanto, não há coordenadas para desenhar o mapa.</p>"
+                "<p><strong>Como investigar:</strong> verificar a resolução DNS "
+                "no mesmo Windows e ambiente Python do executor, assim como "
+                "possíveis diferenças de proxy, VPN e DNS do navegador. "
+                "O HTTP 200 da captura não comprova que o processo de sondagem "
+                "consiga resolver o host de forma independente. A presença das "
+                "bases MaxMind não resolve a falta do IP de entrada.</p></section>"
+            )
     # Geographic context follows the measured tables rather than separating
     # the capture from its authorized complementary observations.
     blocks.append(network_geographic_panel(probes))

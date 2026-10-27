@@ -65,6 +65,12 @@ def persisted_environment_values(state: Any) -> dict[str, str]:
         str(spec.name): _effective_text(spec, projected)
         for spec in _public_nonsecret_specs()
     }
+    # A consent explicitly limited to this session is effective for execution,
+    # but must not become permanent when the operator saves *another* setting.
+    from rasai.console_session import get_volatile_network_consent
+    persisted_consent = get_volatile_network_consent(state)
+    if persisted_consent is not None:
+        result.update(persisted_consent)
     return dict(sorted(result.items()))
 
 

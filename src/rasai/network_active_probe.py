@@ -24,13 +24,21 @@ import time
 from urllib.parse import urlsplit
 
 from rasai.network_enrichment import enrich_public_ip
-from rasai.network_traceroute import bounded_trace
+from rasai.network_geoip_operations import local_databases
+from rasai.network_traceroute import bounded_trace, MAX_TRACE_SECONDS, MAX_HOPS_HARD_LIMIT
+from rasai.network_active_policy import max_hops as configured_max_hops
 
 CONTRACT = "rasai-network-active-probe-v1"
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 _LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 _TIMEOUT_SECONDS = 10
-_MAX_RESULT_BYTES = 16000
+# Exactly one additional query for a transient resolver failure. No alternate
+# hostname, DNS provider, IP override, TCP attempt or repeated AUD is permitted.
+_DNS_TRANSIENT_RETRY_DELAY_SECONDS = 0.2
+_DNS_MAX_ATTEMPTS = 2
+# Up to 16 GeoIP+ASN-enriched hops may exceed the previous 16 KiB cap.
+# The worker output remains strictly bounded, without silently losing a probe.
+_MAX_RESULT_BYTES = 65_536
 
 
 def _host(value: str) -> str:
@@ -72,6 +80,43 @@ def _metric(state: str = "NOT_OBSERVED", value=None, error: str | None = None) -
             "error": error}
 
 
+def _resolver_failure_category(exc: OSError) -> str:
+    """Stable, non-sensitive error category, never exception text or DNS answers."""
+    number = getattr(exc, "errno", None)
+    if number in (getattr(socket, "EAI_AGAIN", None), 11002):
+        return "TEMPORARY"
+    if isinstance(exc, socket.gaierror):
+        return "NAME_RESOLUTION"
+    return "OS_ERROR"
+
+
+def _resolve_public_addresses(host: str, port: int) -> tuple[list[tuple[int, str]], float, int]:
+    """Vetted DNS with a single bounded retry only on an OS-defined transient error.
+
+    The retry is not another active probe: no sockets are connected until every
+    DNS answer has passed the same public-only validation. Permanent failures
+    are never retried or replaced with guessed/cache/browser addresses.
+    """
+    start = time.monotonic()
+    for attempt in range(1, _DNS_MAX_ATTEMPTS + 1):
+        try:
+            addresses = socket.getaddrinfo(
+                host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP,
+            )
+            public = _public_ips(addresses)
+            return public, round((time.monotonic() - start) * 1000, 2), attempt
+        except OSError as exc:
+            if (_resolver_failure_category(exc) == "TEMPORARY"
+                    and attempt < _DNS_MAX_ATTEMPTS):
+                time.sleep(_DNS_TRANSIENT_RETRY_DELAY_SECONDS)
+                continue
+            # Record only the bounded attempt count, not the exception string.
+            # This also covers an OS failure after the first transient retry.
+            exc.rasai_dns_attempts = attempt
+            raise
+    raise AssertionError("DNS attempts exceeded bounded contract")
+
+
 def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> dict:
     """Worker only: pinned public-IP connection with valid SNI and TLS checks."""
     started = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -94,11 +139,12 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
         ],
     }
     try:
-        t0 = time.monotonic()
-        resolved = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM,
-                                      proto=socket.IPPROTO_TCP)
-        elapsed = round((time.monotonic() - t0) * 1000, 2)
-        ips = _public_ips(resolved)
+        ips, elapsed, attempts = _resolve_public_addresses(host, port)
+        record["resolver_diagnostics"] = {
+            "source": "SYSTEM_GETADDRINFO",
+            "attempts": attempts,
+            "status": "RESOLVED",
+        }
         metrics["dns_resolution"] = _metric("OBSERVED", [ip for _, ip in ips])
         metrics["dns_elapsed_ms"] = _metric("OBSERVED", elapsed)
         family, ip = ips[0]
@@ -106,10 +152,27 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
     except ValueError:
         record["state"] = "BLOCKED"
         metrics["dns_resolution"] = _metric("BLOCKED", error="UNSAFE_DNS_ANSWER")
+        record["resolver_diagnostics"] = {
+            "source": "SYSTEM_GETADDRINFO", "status": "REJECTED_UNSAFE_ANSWER",
+        }
         return record
-    except (OSError, socket.gaierror):
+    except OSError as exc:
+        category = _resolver_failure_category(exc)
         record["state"] = "COLLECTION_FAILED"
-        metrics["dns_resolution"] = _metric("COLLECTION_FAILED", error="DNS_LOOKUP_FAILED")
+        metrics["dns_resolution"] = _metric(
+            "COLLECTION_FAILED",
+            error={
+                "TEMPORARY": "DNS_TEMPORARY_FAILURE",
+                "NAME_RESOLUTION": "DNS_NAME_RESOLUTION_FAILED",
+                "OS_ERROR": "DNS_RESOLVER_OS_ERROR",
+            }[category],
+        )
+        record["resolver_diagnostics"] = {
+            "source": "SYSTEM_GETADDRINFO",
+            "status": "FAILED",
+            "category": category,
+            "attempts": getattr(exc, "rasai_dns_attempts", 1),
+        }
         return record
 
     sock = None
@@ -135,8 +198,6 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
             metrics["tls_handshake_ms"] = _metric("NOT_APPLICABLE")
             metrics["tls_protocol"] = _metric("NOT_APPLICABLE")
         record["state"] = "OBSERVED"
-        if include_traceroute:
-            metrics["traceroute"] = bounded_trace(ip, port)
     except (OSError, ssl.SSLError):
         record["state"] = "COLLECTION_FAILED"
         if metrics["tcp_handshake_ms"]["state"] != "OBSERVED":
@@ -146,6 +207,10 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
     finally:
         if sock is not None:
             sock.close()
+    # The route probe has its own authorization and budget. TLS/TCP failure
+    # does not erase an independently observable public-IP route.
+    if include_traceroute:
+        metrics["traceroute"] = bounded_trace(ip, port, max_hops=configured_max_hops())
     return record
 
 
@@ -212,7 +277,7 @@ def collect_authorized_probe(
     cmd.append("--authorize-active-network")
     if include_traceroute:
         cmd.append("--include-traceroute")
-    budget = _TIMEOUT_SECONDS + (9 if include_traceroute else 0)
+    budget = _TIMEOUT_SECONDS + (MAX_TRACE_SECONDS + 5 if include_traceroute else 0)
     try:
         child = subprocess.run(cmd, capture_output=True, text=True,
                                timeout=budget, check=False)
@@ -232,12 +297,45 @@ def collect_authorized_probe(
     record["audit_id"] = audit_id
     if series_id is not None:
         record["series_id"] = series_id
+    # Only local, already-provisioned databases are inspected. Never update
+    # databases or invoke remote providers inside a probe or audit.
+    source_policy = os.environ.get("RASAI_NETWORK_GEOIP_SOURCE", "LOCAL_FIRST")
+    if source_policy == "DISABLED":
+        asn_database = None
+        city_database = None
+    else:
+        managed = local_databases()
+        if asn_database is None:
+            asn_database = managed["asn_database"]
+        if city_database is None:
+            city_database = managed["city_database"]
     peer = (record.get("metrics") or {}).get("connected_public_ip") or {}
     peer_ip = peer.get("value") if peer.get("state") == "OBSERVED" else None
     if peer_ip:
         record["metrics"].update(enrich_public_ip(
             peer_ip, asn_database=asn_database, city_database=city_database,
         ))
+    # Enrich only observed, public hop IPs; missing or invalid databases are
+    # non-blocking and do not change the original measurement.
+    trace = (record.get("metrics") or {}).get("traceroute") or {}
+    route = trace.get("value")
+    if isinstance(route, dict) and isinstance(route.get("hops"), list):
+        enriched_by_ip = {}
+        for hop in route["hops"][:MAX_HOPS_HARD_LIMIT]:
+            if not isinstance(hop, dict) or hop.get("state") != "PUBLIC_HOP":
+                continue
+            address = hop.get("public_ip")
+            try:
+                vetted = ipaddress.ip_address(address)
+                if not vetted.is_global:
+                    continue
+                normalized = str(vetted)
+            except (TypeError, ValueError):
+                continue
+            if normalized not in enriched_by_ip:
+                enriched_by_ip[normalized] = enrich_public_ip(
+                    normalized, asn_database=asn_database, city_database=city_database)
+            hop["enrichment"] = enriched_by_ip[normalized]
     # Digest is for integrity, never identity of the collector/author.
     record["sha256"] = hashlib.sha256(_canonical(record)).hexdigest()
     record["digest_scope"] = "INTEGRITY_ONLY_NOT_AUTHORSHIP"
