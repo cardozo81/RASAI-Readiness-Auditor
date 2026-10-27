@@ -234,15 +234,48 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
         # claiming the destination blocked the route. Never infer another IP.
         dns = metrics.get("dns_resolution")
         trace = metrics.get("traceroute")
+        dns_error = dns.get("error") if isinstance(dns, dict) else None
         if (isinstance(dns, dict)
                 and dns.get("state") == "COLLECTION_FAILED"
-                and dns.get("error") == "DNS_LOOKUP_FAILED"
+                and dns_error in {
+                    "DNS_LOOKUP_FAILED",  # immutable historical H2/H3 packet
+                    "DNS_TEMPORARY_FAILURE",
+                    "DNS_NAME_RESOLUTION_FAILED",
+                    "DNS_RESOLVER_OS_ERROR",
+                }
                 and isinstance(trace, dict)
                 and trace.get("state") == "NOT_OBSERVED"):
+            diagnostic = probe.get("resolver_diagnostics")
+            category = (diagnostic.get("category")
+                        if isinstance(diagnostic, dict) else None)
+            attempts = (diagnostic.get("attempts")
+                        if isinstance(diagnostic, dict) else None)
+            if dns_error == "DNS_TEMPORARY_FAILURE":
+                reason = (
+                    "O resolvedor informou indisponibilidade temporária. "
+                    "O RASAi tentou novamente uma única vez para o mesmo hostname, "
+                    "sem conseguir obter um IP público validado. "
+                )
+            elif dns_error == "DNS_NAME_RESOLUTION_FAILED":
+                reason = (
+                    "O resolvedor do sistema rejeitou a resolução do hostname. "
+                    "O RASAi não repetiu uma falha classificada como não transitória. "
+                )
+            elif dns_error == "DNS_RESOLVER_OS_ERROR":
+                reason = (
+                    "O resolvedor do sistema retornou um erro de sistema não "
+                    "classificado como falha de nome. O RASAi não fez retentativa. "
+                )
+            else:
+                reason = (
+                    "O pacote histórico não distingue falha DNS temporária de "
+                    "outra falha do resolvedor. "
+                )
             blocks.append(
                 "<section class='panel'><h2>Por que não há rastreamento ou mapa</h2>"
                 "<p>A medição complementar foi iniciada, mas o processo executor "
                 "não conseguiu resolver o nome do destino pela pilha DNS local. "
+                + reason +
                 "Sem um IP público validado, a sondagem encerrou antes de executar "
                 "TCP, traceroute e enriquecimento GeoIP/ASN. Não houve saltos "
                 "medidos e, portanto, não há coordenadas para desenhar o mapa.</p>"
