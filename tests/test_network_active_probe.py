@@ -288,3 +288,22 @@ def test_dns_private_answer_is_never_retried_after_public_only_guard(monkeypatch
     assert row["state"] == "BLOCKED"
     assert row["metrics"]["dns_resolution"]["error"] == "UNSAFE_DNS_ANSWER"
     assert row["metrics"]["traceroute"]["state"] == "NOT_OBSERVED"
+
+
+
+def test_dns_failure_after_transient_retry_preserves_actual_attempt_count(monkeypatch):
+    attempts = []
+    def alternate_failure(*args, **kwargs):
+        attempts.append(len(attempts) + 1)
+        if len(attempts) == 1:
+            raise p.socket.gaierror(p.socket.EAI_AGAIN, "first transient")
+        raise OSError(12345, "second system error")
+    monkeypatch.setattr(p.socket, "getaddrinfo", alternate_failure)
+    monkeypatch.setattr(p.time, "sleep", lambda _: None)
+    monkeypatch.setattr(p.socket, "socket", lambda *args:
+                        pytest.fail("DNS failure must never connect"))
+    result = p._worker_probe("www.hetzner.com", 443, include_traceroute=True)
+    assert attempts == [1, 2]
+    assert result["metrics"]["dns_resolution"]["error"] == "DNS_RESOLVER_OS_ERROR"
+    assert result["resolver_diagnostics"]["attempts"] == 2
+    assert "second system error" not in json.dumps(result)
