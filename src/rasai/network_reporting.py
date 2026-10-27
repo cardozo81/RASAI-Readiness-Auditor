@@ -228,6 +228,31 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             "<th>Resultado</th><th>Situação</th></tr></thead><tbody>" +
             "".join(rows) + "</tbody></table></div></section>"
         )
+        # A DNS failure before acquiring a vetted public IP stops the canonical
+        # worker before its TCP, traceroute and local GeoIP stages. Explain the
+        # observed dependency failure rather than showing unexplained blanks or
+        # claiming the destination blocked the route. Never infer another IP.
+        dns = metrics.get("dns_resolution")
+        trace = metrics.get("traceroute")
+        if (isinstance(dns, dict)
+                and dns.get("state") == "COLLECTION_FAILED"
+                and dns.get("error") == "DNS_LOOKUP_FAILED"
+                and isinstance(trace, dict)
+                and trace.get("state") == "NOT_OBSERVED"):
+            blocks.append(
+                "<section class='panel'><h2>Por que não há rastreamento ou mapa</h2>"
+                "<p>A medição complementar foi iniciada, mas o processo executor "
+                "não conseguiu resolver o nome do destino pela pilha DNS local. "
+                "Sem um IP público validado, a sondagem encerrou antes de executar "
+                "TCP, traceroute e enriquecimento GeoIP/ASN. Não houve saltos "
+                "medidos e, portanto, não há coordenadas para desenhar o mapa.</p>"
+                "<p><strong>Como investigar:</strong> verificar a resolução DNS "
+                "no mesmo Windows e ambiente Python do executor, assim como "
+                "possíveis diferenças de proxy, VPN e DNS do navegador. "
+                "O HTTP 200 da captura não comprova que o processo de sondagem "
+                "consiga resolver o host de forma independente. A presença das "
+                "bases MaxMind não resolve a falta do IP de entrada.</p></section>"
+            )
     # Geographic context follows the measured tables rather than separating
     # the capture from its authorized complementary observations.
     blocks.append(network_geographic_panel(probes))
