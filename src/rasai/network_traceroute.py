@@ -11,10 +11,14 @@ import subprocess
 TRACE_TIMEOUT_SECONDS = 16
 
 MAX_HOPS = 8
+MAX_HOPS_HARD_LIMIT = 16
+MAX_TRACE_SECONDS = 40
 
 
-def parse_trace(text: str, destination: str) -> dict:
+def parse_trace(text: str, destination: str, *, max_hops: int = MAX_HOPS) -> dict:
     """Partial logical hop sequence; no private hop address or inferred link RTT."""
+    if type(max_hops) is not int or not 1 <= max_hops <= MAX_HOPS_HARD_LIMIT:
+        raise ValueError("Limite de hops inválido")
     hops = []
     dest = ipaddress.ip_address(destination)
     for line in text.splitlines()[:64]:
@@ -22,7 +26,7 @@ def parse_trace(text: str, destination: str) -> dict:
         if not match:
             continue
         number = int(match.group(1))
-        if not (1 <= number <= MAX_HOPS) or any(row["hop"] == number for row in hops):
+        if not (1 <= number <= max_hops) or any(row["hop"] == number for row in hops):
             continue
         found = None
         for token in re.split(r"\s+", line):
@@ -53,7 +57,7 @@ def parse_trace(text: str, destination: str) -> dict:
         (row["hop"] for row in hops if row["state"] != "NO_REPLY"), default=None),
         "target_reached": any(
         row["public_ip"] == str(dest) for row in hops
-    ), "max_hops": MAX_HOPS, "trace_kind": "LOGICAL_HOPS_ONLY",
+    ), "max_hops": max_hops, "trace_kind": "LOGICAL_HOPS_ONLY",
         "limitations": ["Saltos não descrevem coordenadas físicas.",
                         "RTT de um salto não equivale à latência de um enlace."]}
 
@@ -74,8 +78,8 @@ def _partial_text(value: bytes | str | None) -> str:
 
 
 def _result(raw: str, destination: str, *, timed_out: bool = False,
-            returncode: int = 0) -> dict:
-    parsed = parse_trace(raw, destination)
+            returncode: int = 0, max_hops: int = MAX_HOPS) -> dict:
+    parsed = parse_trace(raw, destination, max_hops=max_hops)
     has_hops = bool(parsed["hops"])
     parsed["partial"] = timed_out or not parsed["target_reached"]
     parsed["collection_status"] = ("TIME_BUDGET_EXCEEDED" if timed_out else
@@ -89,27 +93,31 @@ def _result(raw: str, destination: str, *, timed_out: bool = False,
     }
 
 
-def bounded_trace(ip: str, port: int) -> dict:
+def bounded_trace(ip: str, port: int, *, max_hops: int = MAX_HOPS) -> dict:
+    if type(max_hops) is not int or not 1 <= max_hops <= MAX_HOPS_HARD_LIMIT:
+        raise ValueError("Limite de hops inválido")
     address = ipaddress.ip_address(ip)
     if not address.is_global or port not in (80, 443):
         raise ValueError("Sondagem de caminho não autorizada")
     if os.name == "nt":
-        cmd = ["tracert", "-d", "-h", str(MAX_HOPS), "-w", "500", str(address)]
+        cmd = ["tracert", "-d", "-h", str(max_hops), "-w", "500", str(address)]
     else:
-        cmd = ["traceroute", "-n", "-T", "-m", str(MAX_HOPS),
+        cmd = ["traceroute", "-n", "-T", "-m", str(max_hops),
                "-q", "1", "-w", "1", "-p", str(port), str(address)]
+    deadline = min(MAX_TRACE_SECONDS, max(6, max_hops * (1.5 if os.name == 'nt' else 1.0) + 4))
     try:
         completed = subprocess.run(cmd, capture_output=True, text=True,
-                                   timeout=TRACE_TIMEOUT_SECONDS, check=False)
+                                   timeout=deadline, check=False)
         if len(completed.stdout) > 65_536:
             raise ValueError("Resposta de caminho fora do limite")
         return _result(completed.stdout, str(address),
-                       returncode=completed.returncode)
+                       returncode=completed.returncode, max_hops=max_hops)
     except FileNotFoundError:
         return {"state": "NOT_APPLICABLE", "value": None,
                 "error": "TRACE_COMMAND_NOT_AVAILABLE"}
     except subprocess.TimeoutExpired as exc:
-        return _result(_partial_text(exc.stdout), str(address), timed_out=True)
+        return _result(_partial_text(exc.stdout), str(address), timed_out=True,
+                       max_hops=max_hops)
     except (OSError, ValueError, UnicodeError):
         return {"state": "COLLECTION_FAILED", "value": None,
                 "error": "TRACE_COLLECTION_FAILED"}
