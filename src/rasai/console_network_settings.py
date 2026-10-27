@@ -6,6 +6,7 @@ Consent is scoped to the current audit URL's exact public hostname.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 from rasai.network_active_policy import (
@@ -88,6 +89,16 @@ def network_settings_menu(console: Any, state: Any) -> None:
         print("Sonda ativa:", status)
         print("Limite de hops:", max_hops(), "(máximo: 16)")
         print("GeoIP:", os.environ.get("RASAI_NETWORK_GEOIP_SOURCE", "LOCAL_FIRST"))
+        from rasai.network_geoip_operations import database_directory, local_databases
+        available = local_databases()
+        print("Pasta das bases GeoIP:", database_directory())
+        for label, category in (
+            ("Base City", "city_database"),
+            ("Base ASN", "asn_database"),
+        ):
+            chosen = available[category]
+            print(f"{label}:", Path(chosen).name if chosen else
+                  "AUSENTE OU INVÁLIDA (verifique MMDB/metadados; máximo de 2 bases)")
         print("Aquisição do utilitário MaxMind:", os.environ.get("RASAI_GEOIP_ACQUIRE_TOOLS", "false"))
         print("\nO hostname é extraído da URL: HTTPS, caminhos e parâmetros não são copiados.")
         print("A captura passiva não depende da autorização. Sonda ativa: destino exato,")
