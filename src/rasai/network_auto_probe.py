@@ -60,6 +60,29 @@ def _sealed_primary_host(workspace: Path, audit_id: str) -> str | None:
         return None
 
 
+def _authorized_worker_environment() -> dict[str, str]:
+    """Allowlisted subprocess environment, preserving OS resolver essentials.
+
+    Windows Python uppercases environment keys. Keep SYSTEMROOT regardless of
+    case so Winsock DNS works in the nested acceptance/worker process. The
+    policy remains secret-free, and both subprocess layers inherit it.
+    """
+    allowed = {"PATH", "SYSTEMROOT", "WINDIR", "LOCALAPPDATA",
+               "APPDATA", "USERPROFILE", "HOME", "TEMP", "TMP", "LANG",
+               "LC_ALL", "PYTHONIOENCODING", "VIRTUAL_ENV"}
+    child_env = {key: value for key, value in os.environ.items()
+                 if key.upper() in allowed}
+    from rasai.network_active_policy import max_hops, validate_network_setting
+    child_env["RASAI_NETWORK_MAX_HOPS"] = str(max_hops())
+    source = os.environ.get("RASAI_NETWORK_GEOIP_SOURCE", "LOCAL_FIRST")
+    try:
+        child_env["RASAI_NETWORK_GEOIP_SOURCE"] = validate_network_setting(
+            "RASAI_NETWORK_GEOIP_SOURCE", source)
+    except ValueError:
+        child_env["RASAI_NETWORK_GEOIP_SOURCE"] = "DISABLED"
+    return child_env
+
+
 def dispatch_for_new_audit(workspace: str | Path, audit_id: str) -> dict:
     """Non-blocking best-effort sidecar dispatch once the initial AUD is sealed."""
     host = _approved_host()
@@ -80,25 +103,8 @@ def dispatch_for_new_audit(workspace: str | Path, audit_id: str) -> dict:
            "--workspace", str(root), "--audit-id", audit_id,
            "--host", host, "--permit-exact-host", host,
            "--authorize-active-network", "--include-traceroute"]
-    # Do not forward unrelated provider credentials into a network worker.
-    # Python normalizes os.environ keys to UPPERCASE on Windows. Matching a
-    # mixed-case "SystemRoot" literally omitted SYSTEMROOT, leaving nested
-    # Windows workers with an incomplete resolver environment (H2/H3/H4).
-    # Compare allowlisted *names* case-insensitively, preserving source values.
-    allowed = {"PATH", "SYSTEMROOT", "WINDIR", "LOCALAPPDATA",
-               "APPDATA", "USERPROFILE", "HOME", "TEMP", "TMP", "LANG",
-               "LC_ALL", "PYTHONIOENCODING", "VIRTUAL_ENV"}
-    child_env = {key: value for key, value in os.environ.items()
-                 if key.upper() in allowed}
-    from rasai.network_active_policy import max_hops, validate_network_setting
-    child_env["RASAI_NETWORK_MAX_HOPS"] = str(max_hops())
-    source = os.environ.get("RASAI_NETWORK_GEOIP_SOURCE", "LOCAL_FIRST")
-    try:
-        child_env["RASAI_NETWORK_GEOIP_SOURCE"] = validate_network_setting(
-            "RASAI_NETWORK_GEOIP_SOURCE", source)
-    except ValueError:
-        child_env["RASAI_NETWORK_GEOIP_SOURCE"] = "DISABLED"
-    options = {"env": child_env}
+    # No unrelated provider credentials are forwarded to the network worker.
+    options = {"env": _authorized_worker_environment()}
     if os.name == "nt":
         options["creationflags"] = subprocess.CREATE_NO_WINDOW
     else:
