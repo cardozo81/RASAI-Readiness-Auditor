@@ -52,8 +52,17 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
 - Extra `geoip` instalado na .venv pelo bootstrap canônico.
 - Binário geoipupdate MaxMind baixado apenas com consentimento de aquisição;
   pacote oficial com SHA-256, metadados locais para verificação idempotente.
-- Bases gerenciadas no perfil gravável do operador, fora de Git, AUD e .venv;
-  somente MMDB com metadados corretos são consumidas automaticamente.
+- Bases MaxMind **City e ASN** gerenciadas em `<RAIZ_RASAI>/data/geoip/`:
+  `GeoLite2-City.mmdb` e `GeoLite2-ASN.mmdb`. A raiz da aplicação é
+  determinada pelo pacote instalado em modo editável, independentemente do
+  CWD, e não é `%LOCALAPPDATA%`. Os datasets ficam fora do Git, da AUD e da
+  .venv; somente MMDB com metadados corretos são consumidas automaticamente.
+- O utilitário `geoipupdate` continua no perfil operacional do usuário e
+  atualiza bases na pasta do programa após consentimento e conta/licença
+  MaxMind válidos. Não instalar/capturar datasets dentro de AUD, RPR ou CONS.
+  Se a pasta da aplicação não for gravável, retornar falha não bloqueante.
+  A autorização para baixar o binário não fornece automaticamente credenciais
+  ou licença para obter as bases.
 - Manutenção independente da AUD: `python -m rasai.network_geoip_maintenance`,
   com `--license-accepted` e `--allow-install` quando autorizado.
 - Agendamento Windows opcional: `--schedule --authorize-schedule`, revogável
