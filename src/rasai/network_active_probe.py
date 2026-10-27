@@ -137,8 +137,6 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
             metrics["tls_handshake_ms"] = _metric("NOT_APPLICABLE")
             metrics["tls_protocol"] = _metric("NOT_APPLICABLE")
         record["state"] = "OBSERVED"
-        if include_traceroute:
-            metrics["traceroute"] = bounded_trace(ip, port, max_hops=configured_max_hops())
     except (OSError, ssl.SSLError):
         record["state"] = "COLLECTION_FAILED"
         if metrics["tcp_handshake_ms"]["state"] != "OBSERVED":
@@ -148,6 +146,10 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
     finally:
         if sock is not None:
             sock.close()
+    # The route probe has its own authorization and budget. TLS/TCP failure
+    # does not erase an independently observable public-IP route.
+    if include_traceroute:
+        metrics["traceroute"] = bounded_trace(ip, port, max_hops=configured_max_hops())
     return record
 
 
