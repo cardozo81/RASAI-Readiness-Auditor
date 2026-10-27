@@ -63,3 +63,19 @@ def test_timeout_keeps_partial_stdout(monkeypatch):
     assert result["value"]["partial"] is True
     assert len(result["value"]["hops"]) == 3
     assert result["value"]["target_reached"] is False
+
+
+def test_windows_samples_and_nonzero_exit_preserve_observation(monkeypatch):
+    stdout = (" 1     1 ms     2 ms     3 ms  8.8.4.4\n"
+              " 2     *        *        *     Request timed out.\n")
+    def fake(cmd, **kwargs):
+        return SimpleNamespace(returncode=1, stdout=stdout)
+    monkeypatch.setattr(t.subprocess, "run", fake)
+    result = t.bounded_trace("8.8.8.8", 443)
+    assert result["state"] == "OBSERVED"
+    assert result["error"] == "TRACE_COMMAND_FAILED"
+    assert result["value"]["collection_status"] == "NONZERO_EXIT"
+    assert result["value"]["hops"][0]["rtt_samples_ms"] == [1.0, 2.0, 3.0]
+    assert result["value"]["hops"][0]["rtt_ms"] == 1.0
+    assert result["value"]["hops"][1]["state"] == "NO_REPLY"
+    assert result["value"]["target_reached"] is False
