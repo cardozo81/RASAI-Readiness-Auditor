@@ -40,20 +40,52 @@ def updater_executable() -> Path:
     return operational_home() / "tools" / "geoipupdate" / name
 
 
+def _database_category(database_type: object) -> str | None:
+    """Classify by MMDB metadata, not by its operator-controlled filename."""
+    if not isinstance(database_type, str):
+        return None
+    label = database_type.strip().casefold()
+    if label.endswith("-city"):
+        return "city_database"
+    if label.endswith("-asn"):
+        return "asn_database"
+    return None
+
+
 def local_databases() -> dict[str, str | None]:
-    """Existing, regular databases only. Never search arbitrary global paths."""
+    """Discover at most two MMDBs by verified content, regardless of filename.
+
+    Independent City/ASN coverage is preserved when one is absent or invalid.
+    More than two MMDB files, or duplicate databases for one role, cannot be
+    resolved deterministically and are rejected without blocking the audit.
+    """
+    resolved: dict[str, str | None] = {
+        "city_database": None, "asn_database": None,
+    }
     root = database_directory()
-    if root.is_symlink() or root.parent.is_symlink():
-        return {"city_database": None, "asn_database": None}
-    paths = {"city_database": root / "GeoLite2-City.mmdb",
-             "asn_database": root / "GeoLite2-ASN.mmdb"}
-    resolved = {}
+    if root.is_symlink() or root.parent.is_symlink() or not root.is_dir():
+        return resolved
+
+    try:
+        candidates = []
+        with os.scandir(root) as directory:
+            for item in directory:
+                if item.name.casefold().endswith(".mmdb"):
+                    candidates.append(Path(item.path))
+                    if len(candidates) > 2:
+                        return resolved
+    except OSError:
+        return resolved
+    if not candidates:
+        return resolved
+
     try:
         mmdb = importlib.import_module("maxminddb")
     except ImportError:
-        return {key: None for key in paths}
-    for key, path in paths.items():
-        resolved[key] = None
+        return resolved
+
+    ambiguous: set[str] = set()
+    for path in sorted(candidates, key=lambda item: item.name.casefold()):
         try:
             if path.is_symlink() or not path.is_file():
                 continue
@@ -62,16 +94,19 @@ def local_databases() -> dict[str, str | None]:
                 continue
             reader = mmdb.open_database(str(path))
             try:
-                meta = reader.metadata()
-                db_type = str(meta.database_type)
-                expected = "City" if key == "city_database" else "ASN"
-                if expected not in db_type:
-                    continue
-                if type(meta.build_epoch) is not int or meta.build_epoch <= 0:
+                metadata = reader.metadata()
+                category = _database_category(metadata.database_type)
+                if category is None or type(metadata.build_epoch) is not int or metadata.build_epoch <= 0:
                     continue
             finally:
                 reader.close()
-            resolved[key] = str(path)
+            if category in ambiguous:
+                continue
+            if resolved[category] is not None:
+                resolved[category] = None
+                ambiguous.add(category)
+            else:
+                resolved[category] = str(path)
         except (OSError, ValueError, TypeError, AttributeError):
             continue
     return resolved
