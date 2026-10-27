@@ -34,7 +34,7 @@ def network_geographic_panel(probes: list[dict]) -> str:
     No geographic paths/lines are inferred. A grid without coordinates is not
     a map of measured infrastructure, so absent enrichment has a logical fallback.
     """
-    markers = []
+    markers: dict[tuple[float, float], dict[str, Any]] = {}
     connections = []
     legend = []
     for probe in probes[:32]:
@@ -95,20 +95,22 @@ def network_geographic_panel(probes: list[dict]) -> str:
             if type(hop_number) is int:
                 if prior_position is not None and prior_position[0] + 1 == hop_number:
                     px, py = prior_position[1:]
-                    connections.append(
-                        f"<line data-map-layer='logical-sequence' x1='{px:.2f}' y1='{py:.2f}' "
-                        f"x2='{x:.2f}' y2='{y:.2f}' stroke='#667c96' "
-                        "stroke-width='1.5' stroke-dasharray='5 5'/>"
-                    )
+                    if (px, py) != (x, y):
+                        connections.append(
+                            f"<line data-map-layer='logical-sequence' x1='{px:.2f}' y1='{py:.2f}' "
+                            f"x2='{x:.2f}' y2='{y:.2f}' stroke='#667c96' "
+                            "stroke-width='1.5' stroke-dasharray='5 5'/>"
+                        )
                 prior_position = (hop_number, x, y)
             else:
                 prior_position = None
-            markers.append(
-                f"<circle cx='{x:.2f}' cy='{y:.2f}' r='7' fill='#24578b' "
-                f"stroke='#ffffff' stroke-width='2'><title>{escape(desc)}</title></circle>"
-            )
+            # Keep the original coordinates and each individual observation.
+            # Coincident IP geolocations are displayed as a single cluster.
+            group = markers.setdefault((lat, lon), {"x": x, "y": y, "names": [], "descriptions": []})
+            group["names"].append(name)
+            group["descriptions"].append(desc)
             legend.append(
-                "<li><strong>" + escape(name) + "</strong>: " + escape(detail) + "; " +
+                "<li tabindex='0'><strong>" + escape(name) + "</strong>: " + escape(detail) + "; " +
                 f"{lat:.3f}°, {lon:.3f}°; raio de precisão: {radius:g} km. "
                 "Fonte: " + escape(origin) + ". Data: " + escape(capture) +
                 ". Referência IP aproximada, não equipamento físico.</li>"
@@ -121,6 +123,22 @@ def network_geographic_panel(probes: list[dict]) -> str:
             "O destino observado, a resolução de nomes e as conexões "
             "estão detalhados nas tabelas de rede, quando disponíveis.</p>"
             "</section>"
+        )
+    svg_markers = []
+    for group in markers.values():
+        n = len(group["names"])
+        x, y = group["x"], group["y"]
+        label = (f"{n} registros na mesma posição geográfica: "
+                 + ", ".join(group["names"])) if n > 1 else group["descriptions"][0]
+        svg_markers.append(
+            f"<g role='group' data-marker-count='{n}' aria-label='{escape(label, quote=True)}'>"
+            f"<title>{escape(label)}</title>"
+            f"<circle cx='{x:.2f}' cy='{y:.2f}' r='{11 if n > 1 else 7}' "
+            "fill='#24578b' stroke='#ffffff' stroke-width='2'/>"
+            + (f"<text x='{x:.2f}' y='{y+3.5:.2f}' text-anchor='middle' "
+               "font-size='10' font-weight='700' fill='#ffffff' "
+               f"aria-hidden='true'>{n}</text>" if n > 1 else "")
+            + "</g>"
         )
     grid = []
     for lon in range(-180, 181, 60):
@@ -142,12 +160,15 @@ def network_geographic_panel(probes: list[dict]) -> str:
         "style='display:block;min-width:550px;max-width:100%;background:#f2f7fb'>"
         + "<path data-map-layer='land' d='" + WORLD_LAND_SVG_PATH +
         "' fill='#e1eee7' stroke='#91a7a0' stroke-width='0.7'/>" +
-        "".join(grid) + "".join(connections) + "".join(markers) + "</svg></div>"
+        "".join(grid) + "".join(connections) + "".join(svg_markers) + "</svg></div>"
         "<p>Mapa base simplificado Natural Earth, escala 1:110 milhões "
         "(referência cartográfica de domínio público, não evidência de rede). "
         "A posição estimada é representada apenas pelos marcadores; nenhuma "
         "rota física é desenhada.</p>"
-        "<h3>Origem e precisão de cada ponto</h3><ul>" +
+        "<h3>Origem e precisão de cada ponto</h3>"
+        "<p>Os números nos marcadores indicam quantos registros compartilham "
+        "a mesma coordenada estimada. O detalhamento individual continua "
+        "na lista abaixo e é acessível pelo teclado.</p><ul>" +
         "".join(legend) + "</ul>"
         "</section>"
     )

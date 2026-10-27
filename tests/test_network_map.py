@@ -92,3 +92,31 @@ def test_geo_links_only_adjacent_observed_coordinates():
     html = network_geographic_panel([row])
     assert html.count("data-map-layer='logical-sequence'") == 2
     assert "não são rotas físicas medidas" in html
+
+
+def test_same_coordinates_are_aggregated_without_losing_records():
+    """Regression: 13 geolocated hops + destination in only four locations."""
+    coords = [(20.0, 30.0)] * 2 + [(30.0, 40.0)] * 3 + [(40.0, 50.0)] * 8
+    def geo(lat, lon):
+        return {"state": "OBSERVED", "value": {
+            "latitude": lat, "longitude": lon, "accuracy_radius_km": 150,
+            "source": "LOCAL_MMDB_CITY"}}
+    hops = [{"hop": index, "state": "PUBLIC_HOP",
+             "public_ip": "2001:4860:4860::" + str(index),
+             "rtt_ms": float(index),
+             "enrichment": {"geoip": geo(*position), "asn": {
+                 "state": "OBSERVED", "value": {"number": 15169,
+                                                  "organization": "Operador"}}}}
+            for index, position in enumerate(coords, 1)]
+    row = {"hostname": "example.org", "capture_utc": "2026-10-27T13:26:45Z",
+           "metrics": {"geoip": geo(10.0, 20.0), "traceroute": {
+               "state": "OBSERVED", "value": {
+                   "hops": hops, "target_reached": False}}}}
+    html = network_geographic_panel([row])
+    assert html.count("<circle") == 4
+    assert html.count("<li tabindex='0'>") == 14
+    for n in (1, 2, 3, 8):
+        assert f"data-marker-count='{n}'" in html
+    assert html.count("data-map-layer='logical-sequence'") == 2
+    assert "Hop 13" in html and "Destino: example.org" in html
+    assert "não são rotas físicas medidas" in html
