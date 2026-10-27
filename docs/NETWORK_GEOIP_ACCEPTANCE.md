@@ -80,6 +80,10 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
   verdes **no último HEAD** antes de liberar homologação humana.
 
 ## Aceite humano Windows (somente após liberar)
+Utilize `scripts/NETWORK_GEOIP_WINDOWS_ACCEPTANCE.ps1` em modo preflight
+sem `-AuthorizeTrace`; a sondagem física requer parâmetro explícito,
+hostname exato e escopo previamente autorizado.
+
 1. Manter intacta a AUD histórica Hetzner; gerar novo complemento autorizado.
 2. Inspecionar seis respostas e duas ausências com fixture conhecida;
    medição física pode variar. Não presumir que o destino foi alcançado.
