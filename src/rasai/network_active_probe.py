@@ -212,7 +212,7 @@ def collect_authorized_probe(
     cmd.append("--authorize-active-network")
     if include_traceroute:
         cmd.append("--include-traceroute")
-    budget = _TIMEOUT_SECONDS + (9 if include_traceroute else 0)
+    budget = _TIMEOUT_SECONDS + (20 if include_traceroute else 0)
     try:
         child = subprocess.run(cmd, capture_output=True, text=True,
                                timeout=budget, check=False)
