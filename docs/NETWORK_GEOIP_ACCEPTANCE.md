@@ -18,8 +18,20 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
 - `traceroute` coletado separadamente de falhas de handshake TCP/TLS.
 - Pacote novo e verificável e `network.html` com todos os hops, RTT e estado.
 - Configuração canônica: `RASAI_NETWORK_ACTIVE_ENABLED` (false),
-  `RASAI_NETWORK_ACTIVE_HOST` (host exato) e `RASAI_NETWORK_MAX_HOPS` (8).
-  Ausência, alteração ou remoção de permissão bloqueia novo tráfego automático.
+  `RASAI_NETWORK_ACTIVE_HOST` (hostname público exato) e `RASAI_NETWORK_MAX_HOPS` (8).
+  O atalho `PREPARAR AUDITORIA > CAT-01 > N. Rede e conectividade` extrai o
+  hostname da URL da sessão, removendo `https://`, caminho, porta e query, mas
+  **não concede autorização automaticamente**. O operador precisa confirmar
+  expressamente a sonda ativa para o hostname exato; pode habilitar/revogar e
+  escolher sessão ou persistência no INI canônico. A edição avançada de
+  `RASAI_NETWORK_ACTIVE_HOST` também aceita URL HTTP(S) completa como entrada,
+  mas grava somente o hostname normalizado.
+- Alteração de URL/hostname **não transfere** o consentimento: divergências
+  são mostradas no CAT-01 e impedem despacho automático. Além do escopo
+  original na tabela de páginas, o despacho exige que o host autorizado
+  corresponda ao hostname da **URL primária selada** na configuração da nova AUD;
+  um redirect observado não basta. Falta de snapshot canônico ou configuração
+  inválida falha fechada e não bloqueia a AUD.
 - Despacho automático implementado exclusivamente após a nova AUD concluída;
   usa `network_acceptance` canônico em subprocesso independente após consentimento,
   sem aguardar traceroute no caminho crítico.
