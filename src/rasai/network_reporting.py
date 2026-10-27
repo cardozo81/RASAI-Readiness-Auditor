@@ -34,6 +34,19 @@ _STATE = {
     "COLLECTION_FAILED": "Falha na coleta",
 }
 
+# Technical failures are described from an allowlist, never from arbitrary
+# subprocess output or exception text persisted in complementary packets.
+_TRACE_NO_HOPS_REASON = {
+    "TRACE_TIME_BUDGET_EXCEEDED": (
+        "Tempo limite excedido durante o rastreamento; "
+        "nenhum salto verificável foi preservado nesta medição."
+    ),
+    "TRACE_COMMAND_NOT_AVAILABLE": "Ferramenta local de rastreamento indisponível.",
+    "TRACE_COMMAND_FAILED": "O comando de rastreamento terminou com erro, sem saltos verificáveis.",
+    "TRACE_COLLECTION_FAILED": "Falha técnica na coleta do rastreamento de rede.",
+    "ROUTE_NOT_CONFIRMED": "Não foi possível confirmar o percurso até o destino.",
+}
+
 
 def _display_observed_metric(key: str, value: object) -> str:
     """Presentation only: use pt-BR decimals, never modify measured values."""
@@ -146,6 +159,12 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
                 shown = ", ".join(str(x) for x in value[:32])
             else:
                 shown = _display_observed_metric(key, value)
+            if key == "traceroute" and observation.get("state") != "OBSERVED":
+                trace_error = observation.get("error")
+                if isinstance(trace_error, str) and trace_error:
+                    shown = _TRACE_NO_HOPS_REASON.get(
+                        trace_error, "Rastreamento inconclusivo por falha técnica."
+                    )
             rows.append("<tr><th scope='row'>" + escape(label) + "</th><td>" +
                         escape(shown) + "</td><td>" + escape(status) + "</td></tr>")
         if not rows:
