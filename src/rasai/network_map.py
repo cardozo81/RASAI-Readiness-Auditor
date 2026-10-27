@@ -86,26 +86,6 @@ def network_geographic_panel(probes: list[dict]) -> str:
                 "Fonte: " + escape(origin) + ". Data: " + escape(capture) +
                 ". Referência IP aproximada, não equipamento físico.</li>"
             )
-        continue
-
-        desc = (f"{name}. Posição estimada em {lat:.3f}°, {lon:.3f}°. "
-                f"Precisão declarada: raio de {radius:g} km. "
-                f"Fonte: {origin}. Coleta: {capture}. "
-                "Posição estimada da referência IP, não do servidor físico.")
-        # Equirectangular projection; fixed mathematical axes without remote map tiles.
-        x, y = 40 + (lon + 180) / 360 * 800, 20 + (90 - lat) / 180 * 360
-        markers.append(
-            f"<circle cx='{x:.2f}' cy='{y:.2f}' r='7' fill='#24578b' "
-            f"stroke='#ffffff' stroke-width='2'><title>{escape(desc)}</title></circle>"
-        )
-        # Public and accessible provenance outside SVG: some catalog
-        # composition layers may remove nested SVG title elements.
-        legend.append(
-            "<li><strong>" + escape(name) + "</strong>: " +
-            f"{lat:.3f}°, {lon:.3f}°; raio de precisão declarado: {radius:g} km. "
-            "Fonte: " + escape(origin) + ". Data: " + escape(capture) +
-            ". Localização aproximada da referência IP, não do servidor.</li>"
-        )
     if not markers:
         return (
             "<section class='panel'><h2>Mapa e caminho de rede</h2>"
