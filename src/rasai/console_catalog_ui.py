@@ -22,6 +22,8 @@ from rasai.console_catalog_plan import (
     raw_capability_status,
     select_catalog,
     select_all_unselected_catalogs,
+    selected_catalog_ids,
+    set_selected_catalog_ids,
     set_ai_execution_enabled,
 )
 
@@ -29,6 +31,27 @@ _HANDLER_CHOICES = {
     "CAT-04": "6", "CAT-05": "T", "CAT-06": "11", "CAT-07": "11",
     "CAT-08": "13", "CAT-09": "5",
 }
+
+
+def _bulk_action_label(state: Any) -> str:
+    """Reflect the next action on this new-AUD preparation screen only."""
+    if len(selected_catalog_ids(state)) == len(CATALOGS):
+        return "T. Desmarcar todos os catálogos"
+    return "T. Marcar todos os catálogos"
+
+
+def _toggle_all_preparation_catalogs(state: Any) -> str:
+    """Toggle only catalog selection, reusing the canonical next-AUD plan.
+
+    Complementary AUD and reprocessing have their own immutable scopes and
+    are deliberately not routed through this action.
+    """
+    selected = selected_catalog_ids(state)
+    if len(selected) == len(CATALOGS):
+        set_selected_catalog_ids(state, ())
+        return f"{len(selected)} catálogo(s) desmarcado(s) em uma única ação."
+    added = select_all_unselected_catalogs(state)
+    return f"{len(added)} catálogo(s) marcado(s) em uma única ação."
 
 
 def _capability_by_key(key: str) -> Any:
@@ -425,7 +448,7 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         section("AÇÕES")
         if bulk_notice:
             print(paint(bulk_notice, DIM))
-        print("T. Marcar todos os catálogos ainda não selecionados")
+        print(_bulk_action_label(state))
         print("A. Revisar URL e parâmetros dependentes (SERP, Perplexity, GSC)")
         print(f"R. Executar auditoria        [{badge(plan_state)}]")
         if ai_optional(state) and not ai_required(state) and ai_provider_readiness(state)[0]:
@@ -442,8 +465,7 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
             bulk_notice = "Revisão de contexto efetuada; salve a configuração com S, se desejar."
             continue
         if raw == "T":
-            added = select_all_unselected_catalogs(state)
-            bulk_notice = f"{len(added)} catálogo(s) marcado(s) em uma única ação."
+            bulk_notice = _toggle_all_preparation_catalogs(state)
             state.error = ""
             continue
         if raw == "R":
