@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from html import escape
+from ipaddress import ip_address
 from math import isfinite
 from typing import Any
 
@@ -47,11 +48,17 @@ def network_geographic_panel(probes: list[dict]) -> str:
             for hop in hops[:8]:
                 if not isinstance(hop, dict) or hop.get("state") != "PUBLIC_HOP":
                     continue
+                try:
+                    address = ip_address(hop.get("public_ip"))
+                    if not address.is_global:
+                        continue
+                except (TypeError, ValueError):
+                    continue
                 enrichment = hop.get("enrichment") or {}
                 if not isinstance(enrichment, dict):
                     continue
                 candidates.append(("Hop " + str(hop.get("hop")) + ": " +
-                                   str(hop.get("public_ip")), enrichment.get("geoip"),
+                                   str(address), enrichment.get("geoip"),
                                    enrichment.get("asn"), hop.get("hop"), hop.get("rtt_ms")))
         for name, geo, asn, hop_number, rtt in candidates:
             if not isinstance(geo, dict) or geo.get("state") != "OBSERVED":
