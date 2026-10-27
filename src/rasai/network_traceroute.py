@@ -6,6 +6,10 @@ import os
 import re
 import subprocess
 
+# Windows tracert can wait 3 × 500 ms per hop, plus process overhead.
+# Keep the subprocess deadline below the parent worker's allotted budget.
+TRACE_TIMEOUT_SECONDS = 16
+
 MAX_HOPS = 8
 
 
@@ -47,6 +51,33 @@ def parse_trace(text: str, destination: str) -> dict:
                         "RTT de um salto não equivale à latência de um enlace."]}
 
 
+def _partial_text(value: bytes | str | None) -> str:
+    """Decode TimeoutExpired stdout without leaking binary data or unlimited output."""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        # UTF-8 for modern environments; Windows console code pages as fallback.
+        for encoding in ("utf-8", "cp850", "cp1252"):
+            try:
+                return value[:65_536].decode(encoding)
+            except UnicodeDecodeError:
+                continue
+        return value[:65_536].decode("utf-8", errors="replace")
+    return value[:65_536]
+
+
+def _result(raw: str, destination: str, *, timed_out: bool = False) -> dict:
+    parsed = parse_trace(raw, destination)
+    has_hops = bool(parsed["hops"])
+    parsed["partial"] = timed_out or not parsed["target_reached"]
+    return {
+        "state": "OBSERVED" if has_hops else "INCONCLUSIVE",
+        "value": parsed if has_hops else None,
+        "error": ("TRACE_TIME_BUDGET_EXCEEDED" if timed_out else
+                  None if parsed["target_reached"] else "ROUTE_NOT_CONFIRMED"),
+    }
+
+
 def bounded_trace(ip: str, port: int) -> dict:
     address = ipaddress.ip_address(ip)
     if not address.is_global or port not in (80, 443):
@@ -58,18 +89,15 @@ def bounded_trace(ip: str, port: int) -> dict:
                "-q", "1", "-w", "1", "-p", str(port), str(address)]
     try:
         completed = subprocess.run(cmd, capture_output=True, text=True,
-                                   timeout=8, check=False)
+                                   timeout=TRACE_TIMEOUT_SECONDS, check=False)
         if len(completed.stdout) > 65_536:
             raise ValueError("Resposta de caminho fora do limite")
-        parsed = parse_trace(completed.stdout, str(address))
-        return {"state": "OBSERVED" if parsed["hops"] else "INCONCLUSIVE",
-                "value": parsed if parsed["hops"] else None,
-                "error": (None if parsed["target_reached"] else "ROUTE_NOT_CONFIRMED")}
+        return _result(completed.stdout, str(address))
     except FileNotFoundError:
         return {"state": "NOT_APPLICABLE", "value": None,
                 "error": "TRACE_COMMAND_NOT_AVAILABLE"}
-    except subprocess.TimeoutExpired:
-        return {"state": "INCONCLUSIVE", "value": None, "error": "TRACE_TIME_BUDGET_EXCEEDED"}
+    except subprocess.TimeoutExpired as exc:
+        return _result(_partial_text(exc.stdout), str(address), timed_out=True)
     except (OSError, ValueError, UnicodeError):
         return {"state": "COLLECTION_FAILED", "value": None,
                 "error": "TRACE_COLLECTION_FAILED"}
