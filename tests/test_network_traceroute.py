@@ -25,7 +25,7 @@ def test_bounded_trace_uses_only_vetted_destination(monkeypatch):
     monkeypatch.setattr(t.subprocess, "run", fake)
     result = t.bounded_trace("8.8.8.8", 443)
     assert result["state"] == "OBSERVED"
-    assert seen[0][1]["timeout"] == t.TRACE_TIMEOUT_SECONDS
+    assert 0 < seen[0][1]["timeout"] <= t.MAX_TRACE_SECONDS
     assert seen[0][0][-1] == "8.8.8.8"
     with pytest.raises(ValueError):
         t.bounded_trace("192.168.1.2", 443)
@@ -79,3 +79,17 @@ def test_windows_samples_and_nonzero_exit_preserve_observation(monkeypatch):
     assert result["value"]["hops"][0]["rtt_ms"] == 1.0
     assert result["value"]["hops"][1]["state"] == "NO_REPLY"
     assert result["value"]["target_reached"] is False
+
+
+def test_configurable_hops_respect_ceiling(monkeypatch):
+    seen = []
+    def fake(cmd, **kwargs):
+        seen.append(cmd)
+        return SimpleNamespace(returncode=0, stdout="1  8.8.8.8  2 ms\n")
+    monkeypatch.setattr(t.subprocess, "run", fake)
+    observed = t.bounded_trace("8.8.8.8", 443, max_hops=12)
+    assert observed["value"]["max_hops"] == 12
+    assert "12" in seen[0]
+    for invalid in (0, 17, True, "8"):
+        with pytest.raises(ValueError):
+            t.bounded_trace("8.8.8.8", 443, max_hops=invalid)
