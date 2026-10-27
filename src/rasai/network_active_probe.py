@@ -26,6 +26,7 @@ from urllib.parse import urlsplit
 from rasai.network_enrichment import enrich_public_ip
 from rasai.network_geoip_operations import local_databases
 from rasai.network_traceroute import bounded_trace, MAX_TRACE_SECONDS, MAX_HOPS_HARD_LIMIT
+from rasai.network_active_policy import max_hops as configured_max_hops
 
 CONTRACT = "rasai-network-active-probe-v1"
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
@@ -137,7 +138,7 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
             metrics["tls_protocol"] = _metric("NOT_APPLICABLE")
         record["state"] = "OBSERVED"
         if include_traceroute:
-            metrics["traceroute"] = bounded_trace(ip, port)
+            metrics["traceroute"] = bounded_trace(ip, port, max_hops=configured_max_hops())
     except (OSError, ssl.SSLError):
         record["state"] = "COLLECTION_FAILED"
         if metrics["tcp_handshake_ms"]["state"] != "OBSERVED":
