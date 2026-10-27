@@ -118,6 +118,11 @@ def _render_context(state: Any, catalog: AuditCatalog) -> None:
         configuration_value_info("RASAI_DEVICE_CONTEXT", getattr(state, "device", "mobile")),
     )
     info("Idioma / mercado", f"{getattr(state, 'language', '-')} / {getattr(state, 'market', '-')}")
+    if catalog.id == "CAT-01":
+        from rasai.console_network_settings import _status
+        network_state, target_host = _status(state)
+        info("Rede e conectividade", network_state)
+        info("Host para autorização", target_host or "<URL não utilizável>")
     if catalog.id == "CAT-04":
         info(
             "Web Performance",
@@ -296,6 +301,8 @@ def catalog_menu(console_module: ModuleType, state: Any, catalog: AuditCatalog) 
         section("AÇÕES")
         if _HANDLER_CHOICES.get(catalog.id):
             print("1. Configurar parâmetros próprios deste catálogo")
+        if catalog.id == "CAT-01":
+            print("N. Rede e conectividade — autorização, GeoIP e limite de hops")
         from rasai.configuration_registry import catalog_configuration_partition
         exclusive_config, _shared_config = catalog_configuration_partition(catalog.id)
         if any(item.persist_ini and not item.sensitive for item in exclusive_config):
@@ -308,6 +315,10 @@ def catalog_menu(console_module: ModuleType, state: Any, catalog: AuditCatalog) 
         raw = input("Número/ID ou ação: ").strip().upper()
         if raw == "V":
             return
+        if raw == "N" and catalog.id == "CAT-01":
+            from rasai.console_network_settings import network_settings_menu
+            network_settings_menu(console_module, state)
+            continue
         if raw == "D":
             if deselect_catalog(state, catalog):
                 state.error = ""
