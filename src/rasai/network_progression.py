@@ -18,11 +18,11 @@ def route_panels(probes):
             last_responding = max((h.get("hop") for h in data["hops"] if isinstance(h, dict)
                                    and h.get("state") in ("PUBLIC_HOP", "PRIVATE_HOP_REDACTED")
                                    and type(h.get("hop")) is int), default=None)
-        for item in data["hops"][:8]:
+        for item in data["hops"][:16]:
             if not isinstance(item, dict):
                 continue
             n, state = item.get("hop"), item.get("state")
-            if type(n) is not int or not 1 <= n <= 8 or state not in (
+            if type(n) is not int or not 1 <= n <= 16 or state not in (
                     "PUBLIC_HOP", "PRIVATE_HOP_REDACTED", "NO_REPLY"):
                 continue
             address = item.get("public_ip")
