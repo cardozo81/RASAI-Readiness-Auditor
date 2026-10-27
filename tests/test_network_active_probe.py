@@ -152,3 +152,29 @@ def test_child_command_carries_original_audit_scope(tmp_path, monkeypatch):
         tmp_path, "AUD-G2", "website.example.org",
         permitted_hostname="website.example.org", authorized=True,
     ).is_file()
+
+
+def test_traceroute_survives_tcp_connection_failure(monkeypatch):
+    monkeypatch.setattr(p.socket, "getaddrinfo", lambda *a, **k: [
+        (p.socket.AF_INET, p.socket.SOCK_STREAM, p.socket.IPPROTO_TCP, "",
+         ("8.8.8.8", 443))
+    ])
+    class BrokenSocket:
+        def settimeout(self, value):
+            pass
+        def connect(self, target):
+            raise OSError("simulated tcp failure")
+        def close(self):
+            pass
+    monkeypatch.setattr(p.socket, "socket", lambda *a, **k: BrokenSocket())
+    observed = []
+    def fake_trace(ip, port, *, max_hops):
+        observed.append((ip, port, max_hops))
+        return {"state": "OBSERVED", "value": {"hops": [
+            {"hop": 1, "public_ip": "8.8.4.4", "state": "PUBLIC_HOP"}
+        ], "target_reached": False}, "error": "ROUTE_NOT_CONFIRMED"}
+    monkeypatch.setattr(p, "bounded_trace", fake_trace)
+    item = p._worker_probe("website.example.org", 443, include_traceroute=True)
+    assert item["state"] == "COLLECTION_FAILED"
+    assert item["metrics"]["traceroute"]["state"] == "OBSERVED"
+    assert observed == [("8.8.8.8", 443, 8)]
