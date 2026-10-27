@@ -26,7 +26,7 @@ def install_daily_windows_task(config: Path, *, licensed: bool,
     if not binary.is_file():
         return {"state": "NOT_CONFIGURED", "error": "INVALID_RASAI_PYTHON"}
     command = (f'"{binary}" -m rasai.network_geoip_maintenance '
-               f'--config "{path}" --license-accepted')
+               f'--config "{path}" --license-accepted --allow-install')
     try:
         result = subprocess.run(
             ["schtasks", "/Create", "/SC", "DAILY", "/ST", "09:00", "/TN", TASK_NAME,
