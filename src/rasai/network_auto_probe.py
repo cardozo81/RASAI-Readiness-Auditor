@@ -81,10 +81,15 @@ def dispatch_for_new_audit(workspace: str | Path, audit_id: str) -> dict:
            "--host", host, "--permit-exact-host", host,
            "--authorize-active-network", "--include-traceroute"]
     # Do not forward unrelated provider credentials into a network worker.
-    allowed = {"PATH", "Path", "SystemRoot", "WINDIR", "LOCALAPPDATA",
+    # Python normalizes os.environ keys to UPPERCASE on Windows. Matching a
+    # mixed-case "SystemRoot" literally omitted SYSTEMROOT, leaving nested
+    # Windows workers with an incomplete resolver environment (H2/H3/H4).
+    # Compare allowlisted *names* case-insensitively, preserving source values.
+    allowed = {"PATH", "SYSTEMROOT", "WINDIR", "LOCALAPPDATA",
                "APPDATA", "USERPROFILE", "HOME", "TEMP", "TMP", "LANG",
                "LC_ALL", "PYTHONIOENCODING", "VIRTUAL_ENV"}
-    child_env = {key: value for key, value in os.environ.items() if key in allowed}
+    child_env = {key: value for key, value in os.environ.items()
+                 if key.upper() in allowed}
     from rasai.network_active_policy import max_hops, validate_network_setting
     child_env["RASAI_NETWORK_MAX_HOPS"] = str(max_hops())
     source = os.environ.get("RASAI_NETWORK_GEOIP_SOURCE", "LOCAL_FIRST")
