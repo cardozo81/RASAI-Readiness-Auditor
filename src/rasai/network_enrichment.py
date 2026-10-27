@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import importlib
 import ipaddress
+from functools import lru_cache
 from math import isfinite
 from pathlib import Path
 
@@ -12,19 +13,25 @@ def _unobserved():
     return {"state": "NOT_OBSERVED", "value": None, "error": None}
 
 
+@lru_cache(maxsize=16)
+def _hash_version(path: str, size: int, mtime_ns: int, inode: int) -> str:
+    """Reuse integrity digest only while the observed file identity is stable."""
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1_048_576), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def _dataset(path: str):
     source = Path(path)
     if source.is_symlink() or not source.is_file():
         raise ValueError("Arquivo geográfico inválido")
-    size = source.stat().st_size
-    if size <= 0 or size > 180_000_000:
+    state = source.stat()
+    if state.st_size <= 0 or state.st_size > 180_000_000:
         raise ValueError("Base geográfica fora do limite")
-    digest = hashlib.sha256()
-    with source.open("rb") as stream:
-        for block in iter(lambda: stream.read(1_048_576), b""):
-            digest.update(block)
-    return source, digest.hexdigest()
-
+    return source, _hash_version(str(source.resolve()), state.st_size,
+                                 state.st_mtime_ns, state.st_ino)
 
 def _field(v, low: float, high: float):
     if type(v) not in (int, float):
@@ -61,6 +68,12 @@ def enrich_public_ip(ip: str, *, asn_database: str | None = None,
             reader = mmdb.open_database(str(dbfile))
             try:
                 data = reader.get(str(address))
+                try:
+                    meta = reader.metadata()
+                    database_type = str(meta.database_type)[:96]
+                    build_epoch = int(meta.build_epoch)
+                except (AttributeError, TypeError, ValueError):
+                    database_type, build_epoch = None, None
             finally:
                 reader.close()
             if not isinstance(data, dict):
@@ -75,6 +88,7 @@ def enrich_public_ip(ip: str, *, asn_database: str | None = None,
                                          else None),
                         "source": "LOCAL_MMDB_ASN",
                         "dataset_sha256": sha,
+                        "database_type": database_type, "build_epoch": build_epoch,
                         "confidence": "DATABASE_ATTRIBUTION_NOT_ORIGIN_PROOF",
                     }}
             else:
@@ -90,6 +104,7 @@ def enrich_public_ip(ip: str, *, asn_database: str | None = None,
                     "latitude": latitude, "longitude": longitude,
                     "accuracy_radius_km": radius,
                     "source": "LOCAL_MMDB_CITY", "dataset_sha256": sha,
+                    "database_type": database_type, "build_epoch": build_epoch,
                     "confidence": "APPROXIMATE_DATABASE_GEOLOCATION",
                 }}
         except (OSError, ValueError, TypeError, KeyError):
