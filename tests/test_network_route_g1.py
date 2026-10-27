@@ -19,3 +19,18 @@ def test_all_sixteen_hops_and_last_responder_are_visible():
     assert "9.00 ms, 10.00 ms" in html
     assert "Sem IP" in html and "Oculto" in html
     assert "192.168." not in html
+
+
+def test_timeout_message_preserves_partial_route_detail():
+    probe = {"hostname": "example.org", "metrics": {"traceroute": {
+        "state": "OBSERVED", "error": "TRACE_TIME_BUDGET_EXCEEDED",
+        "value": {"hops": [
+            {"hop": 1, "state": "PUBLIC_HOP", "public_ip": "8.8.8.8",
+             "rtt_samples_ms": [1.0], "rtt_ms": 1.0},
+            {"hop": 2, "state": "NO_REPLY", "public_ip": None, "rtt_ms": None}
+        ], "target_reached": False, "last_responding_hop": 1}}}}
+    html = route_panels([probe])
+    assert "limite de tempo" in html
+    assert "8.8.8.8" in html
+    assert "Sem resposta" in html
+    assert "Destino alcançado." not in html
