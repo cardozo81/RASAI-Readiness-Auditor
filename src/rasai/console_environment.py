@@ -214,6 +214,11 @@ ENV_NAMES = tuple(
             *_PLATFORM_ENV_NAMES,
             *_API_ENV_NAMES,
             *_REMOTE_ENV_NAMES,
+            "RASAI_GEOIP_ACQUIRE_TOOLS",
+            "RASAI_NETWORK_ACTIVE_ENABLED",
+            "RASAI_NETWORK_ACTIVE_HOST",
+            "RASAI_NETWORK_GEOIP_SOURCE",
+            "RASAI_NETWORK_MAX_HOPS",
         )
     )
 )
@@ -758,6 +763,11 @@ def _absolute_url(value: str, *, https_only: bool = False, loopback_http: bool =
 
 
 def _validate(name: str, raw: str) -> str:
+    if name in {"RASAI_GEOIP_ACQUIRE_TOOLS", "RASAI_NETWORK_ACTIVE_ENABLED",
+                "RASAI_NETWORK_ACTIVE_HOST", "RASAI_NETWORK_GEOIP_SOURCE",
+                "RASAI_NETWORK_MAX_HOPS"}:
+        from rasai.network_active_policy import validate_network_setting
+        return validate_network_setting(name, raw)
     value = validate_existing(name, raw)
     if name.startswith(PERPLEXITY_PREFIX) and name.removeprefix(PERPLEXITY_PREFIX) in PERPLEXITY_OPTION_FIELDS:
         return validate_perplexity_option(name, value)
