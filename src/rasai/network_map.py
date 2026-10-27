@@ -38,20 +38,56 @@ def network_geographic_panel(probes: list[dict]) -> str:
         measurements = probe.get("metrics")
         if not isinstance(measurements, dict):
             continue
-        geo = measurements.get("geoip")
-        if not isinstance(geo, dict) or geo.get("state") != "OBSERVED":
-            continue
-        value = geo.get("value")
-        if not isinstance(value, dict):
-            continue
-        lat = _coordinate(value.get("latitude"), -90, 90)
-        lon = _coordinate(value.get("longitude"), -180, 180)
-        radius = _coordinate(value.get("accuracy_radius_km"), 0, 20000)
-        if lat is None or lon is None or radius is None:
-            continue
-        name = str(probe.get("hostname") or "Destino público")
-        origin = _public_source_label(value.get("source"))
-        capture = str(probe.get("capture_utc") or "Data não comprovada")
+        trace = measurements.get("traceroute") or {}
+        trace_value = trace.get("value") if isinstance(trace, dict) else None
+        hops = trace_value.get("hops") if isinstance(trace_value, dict) else None
+        candidates = [("Destino: " + str(probe.get("hostname") or "público"),
+                       measurements.get("geoip"), measurements.get("asn"), None, None)]
+        if isinstance(hops, list):
+            for hop in hops[:8]:
+                if not isinstance(hop, dict) or hop.get("state") != "PUBLIC_HOP":
+                    continue
+                enrichment = hop.get("enrichment") or {}
+                if not isinstance(enrichment, dict):
+                    continue
+                candidates.append(("Hop " + str(hop.get("hop")) + ": " +
+                                   str(hop.get("public_ip")), enrichment.get("geoip"),
+                                   enrichment.get("asn"), hop.get("hop"), hop.get("rtt_ms")))
+        for name, geo, asn, hop_number, rtt in candidates:
+            if not isinstance(geo, dict) or geo.get("state") != "OBSERVED":
+                continue
+            value = geo.get("value")
+            if not isinstance(value, dict):
+                continue
+            lat = _coordinate(value.get("latitude"), -90, 90)
+            lon = _coordinate(value.get("longitude"), -180, 180)
+            radius = _coordinate(value.get("accuracy_radius_km"), 0, 20000)
+            if lat is None or lon is None or radius is None:
+                continue
+            origin = _public_source_label(value.get("source"))
+            capture = str(probe.get("capture_utc") or "Data não comprovada")
+            asn_value = asn.get("value") if isinstance(asn, dict) and asn.get("state") == "OBSERVED" else None
+            organization = (("AS" + str(asn_value.get("number")) + " " +
+                             str(asn_value.get("organization") or ""))
+                            if isinstance(asn_value, dict) else "ASN indisponível")
+            timing = str(rtt) + " ms" if type(rtt) in (int, float) and isfinite(rtt) and 0 <= rtt <= 60000 else "RTT indisponível"
+            detail = organization + "; " + timing
+            desc = (f"{name}. {detail}. Posição aproximada {lat:.3f}°, {lon:.3f}°. "
+                    f"Precisão: raio de {radius:g} km. Fonte: {origin}. "
+                    f"Coleta: {capture}. Não é posição física comprovada.")
+            x, y = 40 + (lon + 180) / 360 * 800, 20 + (90 - lat) / 180 * 360
+            markers.append(
+                f"<circle cx='{x:.2f}' cy='{y:.2f}' r='7' fill='#24578b' "
+                f"stroke='#ffffff' stroke-width='2'><title>{escape(desc)}</title></circle>"
+            )
+            legend.append(
+                "<li><strong>" + escape(name) + "</strong>: " + escape(detail) + "; " +
+                f"{lat:.3f}°, {lon:.3f}°; raio de precisão: {radius:g} km. "
+                "Fonte: " + escape(origin) + ". Data: " + escape(capture) +
+                ". Referência IP aproximada, não equipamento físico.</li>"
+            )
+        continue
+
         desc = (f"{name}. Posição estimada em {lat:.3f}°, {lon:.3f}°. "
                 f"Precisão declarada: raio de {radius:g} km. "
                 f"Fonte: {origin}. Coleta: {capture}. "
