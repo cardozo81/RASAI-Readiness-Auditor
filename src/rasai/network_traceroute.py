@@ -33,16 +33,21 @@ def parse_trace(text: str, destination: str) -> dict:
                 continue
             found = maybe
             break
-        rtt = re.search(r"(?<![<\d])([0-9]+(?:\.[0-9]+)?)\s*ms\b", line, re.I)
-        elapsed = float(rtt.group(1)) if rtt else None
-        if elapsed is not None and elapsed > 60000:
-            elapsed = None
+        # Retain the individual probe samples; no link RTT is inferred.
+        samples = []
+        for sample in re.finditer(r"(?<![<\d])([0-9]+(?:\.[0-9]+)?)\s*ms\b", line, re.I):
+            elapsed_sample = float(sample.group(1))
+            if 0 <= elapsed_sample <= 60000:
+                samples.append(elapsed_sample)
+        samples = samples[:3]
+        elapsed = samples[0] if samples else None
         hops.append({
             "hop": number, "state": (
                 "NO_REPLY" if found is None else
                 ("PUBLIC_HOP" if found.is_global else "PRIVATE_HOP_REDACTED")),
             "public_ip": str(found) if found is not None and found.is_global else None,
             "rtt_ms": elapsed,
+            "rtt_samples_ms": samples,
         })
     return {"hops": hops, "last_responding_hop": max(
         (row["hop"] for row in hops if row["state"] != "NO_REPLY"), default=None),
@@ -68,15 +73,18 @@ def _partial_text(value: bytes | str | None) -> str:
     return value[:65_536]
 
 
-def _result(raw: str, destination: str, *, timed_out: bool = False) -> dict:
+def _result(raw: str, destination: str, *, timed_out: bool = False,
+            returncode: int = 0) -> dict:
     parsed = parse_trace(raw, destination)
     has_hops = bool(parsed["hops"])
     parsed["partial"] = timed_out or not parsed["target_reached"]
-    parsed["collection_status"] = "TIME_BUDGET_EXCEEDED" if timed_out else "COMPLETED_PROCESS"
+    parsed["collection_status"] = ("TIME_BUDGET_EXCEEDED" if timed_out else
+                                   "NONZERO_EXIT" if returncode != 0 else "COMPLETED_PROCESS")
     return {
         "state": "OBSERVED" if has_hops else "INCONCLUSIVE",
         "value": parsed if has_hops else None,
         "error": ("TRACE_TIME_BUDGET_EXCEEDED" if timed_out else
+                  "TRACE_COMMAND_FAILED" if returncode != 0 else
                   None if parsed["target_reached"] else "ROUTE_NOT_CONFIRMED"),
     }
 
@@ -95,7 +103,8 @@ def bounded_trace(ip: str, port: int) -> dict:
                                    timeout=TRACE_TIMEOUT_SECONDS, check=False)
         if len(completed.stdout) > 65_536:
             raise ValueError("Resposta de caminho fora do limite")
-        return _result(completed.stdout, str(address))
+        return _result(completed.stdout, str(address),
+                       returncode=completed.returncode)
     except FileNotFoundError:
         return {"state": "NOT_APPLICABLE", "value": None,
                 "error": "TRACE_COMMAND_NOT_AVAILABLE"}
