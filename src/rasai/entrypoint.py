@@ -306,6 +306,16 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
     except Exception:
         _LOGGER.exception("Experimental readiness sidecar unavailable")
 
+    # #666 - New-AUD-only complement. Never called from reprocessing or
+    # report projection. Operator policy is persisted, host-specific and
+    # revocable; failure to dispatch is advisory and cannot demote the AUD.
+    try:
+        from rasai.network_auto_probe import dispatch_for_new_audit
+        dispatch = dispatch_for_new_audit(workspace.root, result.audit_id)
+        _LOGGER.info("Optional post-AUD network complement: %s", dispatch["state"])
+    except (OSError, ValueError, TypeError):
+        _LOGGER.warning("Optional post-AUD network complement unavailable")
+
     print("Report-catalog: materializado e validado contra o audit.db final.")
     if renderer_errors:
         print(
