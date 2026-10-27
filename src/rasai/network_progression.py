@@ -56,7 +56,12 @@ def route_panels(probes):
                       "<th>Situação</th><th>Endereço público</th><th>Tempo</th>"
                       "</tr></thead><tbody>" + "".join(lines) + "</tbody></table></div>"
                       "<p>" + ("Destino alcançado." if data.get("target_reached") else
-                               "Caminho completo não confirmado.") + "</p></section>")
+                               "Caminho completo não confirmado.") +
+                      (" A coleta excedeu o limite de tempo; os saltos anteriores foram preservados."
+                       if trace.get("error") == "TRACE_TIME_BUDGET_EXCEEDED" else
+                       " O processo de sondagem terminou com erro; os saltos observados foram preservados."
+                       if trace.get("error") == "TRACE_COMMAND_FAILED" else "") +
+                      "</p></section>")
     return "".join(output)
 
 
