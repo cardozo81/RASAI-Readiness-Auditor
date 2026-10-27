@@ -488,9 +488,18 @@ ausência ou revogação desabilita novas sondagens. Não existe fallback pago i
 | --- | --- | --- |
 | `RASAI_GEOIP_ACQUIRE_TOOLS` | `false` | Autoriza baixar e instalar o utilitário oficial MaxMind no perfil do operador pelo launcher. |
 | `RASAI_NETWORK_ACTIVE_ENABLED` | `false` | Autoriza sonda complementar em uma nova AUD; não ativa RPR, CONS ou replay. |
-| `RASAI_NETWORK_ACTIVE_HOST` | Não definido | Hostname público exato e pertencente à AUD; obrigatório com sondagem ativa. |
+| `RASAI_NETWORK_ACTIVE_HOST` | Não definido | Hostname público exato da URL principal auditada; obrigatório com sondagem ativa. Entrada pode ser URL `http://` ou `https://`, normalizada para apenas hostname; o INI não persiste esquema/caminho. |
 | `RASAI_NETWORK_GEOIP_SOURCE` | `LOCAL_FIRST` | `LOCAL_FIRST` usa City/ASN locais; `DISABLED` impede enriquecimento. |
 | `RASAI_NETWORK_MAX_HOPS` | `8` | Limite de hops de 1 a 16 com orçamento de tempo limitado. |
+
+A configuração guiada está em `PREPARAR AUDITORIA > CAT-01 > N. Rede e conectividade`.
+O console exibe o hostname derivado da URL selecionada e a autorização efetiva.
+**O domínio não é automaticamente autorizado ao trocar de URL**: o operador
+precisa confirmar a sonda ativa para o hostname exato. Uma autorização antiga
+para outro domínio não inicia medições nesta AUD, mesmo que o outro domínio
+apareça por redirecionamento. O despacho valida a URL primária no snapshot
+selado da nova auditoria. Pode-se revogar o consentimento no mesmo menu,
+sem interferir na coleta passiva.
 
 Credenciais e licença MaxMind não são persistidas no INI. A instalação do updater
 não substitui consentimento de licença para aquisição das bases. A manutenção diária
