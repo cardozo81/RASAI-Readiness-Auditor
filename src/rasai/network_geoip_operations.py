@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import os
+import importlib
 from pathlib import Path
 import subprocess
 import sys
@@ -35,8 +36,34 @@ def local_databases() -> dict[str, str | None]:
     root = database_directory()
     paths = {"city_database": root / "GeoLite2-City.mmdb",
              "asn_database": root / "GeoLite2-ASN.mmdb"}
-    return {key: str(path) if path.is_file() and not path.is_symlink() else None
-            for key, path in paths.items()}
+    resolved = {}
+    try:
+        mmdb = importlib.import_module("maxminddb")
+    except ImportError:
+        return {key: None for key in paths}
+    for key, path in paths.items():
+        resolved[key] = None
+        try:
+            if path.is_symlink() or not path.is_file():
+                continue
+            size = path.stat().st_size
+            if not 1 <= size <= 180_000_000:
+                continue
+            reader = mmdb.open_database(str(path))
+            try:
+                meta = reader.metadata()
+                db_type = str(meta.database_type)
+                expected = "City" if key == "city_database" else "ASN"
+                if expected not in db_type:
+                    continue
+                if type(meta.build_epoch) is not int or meta.build_epoch <= 0:
+                    continue
+            finally:
+                reader.close()
+            resolved[key] = str(path)
+        except (OSError, ValueError, TypeError, AttributeError):
+            continue
+    return resolved
 
 
 def run_authorized_update(config: Path, *, licensed: bool, timeout: int = 120) -> dict:
