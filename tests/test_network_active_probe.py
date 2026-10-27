@@ -178,3 +178,113 @@ def test_traceroute_survives_tcp_connection_failure(monkeypatch):
     assert item["state"] == "COLLECTION_FAILED"
     assert item["metrics"]["traceroute"]["state"] == "OBSERVED"
     assert observed == [("8.8.8.8", 443, 8)]
+
+
+
+def test_transient_dns_recovers_once_without_unapproved_fallback(monkeypatch):
+    """#666 H2/H3: a transient resolver answer can recover without changing scope."""
+    approved_host = "www.hetzner.com"
+    calls = []
+    sleeps = []
+    def dns(host, port, *, type, proto):
+        calls.append((host, port, type, proto))
+        if len(calls) == 1:
+            raise p.socket.gaierror(p.socket.EAI_AGAIN, "temporary")
+        return [(p.socket.AF_INET, p.socket.SOCK_STREAM,
+                 p.socket.IPPROTO_TCP, "", ("213.133.116.44", 443))]
+
+    monkeypatch.setattr(p.socket, "getaddrinfo", dns)
+    monkeypatch.setattr(p.time, "sleep", lambda duration: sleeps.append(duration))
+    class RefusedSocket:
+        def settimeout(self, value):
+            pass
+        def connect(self, address):
+            raise OSError("TCP not available")
+        def close(self):
+            pass
+    monkeypatch.setattr(p.socket, "socket", lambda *args: RefusedSocket())
+    traces = []
+    def trace(ip, port, *, max_hops):
+        traces.append((ip, port, max_hops))
+        return {"state": "OBSERVED", "value": {
+            "hops": [{"hop": 1, "state": "PUBLIC_HOP",
+                      "public_ip": "8.8.8.8", "rtt_ms": 4.0}]},
+            "error": "ROUTE_NOT_CONFIRMED"}
+    monkeypatch.setattr(p, "bounded_trace", trace)
+    row = p._worker_probe(approved_host, 443, include_traceroute=True)
+    assert len(calls) == 2
+    assert all(call[:2] == (approved_host, 443) for call in calls)
+    assert sleeps == [p._DNS_TRANSIENT_RETRY_DELAY_SECONDS]
+    assert row["resolver_diagnostics"] == {
+        "source": "SYSTEM_GETADDRINFO", "attempts": 2, "status": "RESOLVED",
+    }
+    assert row["metrics"]["dns_resolution"]["state"] == "OBSERVED"
+    assert row["metrics"]["dns_resolution"]["value"] == ["213.133.116.44"]
+    assert row["metrics"]["traceroute"]["state"] == "OBSERVED"
+    assert traces == [("213.133.116.44", 443, 8)]
+
+
+def test_permanent_dns_failure_does_not_retry_or_infer_route(monkeypatch):
+    calls = []
+    def fail_dns(*args, **kwargs):
+        calls.append(1)
+        raise p.socket.gaierror(p.socket.EAI_NONAME, "opaque resolver error")
+    monkeypatch.setattr(p.socket, "getaddrinfo", fail_dns)
+    monkeypatch.setattr(p.time, "sleep", lambda _: pytest.fail("must not retry"))
+    monkeypatch.setattr(p.socket, "socket",
+                        lambda *args: pytest.fail("must not connect"))
+    monkeypatch.setattr(p, "bounded_trace", lambda *args, **kwargs:
+                        pytest.fail("must not trace"))
+    row = p._worker_probe("www.hetzner.com", 443, include_traceroute=True)
+    assert calls == [1]
+    assert row["state"] == "COLLECTION_FAILED"
+    assert row["metrics"]["dns_resolution"]["error"] == "DNS_NAME_RESOLUTION_FAILED"
+    assert row["metrics"]["traceroute"]["state"] == "NOT_OBSERVED"
+    assert row["resolver_diagnostics"]["category"] == "NAME_RESOLUTION"
+    assert "opaque resolver error" not in json.dumps(row)
+
+
+def test_transient_dns_failure_stops_after_two_queries(monkeypatch):
+    calls = []
+    def fail_dns(*args, **kwargs):
+        calls.append(1)
+        raise p.socket.gaierror(p.socket.EAI_AGAIN, "private exception text")
+    monkeypatch.setattr(p.socket, "getaddrinfo", fail_dns)
+    monkeypatch.setattr(p.time, "sleep", lambda _: None)
+    monkeypatch.setattr(p.socket, "socket",
+                        lambda *args: pytest.fail("must not connect"))
+    monkeypatch.setattr(p, "bounded_trace", lambda *args, **kwargs:
+                        pytest.fail("must not trace"))
+    row = p._worker_probe("www.hetzner.com", 443, include_traceroute=True)
+    assert len(calls) == 2
+    assert row["metrics"]["dns_resolution"]["error"] == "DNS_TEMPORARY_FAILURE"
+    assert row["resolver_diagnostics"]["attempts"] == 2
+    assert "private exception text" not in json.dumps(row)
+
+
+def test_resolver_other_os_error_is_not_misreported_as_dns_name_failure(monkeypatch):
+    def fail_os(*args, **kwargs):
+        raise OSError(12345, "confidential OS text")
+    monkeypatch.setattr(p.socket, "getaddrinfo", fail_os)
+    monkeypatch.setattr(p.time, "sleep", lambda _: pytest.fail("must not retry"))
+    row = p._worker_probe("www.hetzner.com", 443)
+    assert row["metrics"]["dns_resolution"]["error"] == "DNS_RESOLVER_OS_ERROR"
+    assert row["resolver_diagnostics"]["category"] == "OS_ERROR"
+    assert "confidential OS text" not in json.dumps(row)
+
+
+def test_dns_private_answer_is_never_retried_after_public_only_guard(monkeypatch):
+    calls = []
+    def private_dns(*args, **kwargs):
+        calls.append(1)
+        return [(p.socket.AF_INET, p.socket.SOCK_STREAM, p.socket.IPPROTO_TCP,
+                 "", ("192.168.0.1", 443))]
+    monkeypatch.setattr(p.socket, "getaddrinfo", private_dns)
+    monkeypatch.setattr(p.time, "sleep", lambda _: pytest.fail("unsafe answer must not retry"))
+    monkeypatch.setattr(p.socket, "socket", lambda *args:
+                        pytest.fail("unsafe answer must not connect"))
+    row = p._worker_probe("www.hetzner.com", 443, include_traceroute=True)
+    assert calls == [1]
+    assert row["state"] == "BLOCKED"
+    assert row["metrics"]["dns_resolution"]["error"] == "UNSAFE_DNS_ANSWER"
+    assert row["metrics"]["traceroute"]["state"] == "NOT_OBSERVED"
