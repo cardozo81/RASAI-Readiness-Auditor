@@ -34,6 +34,12 @@ def route_panels(probes):
             rtt = item.get("rtt_ms")
             timing = (f"{rtt:.2f} ms" if type(rtt) in (float, int) and
                       isfinite(rtt) and 0 <= rtt <= 60000 else "Não observado")
+            samples = item.get("rtt_samples_ms")
+            if isinstance(samples, list):
+                valid_samples = [v for v in samples[:3] if type(v) in (float, int)
+                                 and isfinite(v) and 0 <= v <= 60000]
+                if valid_samples:
+                    timing = ", ".join(f"{v:.2f} ms" for v in valid_samples)
             status = {"PUBLIC_HOP": "Resposta pública", "PRIVATE_HOP_REDACTED": "Endereço reservado",
                       "NO_REPLY": "Sem resposta"}[state]
             marker = " (último respondente)" if n == last_responding else ""
