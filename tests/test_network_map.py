@@ -68,3 +68,14 @@ def test_map_does_not_render_private_or_invalid_hop_ips():
     assert "<svg" not in html
     assert "192.168.1.1" not in html
     assert "&lt;invalido&gt;" not in html
+
+
+def test_sixteen_hop_ceiling_is_consistent_with_map():
+    hops = [{"hop": i, "state": "NO_REPLY"} for i in range(1, 17)]
+    hops[-1] = {"hop": 16, "state": "PUBLIC_HOP", "public_ip": "8.8.8.8",
+                "enrichment": {"geoip": {"state": "OBSERVED", "value": {
+                    "latitude": -30.0, "longitude": -51.0,
+                    "accuracy_radius_km": 100, "source": "LOCAL_MMDB_CITY"}}}}
+    row = {"hostname": "example.org", "metrics": {"traceroute": {
+        "state": "OBSERVED", "value": {"hops": hops}}}}
+    assert "Hop 16: 8.8.8.8" in network_geographic_panel([row])
