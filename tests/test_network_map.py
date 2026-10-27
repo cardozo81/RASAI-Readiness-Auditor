@@ -79,3 +79,16 @@ def test_sixteen_hop_ceiling_is_consistent_with_map():
     row = {"hostname": "example.org", "metrics": {"traceroute": {
         "state": "OBSERVED", "value": {"hops": hops}}}}
     assert "Hop 16: 8.8.8.8" in network_geographic_panel([row])
+
+
+def test_geo_links_only_adjacent_observed_coordinates():
+    def hop(index, geo=True):
+        return {"hop": index, "state": "PUBLIC_HOP", "public_ip": "8.8.8.8",
+                "enrichment": {"geoip": {"state": "OBSERVED" if geo else "NOT_OBSERVED",
+                    "value": {"latitude": index * 1.0, "longitude": index * 2.0,
+                              "accuracy_radius_km": 50} if geo else None}}}
+    row = {"metrics": {"traceroute": {"state": "OBSERVED", "value": {
+        "hops": [hop(1), hop(2), hop(3, False), hop(4), hop(5)]}}}}
+    html = network_geographic_panel([row])
+    assert html.count("data-map-layer='logical-sequence'") == 2
+    assert "não são rotas físicas medidas" in html
