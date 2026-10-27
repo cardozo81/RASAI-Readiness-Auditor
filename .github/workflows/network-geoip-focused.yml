@@ -28,6 +28,7 @@ jobs:
           python -m pytest -q \
             tests/test_network_traceroute.py \
             tests/test_network_active_probe.py \
+            tests/test_network_auto_probe.py \
             tests/test_network_route_g1.py \
             tests/test_network_map.py \
             tests/test_network_active_policy.py \
