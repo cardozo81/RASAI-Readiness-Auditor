@@ -391,7 +391,7 @@ A origem, o instante e o raio de precisão dos marcadores GeoIP são também apr
 
 
 
-## Recuperação de sondagem física já coletada: relatório legado (#659)
+## Recuperação de sondagem física já coletada: relatório anterior (#659)
 
 A coleta ativa autorizada grava pacote **imutável**, independente da projeção HTML. Se a medição registrar `observed_tcp=true` mas o catálogo retornar `CATALOG_REBUILD_FAILED`, não execute outra sondagem com um identificador novo apenas para recriar o relatório. A partir da branch corrigida, reexecute somente a projeção:
 
