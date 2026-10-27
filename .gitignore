@@ -8,6 +8,9 @@ __pycache__/
 # Local audit outputs
 audits/
 
+# Licensed/managed MaxMind databases: local to RASAi, never committed
+data/geoip/
+
 # Interactive console user configuration (machine/user-specific)
 rasai-console.ini
 rasai-console.ini.tmp
