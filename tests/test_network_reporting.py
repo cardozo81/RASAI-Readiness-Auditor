@@ -116,3 +116,36 @@ def test_network_capture_and_complement_are_explained_before_map(tmp_path, monke
     assert "24,57" in html
     assert html.index("Como interpretar as medições") < html.index("Observação do dispositivo")
     assert html.index("Medição complementar autorizada") < html.index("Mapa e caminho de rede")
+
+
+@pytest.mark.parametrize(
+    "error, expected",
+    [
+        ("TRACE_TIME_BUDGET_EXCEEDED", "Tempo limite excedido durante o rastreamento"),
+        ("UNTRUSTED_SECRET_VALUE", "Rastreamento inconclusivo por falha técnica"),
+    ],
+)
+def test_trace_failure_is_explained_without_exposing_raw_errors_or_hops(
+        tmp_path, monkeypatch, error, expected) -> None:
+    from rasai import network_reporting as report
+
+    monkeypatch.setattr(report, "read_network_observations", lambda *_: [])
+    monkeypatch.setattr(report, "read_authorized_probes", lambda *_: [{
+        "audit_id": "AUD-666",
+        "hostname": "example.org",
+        "capture_utc": "2026-10-26T22:49:48Z",
+        "metrics": {
+            "traceroute": {
+                "state": "INCONCLUSIVE",
+                "error": error,
+                "value": None,
+            },
+        },
+    }])
+
+    page = report.network_report_body(tmp_path, "AUD-666")
+    assert "Saltos lógicos de rede" in page
+    assert expected in page
+    assert error not in page
+    assert "Etapas conhecidas do caminho" not in page
+    assert not (tmp_path / "report-catalog").exists()
