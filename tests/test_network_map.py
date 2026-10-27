@@ -52,3 +52,19 @@ def test_map_renders_observed_hops_with_independent_geoip_asn():
     assert "AS15169" in html and "12.5 ms" in html
     assert "Hop 2:" not in html and "Hop 3:" not in html
     assert "data-map-layer='network-route'" not in html
+
+
+def test_map_does_not_render_private_or_invalid_hop_ips():
+    row = {"hostname": "example.org", "metrics": {"traceroute": {
+        "state": "OBSERVED", "value": {"hops": [
+            {"hop": 1, "state": "PUBLIC_HOP", "public_ip": "192.168.1.1",
+             "enrichment": {"geoip": {"state": "OBSERVED", "value": {
+                 "latitude": 10.0, "longitude": 20.0, "accuracy_radius_km": 10}}}},
+            {"hop": 2, "state": "PUBLIC_HOP", "public_ip": "<invalido>",
+             "enrichment": {"geoip": {"state": "OBSERVED", "value": {
+                 "latitude": 10.0, "longitude": 20.0, "accuracy_radius_km": 10}}}}
+        ]}}}}
+    html = network_geographic_panel([row])
+    assert "<svg" not in html
+    assert "192.168.1.1" not in html
+    assert "&lt;invalido&gt;" not in html
