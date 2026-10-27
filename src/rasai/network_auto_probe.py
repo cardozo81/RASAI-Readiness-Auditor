@@ -56,7 +56,20 @@ def dispatch_for_new_audit(workspace: str | Path, audit_id: str) -> dict:
            "--workspace", str(root), "--audit-id", audit_id,
            "--host", host, "--permit-exact-host", host,
            "--authorize-active-network", "--include-traceroute"]
-    options = {}
+    # Do not forward unrelated provider credentials into a network worker.
+    allowed = {"PATH", "Path", "SystemRoot", "WINDIR", "LOCALAPPDATA",
+               "APPDATA", "USERPROFILE", "HOME", "TEMP", "TMP", "LANG",
+               "LC_ALL", "PYTHONIOENCODING", "VIRTUAL_ENV"}
+    child_env = {key: value for key, value in os.environ.items() if key in allowed}
+    from rasai.network_active_policy import max_hops, validate_network_setting
+    child_env["RASAI_NETWORK_MAX_HOPS"] = str(max_hops())
+    source = os.environ.get("RASAI_NETWORK_GEOIP_SOURCE", "LOCAL_FIRST")
+    try:
+        child_env["RASAI_NETWORK_GEOIP_SOURCE"] = validate_network_setting(
+            "RASAI_NETWORK_GEOIP_SOURCE", source)
+    except ValueError:
+        child_env["RASAI_NETWORK_GEOIP_SOURCE"] = "DISABLED"
+    options = {"env": child_env}
     if os.name == "nt":
         options["creationflags"] = subprocess.CREATE_NO_WINDOW
     else:
