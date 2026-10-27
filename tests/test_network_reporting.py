@@ -215,3 +215,43 @@ def test_incomplete_consent_notice_fails_closed_on_old_audit_without_config(tmp_
     assert _incomplete_network_consent_notice(tmp_path, "AUD-OLD") == ""
     (tmp_path / "audit.db").write_bytes(b"not-a-database")
     assert _incomplete_network_consent_notice(tmp_path, "AUD-OLD") == ""
+
+
+def test_h2_dns_resolution_failure_explains_missing_traceroute_and_map(
+    tmp_path, monkeypatch,
+) -> None:
+    """H2: authorization + valid probe with DNS failure never implies a route."""
+    from rasai import network_reporting as report
+
+    captured = {
+        "audit_id": "AUD-H2",
+        "hostname": "www.hetzner.com",
+        "capture_utc": "2026-10-27T17:54:58Z",
+        "metrics": {
+            "dns_resolution": {
+                "state": "COLLECTION_FAILED", "error": "DNS_LOOKUP_FAILED", "value": None,
+            },
+            "traceroute": {"state": "NOT_OBSERVED", "value": None, "error": None},
+            "geoip": {"state": "NOT_OBSERVED", "value": None, "error": None},
+        },
+    }
+    monkeypatch.setattr(report, "read_network_observations", lambda *_: [])
+    monkeypatch.setattr(report, "read_authorized_probes", lambda *_: [captured])
+    monkeypatch.setattr(
+        "rasai.network_intelligence_reporting.network_intelligence_section",
+        lambda *_: "<section class='panel'>Resumo das evidências</section>",
+    )
+    html = report.network_report_body(tmp_path, "AUD-H2")
+    assert "Medição complementar autorizada" in html
+    assert "Por que não há rastreamento ou mapa" in html
+    assert "não conseguiu resolver o nome do destino" in html
+    assert "encerrou antes de executar TCP, traceroute e enriquecimento" in html
+    assert "presença das bases MaxMind não resolve" in html
+    assert "<svg" not in html
+    assert "destino bloqueou" not in html
+
+    captured["metrics"]["dns_resolution"] = {
+        "state": "OBSERVED", "value": ["203.0.113.7"], "error": None,
+    }
+    html = report.network_report_body(tmp_path, "AUD-H2")
+    assert "Por que não há rastreamento ou mapa" not in html
