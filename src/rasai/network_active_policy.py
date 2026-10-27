@@ -10,7 +10,7 @@ import os
 
 def validate_network_setting(name: str, value: str) -> str:
     text = str(value).strip()
-    if name == "RASAI_NETWORK_ACTIVE_ENABLED":
+    if name in ("RASAI_NETWORK_ACTIVE_ENABLED", "RASAI_GEOIP_ACQUIRE_TOOLS"):
         if text.lower() not in ("true", "false"):
             raise ValueError("Use true ou false")
         return text.lower()
