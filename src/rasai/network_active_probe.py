@@ -32,7 +32,9 @@ CONTRACT = "rasai-network-active-probe-v1"
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 _LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 _TIMEOUT_SECONDS = 10
-_MAX_RESULT_BYTES = 16000
+# Up to 16 GeoIP+ASN-enriched hops may exceed the previous 16 KiB cap.
+# The worker output remains strictly bounded, without silently losing a probe.
+_MAX_RESULT_BYTES = 65_536
 
 
 def _host(value: str) -> str:
