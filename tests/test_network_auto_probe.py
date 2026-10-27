@@ -114,3 +114,38 @@ def test_windows_systemroot_matching_is_case_insensitive_for_source(monkeypatch,
     assert seen
     assert any(key.upper() == "SYSTEMROOT" and value == r"D:\\System"
                for key, value in seen[0].items())
+
+
+def test_canonical_worker_environment_keeps_systemroot_across_subprocesses(monkeypatch):
+    """Physical H4 case: pass SYSTEMROOT to both subprocess layers, no secrets."""
+    import json
+    import subprocess
+    import sys
+
+    monkeypatch.setenv("SYSTEMROOT", r"C:\\Windows")
+    monkeypatch.setenv("RASAI_ANTHROPIC_API_KEY", "must-not-propagate")
+    monkeypatch.setenv("HTTPS_PROXY", "must-not-propagate")
+    environment = auto._authorized_worker_environment()
+    assert environment["SYSTEMROOT"] == r"C:\\Windows"
+    assert "RASAI_ANTHROPIC_API_KEY" not in environment
+    assert "HTTPS_PROXY" not in environment
+
+    # The acceptance subprocess inherits the sanitized env; its child worker
+    # inherits that same env unless a second override is explicitly supplied.
+    nested_script = (
+        "import json,os,subprocess,sys;"
+        "grandchild='import json,os; print(json.dumps({k: os.environ.get(k) for k in "
+        "(\"SYSTEMROOT\",\"RASAI_ANTHROPIC_API_KEY\",\"HTTPS_PROXY\")}))';"
+        "r=subprocess.run([sys.executable,'-c',grandchild],capture_output=True,"
+        "text=True,timeout=10,check=True);print(r.stdout)"
+    )
+    executed = subprocess.run(
+        [sys.executable, "-c", nested_script], env=environment,
+        capture_output=True, text=True, timeout=20, check=True,
+    )
+    worker_env = json.loads(executed.stdout.strip())
+    assert worker_env == {
+        "SYSTEMROOT": r"C:\\Windows",
+        "RASAI_ANTHROPIC_API_KEY": None,
+        "HTTPS_PROXY": None,
+    }
