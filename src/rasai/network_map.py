@@ -7,6 +7,7 @@ from math import isfinite
 from typing import Any
 
 from rasai.network_world_land import WORLD_LAND_SVG_PATH
+from rasai.network_traceroute import MAX_HOPS_HARD_LIMIT
 
 
 def _coordinate(value: Any, lower: float, upper: float) -> float | None:
@@ -45,7 +46,7 @@ def network_geographic_panel(probes: list[dict]) -> str:
         candidates = [("Destino: " + str(probe.get("hostname") or "público"),
                        measurements.get("geoip"), measurements.get("asn"), None, None)]
         if isinstance(hops, list):
-            for hop in hops[:8]:
+            for hop in hops[:MAX_HOPS_HARD_LIMIT]:
                 if not isinstance(hop, dict) or hop.get("state") != "PUBLIC_HOP":
                     continue
                 try:
