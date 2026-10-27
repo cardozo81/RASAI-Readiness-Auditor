@@ -31,6 +31,7 @@ jobs:
             tests/test_network_route_g1.py \
             tests/test_network_map.py \
             tests/test_network_active_policy.py \
+            tests/test_network_geoip_bootstrap.py \
             tests/test_network_geoip_install.py \
             tests/test_network_geoip_operations.py \
             tests/test_network_geoip_maintenance.py \
