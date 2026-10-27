@@ -196,3 +196,48 @@ def test_restore_catalog_failed_ini_save_keeps_dirty_and_exposes_partial(
     assert state.operation == "LOCAL:RESTORE_CATALOG_DEFAULTS_PARTIAL:CAT-07"
     assert is_dirty(state) is True
     assert "rasai-console.ini: OSError" in state.error
+
+
+def test_preparation_bulk_toggle_all_to_none_and_back_without_mutating_preferences() -> None:
+    from rasai.console_catalog_ui import (
+        _bulk_action_label, _toggle_all_preparation_catalogs,
+    )
+
+    state = SearchConsoleState()
+    catalog_plan._PLANS.clear()
+    all_ids = tuple(item.id for item in CATALOGS)
+    catalog_plan.set_selected_catalog_ids(state, all_ids)
+    state.target = "https://www.hetzner.com/"
+    state.search_queries = ("seguro para família",)
+    original_queries = state.search_queries
+
+    assert _bulk_action_label(state) == "T. Desmarcar todos os catálogos"
+    message = _toggle_all_preparation_catalogs(state)
+    assert message == f"{len(CATALOGS)} catálogo(s) desmarcado(s) em uma única ação."
+    assert catalog_plan.selected_catalog_ids(state) == ()
+    assert catalog_plan.plan_status(state) == ("BLOQUEADO", "selecione ao menos um catálogo")
+    assert _bulk_action_label(state) == "T. Marcar todos os catálogos"
+    assert state.target == "https://www.hetzner.com/"
+    assert state.search_queries == original_queries
+
+    message = _toggle_all_preparation_catalogs(state)
+    assert message == f"{len(CATALOGS)} catálogo(s) marcado(s) em uma única ação."
+    assert catalog_plan.selected_catalog_ids(state) == all_ids
+    assert _bulk_action_label(state) == "T. Desmarcar todos os catálogos"
+
+
+def test_preparation_bulk_toggle_partial_adds_only_missing_catalogs() -> None:
+    from rasai.console_catalog_ui import (
+        _bulk_action_label, _toggle_all_preparation_catalogs,
+    )
+
+    state = SearchConsoleState()
+    catalog_plan._PLANS.clear()
+    selected = ("CAT-01", "CAT-03", "CAT-10")
+    catalog_plan.set_selected_catalog_ids(state, selected)
+
+    assert _bulk_action_label(state) == "T. Marcar todos os catálogos"
+    message = _toggle_all_preparation_catalogs(state)
+    assert message == f"{len(CATALOGS) - len(selected)} catálogo(s) marcado(s) em uma única ação."
+    assert catalog_plan.selected_catalog_ids(state) == tuple(item.id for item in CATALOGS)
+    assert set(selected) <= set(catalog_plan.selected_catalog_ids(state))

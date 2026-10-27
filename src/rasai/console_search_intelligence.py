@@ -463,7 +463,7 @@ def configure_perplexity_search(state: SearchConsoleState) -> None:
         search_type = current_type if not raw_type else raw_type
         if search_type not in {"web", "fast"}:
             raise ValueError("tipo Perplexity deve ser web ou fast")
-        from rasai.search_geo_alignment import geo_query_alignment
+        from rasai.geo_search_alignment import geo_query_alignment
         alignment = geo_query_alignment(
             tuple(getattr(state, "search_queries", ()) or ()), queries,
         )

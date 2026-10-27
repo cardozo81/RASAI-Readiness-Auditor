@@ -287,7 +287,13 @@ def test_auto_keeps_configured_unpriced_provider_after_priced_candidates() -> No
 
 
 def test_review_date_is_explicit_and_machine_readable() -> None:
-    assert PRICING_REVIEW_RECOMMENDED_ON == "2026-11-03"
+    # Use the effective catalog verified on 2026-10-23; the 03/11 date
+    # belonged to an older catalog and is not the current review contract.
+    from datetime import date
+    from rasai.ai_cost_policy import PRICING_VERIFIED_ON
+    assert PRICING_REVIEW_RECOMMENDED_ON == "2026-11-23"
+    assert date.fromisoformat(PRICING_REVIEW_RECOMMENDED_ON) > date.fromisoformat(
+        PRICING_VERIFIED_ON)
 
 def test_mimo_v26_prices_and_v25_cutoff_are_machine_readable() -> None:
     current = datetime(2026, 10, 2, 18, 0, tzinfo=UTC)

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/rasai/search_geo_alignment.py'
+      - 'src/rasai/geo_search_alignment.py'
       - 'src/rasai/console_search_scope_presentation.py'
       - 'src/rasai/console_search_parameter_menu.py'
       - 'src/rasai/console_catalog_ui.py'

@@ -301,15 +301,21 @@ Documentos relacionados: [AUDIT_CATALOG_WORKFLOW.md](AUDIT_CATALOG_WORKFLOW.md),
 
 ## Seleção em massa de catálogos
 
-Em `Preparar auditoria` e em `Complementar auditoria`, a ação `T` marca em uma única
-operação todos os CAT-* ainda não selecionados/aplicáveis àquela superfície. A ação só
-altera a seleção: readiness, blockers, dependências e limitações continuam sendo avaliados
-pelas mesmas funções usadas na seleção individual.
+Em `Preparar auditoria` para uma **nova AUD**, a ação `T` alterna conforme o
+estado da seleção. Com todos os dez catálogos selecionados, o rótulo muda para
+`Desmarcar todos os catálogos`; pressionar `T` limpa somente a seleção do plano e
+bloqueia `R` até que pelo menos um catálogo seja marcado. Com zero a nove
+catálogos selecionados, `T` marca todos os restantes, sem desmarcar os existentes.
+A tela informa quantos foram marcados ou desmarcados. Isso não executa coleta, não
+autoriza IA nem afeta configurações, credenciais ou consentimentos previamente definidos.
 
-Na complementação, catálogos que já pertencem ao contrato efetivo da AUD são imutáveis e
-não entram no conjunto novo. No reprocessamento, `T. Reprocessar todos os itens listados`
-mantém sua semântica existente de work-items pendentes; selecionar todos nunca significa
-refazer itens `SUCCESS`.
+Em `Complementar auditoria`, `T` **continua apenas adicionando** catálogos
+que ainda não pertencem ao contrato imutável da AUD original. No reprocessamento,
+`T. Reprocessar todos os itens listados` mantém sua semântica existente de
+work-items pendentes; selecionar todos nunca significa refazer itens `SUCCESS`.
+
+Em todas as telas, a seleção é avaliada pelas funções canônicas de readiness,
+blockers, dependências e limitações, também usadas para seleção individual.
 
 
 ## Restaurar somente o catálogo atual
