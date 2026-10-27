@@ -127,3 +127,91 @@ def test_network_preparation_failed_persistence_rolls_back(monkeypatch):
         assert "não foi aplicada" in state.error
     finally:
         clear_session_meta(state)
+
+
+def test_session_network_consent_not_leaked_by_unrelated_save_but_reaches_audit(monkeypatch, tmp_path):
+    import os
+    from configparser import ConfigParser
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    from rasai import console_settings
+    from rasai.console_complete_persistence import install
+    from rasai.console_network_settings import _apply_consent
+    from rasai.console_session import (
+        clear_session_meta, get_volatile_network_consent, set_config_path,
+    )
+    from rasai.audit_configuration_reuse_console import _export_settings
+
+    install()
+    ini = tmp_path / "rasai-console.ini"
+    state = SimpleNamespace(target="https://www.hetzner.com/", device="mobile",
+                            error="", config_path=str(ini))
+    with patch.dict(os.environ, {"RASAI_CONSOLE_INI": str(ini)}, clear=True):
+        set_config_path(state, ini)
+        try:
+            console_settings.save_console_config(state, ini)
+            original = ini.read_bytes()
+            monkeypatch.setattr("rasai.console_ui_catalog._destination", lambda secret: "1")
+            console = SimpleNamespace(_save_configuration=lambda _: True)
+            assert _apply_consent(console, state, host="www.hetzner.com")
+            assert get_volatile_network_consent(state) is not None
+            assert os.environ["RASAI_NETWORK_ACTIVE_HOST"] == "www.hetzner.com"
+            assert _export_settings(state, ["https://www.hetzner.com/"])["settings"]["environment"][
+                "RASAI_NETWORK_ACTIVE_HOST"] == "www.hetzner.com"
+
+            # Save a completely unrelated preference. No implicit persistence of consent.
+            os.environ["RASAI_NETWORK_MAX_HOPS"] = "16"
+            console_settings.save_console_config(state, ini)
+            parser = ConfigParser(interpolation=None)
+            parser.optionxform = str
+            parser.read(ini, encoding="utf-8")
+            assert parser["environment"]["RASAI_NETWORK_ACTIVE_HOST"] == ""
+            assert parser["environment"]["RASAI_NETWORK_ACTIVE_ENABLED"] == "false"
+            assert parser["environment"]["RASAI_NETWORK_MAX_HOPS"] == "16"
+            assert original != ini.read_bytes()
+
+            # Explicit persistence is a separate user choice.
+            monkeypatch.setattr("rasai.console_ui_catalog._destination", lambda secret: "2")
+            console._save_configuration = lambda s: bool(console_settings.save_console_config(s, ini))
+            assert _apply_consent(console, state, host="www.hetzner.com")
+            assert get_volatile_network_consent(state) is None
+            parser.read(ini, encoding="utf-8")
+            assert parser["environment"]["RASAI_NETWORK_ACTIVE_HOST"] == "www.hetzner.com"
+            assert parser["environment"]["RASAI_NETWORK_ACTIVE_ENABLED"] == "true"
+
+            # Revocation limited to this session must not mutate the saved grant.
+            monkeypatch.setattr("rasai.console_ui_catalog._destination", lambda secret: "1")
+            assert _apply_consent(console, state, host=None)
+            assert _export_settings(state, ["https://www.hetzner.com/"])["settings"]["environment"][
+                "RASAI_NETWORK_ACTIVE_ENABLED"] == "false"
+            console_settings.save_console_config(state, ini)
+            parser.read(ini, encoding="utf-8")
+            assert parser["environment"]["RASAI_NETWORK_ACTIVE_ENABLED"] == "true"
+            assert parser["environment"]["RASAI_NETWORK_ACTIVE_HOST"] == "www.hetzner.com"
+        finally:
+            clear_session_meta(state)
+
+
+def test_network_consent_persistent_failure_restores_session_override(monkeypatch, tmp_path):
+    import os
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    from rasai.console_network_settings import _apply_consent
+    from rasai.console_session import (
+        clear_session_meta, get_volatile_network_consent, set_config_path,
+    )
+    ini = tmp_path / "does-not-exist.ini"
+    state = SimpleNamespace(target="https://www.hetzner.com/", error="")
+    with patch.dict(os.environ, {}, clear=True):
+        set_config_path(state, ini)
+        try:
+            console = SimpleNamespace(_save_configuration=lambda s: False)
+            monkeypatch.setattr("rasai.console_ui_catalog._destination", lambda secret: "1")
+            assert _apply_consent(console, state, host="www.hetzner.com")
+            before = get_volatile_network_consent(state)
+            monkeypatch.setattr("rasai.console_ui_catalog._destination", lambda secret: "2")
+            assert not _apply_consent(console, state, host="www.hetzner.com")
+            assert get_volatile_network_consent(state) == before
+            assert os.environ["RASAI_NETWORK_ACTIVE_HOST"] == "www.hetzner.com"
+        finally:
+            clear_session_meta(state)

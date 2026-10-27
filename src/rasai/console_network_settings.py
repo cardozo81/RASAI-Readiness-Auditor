@@ -6,6 +6,7 @@ Consent is scoped to the current audit URL's exact public hostname.
 from __future__ import annotations
 
 import os
+from configparser import ConfigParser, Error as ConfigError
 from pathlib import Path
 from typing import Any
 
@@ -42,17 +43,52 @@ def _status(state: Any) -> tuple[str, str | None]:
     return "AUTORIZADA SOMENTE PARA O HOST EXATO", target
 
 
+def _persisted_consent(state: Any) -> dict[str, str]:
+    """Read only a valid pair from the canonical INI; never infer consent."""
+    from rasai.console_session import get_config_path
+    from rasai.console_settings import resolve_config_path
+
+    safe = {_ENABLED: "false", _HOST: ""}
+    path = get_config_path(state) or resolve_config_path()
+    if path.is_symlink() or not path.is_file():
+        return safe
+    try:
+        if path.stat().st_size > 500_000:
+            return safe
+        parser = ConfigParser(interpolation=None)
+        parser.optionxform = str
+        with path.open(encoding="utf-8-sig") as stream:
+            parser.read_file(stream)
+        data = parser._sections.get("environment", {})
+        candidate = {_ENABLED: data.get(_ENABLED, "false"), _HOST: data.get(_HOST, "")}
+        approved = authorized_hostname(candidate)
+        return {_ENABLED: "true", _HOST: approved} if approved else safe
+    except (OSError, UnicodeError, ConfigError, ValueError):
+        return safe
+
+
 def _apply_consent(console: Any, state: Any, *, host: str | None) -> bool:
     """One explicit, reversible user choice; never silently rebind another host."""
     from rasai.console_ui_catalog import _destination
-    from rasai.console_session import is_dirty, mark_dirty
+    from rasai.console_session import (
+        get_volatile_network_consent, is_dirty, mark_dirty,
+        set_volatile_network_consent,
+    )
 
     destination = _destination(False)
     if destination == "V":
         return False
     prior = {key: os.environ.get(key) for key in (_HOST, _ENABLED)}
     was_dirty = is_dirty(state)
+    previous_volatile = get_volatile_network_consent(state)
     try:
+        if destination == "1":
+            # Keep the first disk baseline across repeated session-only changes.
+            if previous_volatile is None:
+                set_volatile_network_consent(state, _persisted_consent(state))
+        else:
+            # The operator explicitly chose persistence: write the new pair.
+            set_volatile_network_consent(state, None)
         if host is None:
             os.environ.pop(_HOST, None)
             os.environ[_ENABLED] = "false"
@@ -63,6 +99,7 @@ def _apply_consent(console: Any, state: Any, *, host: str | None) -> bool:
         if destination == "2" and not console._save_configuration(state):
             raise ValueError("Não foi possível persistir a autorização; alteração cancelada")
     except (OSError, ValueError, TypeError):
+        set_volatile_network_consent(state, previous_volatile)
         for key, value in prior.items():
             if value is None:
                 os.environ.pop(key, None)
@@ -87,6 +124,10 @@ def network_settings_menu(console: Any, state: Any) -> None:
         print("URL da auditoria:", getattr(state, "target", "") or "<não informada>")
         print("Hostname derivado:", target or "<não utilizável>")
         print("Sonda ativa:", status)
+        from rasai.console_session import get_volatile_network_consent
+        print("Habilitação efetiva:", os.environ.get(_ENABLED, "false"))
+        print("Host configurado:", os.environ.get(_HOST) or "<não autorizado>")
+        print("Escopo da alteração:", "somente sessão" if get_volatile_network_consent(state) is not None else "ambiente/arquivo")
         print("Limite de hops:", max_hops(), "(máximo: 16)")
         print("GeoIP:", os.environ.get("RASAI_NETWORK_GEOIP_SOURCE", "LOCAL_FIRST"))
         from rasai.network_geoip_operations import database_directory, local_databases
