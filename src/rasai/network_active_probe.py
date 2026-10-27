@@ -105,12 +105,14 @@ def _resolve_public_addresses(host: str, port: int) -> tuple[list[tuple[int, str
             )
             public = _public_ips(addresses)
             return public, round((time.monotonic() - start) * 1000, 2), attempt
-        except socket.gaierror as exc:
+        except OSError as exc:
             if (_resolver_failure_category(exc) == "TEMPORARY"
                     and attempt < _DNS_MAX_ATTEMPTS):
                 time.sleep(_DNS_TRANSIENT_RETRY_DELAY_SECONDS)
                 continue
-            # Do not include raw OS text, host lists or resolver configuration.
+            # Record only the bounded attempt count, not the exception string.
+            # This also covers an OS failure after the first transient retry.
+            exc.rasai_dns_attempts = attempt
             raise
     raise AssertionError("DNS attempts exceeded bounded contract")
 
@@ -169,9 +171,7 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
             "source": "SYSTEM_GETADDRINFO",
             "status": "FAILED",
             "category": category,
-            # A temporary failure always consumes the two permitted attempts;
-            # other errors are deliberately not retried.
-            "attempts": _DNS_MAX_ATTEMPTS if category == "TEMPORARY" else 1,
+            "attempts": getattr(exc, "rasai_dns_attempts", 1),
         }
         return record
 
