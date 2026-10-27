@@ -147,7 +147,6 @@ def test_session_network_consent_not_leaked_by_unrelated_save_but_reaches_audit(
     ini = tmp_path / "rasai-console.ini"
     state = SearchConsoleState()
     state.target = "https://www.hetzner.com/"
-    state.config_path = str(ini)
     with patch.dict(os.environ, {"RASAI_CONSOLE_INI": str(ini)}, clear=True):
         set_config_path(state, ini)
         try:
