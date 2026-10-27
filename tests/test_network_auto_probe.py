@@ -149,3 +149,90 @@ def test_canonical_worker_environment_keeps_systemroot_across_subprocesses(monke
         "RASAI_ANTHROPIC_API_KEY": None,
         "HTTPS_PROXY": None,
     }
+
+
+
+def test_console_report_open_waits_for_authorized_async_map_without_new_probe(monkeypatch, tmp_path):
+    """Opening HTML during post-AUD worker must use the final network projection."""
+    from types import SimpleNamespace
+    from rasai import console_artifacts as artifacts
+    from rasai import catalog_report_site as catalog
+    from rasai import persistence
+    from rasai import network_active_probe as probe
+
+    audit = tmp_path / "AUD-CONSOLE-NETWORK"
+    (audit / "report-catalog").mkdir(parents=True)
+    (audit / "audit.db").write_bytes(b"sealed-audit-placeholder")
+    index = audit / "report-catalog" / "index.html"
+    index.write_text("<html></html>", encoding="utf-8")
+    manifest = audit / "report-catalog" / "manifest.json"
+    manifest.write_text("{}", encoding="utf-8")
+    expected_probe = audit / "artifacts" / "network" / "probes" / "known.json"
+
+    monkeypatch.setattr(persistence.AuditWorkspace, "open", staticmethod(
+        lambda path: SimpleNamespace(root=path, database=path / "audit.db")))
+    monkeypatch.setattr(probe, "read_authorized_probes", lambda *_: [])
+    monkeypatch.setattr(probe, "probe_path", lambda *_: expected_probe)
+    monkeypatch.setattr(auto, "_approved_host", lambda: "www.hetzner.com")
+    monkeypatch.setattr(auto, "_sealed_primary_host", lambda *_: "www.hetzner.com")
+
+    progressed = [0.0]
+    ready = [False]
+    monkeypatch.setattr(artifacts.time, "time", lambda: manifest.stat().st_mtime)
+    monkeypatch.setattr(artifacts.time, "monotonic", lambda: progressed[0])
+    monkeypatch.setattr(catalog, "catalog_report_is_fresh", lambda **_: ready[0])
+
+    def finish_worker(_delay):
+        expected_probe.parent.mkdir(parents=True, exist_ok=True)
+        expected_probe.write_text("worker-owns-immutable-packet", encoding="utf-8")
+        ready[0] = True
+        progressed[0] += 0.5
+
+    monkeypatch.setattr(artifacts.time, "sleep", finish_worker)
+
+    assert artifacts._synchronize_network_report_before_open(index) == "READY"
+    assert ready[0]
+    assert expected_probe.is_file()
+
+
+def test_console_report_open_reprojects_only_sealed_probe_without_sockets(monkeypatch, tmp_path):
+    """Old stale catalog: use canonical read-only materializer, never re-probe."""
+    from types import SimpleNamespace
+    from rasai import console_artifacts as artifacts
+    from rasai import catalog_report_site as catalog
+    from rasai import persistence, report_completion
+    from rasai import network_active_probe as probe
+
+    audit = tmp_path / "AUD-HISTORICAL-NETWORK"
+    (audit / "report-catalog").mkdir(parents=True)
+    (audit / "audit.db").write_bytes(b"sealed-audit-placeholder")
+    index = audit / "report-catalog" / "index.html"
+    index.write_text("<html></html>", encoding="utf-8")
+    manifest = audit / "report-catalog" / "manifest.json"
+    manifest.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(persistence.AuditWorkspace, "open", staticmethod(
+        lambda path: SimpleNamespace(root=path, database=path / "audit.db")))
+    monkeypatch.setattr(probe, "read_authorized_probes", lambda *_: [{"state": "OBSERVED"}])
+    monkeypatch.setattr(artifacts.time, "time", lambda: manifest.stat().st_mtime + 300)
+    fresh = [False]
+    monkeypatch.setattr(catalog, "catalog_report_is_fresh", lambda **_: fresh[0])
+    called = []
+
+    def project(*, audit_id, workspace, read_only):
+        called.append((audit_id, read_only))
+        fresh[0] = True
+        return SimpleNamespace(renderer_errors=())
+
+    monkeypatch.setattr(report_completion, "materialize_catalog_report_projection", project)
+    assert artifacts._synchronize_network_report_before_open(index) == "READY"
+    assert called == [("AUD-HISTORICAL-NETWORK", True)]
+
+
+def test_console_report_open_preserves_other_pages_and_no_unsolicited_probe(tmp_path):
+    """Non-report artifacts do not run network resolution or collection."""
+    from rasai import console_artifacts as artifacts
+
+    general = tmp_path / "report" / "index.html"
+    general.parent.mkdir(parents=True)
+    general.write_text("<html></html>", encoding="utf-8")
+    assert artifacts._synchronize_network_report_before_open(general) == "NOT_APPLICABLE"
