@@ -40,6 +40,25 @@ def _approved_host() -> str | None:
         return None
 
 
+def _sealed_primary_host(workspace: Path, audit_id: str) -> str | None:
+    """Read the one original console target; redirect URLs cannot inherit consent."""
+    from rasai.audit_configuration_reuse import (
+        KIND_CONSOLE, load_reusable_audit_configuration,
+    )
+    from rasai.network_active_policy import hostname_from_audit_url
+
+    try:
+        snapshot = load_reusable_audit_configuration(
+            workspace.parent, audit_id, expected_kind=KIND_CONSOLE,
+        )
+        targets = snapshot.configuration.get("targets")
+        if not isinstance(targets, list) or len(targets) != 1:
+            return None
+        return hostname_from_audit_url(targets[0])
+    except (OSError, ValueError, TypeError):
+        return None
+
+
 def dispatch_for_new_audit(workspace: str | Path, audit_id: str) -> dict:
     """Non-blocking best-effort sidecar dispatch once the initial AUD is sealed."""
     host = _approved_host()
@@ -47,6 +66,10 @@ def dispatch_for_new_audit(workspace: str | Path, audit_id: str) -> dict:
         return {"state": "NOT_AUTHORIZED"}
     from rasai.network_active_probe import _audit_has_target, probe_path
     root = Path(workspace)
+    # A previously authorized host may appear only as a redirect in a new AUD;
+    # check the sealed primary URL, not just any observed page/redirect.
+    if _sealed_primary_host(root, audit_id) != host:
+        return {"state": "OUT_OF_SCOPE"}
     if not _audit_has_target(root, audit_id, host):
         return {"state": "OUT_OF_SCOPE"}
     existing = probe_path(root, audit_id, host, 443)
