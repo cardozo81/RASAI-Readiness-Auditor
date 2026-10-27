@@ -1,9 +1,9 @@
-# Rede, traceroute e MaxMind — critérios de saída da #666
+# Rede, traceroute e MaxMind - critérios de saída da #666
 
 Escopo incremental sobre o motor #659. Este documento é um checklist de validação e
 não constitui autorização de merge. #649 permanece roadmap, sem motor NDR novo.
 
-## G0 — Contratos e fronteiras
+## G0 - Contratos e fronteiras
 - Contrato imutável do pacote de sonda: `rasai-network-active-probe-v1`, leitura compatível
   de pacotes históricos, SHA-256 de integridade (não autenticação do executor).
 - Contrato lógico aditivo `rasai-network-logical-trace-v2`: hops numerados,
@@ -12,7 +12,7 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
 - Scores, `audit.db`, catálogos e evidências seladas não são reescritos.
 - Falha complementar não pode degradar o status negocial da auditoria.
 
-## G1 — Critérios de saída
+## G1 - Critérios de saída
 - Parsing IPv4/IPv6, Windows e Linux; no máximo 16 hops; orçamento limitado.
 - `TimeoutExpired.stdout` preservado; hops sem resposta não são inventados.
 - `traceroute` coletado separadamente de falhas de handshake TCP/TLS.
@@ -24,7 +24,7 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
   de AUD inicial (nunca RPR/CONS/replay), depois de consentimento persistente,
   sem atraso relevante no caminho crítico.
 
-## G2 — Critérios de saída
+## G2 - Critérios de saída
 - Apenas IP público realmente observado recebe enriquecimento.
 - City e ASN independentes; base ausente não torna falha de conectividade.
 - Legenda acessível e SVG offline com precisão, fonte, data e RTT.
@@ -33,7 +33,7 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
 - Verificar pacote histórico #659, casos sem MMDB e resultados de coordenadas
   por leitura exclusivamente de evidência persistida.
 
-## G3 — Critérios de saída
+## G3 - Critérios de saída
 - Extra `geoip` instalado na .venv pelo bootstrap canônico.
 - Binário geoipupdate MaxMind baixado apenas com consentimento de aquisição;
   pacote oficial com SHA-256, metadados locais para verificação idempotente.
@@ -47,7 +47,7 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
   no fluxo oficial de instalação; homologação física do agendamento e atualização,
   retenção/licença e atomicidade de bases no ambiente Windows.
 
-## G4 — Critérios de saída
+## G4 - Critérios de saída
 - Registro canônico e round-trip do INI para os quatro parâmetros de rede
   não sensíveis. Segredos nunca no INI, log ou relatório.
 - `RASAI_NETWORK_GEOIP_SOURCE=LOCAL_FIRST` como padrão; `DISABLED` impede
