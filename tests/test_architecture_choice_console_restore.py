@@ -157,6 +157,7 @@ def _compose_architecture_console_for_cancel(monkeypatch, tmp_path):
     console = ModuleType("architecture_669_wrapped_console")
     console._menu = lambda _state: "Q"
     console._configure = lambda _state, _choice: None
+    console.run_audit_from_console = lambda _state: 0
     console.render_header = lambda _state: None
     console.mark_dirty = lambda _state, value=True: None
     ini = tmp_path / "rasai-console.ini"
