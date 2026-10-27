@@ -36,3 +36,27 @@ def test_only_managed_executable_and_database_directory(monkeypatch, tmp_path):
     assert result["state"] == "UPDATED"
     assert seen[0][0] == [str(exe), "-f", str(config), "-d", str(geo.database_directory())]
     assert seen[0][1]["timeout"] == 2
+
+
+def test_local_databases_reject_corrupt_or_wrong_type(monkeypatch, tmp_path):
+    import types
+    monkeypatch.setattr(geo, "operational_home", lambda: tmp_path)
+    root = geo.database_directory()
+    root.mkdir(parents=True)
+    (root / "GeoLite2-City.mmdb").write_bytes(b"invalid")
+    (root / "GeoLite2-ASN.mmdb").write_bytes(b"invalid")
+    class Reader:
+        def __init__(self, category):
+            self.category = category
+        def metadata(self):
+            return types.SimpleNamespace(database_type=self.category, build_epoch=1750000000)
+        def close(self):
+            pass
+    fake = types.SimpleNamespace(open_database=lambda filename:
+        Reader("GeoLite2-ASN"))
+    original_import = geo.importlib.import_module
+    monkeypatch.setattr(geo.importlib, "import_module", lambda name:
+        fake if name == "maxminddb" else original_import(name))
+    found = geo.local_databases()
+    assert found["city_database"] is None
+    assert found["asn_database"] == str(root / "GeoLite2-ASN.mmdb")
