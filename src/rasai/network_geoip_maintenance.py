@@ -58,12 +58,29 @@ def run_daily(config: Path, *, licensed: bool, allow_install: bool = False,
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Manutenção GeoIP independente da auditoria")
-    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--config", type=Path)
     parser.add_argument("--license-accepted", action="store_true")
     parser.add_argument("--allow-install", action="store_true")
+    actions = parser.add_mutually_exclusive_group()
+    actions.add_argument("--schedule", action="store_true")
+    actions.add_argument("--unschedule", action="store_true")
+    parser.add_argument("--authorize-schedule", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(run_daily(args.config, licensed=args.license_accepted,
-                               allow_install=args.allow_install)))
+    if args.unschedule:
+        from rasai.network_geoip_schedule import remove_daily_windows_task
+        outcome = remove_daily_windows_task(authorized=args.authorize_schedule)
+    elif args.schedule:
+        if args.config is None:
+            parser.error("--schedule requer --config")
+        from rasai.network_geoip_schedule import install_daily_windows_task
+        outcome = install_daily_windows_task(args.config, licensed=args.license_accepted,
+                                             authorized=args.authorize_schedule)
+    else:
+        if args.config is None:
+            parser.error("Manutenção requer --config")
+        outcome = run_daily(args.config, licensed=args.license_accepted,
+                            allow_install=args.allow_install)
+    print(json.dumps(outcome))
 
 
 if __name__ == "__main__":
