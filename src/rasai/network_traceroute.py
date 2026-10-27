@@ -17,7 +17,7 @@ def parse_trace(text: str, destination: str) -> dict:
     """Partial logical hop sequence; no private hop address or inferred link RTT."""
     hops = []
     dest = ipaddress.ip_address(destination)
-    for line in text.splitlines()[:40]:
+    for line in text.splitlines()[:64]:
         match = re.match(r"\s*(\d{1,2})\s+", line)
         if not match:
             continue
@@ -44,7 +44,9 @@ def parse_trace(text: str, destination: str) -> dict:
             "public_ip": str(found) if found is not None and found.is_global else None,
             "rtt_ms": elapsed,
         })
-    return {"hops": hops, "target_reached": any(
+    return {"hops": hops, "last_responding_hop": max(
+        (row["hop"] for row in hops if row["state"] != "NO_REPLY"), default=None),
+        "target_reached": any(
         row["public_ip"] == str(dest) for row in hops
     ), "max_hops": MAX_HOPS, "trace_kind": "LOGICAL_HOPS_ONLY",
         "limitations": ["Saltos não descrevem coordenadas físicas.",
@@ -70,6 +72,7 @@ def _result(raw: str, destination: str, *, timed_out: bool = False) -> dict:
     parsed = parse_trace(raw, destination)
     has_hops = bool(parsed["hops"])
     parsed["partial"] = timed_out or not parsed["target_reached"]
+    parsed["collection_status"] = "TIME_BUDGET_EXCEEDED" if timed_out else "COMPLETED_PROCESS"
     return {
         "state": "OBSERVED" if has_hops else "INCONCLUSIVE",
         "value": parsed if has_hops else None,
