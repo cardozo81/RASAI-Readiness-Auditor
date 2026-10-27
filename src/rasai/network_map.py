@@ -35,6 +35,7 @@ def network_geographic_panel(probes: list[dict]) -> str:
     a map of measured infrastructure, so absent enrichment has a logical fallback.
     """
     markers = []
+    connections = []
     legend = []
     for probe in probes[:32]:
         measurements = probe.get("metrics")
@@ -47,7 +48,10 @@ def network_geographic_panel(probes: list[dict]) -> str:
                        measurements.get("geoip"), measurements.get("asn"), None, None)]
         if isinstance(hops, list):
             for hop in hops[:MAX_HOPS_HARD_LIMIT]:
-                if not isinstance(hop, dict) or hop.get("state") != "PUBLIC_HOP":
+                if not isinstance(hop, dict):
+                    continue
+                if hop.get("state") != "PUBLIC_HOP":
+                    candidates.append(("", None, None, hop.get("hop"), None))
                     continue
                 try:
                     address = ip_address(hop.get("public_ip"))
@@ -61,16 +65,20 @@ def network_geographic_panel(probes: list[dict]) -> str:
                 candidates.append(("Hop " + str(hop.get("hop")) + ": " +
                                    str(address), enrichment.get("geoip"),
                                    enrichment.get("asn"), hop.get("hop"), hop.get("rtt_ms")))
+        prior_position = None
         for name, geo, asn, hop_number, rtt in candidates:
             if not isinstance(geo, dict) or geo.get("state") != "OBSERVED":
+                prior_position = None
                 continue
             value = geo.get("value")
             if not isinstance(value, dict):
+                prior_position = None
                 continue
             lat = _coordinate(value.get("latitude"), -90, 90)
             lon = _coordinate(value.get("longitude"), -180, 180)
             radius = _coordinate(value.get("accuracy_radius_km"), 0, 20000)
             if lat is None or lon is None or radius is None:
+                prior_position = None
                 continue
             origin = _public_source_label(value.get("source"))
             capture = str(probe.get("capture_utc") or "Data não comprovada")
@@ -84,6 +92,17 @@ def network_geographic_panel(probes: list[dict]) -> str:
                     f"Precisão: raio de {radius:g} km. Fonte: {origin}. "
                     f"Coleta: {capture}. Não é posição física comprovada.")
             x, y = 40 + (lon + 180) / 360 * 800, 20 + (90 - lat) / 180 * 360
+            if type(hop_number) is int:
+                if prior_position is not None and prior_position[0] + 1 == hop_number:
+                    px, py = prior_position[1:]
+                    connections.append(
+                        f"<line data-map-layer='logical-sequence' x1='{px:.2f}' y1='{py:.2f}' "
+                        f"x2='{x:.2f}' y2='{y:.2f}' stroke='#667c96' "
+                        "stroke-width='1.5' stroke-dasharray='5 5'/>"
+                    )
+                prior_position = (hop_number, x, y)
+            else:
+                prior_position = None
             markers.append(
                 f"<circle cx='{x:.2f}' cy='{y:.2f}' r='7' fill='#24578b' "
                 f"stroke='#ffffff' stroke-width='2'><title>{escape(desc)}</title></circle>"
@@ -117,13 +136,13 @@ def network_geographic_panel(probes: list[dict]) -> str:
         "<p>Pontos são estimativas geográficas da referência IP, "
         "com precisão limitada pela base local; não representam necessariamente "
         "a sede, o centro de dados, a rota percorrida ou a posição de um usuário. "
-        "Não são desenhadas ligações físicas sem medição correspondente.</p>"
+        "Linhas tracejadas, quando presentes, apenas ilustram saltos consecutivos com coordenadas; não são rotas físicas medidas.</p>"
         "<div class='table-wrap'><svg viewBox='0 0 880 430' role='img' "
         "aria-label='Representação aproximada de locais com coordenadas documentadas' "
         "style='display:block;min-width:550px;max-width:100%;background:#f2f7fb'>"
         + "<path data-map-layer='land' d='" + WORLD_LAND_SVG_PATH +
         "' fill='#e1eee7' stroke='#91a7a0' stroke-width='0.7'/>" +
-        "".join(grid) + "".join(markers) + "</svg></div>"
+        "".join(grid) + "".join(connections) + "".join(markers) + "</svg></div>"
         "<p>Mapa base simplificado Natural Earth, escala 1:110 milhões "
         "(referência cartográfica de domínio público, não evidência de rede). "
         "A posição estimada é representada apenas pelos marcadores; nenhuma "
