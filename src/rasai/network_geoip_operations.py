@@ -22,8 +22,17 @@ def operational_home() -> Path:
     return Path.home() / ".local" / "share" / "rasai"
 
 
+def application_directory() -> Path:
+    """Return the RASAi program checkout, independent of current directory.
+
+    Editable-install source lives in <RASAI_ROOT>/src/rasai.
+    """
+    return Path(__file__).resolve().parents[2]
+
+
 def database_directory() -> Path:
-    return operational_home() / "data" / "geoip"
+    """City/ASN MMDBs live alongside the RASAi application, never in AppData."""
+    return application_directory() / "data" / "geoip"
 
 
 def updater_executable() -> Path:
@@ -34,6 +43,8 @@ def updater_executable() -> Path:
 def local_databases() -> dict[str, str | None]:
     """Existing, regular databases only. Never search arbitrary global paths."""
     root = database_directory()
+    if root.is_symlink() or root.parent.is_symlink():
+        return {"city_database": None, "asn_database": None}
     paths = {"city_database": root / "GeoLite2-City.mmdb",
              "asn_database": root / "GeoLite2-ASN.mmdb"}
     resolved = {}
@@ -80,8 +91,11 @@ def run_authorized_update(config: Path, *, licensed: bool, timeout: int = 120) -
     if type(timeout) is not int or not 1 <= timeout <= 120:
         raise ValueError("Orçamento de atualização inválido")
     target = database_directory()
-    target.mkdir(parents=True, exist_ok=True)
     try:
+        # A read-only application installation is non-blocking for any audit.
+        if target.is_symlink() or target.parent.is_symlink():
+            return {"state": "FAILED", "error": "UNSAFE_DATABASE_DIRECTORY"}
+        target.mkdir(parents=True, exist_ok=True)
         # geoipupdate official CLI accepts -f (config) and -d (database dir).
         result = subprocess.run([str(exe), "-f", str(config), "-d", str(target)],
                                 capture_output=True, timeout=timeout, check=False)
