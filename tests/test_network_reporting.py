@@ -151,7 +151,7 @@ def test_trace_failure_is_explained_without_exposing_raw_errors_or_hops(
     assert not (tmp_path / "report-catalog").exists()
 
 
-def test_incomplete_sealed_network_consent_is_explained_without_new_probe(tmp_path):
+def test_incomplete_sealed_network_consent_is_explained_without_new_probe(tmp_path, monkeypatch):
     """#666 Windows H1: enabled=true + authorized host blank is NOT consent."""
     import sqlite3
     import json
@@ -183,6 +183,10 @@ def test_incomplete_sealed_network_consent_is_explained_without_new_probe(tmp_pa
     assert "hostname autorizado" in notice
     assert "www.hetzner.com" not in notice  # never infer a grant from target
     assert "bloqueio de rede" in notice
+    # This focused SQLite fixture contains only the canonical consent record;
+    # browser capture fallback is outside this test's scope.
+    from rasai import network_reporting as report
+    monkeypatch.setattr(report, "snapshots_from_audit", lambda *_: [])
     html = network_report_body(tmp_path, audit_id)
     assert "Sonda ativa: autorização incompleta" in html
     assert "Mapa e caminho de rede" in html
