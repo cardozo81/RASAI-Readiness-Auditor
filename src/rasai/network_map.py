@@ -72,7 +72,7 @@ def network_geographic_panel(probes: list[dict]) -> str:
                             if isinstance(asn_value, dict) else "ASN indisponível")
             timing = str(rtt) + " ms" if type(rtt) in (int, float) and isfinite(rtt) and 0 <= rtt <= 60000 else "RTT indisponível"
             detail = organization + "; " + timing
-            desc = (f"{name}. {detail}. Posição aproximada {lat:.3f}°, {lon:.3f}°. "
+            desc = (f"{name}. {detail}. Posição estimada {lat:.3f}°, {lon:.3f}°. "
                     f"Precisão: raio de {radius:g} km. Fonte: {origin}. "
                     f"Coleta: {capture}. Não é posição física comprovada.")
             x, y = 40 + (lon + 180) / 360 * 800, 20 + (90 - lat) / 180 * 360
