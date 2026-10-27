@@ -236,11 +236,16 @@ def collect_authorized_probe(
         record["series_id"] = series_id
     # Only local, already-provisioned databases are inspected. Never update
     # databases or invoke remote providers inside a probe or audit.
-    managed = local_databases()
-    if asn_database is None:
-        asn_database = managed["asn_database"]
-    if city_database is None:
-        city_database = managed["city_database"]
+    source_policy = os.environ.get("RASAI_NETWORK_GEOIP_SOURCE", "LOCAL_FIRST")
+    if source_policy == "DISABLED":
+        asn_database = None
+        city_database = None
+    else:
+        managed = local_databases()
+        if asn_database is None:
+            asn_database = managed["asn_database"]
+        if city_database is None:
+            city_database = managed["city_database"]
     peer = (record.get("metrics") or {}).get("connected_public_ip") or {}
     peer_ip = peer.get("value") if peer.get("state") == "OBSERVED" else None
     if peer_ip:
