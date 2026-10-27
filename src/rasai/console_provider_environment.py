@@ -111,6 +111,10 @@ _ADDITIONAL_RUNTIME_INPUTS = (
     ("RASAI_IMPROVEMENT_DOMAINS", "IA - modelos e reasoning", "lista CSV", (), "src/rasai/improvement_intelligence.py"),
     ("RASAI_IMPROVEMENT_INTELLIGENCE", "IA - modelos e reasoning", "booleano", ("true", "false"), "src/rasai/improvement_intelligence.py"),
     ("RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS", "IA - modelos e reasoning", "inteiro 1..100", (), "src/rasai/improvement_intelligence.py"),
+    ("RASAI_NETWORK_ACTIVE_ENABLED", "Search Intelligence / Observability", "booleano", ("true", "false"), "src/rasai/network_active_policy.py"),
+    ("RASAI_NETWORK_ACTIVE_HOST", "Search Intelligence / Observability", "hostname público exato", (), "src/rasai/network_active_policy.py"),
+    ("RASAI_NETWORK_MAX_HOPS", "Search Intelligence / Observability", "inteiro 1..16", (), "src/rasai/network_traceroute.py"),
+    ("RASAI_NETWORK_GEOIP_SOURCE", "Search Intelligence / Observability", "enum", ("LOCAL_FIRST", "DISABLED"), "src/rasai/network_enrichment.py"),
     ("RASAI_PASSIVE_SECURITY", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
     ("RASAI_PRESENTATION_TIMEZONE", "Aplicação e execução", "timezone IANA", (), "src/rasai/time_contract.py"),
     ("RASAI_SECURITY_CISA_KEV", "Aplicação e execução", "booleano", ("true", "false"), "src/rasai/passive_security.py"),
@@ -219,6 +223,10 @@ SPEC_BY_NAME = {spec.name: spec for spec in SPECS}
 
 
 def _validate(name: str, raw: str) -> str:
+    if name in {"RASAI_NETWORK_ACTIVE_ENABLED", "RASAI_NETWORK_ACTIVE_HOST",
+                "RASAI_NETWORK_MAX_HOPS", "RASAI_NETWORK_GEOIP_SOURCE"}:
+        from rasai.network_active_policy import validate_network_setting
+        return validate_network_setting(name, raw)
     if name in {
         "RASAI_GSC_SEARCH_ANALYTICS_DAYS", "RASAI_GSC_SEARCH_MAX_ROWS",
         "RASAI_GSC_FINAL_DATA_LAG_DAYS",
