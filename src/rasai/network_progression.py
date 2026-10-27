@@ -13,6 +13,11 @@ def route_panels(probes):
         if not isinstance(data, dict) or not isinstance(data.get("hops"), list):
             continue
         lines = []
+        last_responding = data.get("last_responding_hop")
+        if type(last_responding) is not int:
+            last_responding = max((h.get("hop") for h in data["hops"] if isinstance(h, dict)
+                                   and h.get("state") in ("PUBLIC_HOP", "PRIVATE_HOP_REDACTED")
+                                   and type(h.get("hop")) is int), default=None)
         for item in data["hops"][:8]:
             if not isinstance(item, dict):
                 continue
@@ -31,7 +36,9 @@ def route_panels(probes):
                       isfinite(rtt) and 0 <= rtt <= 60000 else "Não observado")
             status = {"PUBLIC_HOP": "Resposta pública", "PRIVATE_HOP_REDACTED": "Endereço reservado",
                       "NO_REPLY": "Sem resposta"}[state]
-            lines.append(f"<tr><th>{n}</th><td>{status}</td><td>{escape(address or 'Oculto')}</td>"
+            marker = " (último respondente)" if n == last_responding else ""
+            shown_address = address or ("Oculto" if state == "PRIVATE_HOP_REDACTED" else "Sem IP")
+            lines.append(f"<tr><th scope='row'>{n}</th><td>{status}{marker}</td><td>{escape(shown_address)}</td>"
                          f"<td>{timing}</td></tr>")
         if not lines:
             continue
