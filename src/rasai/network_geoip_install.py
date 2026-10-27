@@ -46,12 +46,30 @@ def _download(url: str, limit: int) -> bytes:
     return data
 
 
+def _verified_existing(target: Path) -> bool:
+    manifest = target.with_name(target.name + ".verified.json")
+    if (not target.is_file() or target.is_symlink()
+            or not manifest.is_file() or manifest.is_symlink()):
+        return False
+    try:
+        record = json.loads(manifest.read_text(encoding="utf-8"))
+        if record.get("source") != "MAXMIND_OFFICIAL_RELEASE":
+            return False
+        digest = hashlib.sha256()
+        with target.open("rb") as stream:
+            for block in iter(lambda: stream.read(1_048_576), b""):
+                digest.update(block)
+        return digest.hexdigest() == record.get("sha256")
+    except (OSError, ValueError, TypeError):
+        return False
+
+
 def install_official_updater(*, acquisition_authorized: bool) -> dict:
     """Idempotent, fail closed and never overwrite a working binary blindly."""
     target = updater_executable()
     if target.is_symlink():
         return {"state": "FAILED", "error": "UNSAFE_EXECUTABLE_PATH"}
-    if target.is_file() and target.stat().st_size > 0:
+    if _verified_existing(target):
         return {"state": "READY", "error": None}
     if not acquisition_authorized:
         return {"state": "NOT_AUTHORIZED", "error": "SOFTWARE_ACQUISITION_CONSENT_REQUIRED"}
@@ -114,6 +132,19 @@ def install_official_updater(*, acquisition_authorized: bool) -> dict:
             os.replace(staging, target)
         finally:
             staging.unlink(missing_ok=True)
+        manifest = target.with_name(target.name + ".verified.json")
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8",
+                                         dir=target.parent, prefix=".geoip-manifest-",
+                                         delete=False) as record_stream:
+            staged_manifest = Path(record_stream.name)
+            json.dump({"version": version, "sha256": hashlib.sha256(binary).hexdigest(),
+                       "source": "MAXMIND_OFFICIAL_RELEASE"}, record_stream)
+            record_stream.flush()
+            os.fsync(record_stream.fileno())
+        try:
+            os.replace(staged_manifest, manifest)
+        finally:
+            staged_manifest.unlink(missing_ok=True)
         return {"state": "INSTALLED", "version": version, "error": None}
     except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError,
             zipfile.BadZipFile, tarfile.TarError):
