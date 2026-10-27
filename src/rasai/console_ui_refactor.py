@@ -494,7 +494,11 @@ def _install_configure_persistence(console: ModuleType) -> None:
             # Editing a URL must not re-materialize the unrelated Apdex mix:
             # that side effect changed the fingerprint and offered a save
             # even when "https://host" and "https://host/" were identical.
-            if choice != "1":
+            # Architecture (Y) owns a consultative editor. Its V/cancel path
+            # is read-only: do not normalize unrelated Apdex fields before the
+            # editor has established that an actual choice was made. Otherwise
+            # _ensure_mix alters the fingerprint and opens a false save prompt.
+            if choice not in {"1", "Y"}:
                 _ensure_mix(state)
             original(state, choice)
         except BaseException:
