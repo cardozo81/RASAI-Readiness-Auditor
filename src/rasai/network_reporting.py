@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from html import escape
+import json
 from pathlib import Path
+import sqlite3
 
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations
@@ -60,6 +62,49 @@ def _display_observed_metric(key: str, value: object) -> str:
     return str(value)
 
 
+def _incomplete_network_consent_notice(workspace: Path, audit_id: str) -> str:
+    """Show an audit-owned, non-blocking diagnosis without running any probe.
+
+    Report HTML must not infer physical network failure from missing measurements.
+    Only a verified, sealed console configuration with enabled=true and an empty
+    authorized hostname supports this precise advisory; other states stay silent.
+    """
+    db = workspace / "audit.db"
+    if workspace.is_symlink() or db.is_symlink() or not db.is_file():
+        return ""
+    try:
+        with sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=2) as cx:
+            row = cx.execute(
+                "SELECT configuration_json FROM audit_execution_configurations "
+                "WHERE audit_id=? AND configuration_kind='CONSOLE'",
+                (audit_id,),
+            ).fetchone()
+        if row is None or not isinstance(row[0], str) or len(row[0]) > 2_000_000:
+            return ""
+        parsed = json.loads(row[0])
+        environment = parsed.get("settings", {}).get("environment", {})
+        if not isinstance(environment, dict):
+            return ""
+        enabled = environment.get("RASAI_NETWORK_ACTIVE_ENABLED")
+        host = environment.get("RASAI_NETWORK_ACTIVE_HOST")
+        if (isinstance(enabled, str)
+                and enabled.strip().casefold() in {"true", "1", "yes", "on"}
+                and (not isinstance(host, str) or not host.strip())):
+            return (
+                "<section class='panel'><h2>Sonda ativa: autorização incompleta</h2>"
+                "<p>A configuração selada desta auditoria indica sondagem ativa "
+                "habilitada, mas não contém hostname autorizado. Sem um par de "
+                "autorização válido, o RASAi não pode iniciar automaticamente o "
+                "rastreamento desse domínio. No console, abra CAT-01 &gt; N e "
+                "autorize explicitamente o hostname exato para uma nova auditoria. "
+                "A ausência de saltos ou mapa aqui não comprova bloqueio de rede "
+                "nem indisponibilidade do domínio.</p></section>"
+            )
+    except (OSError, sqlite3.Error, ValueError, TypeError, AttributeError, json.JSONDecodeError):
+        pass
+    return ""
+
+
 def network_report_body(workspace: str | Path, audit_id: str) -> str:
     """Build a deterministic and offline page without writing to the AUD."""
     root = Path(workspace)
@@ -109,6 +154,10 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             + "".join(cells) + "</tbody></table></div></section>"
         )
     probes = read_authorized_probes(root, audit_id)
+    if not probes:
+        notice = _incomplete_network_consent_notice(root, audit_id)
+        if notice:
+            blocks.append(notice)
     if observations and probes:
         blocks.insert(0,
             "<section class='panel'><h2>Como interpretar as medições</h2>"
