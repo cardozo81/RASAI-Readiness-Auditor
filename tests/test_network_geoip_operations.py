@@ -89,11 +89,99 @@ def test_local_databases_reject_corrupt_or_wrong_type(monkeypatch, tmp_path):
             return types.SimpleNamespace(database_type=self.category, build_epoch=1750000000)
         def close(self):
             pass
-    fake = types.SimpleNamespace(open_database=lambda filename:
-        Reader("GeoLite2-ASN"))
+    def open_database(filename):
+        if Path(filename).name == "GeoLite2-City.mmdb":
+            raise ValueError("corrupt city MMDB")
+        return Reader("GeoLite2-ASN")
+    fake = types.SimpleNamespace(open_database=open_database)
     original_import = geo.importlib.import_module
     monkeypatch.setattr(geo.importlib, "import_module", lambda name:
         fake if name == "maxminddb" else original_import(name))
     found = geo.local_databases()
     assert found["city_database"] is None
     assert found["asn_database"] == str(root / "GeoLite2-ASN.mmdb")
+
+
+
+def test_filename_independent_metadata_classification(monkeypatch, tmp_path):
+    """Correct content must win over arbitrary MMDB basename or case."""
+    from types import SimpleNamespace
+    monkeypatch.setattr(geo, "application_directory", lambda: tmp_path)
+    root = geo.database_directory()
+    root.mkdir(parents=True)
+    first = root / "vendor-data-a.MMDb"
+    second = root / "some-release-2026.mmdb"
+    first.write_bytes(b"MMDB-city-fixture")
+    second.write_bytes(b"MMDB-asn-fixture")
+
+    class Reader:
+        def __init__(self, category):
+            self.category = category
+
+        def metadata(self):
+            return SimpleNamespace(database_type=self.category, build_epoch=1760000000)
+
+        def close(self):
+            pass
+
+    fake = SimpleNamespace(open_database=lambda filename:
+                           Reader("GEOIP2-CITY" if filename == str(first)
+                                  else "geolite2-asn"))
+    original_import = geo.importlib.import_module
+    monkeypatch.setattr(geo.importlib, "import_module", lambda name:
+                        fake if name == "maxminddb" else original_import(name))
+    assert geo.local_databases() == {
+        "city_database": str(first),
+        "asn_database": str(second),
+    }
+
+
+def test_single_valid_database_is_available_independently(monkeypatch, tmp_path):
+    """One absent or malformed MMDB must not invalidate the other."""
+    from types import SimpleNamespace
+    monkeypatch.setattr(geo, "application_directory", lambda: tmp_path)
+    root = geo.database_directory()
+    root.mkdir(parents=True)
+    (root / "unrelated.mmdb").write_bytes(b"fixture")
+    class Reader:
+        def metadata(self):
+            return SimpleNamespace(database_type="GeoLite2-aSn", build_epoch=1760000000)
+
+        def close(self):
+            pass
+
+    fake = SimpleNamespace(open_database=lambda filename: Reader())
+    original_import = geo.importlib.import_module
+    monkeypatch.setattr(geo.importlib, "import_module", lambda name:
+                        fake if name == "maxminddb" else original_import(name))
+    assert geo.local_databases() == {
+        "city_database": None,
+        "asn_database": str(root / "unrelated.mmdb"),
+    }
+
+
+def test_ambiguous_or_extra_mmdb_files_fail_closed(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    monkeypatch.setattr(geo, "application_directory", lambda: tmp_path)
+    root = geo.database_directory()
+    root.mkdir(parents=True)
+    first = root / "first.mmdb"
+    second = root / "second.mmdb"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+
+    class Reader:
+        def metadata(self):
+            return SimpleNamespace(database_type="GeoLite2-ASN", build_epoch=1760000000)
+
+        def close(self):
+            pass
+
+    fake = SimpleNamespace(open_database=lambda filename: Reader())
+    original_import = geo.importlib.import_module
+    monkeypatch.setattr(geo.importlib, "import_module", lambda name:
+                        fake if name == "maxminddb" else original_import(name))
+    # Neither arbitrary iteration order nor filename is allowed to choose an ASN.
+    assert geo.local_databases() == {"city_database": None, "asn_database": None}
+    (root / "third.mmdb").write_bytes(b"third")
+    assert geo.local_databases() == {"city_database": None, "asn_database": None}
