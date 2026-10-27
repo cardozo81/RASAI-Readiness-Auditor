@@ -143,3 +143,130 @@ def test_failed_runtime_reprojection_rolls_back_session_and_environment(monkeypa
     assert state.search_queries == original_queries
     assert os.environ[key] == original_env
     assert id(state) not in _ARCHITECTURE_SELECTION
+
+
+
+def _compose_architecture_console_for_cancel(monkeypatch, tmp_path):
+    """Compose the real architecture and persistence wrappers in production order."""
+    import builtins
+    from types import ModuleType
+    from rasai import audit_configuration_reuse_console as reuse
+    from rasai import console_ui_refactor as refactor
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    console = ModuleType("architecture_669_wrapped_console")
+    console._menu = lambda _state: "Q"
+    console._configure = lambda _state, _choice: None
+    console.render_header = lambda _state: None
+    console.mark_dirty = lambda _state, value=True: None
+    ini = tmp_path / "rasai-console.ini"
+    ini.write_text("[test]\nvalue = unchanged\n", encoding="utf-8")
+    saved = []
+
+    def save(_state):
+        saved.append(True)
+        ini.write_text("[test]\nvalue = changed\n", encoding="utf-8")
+        return True
+
+    console._save_configuration = save
+    monkeypatch.setattr(reuse, "_INSTALLED", False)
+    reuse.install(console)
+    refactor._install_configure_persistence(console)
+
+    state = SearchConsoleState()
+    state.device = "mobile"
+    # Trigger the exact unwanted _ensure_mix side effect observed in Windows.
+    state.apdex_experience_device_mix = "mobile=50,desktop=50,tablet=0"
+    refactor._set_mix_inherited(state, False)
+    return console, state, ini, saved
+
+
+def test_architecture_cancel_v_never_prompts_or_changes_apdex_or_ini(
+    monkeypatch, tmp_path,
+):
+    """#669: real wrapper composition must not open a secondary save menu."""
+    import builtins
+    import os
+    from contextlib import redirect_stdout
+    from io import StringIO
+    import pytest
+    from rasai.architecture_choice import ArchitectureChoice
+    from rasai import audit_configuration_reuse_console as reuse
+    from rasai import console_ui_refactor as refactor
+
+    console, state, ini, saved = _compose_architecture_console_for_cancel(
+        monkeypatch, tmp_path
+    )
+    original_mix = state.apdex_experience_device_mix
+    original_ini = ini.read_bytes()
+    original_environment = dict(os.environ)
+    initial_fingerprint = refactor._fingerprint(state)
+    inherited = refactor._mix_inherited(state)
+    def answer(prompt=""):
+        assert prompt == "Opção (V para voltar): ", (
+            "Cancelamento não pode solicitar DESTINO DA ALTERAÇÃO: " + prompt
+        )
+        return "v"
+
+    monkeypatch.setattr(builtins, "input", answer)
+    try:
+        for selection in (
+            ArchitectureChoice("UNFORCED"),
+            ArchitectureChoice("AUTO"),
+            ArchitectureChoice("DECLARED", "CSR_SPA"),
+        ):
+            reuse._ARCHITECTURE_SELECTION[id(state)] = selection
+            fingerprint = refactor._fingerprint(state)
+            output = StringIO()
+            with redirect_stdout(output):
+                console._configure(state, "Y")
+            assert reuse._ARCHITECTURE_SELECTION[id(state)] == selection
+            assert refactor._fingerprint(state) == fingerprint
+            assert state.apdex_experience_device_mix == original_mix
+            assert refactor._mix_inherited(state) is inherited
+            assert dict(os.environ) == original_environment
+            assert ini.read_bytes() == original_ini
+            assert not saved
+            assert "DESTINO DA ALTERAÇÃO" not in output.getvalue()
+        assert initial_fingerprint != ""  # valid real fingerprint
+    finally:
+        reuse._ARCHITECTURE_SELECTION.pop(id(state), None)
+        refactor._SESSION_META.clear()
+
+
+def test_architecture_actual_choice_prompts_only_on_change(monkeypatch, tmp_path):
+    import builtins
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from rasai.architecture_choice import ArchitectureChoice
+    from rasai import audit_configuration_reuse_console as reuse
+    from rasai import console_ui_refactor as refactor
+
+    console, state, ini, saved = _compose_architecture_console_for_cancel(
+        monkeypatch, tmp_path
+    )
+    try:
+        for option, mode in (("1", "UNFORCED"), ("2", "AUTO"), ("3", "DECLARED")):
+            reuse._ARCHITECTURE_SELECTION[id(state)] = ArchitectureChoice("AUTO") if mode != "AUTO" else ArchitectureChoice("UNFORCED")
+            count = []
+            def answer(prompt=""):
+                if prompt == "Opção (V para voltar): ":
+                    return option
+                if prompt == "Tipo (V para voltar): ":
+                    return "3"  # CSR_SPA
+                if prompt == "Escolha: ":
+                    count.append(prompt)
+                    return "1"  # do not persist test choice to INI
+                raise AssertionError(f"Unexpected input prompt: {prompt!r}")
+            monkeypatch.setattr(builtins, "input", answer)
+            output = StringIO()
+            with redirect_stdout(output):
+                console._configure(state, "Y")
+            assert reuse._ARCHITECTURE_SELECTION[id(state)].mode == mode
+            assert count == ["Escolha: "]
+            assert "DESTINO DA ALTERAÇÃO" in output.getvalue()
+            assert not saved
+            assert ini.read_text(encoding="utf-8") == "[test]\nvalue = unchanged\n"
+    finally:
+        reuse._ARCHITECTURE_SELECTION.pop(id(state), None)
+        refactor._SESSION_META.clear()
