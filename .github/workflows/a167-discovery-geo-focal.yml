@@ -9,7 +9,7 @@ on:
       - 'src/rasai/m2.py'
       - 'src/rasai/m24_discovery_extensions.py'
       - 'src/rasai/m24_crawling_discovery.py'
-      - 'src/rasai/search_geo_alignment.py'
+      - 'src/rasai/geo_search_alignment.py'
       - 'src/rasai/console_search_scope_presentation.py'
       - 'src/rasai/console_search_intelligence.py'
       - 'src/rasai/console_perplexity_run_gate.py'

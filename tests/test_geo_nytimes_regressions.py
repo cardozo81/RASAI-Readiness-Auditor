@@ -13,7 +13,7 @@ import sqlite3
 import pytest
 
 from rasai.geo_report import geo_body
-from rasai.search_geo_alignment import geo_configuration_view
+from rasai.geo_search_alignment import geo_configuration_view
 from rasai.console_progress_presentation import _public_stage_status
 
 

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 from rasai.domain import RuleResult
 from rasai.m7 import _PriorState, _dependency_state
-from rasai.search_geo_alignment import geo_query_alignment
+from rasai.geo_search_alignment import geo_query_alignment
 from rasai.semantic_recovery_runtime import _dependency_reason
 from rasai.semantic_rendered_source import verified_rendered_semantic_source
 

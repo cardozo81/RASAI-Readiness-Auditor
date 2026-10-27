@@ -206,7 +206,7 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
     if px_view["draft_awaits_run_confirmation"]:
         print("   Query salva preparada: ao iniciar AUD será solicitado aceite Perplexity.")
     print("   Pesquisa externa advisory; independente de SERP e sem efeito em scoring/evidência determinística.")
-    from rasai.search_geo_alignment import geo_configuration_view
+    from rasai.geo_search_alignment import geo_configuration_view
     advisory = geo_configuration_view(state)
     print(f"   Comparabilidade GEO       : {advisory['comparability']}")
     print(f"   Pertinência temática      : {advisory['topical_fitness']}")
@@ -602,7 +602,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
                 print("  Solicitação ignorada nesta AUD; use 9 para reativar manualmente.")
             else:
                 print("  PARA CONFIGURAR: definir queries (1) ou copiar SERP com autorização (6).")
-        from rasai.search_geo_alignment import geo_configuration_view
+        from rasai.geo_search_alignment import geo_configuration_view
         advisory = geo_configuration_view(state)
         print(f"  Comparabilidade GEO   : {advisory['comparability']}")
         print(f"  Pertinência ao alvo   : {advisory['topical_fitness']}")

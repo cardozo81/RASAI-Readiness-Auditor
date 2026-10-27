@@ -93,7 +93,9 @@ def test_geo_works_without_optional_perplexity_with_scoped_serp_and_existing_ai(
     assert "Revisar conteúdo da página" in output
     assert "CE-1" in output
     assert "Conteúdo/SEO editorial + especialista de produto" in output
-    assert "confiança atribuída pela análise IA: 0.8" in output
+    # GEO expresses model-declared confidence in percentage, not raw fractions.
+    assert "Confiança estimada pela IA (não verificada)" in output
+    assert "<strong>80%</strong>" in output
     assert "Motivo relatado: Diferença observada" in output
     assert "Limite causal: Não comprova efeito" in output
     assert "Sem evidência</strong>" not in output

@@ -111,10 +111,10 @@ def render_search_scope(state: Any) -> None:
     px = inspect_perplexity_readiness(state)
     info("Solicitação", px["status"] if not perplexity_queries else "SOLICITADA")
     info("Quantidade de queries", len(perplexity_queries))
-    from rasai.search_geo_alignment import geo_query_alignment
+    from rasai.geo_search_alignment import geo_query_alignment
     active_or_draft = perplexity_queries or tuple(getattr(state, "perplexity_draft_queries", ()) or ())
     matching = geo_query_alignment(queries, active_or_draft)
-    from rasai.search_geo_alignment import geo_configuration_view
+    from rasai.geo_search_alignment import geo_configuration_view
     advisory = geo_configuration_view(state)
     info("Alinhamento de consultas SERP × Perplexity", matching["label"])
     info("Comparabilidade da próxima AUD", advisory["comparability"])
