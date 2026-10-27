@@ -32,6 +32,10 @@ CONTRACT = "rasai-network-active-probe-v1"
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 _LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 _TIMEOUT_SECONDS = 10
+# Exactly one additional query for a transient resolver failure. No alternate
+# hostname, DNS provider, IP override, TCP attempt or repeated AUD is permitted.
+_DNS_TRANSIENT_RETRY_DELAY_SECONDS = 0.2
+_DNS_MAX_ATTEMPTS = 2
 # Up to 16 GeoIP+ASN-enriched hops may exceed the previous 16 KiB cap.
 # The worker output remains strictly bounded, without silently losing a probe.
 _MAX_RESULT_BYTES = 65_536
@@ -76,6 +80,41 @@ def _metric(state: str = "NOT_OBSERVED", value=None, error: str | None = None) -
             "error": error}
 
 
+def _resolver_failure_category(exc: OSError) -> str:
+    """Stable, non-sensitive error category, never exception text or DNS answers."""
+    number = getattr(exc, "errno", None)
+    if number in (getattr(socket, "EAI_AGAIN", None), 11002):
+        return "TEMPORARY"
+    if isinstance(exc, socket.gaierror):
+        return "NAME_RESOLUTION"
+    return "OS_ERROR"
+
+
+def _resolve_public_addresses(host: str, port: int) -> tuple[list[tuple[int, str]], float, int]:
+    """Vetted DNS with a single bounded retry only on an OS-defined transient error.
+
+    The retry is not another active probe: no sockets are connected until every
+    DNS answer has passed the same public-only validation. Permanent failures
+    are never retried or replaced with guessed/cache/browser addresses.
+    """
+    start = time.monotonic()
+    for attempt in range(1, _DNS_MAX_ATTEMPTS + 1):
+        try:
+            addresses = socket.getaddrinfo(
+                host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP,
+            )
+            public = _public_ips(addresses)
+            return public, round((time.monotonic() - start) * 1000, 2), attempt
+        except socket.gaierror as exc:
+            if (_resolver_failure_category(exc) == "TEMPORARY"
+                    and attempt < _DNS_MAX_ATTEMPTS):
+                time.sleep(_DNS_TRANSIENT_RETRY_DELAY_SECONDS)
+                continue
+            # Do not include raw OS text, host lists or resolver configuration.
+            raise
+    raise AssertionError("DNS attempts exceeded bounded contract")
+
+
 def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> dict:
     """Worker only: pinned public-IP connection with valid SNI and TLS checks."""
     started = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -98,11 +137,12 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
         ],
     }
     try:
-        t0 = time.monotonic()
-        resolved = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM,
-                                      proto=socket.IPPROTO_TCP)
-        elapsed = round((time.monotonic() - t0) * 1000, 2)
-        ips = _public_ips(resolved)
+        ips, elapsed, attempts = _resolve_public_addresses(host, port)
+        record["resolver_diagnostics"] = {
+            "source": "SYSTEM_GETADDRINFO",
+            "attempts": attempts,
+            "status": "RESOLVED",
+        }
         metrics["dns_resolution"] = _metric("OBSERVED", [ip for _, ip in ips])
         metrics["dns_elapsed_ms"] = _metric("OBSERVED", elapsed)
         family, ip = ips[0]
@@ -110,10 +150,29 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
     except ValueError:
         record["state"] = "BLOCKED"
         metrics["dns_resolution"] = _metric("BLOCKED", error="UNSAFE_DNS_ANSWER")
+        record["resolver_diagnostics"] = {
+            "source": "SYSTEM_GETADDRINFO", "status": "REJECTED_UNSAFE_ANSWER",
+        }
         return record
-    except (OSError, socket.gaierror):
+    except OSError as exc:
+        category = _resolver_failure_category(exc)
         record["state"] = "COLLECTION_FAILED"
-        metrics["dns_resolution"] = _metric("COLLECTION_FAILED", error="DNS_LOOKUP_FAILED")
+        metrics["dns_resolution"] = _metric(
+            "COLLECTION_FAILED",
+            error={
+                "TEMPORARY": "DNS_TEMPORARY_FAILURE",
+                "NAME_RESOLUTION": "DNS_NAME_RESOLUTION_FAILED",
+                "OS_ERROR": "DNS_RESOLVER_OS_ERROR",
+            }[category],
+        )
+        record["resolver_diagnostics"] = {
+            "source": "SYSTEM_GETADDRINFO",
+            "status": "FAILED",
+            "category": category,
+            # A temporary failure always consumes the two permitted attempts;
+            # other errors are deliberately not retried.
+            "attempts": _DNS_MAX_ATTEMPTS if category == "TEMPORARY" else 1,
+        }
         return record
 
     sock = None
