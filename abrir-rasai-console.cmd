@@ -72,6 +72,11 @@ if errorlevel 1 (
     if errorlevel 1 goto :fail
 )
 
+rem Optional MaxMind helper: acquires software only after explicit persisted consent.
+rem Never blocks console startup or runs in the critical AUD execution path.
+"%VENV_PY%" -m rasai.network_geoip_bootstrap >nul 2>&1
+if errorlevel 1 echo [RASAi] Aviso: preparacao GeoIP indisponivel; auditorias nao sao bloqueadas.
+
 cls
 "%CONSOLE_EXE%"
 set "EXIT_CODE=%ERRORLEVEL%"
