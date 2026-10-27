@@ -56,7 +56,16 @@ não constitui autorização de merge. #649 permanece roadmap, sem motor NDR nov
   `GeoLite2-City.mmdb` e `GeoLite2-ASN.mmdb`. A raiz da aplicação é
   determinada pelo pacote instalado em modo editável, independentemente do
   CWD, e não é `%LOCALAPPDATA%`. Os datasets ficam fora do Git, da AUD e da
-  .venv; somente MMDB com metadados corretos são consumidas automaticamente.
+  .venv. **Os nomes dos arquivos são livres**: busca-se no máximo dois
+  arquivos com extensão `.mmdb` (sem distinção entre maiúsculas e minúsculas)
+  e identifica-se City/ASN exclusivamente pelo campo `database_type` dos
+  metadados internos válidos (p. ex., `GeoLite2-City`, `GeoIP2-ASN`), além
+  de exigir `build_epoch` válido. Não se adivinha o tipo a partir do nome
+  do arquivo e não há novas variáveis ou caminhos a parametrizar. Uma base
+  válida pode operar independentemente da outra. Duplicidade de tipo ou
+  mais de dois arquivos MMDB são tratados como ambiguidade, sem eleger um
+  candidato arbitrário. O CAT-01 > N exibe os nomes efetivamente aceitos
+  ou informa ausência/invalidez.
 - O utilitário `geoipupdate` continua no perfil operacional do usuário e
   atualiza bases na pasta do programa após consentimento e conta/licença
   MaxMind válidos. Não instalar/capturar datasets dentro de AUD, RPR ou CONS.
