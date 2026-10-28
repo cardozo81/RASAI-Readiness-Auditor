@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install package and test runner
-        run: python -m pip install -e . pytest
+        run: python -m pip install -e ".[attestation]" pytest
       - name: Install Chromium for browser-backed tests
         run: python -m playwright install chromium
       - name: Public contract gate
