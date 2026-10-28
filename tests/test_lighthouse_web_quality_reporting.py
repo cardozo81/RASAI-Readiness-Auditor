@@ -85,7 +85,7 @@ class LighthouseWebQualityReportingTests(unittest.TestCase):
             self.assertIn("Não mede ranking", html)
             self.assertIn("não repondera, não combina e não recalcula", html)
             self.assertIn("Search Intelligence/SERP", html)
-            self.assertIn("SCORE-GEO-004", html)
+            self.assertIn("SCORE-GEO-005", html)
             self.assertIn("accessibility.html", html)
 
             self.assertIn("Performance Lighthouse · média", index)

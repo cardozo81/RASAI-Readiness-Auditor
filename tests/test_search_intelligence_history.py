@@ -241,7 +241,7 @@ def test_search_history_html_and_manifest_preserve_non_causal_boundary(tmp_path:
     assert output.report_dir.name.startswith("SH-")
     assert "Evolução observada de Search Intelligence" in html
     assert "não demonstra causalidade" in html
-    assert "SCORE-GEO-004" in html
+    assert "SCORE-GEO-005" in html
     assert manifest["methodology"] == "SEARCH-HISTORY-001"
     assert manifest["milestone_id"] == "DEPLOY-2026-09"
     assert manifest["baseline_mode"] == "AUTO"
