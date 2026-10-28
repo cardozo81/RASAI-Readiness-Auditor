@@ -76,6 +76,13 @@ def test_network_probes_enter_sealed_offline_catalog_without_changing_aud(tmp_pa
 
     valid, reasons = verify_catalog_report_package(report)
     assert valid, reasons
+    # On failure, distinguish immutable package integrity from a stale dependency.
+    from rasai.catalog_source_dependencies import verify_source_dependencies
+    manifest = json.loads((report / "manifest.json").read_text(encoding="utf-8"))
+    dependencies_ok, dependency_errors = verify_source_dependencies(
+        workspace.root, manifest.get("source_dependencies"),
+    )
+    assert dependencies_ok, dependency_errors
     assert catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace)
     assert (workspace.root / "audit.db").read_bytes() == before
 
