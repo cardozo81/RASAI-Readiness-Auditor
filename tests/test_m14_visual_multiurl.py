@@ -217,7 +217,9 @@ class M14EvidenceTests(unittest.TestCase):
             with AuditPersistence(workspace) as persistence:
                 persistence.audits.add(Audit(audit_id="AUD-M14", project_name="M14", auditor_version="test", ruleset_version="1"))
                 persistence.pages.add(Page("PGE-1", "AUD-M14", "https://example.com/produto", "https://example.com/produto", (DiscoverySource.SEED,), 0))
-                result = execute_m3(m2, persistence, workspace, renderer=_FakeRenderer())
+                from unittest.mock import patch
+                with patch("rasai.m3.runtime_devices", return_value=(DeviceContext.DESKTOP, DeviceContext.MOBILE)):
+                    result = execute_m3(m2, persistence, workspace, renderer=_FakeRenderer())
 
                 self.assertEqual(set(result.snapshot_ids["PGE-1"]), {DeviceContext.DESKTOP, DeviceContext.MOBILE})
                 for device in (DeviceContext.DESKTOP, DeviceContext.MOBILE):

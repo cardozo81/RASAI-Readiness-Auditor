@@ -199,6 +199,7 @@ def test_identity_renderer_projects_capture_quality_in_browser_metadata() -> Non
     renderer = BrowserIdentityRenderer()
     renderer._browser = _FakeBrowser(page)
     renderer._capture_element_observations = lambda _page: ()
+    renderer._capture_dom_visibility = lambda _page: {"state": "NOT_OBSERVED"}
 
     result = renderer._render_once(
         url="https://example.test/",
