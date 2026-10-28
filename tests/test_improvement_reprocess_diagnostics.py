@@ -151,7 +151,7 @@ def test_entrypoints_use_canonical_improvement_causal_contracts() -> None:
         )
 
 
-def test_registered_ai_dispatch_reports_missing_hook_without_provider(monkeypatch) -> None:
+def test_registered_ai_dispatch_reports_missing_hook_without_provider(monkeypatch, tmp_path) -> None:
     from rasai import audit_runner
     from rasai import governed_reprocess_runtime as governed
 
