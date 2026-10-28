@@ -233,7 +233,7 @@ def stage_console_lines(projection: dict[str, Any]) -> tuple[str, ...]:
         )
     ]
     lines.append(
-        "Fontes de tentativas: M18+M20 quando presentes; a união de intervalos "
+        "Fontes de tentativas: registros de análise por IA e remediação de conteúdo, quando presentes; a união de intervalos "
         "não representa tempo exclusivo de fase."
     )
     if projection.get("unknown_ai_intervals", 0):
