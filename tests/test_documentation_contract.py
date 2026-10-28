@@ -60,7 +60,7 @@ def test_documentation_uses_hyphen_instead_of_dash_characters() -> None:
 def test_public_language_guide_uses_functional_terms_instead_of_module_ids() -> None:
     """The user-facing language guide must not surface internal milestone labels."""
     text = (ROOT / "docs/PUBLIC_LANGUAGE.md").read_text(encoding="utf-8")
-    assert not re.search(r"(?i)\\bM\\d{1,3}(?:[+/]M\\d{1,3})?\\b", text)
+    assert not re.search(r"(?i)\bM\d{1,3}(?:[+/]M\d{1,3})?\b", text)
     assert "Tempo e consumo das análises por IA" in text
     assert "Rastreamento e descoberta" in text
     assert "evidência deve ser preservada" in text
