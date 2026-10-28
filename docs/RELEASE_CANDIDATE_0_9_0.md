@@ -14,7 +14,7 @@ Esses itens descrevem a estabilização em desenvolvimento na PR #675, não toda
 
 ## Evidências e critérios
 
-- Baseline de CI verificada: `887ae218e71cfead81583c66652978d2f302aa67`; 12/12 workflows de PR concluídos com sucesso em 28/10/2026.
+- Baseline de CI verificada: `c26b75fdbb709a87406471002754b9256603e49e`; 14/14 workflows de PR concluídos com sucesso em 28/10/2026.
 - Detalhes e links dos workflows, ressalvas e matriz de aceite: [STABILIZATION_RELEASE_READINESS.md](STABILIZATION_RELEASE_READINESS.md).
 - CONS-5: teste sintético aprovado; homologação com fontes físicas, comparação longitudinal e hash das AUDs ainda não comprovada nesta candidata.
 - RPR: regressões aprovadas; smoke físico de retomada seletiva permanece pendente de evidência.
@@ -50,3 +50,20 @@ Nenhum bump de versão está autorizado neste estágio; `pyproject.toml` e `src/
 ## Decisão técnica
 
 **NO-GO para publicação agora.** A baseline de testes é verde, mas a issue #674, os gates físicos e a aprovação humana não estão encerrados. A candidata `v0.9.0` é uma proposta SemVer plausível para incremento pré-1.0, não uma decisão de publicação. Manter PR #675 em Draft; não criar tag, release, merge ou excluir branch.
+
+## Reconciliação do histórico da versão - limite factual
+
+Comparação GitHub `v0.8.0...stabilization/cons-rpr-reports-release-readiness` em 28/10/2026: **1.411 commits à frente**. A API de comparação retornou uma lista de **300 arquivos**, sujeita ao limite de paginação; portanto, ela não prova o inventário integral de arquivos modificados. **Não** utilizar a enumeração parcial como changelog completo, nem atribuir as 1.411 alterações exclusivamente à PR #675.
+
+A candidata inclui um subconjunto de estabilização detalhado neste documento. O changelog público entre `v0.8.0` e a versão futura exige classificação e deduplicação do histórico real, separação de mudanças funcionais, documentação, testes e infra, e reconciliação com a tag exata de publicação. Gate de changelog final: **PARTIAL**.
+
+## Conferência operacional direcionada
+
+| Frente | Fonte verificada | Resultado | Limite |
+| --- | --- | --- | --- |
+| Instalação Windows | `README.md`, `docs/INSTALLATION.md`, `abrir-rasai-console.cmd` | Documentação e launcher indicam inicialização pela raiz via `abrir-rasai-console.cmd`; fallback com Python 3.13, venv, editable install e Playwright Chromium | Leitura de código e instruções, não instalação limpa executada |
+| Dependências opcionais | `docs/INSTALLATION.md` e launcher | Há tratamento explícito para extras definidos em `pyproject.toml` e verificação de dependências | Não atesta instalação em máquina nova |
+| Rede e GeoIP | `docs/ENVIRONMENT_VARIABLES.md` e `README.md` | Sondagem ativa exige autorização e hostname exato; GeoIP local é opcional, sem inferir coordenadas quando indisponível | Não atesta conectividade, licença MaxMind ou rota física |
+| Artefatos | `docs/OUTPUTS_AND_ARTIFACTS.md` | Contrato persiste em `audits/<AUD-ID>/audit.db` e `report-catalog/`, sem usar HTML como fonte de verdade | Sem mutação ou comparação com AUD física |
+
+Os testes automatizados de documentação conferem links Markdown internos e contratos textuais cobertos pelo workflow `Public Contract Consistency`. Esta revisão **não** executou todos os links externos, nem uma instalação limpa Windows/Linux. Nenhum defeito funcional foi comprovado nesta inspeção.

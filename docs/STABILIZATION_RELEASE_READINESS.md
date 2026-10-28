@@ -186,3 +186,11 @@ Fonte inalterada: ZIP do artefato `rasai-catalog-report-smoke` (ID `12797263282`
 - Correção documental incremental: `README.md` e `docs/README.md` agora reconhecem a release pública `v0.8.0`, sem alterar exemplos históricos nem a versão de pacote em `pyproject.toml`.
 - O pacote preliminar da candidata está em [RELEASE_CANDIDATE_0_9_0.md](RELEASE_CANDIDATE_0_9_0.md). Esse documento não é publicação de release nem autoriza merge, tag ou fechamento da issue #674.
 - Lacunas restantes: paridade CONS/RPR com AUD física, ledger financeiro da AUD histórica, ressalva de impressão CAT-07, instalação limpa e aceite humano, conforme matriz anterior.
+
+
+## Evidência adicional de documentação e changelog - 28/10/2026
+
+- Pipeline completo no SHA `c26b75fdbb709a87406471002754b9256603e49e`: **14/14 workflows executados, completed/success**.
+- Revisão dirigida de `README.md`, `docs/INSTALLATION.md`, `abrir-rasai-console.cmd`, `docs/ENVIRONMENT_VARIABLES.md` e `docs/OUTPUTS_AND_ARTIFACTS.md` verificou consistência básica de comandos, launcher, consentimento de rede e superfície persistida, sem execução real de instalação.
+- Comparação GitHub entre `v0.8.0` e a branch: 1.411 commits à frente; lista de arquivos retornada limitada a 300. **Changelog completo ainda não certificado**; não confundir histórico amplo com alterações exclusivas da PR #675.
+- O pacote de decisão e a matriz de instalação estão em [RELEASE_CANDIDATE_0_9_0.md](RELEASE_CANDIDATE_0_9_0.md). Documentação #674 permanece parcial até os gates remanescentes.
