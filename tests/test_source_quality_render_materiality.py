@@ -214,4 +214,4 @@ def test_identity_renderer_projects_capture_quality_in_browser_metadata() -> Non
 
     assert result.succeeded is True, (result.error_kind, result.browser_metadata)
     assert result.browser_metadata["capture_quality"]["state"] == "RECOVERED"
-    assert "Conteúdo materializado" in (result.rendered_html or "")
+    assert "Conteúdo principal materializado e verificável" in (result.rendered_html or "")
