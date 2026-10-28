@@ -122,16 +122,21 @@ def test_five_physical_same_gateway_m25_ab_pairs(monkeypatch):
                 pair[arm] = (item, saved)
                 if arm == "probe":
                     observed = gateway.last_advisory_observation
-                    assert observed["status"] == "OBSERVED", (
-                        observed["status"], observed.get("reason"),
+                    # A successful same-page observation is the canonical typed
+                    # record. Only fail-closed diagnostic outcomes are mappings.
+                    assert isinstance(observed, m25.PrimaryContentReadiness) or (
+                        hasattr(observed, "sample_id") and hasattr(observed, "status")
+                    ), observed
+                    assert observed.status == "OBSERVED", (
+                        observed.status, observed.reason,
                     )
                     assert item.experimental_sample_id == saved.sample_id
-                    assert observed["sample_id"] == saved.sample_id
-                    assert observed["page_id"] == saved.page_id
-                    assert observed["device"] == saved.device
-                    assert observed["primary_content_ms"] is not None
-                    assert observed["post_load_delta_ms"] is not None
-                    assert observed["post_load_delta_ms"] >= 0
+                    assert observed.sample_id == saved.sample_id
+                    assert observed.page_id == saved.page_id
+                    assert observed.device == saved.device
+                    assert observed.primary_content_ms is not None
+                    assert observed.post_load_delta_ms is not None
+                    assert observed.post_load_delta_ms >= 0
             measured.append(pair)
         versions = {gateway.environment()["chromium_version"]}
         assert len(versions) == 1
