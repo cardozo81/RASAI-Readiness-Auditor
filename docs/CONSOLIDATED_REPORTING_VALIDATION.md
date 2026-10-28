@@ -395,3 +395,7 @@ Esta matriz distingue **testes existentes** de **testes executados e homologados
 | Apdex temporal e exibição | `tests/test_consolidation_temporal_apdex.py`; `tests/test_consolidation_presentation.py` | Preservar versões metodológicas e legibilidade de estados |
 
 Gate prioritário: workflow `consolidated-reporting-ci.yml` com runner Windows, mantendo a separação entre simulação determinística e homologação humana. Os casos não cobertos por esses testes devem ser registrados como pendentes e receber regressão dedicada apenas quando houver lacuna demonstrada.
+
+### Gate de integridade do snapshot CONS-5
+
+A regressão `test_find_existing_rejects_tampered_package_and_preserves_source_files` usa somente fixture temporária e verifica adulteração e ausência de cada arquivo obrigatório do pacote determinístico: `report.html`, `decision-context.json`, `longitudinal-evidence.json` e `execution.json`. Após restauração, a reutilização deve voltar a ser possível e manifest/arquivos devem permanecer idênticos. Este teste não certifica pacote completo de IA.

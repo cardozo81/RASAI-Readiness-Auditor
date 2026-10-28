@@ -153,11 +153,22 @@ class Cons5MaterializationTests(unittest.TestCase):
             self.assertIsNotNone(initial)
             self.assertTrue(initial.reused)
             baseline = {name: (output / name).read_bytes() for name in required}
-            (output / "report.html").write_text("<html>alterado</html>", encoding="utf-8")
-            self.assertIsNone(find_existing(root, fingerprint, refresh))
+            original_manifest = (output / "manifest.json").read_bytes()
+            for name in required:
+                with self.subTest(file=name, condition="tampered"):
+                    (output / name).write_bytes(b"tampered content")
+                    self.assertIsNone(find_existing(root, fingerprint, refresh))
+                    (output / name).write_bytes(baseline[name])
+                    self.assertIsNotNone(find_existing(root, fingerprint, refresh))
+                with self.subTest(file=name, condition="missing"):
+                    (output / name).unlink()
+                    self.assertIsNone(find_existing(root, fingerprint, refresh))
+                    (output / name).write_bytes(baseline[name])
+                    self.assertIsNotNone(find_existing(root, fingerprint, refresh))
+            self.assertEqual((output / "manifest.json").read_bytes(), original_manifest)
             self.assertEqual(
-                {name: (output / name).read_bytes() for name in required if name != "report.html"},
-                {name: content for name, content in baseline.items() if name != "report.html"},
+                {name: (output / name).read_bytes() for name in required},
+                baseline,
             )
 
     def test_request_fingerprint_is_stable_and_filter_sensitive(self) -> None:
