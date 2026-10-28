@@ -43,6 +43,17 @@ _INTERNAL_ARCHITECTURE_DOCS = frozenset({
     "docs/M3_MATERIALITY_SEARCH_CONSUMERS.md",
     "docs/OUTPUTS_AND_ARTIFACTS.md",
     "docs/REPORT_GUIDE.md",
+    # Internal ADRs, cross-engine contracts, migration and acceptance ledgers
+    # retain exact source identifiers for traceability, not end-user UI copy.
+    "docs/ADR_PERPLEXITY_SEARCH_REUSE.md",
+    "docs/ARCHITECTURE_AND_SCORING_DECISION.md",
+    "docs/ARCHITECTURE_AUDIT_ADVISORY.md",
+    "docs/ARCHITECTURE_CONTEXT_CONTRACT.md",
+    "docs/ARCHITECTURE_F3_APPROVAL_GATE.md",
+    "docs/ORQETIA_MIGRATION_NOTES.md",
+    "docs/PERPLEXITY_SEARCH_INTELLIGENCE.md",
+    "docs/READINESS_BROWSER_PILOT.md",
+    "docs/REPORT_PRESENTATION_CONTRACT.md",
     "docs/ARCHITECTURE_DISCOVERY_ACCEPTANCE.md",
     "docs/CLAIM_REVIEW_HANDOFF.md",
     "docs/CLAIM_VERIFICATION.md",
