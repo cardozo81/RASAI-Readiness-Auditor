@@ -399,3 +399,7 @@ Gate prioritário: workflow `consolidated-reporting-ci.yml` com runner Windows, 
 ### Gate de integridade do snapshot CONS-5
 
 A regressão `test_find_existing_rejects_tampered_package_and_preserves_source_files` usa somente fixture temporária e verifica adulteração e ausência de cada arquivo obrigatório do pacote determinístico: `report.html`, `decision-context.json`, `longitudinal-evidence.json` e `execution.json`. Após restauração, a reutilização deve voltar a ser possível e manifest/arquivos devem permanecer idênticos. Este teste não certifica pacote completo de IA.
+
+### Gate de pacote com IA simulada
+
+A regressão `test_find_existing_ai_snapshot_requires_both_hashed_ai_artifacts` valida offline a presença e o SHA-256 de `specialist-analysis.json` e `ai-exchanges.json` em snapshots com IA solicitada e marcada como `COMPLETE`. A adulteração, ausência ou transição para `UNAVAILABLE` deve impedir reutilização; não se faz chamada real a provedor e o resultado exige CI verde antes de ser aceito.

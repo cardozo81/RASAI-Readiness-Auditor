@@ -171,6 +171,60 @@ class Cons5MaterializationTests(unittest.TestCase):
                 baseline,
             )
 
+    def test_find_existing_ai_snapshot_requires_both_hashed_ai_artifacts(self) -> None:
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            folder = root / "consolidated" / "CONS-AI-OFFLINE"
+            folder.mkdir(parents=True)
+            names = (
+                "report.html", "decision-context.json", "longitudinal-evidence.json",
+                "execution.json", "specialist-analysis.json", "ai-exchanges.json",
+            )
+            for name in names:
+                (folder / name).write_text("{}", encoding="utf-8")
+            fingerprint = request_fingerprint("source", ConsolidationFilter())
+            payload = {
+                "report_format_version": REPORT_FORMAT_VERSION,
+                "request_fingerprint": fingerprint,
+                "materialization_contract": MATERIALIZATION_CONTRACT,
+                "temporal_apdex": {"contract": "TEMPORAL-APDEX-001"},
+                "longitudinal_analysis": {
+                    "contract": LONGITUDINAL_CONTRACT,
+                    "catalog_contract": "CONSOLIDATED-CATALOG-LONGITUDINAL-006",
+                    "ai_status": "COMPLETE",
+                },
+                "source_governance": {"contract": "CONSOLIDATED-SOURCE-GOVERNANCE-003"},
+                "decision_context": {"contract": "CONSOLIDATED-DECISION-CONTEXT-002"},
+                "specialist_ai": {"requested": True, "status": "COMPLETE"},
+                "package_integrity": {
+                    "files": {
+                        name: {"sha256": hashlib.sha256((folder / name).read_bytes()).hexdigest()}
+                        for name in names
+                    }
+                },
+            }
+            manifest = folder / "manifest.json"
+            manifest.write_text(json.dumps(payload), encoding="utf-8")
+            refresh = RefreshResult(1, 0, 1, 0, ())
+            self.assertIsNotNone(find_existing(root, fingerprint, refresh))
+            for name in ("specialist-analysis.json", "ai-exchanges.json"):
+                artifact = folder / name
+                with self.subTest(name=name, failure="tampered"):
+                    artifact.write_text('{"modified":true}', encoding="utf-8")
+                    self.assertIsNone(find_existing(root, fingerprint, refresh))
+                    artifact.write_text("{}", encoding="utf-8")
+                    self.assertIsNotNone(find_existing(root, fingerprint, refresh))
+                with self.subTest(name=name, failure="missing"):
+                    artifact.unlink()
+                    self.assertIsNone(find_existing(root, fingerprint, refresh))
+                    artifact.write_text("{}", encoding="utf-8")
+                    self.assertIsNotNone(find_existing(root, fingerprint, refresh))
+            payload["specialist_ai"]["status"] = "UNAVAILABLE"
+            manifest.write_text(json.dumps(payload), encoding="utf-8")
+            self.assertIsNone(find_existing(root, fingerprint, refresh))
+
     def test_request_fingerprint_is_stable_and_filter_sensitive(self) -> None:
         base = request_fingerprint("source", ConsolidationFilter())
         self.assertEqual(base, request_fingerprint("source", ConsolidationFilter()))
