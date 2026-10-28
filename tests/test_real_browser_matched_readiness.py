@@ -124,9 +124,7 @@ def test_five_physical_same_gateway_m25_ab_pairs(monkeypatch):
                     observed = gateway.last_advisory_observation
                     # A successful same-page observation is the canonical typed
                     # record. Only fail-closed diagnostic outcomes are mappings.
-                    assert isinstance(observed, m25.PrimaryContentReadiness) or (
-                        hasattr(observed, "sample_id") and hasattr(observed, "status")
-                    ), observed
+                    assert hasattr(observed, "sample_id") and hasattr(observed, "status"), observed
                     assert observed.status == "OBSERVED", (
                         observed.status, observed.reason,
                     )
