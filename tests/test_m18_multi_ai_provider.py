@@ -320,7 +320,7 @@ class M18ProviderTests(unittest.TestCase):
             html = f"""<!doctype html><html lang='pt-BR'><head><title>Guia M18</title>
 <meta name='description' content='Guia técnico.'><link rel='canonical' href='{origin}/'>
 <script type='application/ld+json'>{{"@context":"https://schema.org","@type":"Article","headline":"Guia M18"}}</script>
-</head><body><main><h1>Guia M18</h1><h2>Visão geral</h2><p>Conteúdo técnico verificável para integração M18.</p></main></body></html>"""
+</head><body><main><h1>Guia M18</h1><h2>Visão geral</h2><p>{"Conteúdo técnico verificável sobre integração e avaliação semântica. " * 25}</p></main></body></html>"""
             secret = "M18-INTEGRATION-SECRET"
             provider = OpenAIProvider(api_key=secret, transport=_success_transport())
             # This scenario verifies provider telemetry after a READY collection
@@ -397,7 +397,7 @@ class M18ProviderTests(unittest.TestCase):
     def test_mobile_device_context_limits_semantic_provider_to_one_context_per_page(self) -> None:
         with _server() as origin, TemporaryDirectory() as directory:
             html = """<!doctype html><html lang='pt-BR'><head><title>Mobile AI</title></head>
-<body><main><h1>Mobile AI</h1><p>Conteúdo técnico para validar custo por dispositivo.</p></main></body></html>"""
+<body><main><h1>Mobile AI</h1><p>""" + ("Conteúdo técnico móvel verificável para avaliar custo por dispositivo e telemetria. " * 25) + """</p></main></body></html>"""
             provider = OpenAIProvider(api_key="x", transport=_success_transport())
             # This scenario verifies provider telemetry after a READY collection
             # gate; readiness and fail-closed behavior have separate contract tests.
