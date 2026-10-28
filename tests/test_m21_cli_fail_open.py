@@ -90,7 +90,11 @@ class M21CliFailOpenTests(unittest.TestCase):
             output = io.StringIO()
 
             with patch("rasai.cli.run_audit", return_value=result), patch(
-                "rasai.cli.execute_m21", return_value=SimpleNamespace()
+                "rasai.cli.execute_m21", return_value=SimpleNamespace(
+                    status="DISABLED", pages_considered=0, successful_contexts=0,
+                    context_attempts=0, pagespeed_successes=0, pagespeed_attempts=0,
+                    crux_successes=0, crux_attempts=0,
+                )
             ), patch(
                 "rasai.audit_fulfillment.read_summary", return_value=final_summary
             ), redirect_stdout(output):
@@ -128,7 +132,11 @@ class M21CliFailOpenTests(unittest.TestCase):
             output = io.StringIO()
 
             with patch("rasai.cli.run_audit", return_value=result), patch(
-                "rasai.cli.execute_m21", return_value=SimpleNamespace()
+                "rasai.cli.execute_m21", return_value=SimpleNamespace(
+                    status="DISABLED", pages_considered=0, successful_contexts=0,
+                    context_attempts=0, pagespeed_successes=0, pagespeed_attempts=0,
+                    crux_successes=0, crux_attempts=0,
+                )
             ), patch(
                 "rasai.audit_fulfillment.read_summary", return_value=None
             ), redirect_stdout(output):
