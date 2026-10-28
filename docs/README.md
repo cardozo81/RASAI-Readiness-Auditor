@@ -2,7 +2,7 @@
 
 ## Estado do produto
 
-O RASAi possui release pública final `v0.5.0`. A documentação normativa descreve o contrato vigente da linha atual e deve distinguir explicitamente a baseline publicada, a evolução pós-release, registros históricos, protótipos e backlog futuro.
+O RASAi possui release pública final `v0.8.0`. A documentação normativa descreve o contrato vigente da linha atual e deve distinguir explicitamente a baseline publicada, a evolução pós-release, registros históricos, protótipos e backlog futuro.
 
 O contrato funcional vigente usa:
 

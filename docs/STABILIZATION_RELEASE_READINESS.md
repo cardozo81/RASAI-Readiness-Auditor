@@ -176,3 +176,13 @@ Fonte inalterada: ZIP do artefato `rasai-catalog-report-smoke` (ID `12797263282`
 - **Atualização local após autorização e integração:** salvar configuração operacional e evidências; atualizar `main` com `git pull --ff-only`; reinstalar dependências segundo README vigente; executar smoke local sem custo externo. Não executar atualização antes do merge autorizado.
 - **Rollback:** manter tag/commit da `v0.8.0` e backup de configuração e auditorias; retornar o checkout à versão anterior sem reescrever `audit.db` histórico. Validar compatibilidade de artefatos novos antes de reabri-los com runtime antigo.
 - **Publicação:** somente após nova CI verde no SHA final, revisão documental, julgamento das ressalvas e autorização humana explícita; PR Draft não é sinal de GO.
+
+
+## Atualização da baseline de CI e documentação - 28/10/2026
+
+- Commit validado: `104d6e85eb5805abb126ba23ca15e70df4845555` na PR #675 (Draft).
+- GitHub Actions: **13 de 13 workflows efetivamente disparados no SHA acima com conclusão success**, inclusive CONS-5, RPR Windows/Linux, telemetria econômica, smoke visual, Public Contract Consistency e M24 crawling discovery safety.
+- A validação pertence exclusivamente ao SHA registrado. Um commit posterior exige nova conferência, e testes sintéticos não são homologação física.
+- Correção documental incremental: `README.md` e `docs/README.md` agora reconhecem a release pública `v0.8.0`, sem alterar exemplos históricos nem a versão de pacote em `pyproject.toml`.
+- O pacote preliminar da candidata está em [RELEASE_CANDIDATE_0_9_0.md](RELEASE_CANDIDATE_0_9_0.md). Esse documento não é publicação de release nem autoriza merge, tag ou fechamento da issue #674.
+- Lacunas restantes: paridade CONS/RPR com AUD física, ledger financeiro da AUD histórica, ressalva de impressão CAT-07, instalação limpa e aceite humano, conforme matriz anterior.
