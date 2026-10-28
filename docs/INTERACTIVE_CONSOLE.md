@@ -388,6 +388,8 @@ O catálogo identifica operações que não usam IA, podem usar IA ou exigem IA.
 
 Com apenas consumidores opcionais selecionados, o plano inicia em `Executar sem IA (recomendado)`. A ação `U` permite solicitar o enriquecimento por IA; indisponibilidade do provider é exibida como limitação, sem impedir o processamento determinístico. `CAT-08` torna IA obrigatória para o fechamento integral, mas não remove a possibilidade de executar/materializar a auditoria com `ai_provider=none`. No `CAT-10`, a opção de IA reutiliza o mesmo Improvement Intelligence no domínio `SECURITY`; não existe motor/provider de segurança paralelo.
 
+A integração Copilot, quando configurada e elegível, participa do roteamento dinâmico dos provedores de IA. A sua disponibilidade não deve ser inferida sem configuração e autorização.
+
 A seleção AUTO usa o `provider_registry` dinâmico; **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo**. Todos os providers integrados atuais podem entrar quando configurados, com modelo elegível e saudáveis. O operador pode manter uma credencial configurada e excluir somente sua participação no AUTO via `RASAI_AI_AUTO_EXCLUDE`.
 
 A área `INÍCIO > Inteligência Artificial` e `Todas as configurações` editam a mesma política de execução: **Timeout por tentativa**, **Máximo de ciclos** e **Espera entre ciclos**. Defaults: `180 s`, `3` ciclos e `60 s`. Esses valores são não secretos, podem permanecer apenas na sessão ou ser persistidos no INI, participam de Restore Defaults e são congelados para AUD/RPR. A espera existe somente entre ciclos; o console não cria retry/timer paralelo.
