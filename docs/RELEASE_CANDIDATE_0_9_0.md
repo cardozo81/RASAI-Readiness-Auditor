@@ -67,3 +67,11 @@ A candidata inclui um subconjunto de estabilização detalhado neste documento. 
 | Artefatos | `docs/OUTPUTS_AND_ARTIFACTS.md` | Contrato persiste em `audits/<AUD-ID>/audit.db` e `report-catalog/`, sem usar HTML como fonte de verdade | Sem mutação ou comparação com AUD física |
 
 Os testes automatizados de documentação conferem links Markdown internos e contratos textuais cobertos pelo workflow `Public Contract Consistency`. Esta revisão **não** executou todos os links externos, nem uma instalação limpa Windows/Linux. Nenhum defeito funcional foi comprovado nesta inspeção.
+
+## Encerramento integrado de subgates e trilha de execução
+
+A [matriz consolidada de gates](RELEASE_GATE_MATRIX.md) é a fonte resumida de estados, evidências, limitações e próximos testes da candidata. A baseline inicial desta consolidação é `4b20e485eaa55b7e24348574c9f4831f8ff032c3` com 14/14 workflows de PR aprovados. Nenhuma nova execução deve ser presumida aprovada após atualização da branch.
+
+O diff verificado da PR #675 afeta 20 caminhos: três workflows, dez documentos, uma projeção de apresentação de custos de IA e seis arquivos de testes. Esta lista descreve apenas esta PR, não a evolução integral acumulada desde `v0.8.0`. A comparação ampla de versões indicou 1.416 commits à frente no momento da consulta, com resposta de arquivos limitada; não afirmar completude do inventário com base nesse recorte.
+
+**Lançamento condicionado:** manter `0.8.0` como versão no código durante o preparo documental. Qualquer bump da candidata exige decisão explícita, reconciliação de changelog e CI no SHA resultante. A ausência de uma AUD física ou ledger não transforma limitação de evidência em bug e não autoriza considerar o requisito homologado.
