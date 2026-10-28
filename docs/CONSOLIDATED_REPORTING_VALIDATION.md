@@ -380,3 +380,18 @@ Validar pontualmente:
 - CAT-04 continua podendo consumir o conjunto completo de tentativas de desempenho conforme seu contrato próprio.
 
 - `collected_at`, `materialized_at`, `consumed_at` e `lighthouse_fetch_time` não podem, isoladamente, produzir alteração longitudinal;
+
+## Matriz de regressão para estabilização pré-release
+
+Esta matriz distingue **testes existentes** de **testes executados e homologados**. A mera existência dos testes não constitui aceite.
+
+| Contrato/risco | Regressão existente | Evidência necessária para aceite |
+| --- | --- | --- |
+| Materialização CONS-5 e fingerprint | `tests/test_consolidation_cons5.py` | Execução verde com SHA exato e manifesto conferido |
+| Comparabilidade e universo de URLs | `tests/test_consolidation_comparability.py` | Conferir série comparável e aviso de não comparabilidade |
+| Fonte parcial e conclusividade | `tests/test_consolidation_fulfillment_gate.py` | Confirmar transparência de origem parcial, sem promover `FINAL` |
+| Seleção, console e políticas de fontes | `tests/test_consolidated_selection_flow.py`; `tests/test_consolidation_console_integration.py` | Validar políticas e decisões do console com fixtures isoladas |
+| IA opcional e governança | `tests/test_consolidation_specialist.py` | Resposta simulada, fallback sem IA e nenhum acesso tarifado |
+| Apdex temporal e exibição | `tests/test_consolidation_temporal_apdex.py`; `tests/test_consolidation_presentation.py` | Preservar versões metodológicas e legibilidade de estados |
+
+Gate prioritário: workflow `consolidated-reporting-ci.yml` com runner Windows, mantendo a separação entre simulação determinística e homologação humana. Os casos não cobertos por esses testes devem ser registrados como pendentes e receber regressão dedicada apenas quando houver lacuna demonstrada.
