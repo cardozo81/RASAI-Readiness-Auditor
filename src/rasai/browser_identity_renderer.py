@@ -352,8 +352,12 @@ class BrowserIdentityRenderer(BrowserRenderer):
             return self._navigation_failure(url=url, profile=profile, page=page, error_kind=RenderErrorKind.NAVIGATION_TIMEOUT, identity=identity, navigation_trace=navigation_trace, request_headers=request_headers)
         except PlaywrightError:
             return self._navigation_failure(url=url, profile=profile, page=page, error_kind=RenderErrorKind.NAVIGATION_ERROR, identity=identity, navigation_trace=navigation_trace, request_headers=request_headers)
-        except Exception:
-            return self._navigation_failure(url=url, profile=profile, page=page, error_kind=RenderErrorKind.RENDERER_ERROR, identity=identity, navigation_trace=navigation_trace, request_headers=request_headers)
+        except Exception as exc:
+            # Fail closed, but retain the exception class for safe diagnosis;
+            # never expose exception messages (which may contain request data).
+            failure = self._navigation_failure(url=url, profile=profile, page=page, error_kind=RenderErrorKind.RENDERER_ERROR, identity=identity, navigation_trace=navigation_trace, request_headers=request_headers)
+            failure.browser_metadata["renderer_exception_type"] = type(exc).__name__
+            return failure
         finally:
             if page is not None:
                 try:
