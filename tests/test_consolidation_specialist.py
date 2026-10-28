@@ -987,6 +987,7 @@ def test_longitudinal_ai_retries_transient_failure_once() -> None:
     class Selection:
         excluded_configurations = ()
         coordinator = Coordinator()
+        providers = (provider,)
 
         def ordered_candidates_for_need(self, request, *, scope):
             return (provider,)
@@ -1058,6 +1059,7 @@ def test_longitudinal_ai_does_not_retry_terminal_error() -> None:
     class Selection:
         excluded_configurations = ()
         coordinator = Coordinator()
+        providers = (provider,)
 
         def ordered_candidates_for_need(self, request, *, scope):
             return (provider,)
