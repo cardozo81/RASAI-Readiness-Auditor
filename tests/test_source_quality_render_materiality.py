@@ -146,7 +146,7 @@ class _FakePage:
     def __init__(self) -> None:
         self._content = [
             "<html><body><main aria-busy='true'><div class='skeleton'></div></main></body></html>",
-            "<html><body><main><h1>Pronto</h1><p>Conteúdo materializado.</p></main></body></html>",
+            "<html><body><main><h1>Pronto</h1><p>" + ("Conteúdo principal materializado e verificável. " * 24) + "</p></main></body></html>",
         ]
 
     def on(self, *_args) -> None:
@@ -212,6 +212,6 @@ def test_identity_renderer_projects_capture_quality_in_browser_metadata() -> Non
         identity={"user_agent": "test", "locale": "pt-BR"},
     )
 
-    assert result.succeeded is True
+    assert result.succeeded is True, (result.error_kind, result.browser_metadata)
     assert result.browser_metadata["capture_quality"]["state"] == "RECOVERED"
     assert "Conteúdo materializado" in (result.rendered_html or "")
