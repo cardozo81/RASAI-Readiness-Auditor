@@ -7,6 +7,7 @@ on:
     paths:
       - 'src/rasai/ai_economic_telemetry.py'
       - 'src/rasai/audit_attempt_timeline.py'
+      - 'src/rasai/audit_stage_cost_presentation.py'
       - 'src/rasai/ai_cost_policy.py'
       - 'src/rasai/dynamic_ai_routing.py'
       - 'src/rasai/m18_ai.py'
