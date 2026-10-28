@@ -226,7 +226,7 @@ class BrowserIdentityRenderer(BrowserRenderer):
         metadata["secure_redirect_recovery"] = recovery_metadata
         return replace(first, browser_metadata=metadata)
 
-    def _render_once(
+    def _render_once_core(
         self,
         *,
         url: str,
@@ -369,6 +369,15 @@ class BrowserIdentityRenderer(BrowserRenderer):
                     context.close()
                 except PlaywrightError:
                     pass
+
+    def _render_once(
+        self, *, url: str, profile: BrowserProfile,
+        options: dict[str, Any], identity: dict[str, Any],
+    ) -> BrowserRenderResult:
+        """Extension point for live browser capture; delegate to the canonical core."""
+        return self._render_once_core(
+            url=url, profile=profile, options=options, identity=identity,
+        )
 
     def _navigation_failure(
         self,

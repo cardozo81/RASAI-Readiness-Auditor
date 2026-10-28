@@ -205,7 +205,9 @@ def test_identity_renderer_projects_capture_quality_in_browser_metadata() -> Non
     renderer._capture_element_observations = lambda _page: ()
     renderer._capture_dom_visibility = lambda _page: {"state": "NOT_OBSERVED"}
 
-    result = renderer._render_once(
+    # The materiality contract targets the core renderer, independent of
+    # optional global capture extensions exercised in their own suites.
+    result = renderer._render_once_core(
         url="https://example.test/",
         profile=__import__("rasai.rendering", fromlist=["DESKTOP_PROFILE"]).DESKTOP_PROFILE,
         options={},
