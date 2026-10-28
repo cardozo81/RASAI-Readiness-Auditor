@@ -103,3 +103,17 @@ No SHA `062765052cf89001831c5531ce7522b3b4b5667e`, todos os **12 workflows** est
 1. Conferir os HTMLs e screenshots na resolução original e confrontá-los com AUD física representativa, incluindo completude das recomendações e proveniência das avaliações de IA.
 2. Reconciliar o custo da AUD #668 com forecast e tentativas persistidas, caso o pacote da auditoria esteja disponível; não inferir causa apenas do desvio numérico.
 3. Fechar revisão do changelog/versão e obter decisão humana sobre aceite visual e publicação. Nenhuma dessas pendências implica autorização automática para merge.
+
+## Inspeção visual ampliada - resolução original e impressão (28/10/2026)
+
+Fonte inalterada: ZIP do artefato `rasai-catalog-report-smoke` (ID `12797263282`), do workflow [40645919644](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40645919644), fixture `TEST_SYNTHETIC`. Este registro é uma inspeção de evidência, não uma autorização de release.
+
+**Abrangência observada:**
+- 20 capturas desktop (1440 px), 20 tablet (820 px), 21 mobile (390 px, incluindo menu aberto). Revisão visual de painéis comparativos e capturas em tamanho de origem para CAT-01, CAT-06, CAT-07, GEO, rede, SARI, IA, análise direcionada e métricas, além do índice.
+- HTMLs do catálogo: 20 arquivos examinados quanto à estrutura. Cada página possui um único `h1`; CAT-01 a CAT-10 possuem blocos temáticos e tabelas de resultados; páginas auxiliares mantêm assuntos específicos.
+- PDF de impressão: `cat-07.pdf` (6 páginas), `index.pdf` (10 páginas) e `directed-analysis.pdf` (2 páginas), com extração de texto página a página. Nenhuma página sem texto foi identificada.
+- Na captura mobile, cabeçalho com botão Menu e cartões em coluna; na desktop, navegação lateral e área principal. Nenhum corte generalizado de cartões foi demonstrado na amostra examinada.
+- **Observação de paginação**: a primeira página de impressão do CAT-07 contém apenas 374 caracteres extraíveis e grande área vazia após o cabeçalho; as páginas seguintes concentram conteúdo (até 2.227 caracteres). Possível quebra de impressão subótima; exige comparação com contrato de impressão e reprodução direcionada antes de classificar como defeito funcional.
+- `smoke-summary.json` declara `manifest_integrity=VERIFIED`, `source_files_unchanged=true`, `source_audit_writes=0`, `collector_or_provider_requests=0`, `manual_visual_acceptance=PENDING`, `data_row_parity=BASELINE_NOT_PROVIDED` e `all_visible_content_parity=BASELINE_NOT_PROVIDED`. Não inferir paridade com uma AUD real.
+
+**Conclusão da inspeção automatizada ampliada:** PASS com ressalva de impressão. Não se observou um defeito visual sistêmico comprovado na fixture; revisão de semântica/proveniência real e aceite humano permanecem fora desse PASS. Não modificar CSS nem motores sem reproduzir a quebra de impressão e avaliar seu efeito.
