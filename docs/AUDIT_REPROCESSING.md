@@ -1,6 +1,6 @@
 # Reprocessamento seletivo de auditorias
 
-A baseline pública atual é `v0.5.0`. Este documento descreve o contrato vigente de reprocessamento na linha pós-release.
+A última release pública publicada é `v0.8.0` (verificada em 27/10/2026). Este documento descreve o contrato vigente de reprocessamento na linha pós-release; a versão candidata seguinte permanece condicionada à homologação e à decisão de publicação.
 
 O RASAi trata cada `AUD-*` como **uma única observação lógica**. Uma auditoria pode precisar de zero, uma ou várias reexecuções para satisfazer integralmente a configuração escolhida pelo usuário, sem transformar essas reexecuções em novas observações para histórico, tendência ou consolidação.
 
