@@ -75,3 +75,7 @@ A [matriz consolidada de gates](RELEASE_GATE_MATRIX.md) é a fonte resumida de e
 O diff verificado da PR #675 afeta 20 caminhos: três workflows, dez documentos, uma projeção de apresentação de custos de IA e seis arquivos de testes. Esta lista descreve apenas esta PR, não a evolução integral acumulada desde `v0.8.0`. A comparação ampla de versões indicou 1.416 commits à frente no momento da consulta, com resposta de arquivos limitada; não afirmar completude do inventário com base nesse recorte.
 
 **Lançamento condicionado:** manter `0.8.0` como versão no código durante o preparo documental. Qualquer bump da candidata exige decisão explícita, reconciliação de changelog e CI no SHA resultante. A ausência de uma AUD física ou ledger não transforma limitação de evidência em bug e não autoriza considerar o requisito homologado.
+
+## Notas de mudanças do escopo da PR
+
+As mudanças verificáveis e as limitações da PR #675 estão reunidas em [RELEASE_NOTES_DRAFT.md](RELEASE_NOTES_DRAFT.md). Este inventário é restrito ao escopo da PR e não afirma representar todas as mudanças acumuladas desde a release pública `v0.8.0`.
