@@ -42,7 +42,7 @@ def test_canonical_report_order_follows_reading_flow() -> None:
 
 def test_documentation_distinguishes_published_release_from_current_contract() -> None:
     docs_index = (ROOT / "docs/README.md").read_text(encoding="utf-8")
-    assert "release pública final `v0.5.0`" in docs_index
+    assert "release pública final `v0.8.0`" in docs_index
     assert "baseline publicada" in docs_index
     assert "evolução pós-release" in docs_index
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
