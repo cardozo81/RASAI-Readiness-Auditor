@@ -10,6 +10,15 @@ from typing import Any
 
 
 SUPPLEMENTAL_PUBLIC_LABELS: dict[str, str] = {
+    "PRELIMINARY_UNVERIFIED": "Diagnóstico preliminar sem verificação",
+    "BOUNDED_LAZY_CONTENT_MATERIALIZED": "Conteúdo carregado sob limite de exploração",
+    "NOT_VERIFIABLE_OFFLINE_REPLAY": "Não verificável em reprodução offline",
+    "OFFLINE_LEXICAL_ONLY": "Análise lexical somente offline",
+    "QUERY_MATCH": "Correspondência de consulta observada",
+    "QUERY_SET_MATCH": "Correspondência do conjunto de consultas",
+    "INVALID_WORKSPACE": "Diretório de auditoria inválido",
+    "REJECTED_UNSAFE_ANSWER": "Resposta insegura recusada",
+    "AI_ANALYZED": "Análise de IA executada",
     "AI_CYCLE_POLICY_UNVERIFIABLE": "Política de ciclos de IA sem comprovação",
     "ILLUSTRATIVE_NOT_FORECAST": "Cenário ilustrativo, não é previsão",
     "NOT_SINGLE_PAGE_SCOPE": "Escopo não restrito a uma página",
@@ -446,6 +455,13 @@ SUPPLEMENTAL_PUBLIC_LABELS.update({
 })
 
 CONSOLE_OPERATION_LABELS: dict[str, str] = {
+    "LOCAL:EXECUTION_CONFIRMATION": "Solicitando confirmação da execução",
+    "LOCAL:EXECUTION_CONFIRMED": "Execução confirmada",
+    "LOCAL:EXECUTION_DECLINED": "Execução não autorizada",
+    "LOCAL:GEO_QUERY_REVIEW_REQUIRED": "Revisão das consultas GEO necessária",
+    "LOCAL:PERPLEXITY_PROPOSAL_DECLINED": "Proposta Perplexity recusada",
+    "LOCAL:TARGET_SCOPE_REVIEW_REQUIRED": "Revisão do escopo do alvo necessária",
+    "LOCAL:APDEX_EDIT_IN_PROGRESS": "Configuração de Apdex em edição",
     "LOCAL:MENU": "Navegação no console",
     "LOCAL:DONE": "Auditoria concluída",
     "LOCAL:PRECHECK": "Validando pré-requisitos",
