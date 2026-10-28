@@ -158,6 +158,10 @@ class _FakePage:
     def wait_for_load_state(self, *_args, **_kwargs) -> None:
         return None
 
+    def evaluate(self, _script: str, *_args) -> dict[str, object]:
+        # Browser metadata instrumentation may sample DOM state via evaluate.
+        return {}
+
     def wait_for_timeout(self, _milliseconds: int) -> None:
         return None
 
