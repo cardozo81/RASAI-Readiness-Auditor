@@ -2025,6 +2025,8 @@ def run_longitudinal_ai(
                     if success
                     else DECISION_STOP
                     if invocation.outcome is AiProviderOutcome.PROVIDER_TERMINAL
+                    else "RETRY_ROUND"
+                    if invocation.outcome is AiProviderOutcome.TRANSIENT_FAILURE
                     else DECISION_FALLBACK
                 ),
             )
