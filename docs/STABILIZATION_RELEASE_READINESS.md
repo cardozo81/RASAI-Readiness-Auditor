@@ -117,3 +117,62 @@ Fonte inalterada: ZIP do artefato `rasai-catalog-report-smoke` (ID `12797263282`
 - `smoke-summary.json` declara `manifest_integrity=VERIFIED`, `source_files_unchanged=true`, `source_audit_writes=0`, `collector_or_provider_requests=0`, `manual_visual_acceptance=PENDING`, `data_row_parity=BASELINE_NOT_PROVIDED` e `all_visible_content_parity=BASELINE_NOT_PROVIDED`. Não inferir paridade com uma AUD real.
 
 **Conclusão da inspeção automatizada ampliada:** PASS com ressalva de impressão. Não se observou um defeito visual sistêmico comprovado na fixture; revisão de semântica/proveniência real e aceite humano permanecem fora desse PASS. Não modificar CSS nem motores sem reproduzir a quebra de impressão e avaliar seu efeito.
+
+
+## Fechamento da baseline CI e matriz pré-release — 28/10/2026
+
+**HEAD conferido:** `55e7a956e8a9879aa3dd3c71042ca1be897f9e67` (PR #675 Draft). A consulta aos GitHub Actions vinculados ao commit retornou **12 workflows concluídos com sucesso**; nenhum dos doze estava em andamento ou falhou. Esta constatação substitui, para o SHA indicado, os estados provisórios registrados acima para SHAs anteriores.
+
+| Workflow | Run | Estado no HEAD |
+| --- | --- | --- |
+| Consolidated reporting safety | [40678468323](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468323) | PASS |
+| Audit Fulfillment and Reprocessing | [40678468402](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468402) | PASS |
+| RPR contadores e fechamento - testes isolados | [40678468307](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468307) | PASS |
+| AI Economic Telemetry 195 Targeted | [40678468464](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468464) | PASS |
+| Report catalog offline visual smoke | [40678468330](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468330) | PASS |
+| Public Contract Consistency | [40678468291](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468291) | PASS |
+| Secret and Configuration Safety | [40678468232](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468232) | PASS |
+| Interrupted stage restart 127 (targeted) | [40678468189](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468189) | PASS |
+| SCORE-GEO-005 validation | [40678468397](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468397) | PASS |
+| GEO focused hardening 308-309-306-304 | [40678468373](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468373) | PASS |
+| Console generative vs Search usage 319 | [40678468381](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468381) | PASS |
+| Public UX language 377 isolated | [40678468288](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40678468288) | PASS |
+
+**Alcance:** baseline automatizada aprovada para os workflows efetivamente listados no SHA consultado; sem inferir que todo workflow existente no repositório foi disparado, nem promover o aceite de auditorias reais. Um novo commit documental exige nova verificação de CI no novo HEAD antes de GO.
+
+### Matriz de aceite separada por tipo de evidência
+
+| Entregável | Estado | Evidência e limitação |
+| --- | --- | --- |
+| CONS-5 — regressões offline | PASS | Workflow integral verde no SHA indicado; cobre contratos exercitados pelos testes, não substitui teste físico longitudinal |
+| CONS-5 — AUDs físicas e imutabilidade de origem | NOT_VERIFIABLE | Sem inventário físico de fontes com hashes antes/depois nesta execução; manter aceite real pendente |
+| RPR — regressões offline e contadores | PASS | Pipelines integral e direcionado verdes; não equivale a confirmação de retomada em AUD física |
+| RPR — reprocessamento real seletivo | NOT_VERIFIABLE | Não foi produzida comparação física antes/depois por `reprocess_id` nesta execução |
+| IA — regressão de custo e moedas | PASS | Workflow econômico verde; cenário +320,69% é sintético e não demonstra causa do desvio histórico |
+| IA — desvio da AUD-01D61DBA30DD45D19F99401AB927580D | NOT_VERIFIABLE | Forecast e ledger físicos não inspecionados aqui; nenhuma fatura inferida, nenhum provider chamado |
+| HTML — smoke responsivo e impressão | PASS_WITH_LIMITATION | Inspeção anterior da fixture sintética, com ressalva de paginação inicial no PDF CAT-07 |
+| HTML — paridade e pertinência com AUD real | NOT_VERIFIABLE | Baseline física de dados não confrontada; `data_row_parity=BASELINE_NOT_PROVIDED` |
+| Documentação incremental #674 | PARTIAL | Esta matriz reconcilia CI; revisão de links, contratos e documentação operacional ainda deve ser concluída |
+| Instalação limpa Windows/Linux | NOT_VERIFIABLE | Sucesso dos jobs Windows/Linux não certifica instalação limpa externa ao runner |
+| Publicação candidata v0.9.0 | NO_GO | Gate técnico sintético verde, porém aceites físico, financeiro, documental e autorização humana não concluídos |
+
+### Reconciliação financeira histórica — sem especulação causal
+
+| Campo | Previsto | Observado | Diferença | Fonte | Conclusão |
+| --- | --- | --- | --- | --- | --- |
+| Custo total da AUD histórica | Indisponível nesta inspeção | Indisponível nesta inspeção | +320,69% reportado anteriormente, não recalculado | Referência #668; sem ledger/forecast físico aqui | NOT_VERIFIABLE |
+| Chamadas, provider/modelo, tokens, retries, fallback | Não aferido | Não aferido | Não calculável | Ledger físico necessário | NOT_VERIFIABLE |
+| Moeda, vigência e regra de pricing | Não aferido | Não aferido | Não calculável | Snapshot de pricing e tentativas necessários | NOT_VERIFIABLE |
+| Chamadas opcionais posteriores à conclusão | Não aferido | Não aferido | Não calculável | Timeline da AUD e operações M18/M20 necessárias | NOT_VERIFIABLE |
+
+**Regra de aceite:** não atribuir o desvio ao motor de forecast sem confrontar escopo, eventos, tentativas e pricing na mesma moeda. A falta de dados físicos não transforma a regressão sintética em falha, mas impede o aceite econômico histórico.
+
+### Prévia GO/NO-GO e procedimento de promoção
+
+- **GO técnico restrito:** regressões e CI dos 12 workflows consultados no SHA `55e7a956`.
+- **NO-GO para merge/publicação neste momento:** PR permanece Draft; #674 aberta; evidências físicas CONS/RPR e reconciliação da AUD financeira não certificadas; aceite humano não concedido.
+- **SemVer:** `v0.9.0` é candidato coerente para incremento funcional pré-1.0, sujeito à conferência do diff desde `v0.8.0`; não antecipar bump do código apenas com base nesta matriz.
+- **Compatibilidade:** preservar leitura de `AUD-*` antigos, schemas, manifests e contratos; testar instalação Windows e Linux antes do aceite final.
+- **Atualização local após autorização e integração:** salvar configuração operacional e evidências; atualizar `main` com `git pull --ff-only`; reinstalar dependências segundo README vigente; executar smoke local sem custo externo. Não executar atualização antes do merge autorizado.
+- **Rollback:** manter tag/commit da `v0.8.0` e backup de configuração e auditorias; retornar o checkout à versão anterior sem reescrever `audit.db` histórico. Validar compatibilidade de artefatos novos antes de reabri-los com runtime antigo.
+- **Publicação:** somente após nova CI verde no SHA final, revisão documental, julgamento das ressalvas e autorização humana explícita; PR Draft não é sinal de GO.
