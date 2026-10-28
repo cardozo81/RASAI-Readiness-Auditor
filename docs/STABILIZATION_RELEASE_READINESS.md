@@ -119,7 +119,7 @@ Fonte inalterada: ZIP do artefato `rasai-catalog-report-smoke` (ID `12797263282`
 **Conclusão da inspeção automatizada ampliada:** PASS com ressalva de impressão. Não se observou um defeito visual sistêmico comprovado na fixture; revisão de semântica/proveniência real e aceite humano permanecem fora desse PASS. Não modificar CSS nem motores sem reproduzir a quebra de impressão e avaliar seu efeito.
 
 
-## Fechamento da baseline CI e matriz pré-release — 28/10/2026
+## Fechamento da baseline CI e matriz pré-release - 28/10/2026
 
 **HEAD conferido:** `55e7a956e8a9879aa3dd3c71042ca1be897f9e67` (PR #675 Draft). A consulta aos GitHub Actions vinculados ao commit retornou **12 workflows concluídos com sucesso**; nenhum dos doze estava em andamento ou falhou. Esta constatação substitui, para o SHA indicado, os estados provisórios registrados acima para SHAs anteriores.
 
@@ -144,19 +144,19 @@ Fonte inalterada: ZIP do artefato `rasai-catalog-report-smoke` (ID `12797263282`
 
 | Entregável | Estado | Evidência e limitação |
 | --- | --- | --- |
-| CONS-5 — regressões offline | PASS | Workflow integral verde no SHA indicado; cobre contratos exercitados pelos testes, não substitui teste físico longitudinal |
-| CONS-5 — AUDs físicas e imutabilidade de origem | NOT_VERIFIABLE | Sem inventário físico de fontes com hashes antes/depois nesta execução; manter aceite real pendente |
-| RPR — regressões offline e contadores | PASS | Pipelines integral e direcionado verdes; não equivale a confirmação de retomada em AUD física |
-| RPR — reprocessamento real seletivo | NOT_VERIFIABLE | Não foi produzida comparação física antes/depois por `reprocess_id` nesta execução |
-| IA — regressão de custo e moedas | PASS | Workflow econômico verde; cenário +320,69% é sintético e não demonstra causa do desvio histórico |
-| IA — desvio da AUD-01D61DBA30DD45D19F99401AB927580D | NOT_VERIFIABLE | Forecast e ledger físicos não inspecionados aqui; nenhuma fatura inferida, nenhum provider chamado |
-| HTML — smoke responsivo e impressão | PASS_WITH_LIMITATION | Inspeção anterior da fixture sintética, com ressalva de paginação inicial no PDF CAT-07 |
-| HTML — paridade e pertinência com AUD real | NOT_VERIFIABLE | Baseline física de dados não confrontada; `data_row_parity=BASELINE_NOT_PROVIDED` |
+| CONS-5 - regressões offline | PASS | Workflow integral verde no SHA indicado; cobre contratos exercitados pelos testes, não substitui teste físico longitudinal |
+| CONS-5 - AUDs físicas e imutabilidade de origem | NOT_VERIFIABLE | Sem inventário físico de fontes com hashes antes/depois nesta execução; manter aceite real pendente |
+| RPR - regressões offline e contadores | PASS | Pipelines integral e direcionado verdes; não equivale a confirmação de retomada em AUD física |
+| RPR - reprocessamento real seletivo | NOT_VERIFIABLE | Não foi produzida comparação física antes/depois por `reprocess_id` nesta execução |
+| IA - regressão de custo e moedas | PASS | Workflow econômico verde; cenário +320,69% é sintético e não demonstra causa do desvio histórico |
+| IA - desvio da AUD-01D61DBA30DD45D19F99401AB927580D | NOT_VERIFIABLE | Forecast e ledger físicos não inspecionados aqui; nenhuma fatura inferida, nenhum provider chamado |
+| HTML - smoke responsivo e impressão | PASS_WITH_LIMITATION | Inspeção anterior da fixture sintética, com ressalva de paginação inicial no PDF CAT-07 |
+| HTML - paridade e pertinência com AUD real | NOT_VERIFIABLE | Baseline física de dados não confrontada; `data_row_parity=BASELINE_NOT_PROVIDED` |
 | Documentação incremental #674 | PARTIAL | Esta matriz reconcilia CI; revisão de links, contratos e documentação operacional ainda deve ser concluída |
 | Instalação limpa Windows/Linux | NOT_VERIFIABLE | Sucesso dos jobs Windows/Linux não certifica instalação limpa externa ao runner |
 | Publicação candidata v0.9.0 | NO_GO | Gate técnico sintético verde, porém aceites físico, financeiro, documental e autorização humana não concluídos |
 
-### Reconciliação financeira histórica — sem especulação causal
+### Reconciliação financeira histórica - sem especulação causal
 
 | Campo | Previsto | Observado | Diferença | Fonte | Conclusão |
 | --- | --- | --- | --- | --- | --- |
