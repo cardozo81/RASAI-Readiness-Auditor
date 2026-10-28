@@ -236,7 +236,7 @@ def test_registered_ai_dispatch_executes_present_hook_and_diagnoses_missing(
 
 
 def test_improvement_configuration_error_is_projected_before_provider(
-    monkeypatch,
+    monkeypatch, tmp_path,
 ) -> None:
     saved = phase._AI_HOOKS.get("IMPROVEMENT_INTELLIGENCE")
     provider_calls: list[str] = []
@@ -276,7 +276,7 @@ def test_improvement_configuration_error_is_projected_before_provider(
         diagnostics._install_governed_hook_guard()
         outcome = phase._AI_HOOKS["IMPROVEMENT_INTELLIGENCE"].callback(
             audit_id="AUD-1",
-            workspace=SimpleNamespace(),
+            workspace=SimpleNamespace(root=tmp_path),
             evidence_snapshot=SimpleNamespace(evidence_snapshot_id="AIE-1"),
         )
     finally:
