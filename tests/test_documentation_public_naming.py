@@ -10,14 +10,8 @@ _INTERNAL_MILESTONE_REFERENCE = re.compile(r"(?i)(?<![A-Za-z0-9])m\d+")
 
 
 def _documentation_files() -> tuple[Path, ...]:
-    files: list[Path] = []
-    for root in DOCUMENTATION_ROOTS:
-        if root.is_file():
-            files.append(root)
-        elif root.is_dir():
-            files.extend(path for path in root.rglob("*.md") if path.is_file())
-    return tuple(sorted(files))
-
+    from test_user_facing_language_contract import _public_documentation_paths
+    return _public_documentation_paths()
 
 def test_documentation_does_not_expose_internal_milestone_identifiers() -> None:
     violations: list[str] = []
