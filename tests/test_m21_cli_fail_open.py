@@ -103,6 +103,7 @@ class M21CliFailOpenTests(unittest.TestCase):
                     "https://example.test",
                     "--ai-provider",
                     "none",
+                    "--no-web-performance",
                 ])
 
             self.assertEqual(exit_code, 0)
@@ -145,6 +146,7 @@ class M21CliFailOpenTests(unittest.TestCase):
                     "https://example.test",
                     "--ai-provider",
                     "none",
+                    "--no-web-performance",
                 ])
 
             self.assertEqual(exit_code, 0)
