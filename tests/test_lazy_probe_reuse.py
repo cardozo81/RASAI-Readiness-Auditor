@@ -13,8 +13,10 @@ class _Page:
         self.waits: list[int] = []
 
     def evaluate(self, script: str) -> None:
-        assert "scrollBy" in script
-        self.scrolls += 1
+        if "scrollBy" in script:
+            self.scrolls += 1
+        else:
+            assert "scrollTo" in script  # The probe restores the original viewport.
 
     def wait_for_timeout(self, milliseconds: int) -> None:
         self.waits.append(milliseconds)
