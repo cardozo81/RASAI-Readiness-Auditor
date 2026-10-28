@@ -746,7 +746,13 @@ def test_cost_preview_uses_canonical_pricing_and_request_token_hints() -> None:
             ai_model="gpt-5.6-luna",
             ai_reasoning="LOW",
         )
-        provider = SimpleNamespace(name="OPENAI", model="gpt-5.6-luna", reasoning_profile="LOW", requested_reasoning_effort="LOW")
+        provider = SimpleNamespace(
+            name="OPENAI", model="gpt-5.6-luna", reasoning_profile="LOW",
+            requested_reasoning_effort="LOW",
+            pricing_runtime_conditions=lambda: {
+                "service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL",
+            },
+        )
         with patch("rasai.consolidation.specialist._build_ai", return_value=provider):
             preview = preview_longitudinal_specialist(root, filters)
         assert preview.available is True
