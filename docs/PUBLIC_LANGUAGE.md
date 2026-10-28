@@ -1,41 +1,36 @@
-# #377 - Vocabulário público e rastreabilidade técnica
+# Vocabulário público e rastreabilidade técnica
 
-## Inventário focalizado - ciclo pré-smoke
+## Contrato de linguagem para o usuário
 
-| Origem | Texto anterior no usuário | Rótulo público | Decisão |
-| --- | --- | --- | --- |
-| Console / cronologia de IA | Cronologia IA M18/M20 | Tempo e consumo das análises por IA | Remover IDs; preservar soma e união independentes |
-| Console / configuração Apdex | Classificação M6 será descoberta | Arquitetura será identificada durante a coleta | Separar declarado de observado |
-| metrics.html / linha temporal IA | Durações em bases M18/M20 | Durações das solicitações de análise por IA | Preservar ressalva sobre overlap/wall-clock |
-| metrics.html / requisição web | Tempos M21, Serviço M21 | Tempos observados de requisições web, Serviço web | Não confundir soma HTTP com tempo de fase |
-| cat-07.html / arquitetura | Rastreabilidade da arquitetura M6 | Rastreabilidade da arquitetura identificada | Preservar snapshot/page/device e N/D |
-| CAT-07 / motivos | configuração efetiva M25 | configuração do Apdex de experiência | Apenas rótulo; códigos estruturados imutáveis |
-| CLI Dynatrace / orientação | mesma amostra M6; M23/M25 | mesma amostra de arquitetura; Apdex de navegação e experiência | Não confundir RUM com Synthetic |
+O console, os relatórios HTML e a documentação funcional devem apresentar capacidades e resultados pelos seus nomes compreensíveis, em português do Brasil. Códigos internos de módulos de implementação não pertencem a títulos, resumos, instruções, legendas nem mensagens operacionais.
 
-## Ampliação de inventário operacional (ciclo seguinte)
+| Superfície | Termo público esperado | Critério de clareza |
+| --- | --- | --- |
+| Console e métricas de IA | Tempo e consumo das análises por IA | Diferenciar soma de durações, união de intervalos e tempo total da auditoria |
+| Console e relatório de custos | Tentativas de análise por IA e remediação de conteúdo | Não confundir custo estimado, gasto registrado e faturamento |
+| Configuração e arquitetura | Arquitetura identificada durante a coleta | Distinguir arquitetura declarada, observada e indisponível |
+| Relatório de arquitetura | Rastreabilidade da arquitetura identificada | Preservar página, captura, dispositivo e limitações |
+| Web Performance | Tempos observados de requisições web | Não confundir soma de requisições HTTP com duração de etapa |
+| Acessibilidade | Acessibilidade automatizada | Separar observações disponíveis de cobertura não verificada |
+| Apdex | Apdex de navegação e experiência | Separar experiência sintética de monitoramento real |
+| Dynatrace | Confronto da experiência observada e configuração do Apdex | Não equiparar monitoramento real a sondagem sintética |
+| Rastreamento | Rastreamento e descoberta | Expor fontes, êxitos e limitações sem códigos de implementação |
+| Comando de diagnóstico de tentativas | Tentativas de IA e requisições HTTP | Mostrar a origem e a aplicabilidade das medições |
 
-| Origem | Texto anterior no usuário | Rótulo público | Decisão |
-| --- | --- | --- | --- |
-| CLI `audit-attempts --help` | attempts M18/M20, M21 HTTP | tentativas de IA e requisições HTTP | Preservar nomes físicos apenas no JSON |
-| Descrições do CLI e ledger de tempos | relógios de tentativas M18/M20, Valores M21 | relógios de análises por IA, tempos informados por requisição | Sem alterar valores e fórmulas |
-| Manual operacional de custos | tempos M18/M20 e chamadas HTTP M21 | tempos de análises por IA e requisições web | Preservar os campos JSON documentados |
+## Fronteira entre comunicação e contrato interno
 
-## Exceções deliberadas
+Nomes de tabelas, campos de JSON, identificadores de regras, códigos de erro, nomes de arquivos, selectors CSS e namespaces de evidência são contratos técnicos. Permanecem imutáveis nos dados persistidos e em seções estritamente técnicas quando necessários à operação ou depuração.
 
-**Documentação técnica:** `docs/AUDIT_STAGE_SCOPE.md`,
-`docs/CONS_DOMAIN_COMPARATIVE.md`,
-`docs/CAT07_EXPERIENCE_ARCH_GUIDANCE.md` e
-`docs/AI_RUNTIME_ORCHESTRATION.md` continuam com IDs M* porque
-descrevem interfaces internas, contratos, datas, tabelas e módulos.
+É proibida a substituição global baseada apenas em uma sequência parecida com código de módulo. Um nome de produto ou modelo observado no website pode ter a mesma aparência de um identificador interno. Sua evidência deve ser preservada exatamente como coletada.
 
-**Dados e rastreabilidade:** códigos como `M25_RUNTIME_FAILURE`,
-identificadores de regra/SQL, `snapshot_id`, código-fonte, telemetria
-e caminhos de arquivo são deliberadamente preservados. Substituí-los
-globalmente poderia romper contratos e esconder evidência.
+A normalização limita-se aos elementos de apresentação pertencentes ao RASAi. A proteção do relatório está implementada em `src/rasai/public_report_safety.py`; sua existência não certifica automaticamente todas as páginas renderizadas.
 
-**Mensagens públicas novas:** utilizar nomes funcionais curtos. Referências
-internas somente em seções explicitamente técnicas sob demanda.
-Validação focalizada inclui console, metrics, CAT-07 e a orientação
-Dynatrace offline; não executa AUD nem provider.
+## Critério de aceite
 
-Nenhum motor, score, cálculo, schema ou hash de auditoria é alterado.
+- Mensagens e documentos voltados ao operador usam nomes funcionais, inclusive quando descrevem tentativas de IA e suas durações.
+- A informação técnica necessária permanece acessível em evidências ou seções de referência, sem tomar o lugar da explicação humana.
+- Estados parciais, indisponíveis, não aplicáveis e de baixa confiança não são apresentados como resultados conclusivos.
+- Toda correção de apresentação deve conservar contagens, tempos, custos, moeda, intervalos, proveniência e texto de evidência.
+- Testes focais de regressão não substituem o smoke visual e textual do catálogo completo.
+
+O inventário de redações anteriores foi incorporado a este contrato por equivalência funcional, sem reproduzir identificadores de implementação na documentação pública.
