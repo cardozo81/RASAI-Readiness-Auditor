@@ -323,7 +323,12 @@ class M18ProviderTests(unittest.TestCase):
 </head><body><main><h1>Guia M18</h1><h2>Visão geral</h2><p>Conteúdo técnico verificável para integração M18.</p></main></body></html>"""
             secret = "M18-INTEGRATION-SECRET"
             provider = OpenAIProvider(api_key=secret, transport=_success_transport())
-            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "mobile"}, clear=False):
+            # This scenario verifies provider telemetry after a READY collection
+            # gate; readiness and fail-closed behavior have separate contract tests.
+            from rasai.audit_collection_gate import CollectionReadiness
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "mobile"}, clear=False), \
+                 patch("rasai.audit_collection_gate.evaluate_collection_readiness",
+                       return_value=CollectionReadiness(ready=True, required_count=0, blockers=())):
                 result = run_audit(
                     f"{origin}/",
                     audits_root=Path(directory),
@@ -394,7 +399,12 @@ class M18ProviderTests(unittest.TestCase):
             html = """<!doctype html><html lang='pt-BR'><head><title>Mobile AI</title></head>
 <body><main><h1>Mobile AI</h1><p>Conteúdo técnico para validar custo por dispositivo.</p></main></body></html>"""
             provider = OpenAIProvider(api_key="x", transport=_success_transport())
-            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "mobile"}, clear=False):
+            # This scenario verifies provider telemetry after a READY collection
+            # gate; readiness and fail-closed behavior have separate contract tests.
+            from rasai.audit_collection_gate import CollectionReadiness
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "mobile"}, clear=False), \
+                 patch("rasai.audit_collection_gate.evaluate_collection_readiness",
+                       return_value=CollectionReadiness(ready=True, required_count=0, blockers=())):
                 result = run_audit(
                     f"{origin}/",
                     audits_root=Path(directory),
