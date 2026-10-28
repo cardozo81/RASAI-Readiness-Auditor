@@ -191,7 +191,9 @@ def test_both_orchestrators_use_gate_and_m24_cli_does_not_run_preseal_ai():
     assert "if collection_gate.ready else {}" in initial
     # Runtime hooks can replace run_audit; enforce the source contract on the
     # original orchestrator rather than on its installed wrapper.
-    initial_run = initial
+    # Restrict ordering assertions to the actual run body; the module also
+    # declares helper functions with the same call syntax before run_audit.
+    initial_run = initial.split("def run_audit(", 1)[1]
     assert (
         initial_run.index("reconcile_before_reporting(workspace=workspace, audit_id=audit_id)")
         < initial_run.index("_project_initial_ai_waiting_for_collection(")
