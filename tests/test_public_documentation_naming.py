@@ -9,7 +9,8 @@ _INTERNAL_MILESTONE = re.compile(r"(?<![A-Za-z0-9_])M\d{1,2}(?![A-Za-z0-9_])")
 
 def test_user_facing_markdown_does_not_expose_internal_milestone_labels() -> None:
     root = Path(__file__).resolve().parents[1]
-    candidates = [root / "README.md", *sorted((root / "docs").rglob("*.md"))]
+    from test_user_facing_language_contract import _public_documentation_paths
+    candidates = _public_documentation_paths()
     violations: list[str] = []
 
     for path in candidates:
