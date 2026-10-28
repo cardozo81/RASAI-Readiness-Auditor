@@ -83,6 +83,10 @@ def test_network_probes_enter_sealed_offline_catalog_without_changing_aud(tmp_pa
         workspace.root, manifest.get("source_dependencies"),
     )
     assert dependencies_ok, dependency_errors
+    from rasai.catalog_report_site import _sqlite_logical_digest
+    expected_logical = manifest["audit_snapshot"]["source_logical_sha256"]
+    current_logical = _sqlite_logical_digest(workspace.database)
+    assert current_logical == expected_logical, (current_logical, expected_logical)
     assert catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace)
     assert (workspace.root / "audit.db").read_bytes() == before
 

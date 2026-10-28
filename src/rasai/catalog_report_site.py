@@ -653,7 +653,10 @@ def catalog_report_is_fresh(*,audit_id: str,workspace: Any,report_dir: Path | No
     if not expected or not logical_expected:
         return False
     try:
-        current=_source_fingerprint(Path(workspace.database))
+        # Byte-level fingerprint is intentionally not a freshness gate: SQLite
+        # WAL checkpointing can change bytes without changing committed rows.
+        # Avoid the redundant physical read, whose I/O failure would otherwise
+        # invalidate a logically unchanged, verified package.
         logical_current=_sqlite_logical_digest(Path(workspace.database))
         dependencies_ok,_dependency_errors=verify_source_dependencies(
             Path(workspace.root),
