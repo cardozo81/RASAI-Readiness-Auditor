@@ -163,7 +163,7 @@ Fonte inalterada: ZIP do artefato `rasai-catalog-report-smoke` (ID `12797263282`
 | Custo total da AUD histórica | Indisponível nesta inspeção | Indisponível nesta inspeção | +320,69% reportado anteriormente, não recalculado | Referência #668; sem ledger/forecast físico aqui | NOT_VERIFIABLE |
 | Chamadas, provider/modelo, tokens, retries, fallback | Não aferido | Não aferido | Não calculável | Ledger físico necessário | NOT_VERIFIABLE |
 | Moeda, vigência e regra de pricing | Não aferido | Não aferido | Não calculável | Snapshot de pricing e tentativas necessários | NOT_VERIFIABLE |
-| Chamadas opcionais posteriores à conclusão | Não aferido | Não aferido | Não calculável | Timeline da AUD e operações M18/M20 necessárias | NOT_VERIFIABLE |
+| Chamadas opcionais posteriores à conclusão | Não aferido | Não aferido | Não calculável | Histórico temporal da auditoria e registros de consumo de IA necessários | NOT_VERIFIABLE |
 
 **Regra de aceite:** não atribuir o desvio ao motor de forecast sem confrontar escopo, eventos, tentativas e pricing na mesma moeda. A falta de dados físicos não transforma a regressão sintética em falha, mas impede o aceite econômico histórico.
 
@@ -181,7 +181,7 @@ Fonte inalterada: ZIP do artefato `rasai-catalog-report-smoke` (ID `12797263282`
 ## Atualização da baseline de CI e documentação - 28/10/2026
 
 - Commit validado: `104d6e85eb5805abb126ba23ca15e70df4845555` na PR #675 (Draft).
-- GitHub Actions: **13 de 13 workflows efetivamente disparados no SHA acima com conclusão success**, inclusive CONS-5, RPR Windows/Linux, telemetria econômica, smoke visual, Public Contract Consistency e M24 crawling discovery safety.
+- GitHub Actions: **13 de 13 workflows efetivamente disparados no SHA acima com conclusão success**, inclusive CONS-5, RPR Windows/Linux, telemetria econômica, smoke visual, Public Contract Consistency e segurança da descoberta e do rastreamento.
 - A validação pertence exclusivamente ao SHA registrado. Um commit posterior exige nova conferência, e testes sintéticos não são homologação física.
 - Correção documental incremental: `README.md` e `docs/README.md` agora reconhecem a release pública `v0.8.0`, sem alterar exemplos históricos nem a versão de pacote em `pyproject.toml`.
 - O pacote preliminar da candidata está em [RELEASE_CANDIDATE_0_9_0.md](RELEASE_CANDIDATE_0_9_0.md). Esse documento não é publicação de release nem autoriza merge, tag ou fechamento da issue #674.
