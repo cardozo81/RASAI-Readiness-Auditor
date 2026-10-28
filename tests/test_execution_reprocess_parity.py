@@ -67,7 +67,10 @@ def test_initial_and_rpr_share_canonical_pre_score_integrity_rule() -> None:
 
 
 def test_initial_and_rpr_share_m21_observation_and_run_classification() -> None:
-    initial = _source(m21_web_performance.execute_m21)
+    # Runtime fulfillment wraps execute_m21; inspect the canonical definition,
+    # not a dynamically installed wrapper from earlier integration tests.
+    from pathlib import Path
+    initial = Path(m21_web_performance.__file__).read_text(encoding="utf-8").split("def execute_m21(", 1)[1]
     recovery = _source(reprocess_measurements.recover_web_performance)
     for primitive in (
         "build_web_performance_observation",
