@@ -661,7 +661,11 @@ def catalog_report_is_fresh(*,audit_id: str,workspace: Any,report_dir: Path | No
         )
     except (OSError,sqlite3.Error,RuntimeError):
         return False
-    return current==expected and logical_current==logical_expected and dependencies_ok
+    # SQLite checkpoints may rewrite database/WAL bytes without changing a
+    # single audit record. The canonical logical digest and captured sidecar
+    # dependencies determine freshness; the byte fingerprint remains a
+    # diagnostic, not a false invalidation after WAL normalization.
+    return logical_current==logical_expected and dependencies_ok
 
 
 def _discard_tree(path: Path) -> None:
