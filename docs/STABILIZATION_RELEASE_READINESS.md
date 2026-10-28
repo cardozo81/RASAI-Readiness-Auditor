@@ -35,3 +35,7 @@
 - Cenários: desvio +320,69% integralmente coberto; chamada opcional não comparável; cobertura monetária incompleta.
 - Evidência real da AUD-01D61DBA30DD45D19F99401AB927580D: comparação causal ainda pendente de inspeção de forecast/ledgers persistidos, sem nova API paga.
 - Aceite: workflow econômico verde no SHA exato; cenário sintético não substitui exame financeiro real.
+
+## Gate visual offline dos relatórios CAT/GEO
+
+O workflow `report-catalog-visual-smoke.yml` executa, no mesmo gate, regressões de seções CAT-06/CAT-07, confiança de IA em percentual fracionário e rótulos/proveniência de KPMs Dynatrace, além de screenshots sintéticos de desktop, mobile e impressão. Os gatilhos passam a incluir esses testes e as camadas canônicas de apresentação afetadas. Este smoke usa fixture sintética; não atesta pertinência semântica de todos os relatórios reais nem a calibração estatística da confiança declarada pela IA. Artefatos visuais permanecem sujeitos à revisão humana.
