@@ -58,7 +58,7 @@ def test_server_content_and_framework_markers_do_not_prove_hydration():
 
 
 def test_server_content_without_framework_can_only_suggest_static_or_ssr():
-    raw = f'<main><h1>Title</h1>{LONG_MAIN}</main>'
+    raw = f'<html><body><main><h1>Title</h1><p>{LONG_MAIN}</p></main></body></html>'
     value = assess_architecture(raw_html=raw, rendered_html=None)
     assert value.architecture is Classification.UNKNOWN
     assert value.hypothesis.likely is Classification.STATIC_OR_SSR
