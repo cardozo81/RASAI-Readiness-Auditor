@@ -1037,7 +1037,7 @@ def test_longitudinal_ai_retries_transient_failure_once() -> None:
     assert run.attempts[0].retry_eligible is True
     assert run.attempts[0].decision == "RETRY_ROUND"
     assert run.attempts[1].status == "SUCCESS"
-    sleep.assert_called_once_with(5.0)
+    sleep.assert_called_once_with(60.0)
 
 
 def test_longitudinal_ai_does_not_retry_terminal_error() -> None:
