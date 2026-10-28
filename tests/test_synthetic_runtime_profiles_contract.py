@@ -19,6 +19,13 @@ from rasai.synthetic_runtime_profiles import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_runtime_profile_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove inherited profile choices; tests set overrides explicitly."""
+    for name in PROFILE_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
+
+
 def _args(**overrides):
     values = {
         "synthetic_apdex": True,
