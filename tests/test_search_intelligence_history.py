@@ -246,4 +246,4 @@ def test_search_history_html_and_manifest_preserve_non_causal_boundary(tmp_path:
     assert manifest["milestone_id"] == "DEPLOY-2026-09"
     assert manifest["baseline_mode"] == "AUTO"
     assert "read-only" in manifest["source_policy"]
-    assert "SCORE-GEO-004" in manifest["scoring_boundary"]
+    assert "SCORE-GEO-005" in manifest["scoring_boundary"]
