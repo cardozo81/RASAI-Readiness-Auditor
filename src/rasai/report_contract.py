@@ -287,7 +287,7 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
     ReportSurface(
         id="observability",
         filename="observability.html",
-        label="Search & AI observados",
+        label="Search & IA observados",
         optional=True,
         inputs=("artifacts/observability/observability.db", "artifacts/observability", "fontes externas configuradas"),
         outputs=("observações pós-auditoria",),
