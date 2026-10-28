@@ -215,3 +215,45 @@ def test_execution_contract_allows_requested_ai_without_ready_provider() -> None
             "ai_timeout_seconds": 180.0,
         },
     )
+
+def test_selection_rejects_incompatible_url() -> None:
+    index = _FakeIndex()
+    index.urls["AUD-OTHER"] = "https://example.test/other"
+    index.rows = tuple(
+        {**row, "devices_json": '["MOBILE"]'} if row["audit_id"] == "AUD-OTHER" else row
+        for row in index.rows
+    )
+    with pytest.raises(ValueError, match="mesma URL"):
+        resolve_selection(index, "AUD-001", "AUD-OTHER", selection_mode="ALL")
+
+
+def test_manual_rejects_audit_outside_compatible_interval() -> None:
+    with pytest.raises(ValueError, match="fora do intervalo compatível"):
+        resolve_selection(
+            _FakeIndex(),
+            "AUD-001",
+            "AUD-003",
+            selection_mode="MANUAL",
+            manual_audit_ids=("AUD-OTHER",),
+        )
+
+
+def test_success_only_rejects_non_successful_boundary(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_governance(_root, _rows):
+        return {
+            "audits": [
+                {"audit_id": "AUD-001", "source_state": "SUCCESS"},
+                {"audit_id": "AUD-002", "source_state": "SUCCESS"},
+                {"audit_id": "AUD-003", "source_state": "REPROCESS_REQUIRED"},
+            ]
+        }
+
+    monkeypatch.setattr(
+        "rasai.consolidation.selection.build_source_governance",
+        fake_governance,
+    )
+    with pytest.raises(ValueError, match="marcos BASE e ATUAL"):
+        resolve_selection(
+            _FakeIndex(), "AUD-001", "AUD-003", selection_mode="SUCCESS_ONLY"
+        )
+

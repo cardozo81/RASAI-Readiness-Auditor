@@ -403,3 +403,7 @@ A regressão `test_find_existing_rejects_tampered_package_and_preserves_source_f
 ### Gate de pacote com IA simulada
 
 A regressão `test_find_existing_ai_snapshot_requires_both_hashed_ai_artifacts` valida offline a presença e o SHA-256 de `specialist-analysis.json` e `ai-exchanges.json` em snapshots com IA solicitada e marcada como `COMPLETE`. A adulteração, ausência ou transição para `UNAVAILABLE` deve impedir reutilização; não se faz chamada real a provedor e o resultado exige CI verde antes de ser aceito.
+
+### Gate de política de seleção e fronteiras de compatibilidade
+
+Os testes offline em `tests/test_consolidated_selection_flow.py` incluem a rejeição de URL incompatível, a seleção manual de AUD fora do intervalo e a recusa do modo `SUCCESS_ONLY` quando o marco ATUAL exige reprocessamento. A execução verde no SHA da PR é obrigatória; o resultado não autoriza considerar auditorias parciais como conclusivas.
