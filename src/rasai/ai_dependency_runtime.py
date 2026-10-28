@@ -180,6 +180,10 @@ def _install_deep_analysis_gate() -> None:
         )
 
     ai_analyze._rasai_dependency_gate = True
+    # Preserve the canonical orchestration marker through the dependency gate.
+    # Later installers must not mistake this wrapper for a legacy analyzer.
+    if getattr(current, "_rasai_canonical_cycles", False):
+        ai_analyze._rasai_canonical_cycles = True
     ai_analyze._rasai_original = current
     improvement._ai_analyze = ai_analyze
 
