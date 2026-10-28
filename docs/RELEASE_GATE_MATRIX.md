@@ -42,3 +42,11 @@ O diff da PR #675 contém 20 caminhos: três workflows, dez documentos, um compo
 6. Apresentar decisão final à homologação humana; só então considerar merge e publicação.
 
 **Decisão atual: NO_GO para merge e publicação.** A CI automatizada está verde no SHA de referência, mas o conjunto completo dos critérios de aceite físico e operacional não foi certificado.
+
+## Gate da suíte completa no SHA final
+
+O workflow canônico `Full RASAi Regression` (`.github/workflows/full-regression.yml`) deve executar o gate de contrato público e `pytest -q`, com Python 3.13 e Chromium. Ele preserva a opção manual `workflow_dispatch` e passa a atender PRs destinadas à `main` quando código, testes, dependências, documentação ou a própria definição do workflow forem alterados. O filtro evita reexecuções em mudanças sem efeito sobre esse contrato.
+
+**Critério obrigatório:** registrar um run deste workflow no commit exato da candidata, com todos os jobs concluídos em `success`. Não aceitar a ausência do workflow, `skipped`, `cancelled`, `failure` ou `in_progress` como GO. O resultado dos demais pipelines aplicáveis também precisa estar verde no mesmo SHA. Um commit posterior invalida a certificação anterior para fins de GO.
+
+A suíte completa valida cobertura de testes automatizados, mas não substitui a homologação física CONS/RPR, a reconciliação financeira histórica, os relatórios de auditorias reais, a instalação limpa, o rollback ou o aceite humano. A decisão permanece **NO-GO** até todas as evidências obrigatórias estarem disponíveis.

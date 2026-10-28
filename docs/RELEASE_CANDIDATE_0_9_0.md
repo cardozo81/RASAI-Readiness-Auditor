@@ -79,3 +79,7 @@ O diff verificado da PR #675 afeta 20 caminhos: três workflows, dez documentos,
 ## Notas de mudanças do escopo da PR
 
 As mudanças verificáveis e as limitações da PR #675 estão reunidas em [RELEASE_NOTES_DRAFT.md](RELEASE_NOTES_DRAFT.md). Este inventário é restrito ao escopo da PR e não afirma representar todas as mudanças acumuladas desde a release pública `v0.8.0`.
+
+## Certificação final de testes
+
+A candidata exige a execução verde do workflow [Full RASAi Regression](../.github/workflows/full-regression.yml) no SHA final, além de todos os demais workflows aplicáveis. O workflow agora é elegível à PR de estabilização quando os arquivos cobertos forem alterados e continua podendo ser acionado manualmente. O acionamento não equivale a aprovação: conferir conclusão efetiva, testes executados e status de cada job. Consultar [RELEASE_GATE_MATRIX.md](RELEASE_GATE_MATRIX.md) para critérios de GO/NO-GO.
