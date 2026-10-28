@@ -27,3 +27,11 @@
 ## Fronteiras protegidas
 
 #127, #192, #311, #649, #650, #656 e #657 permanecem fora do escopo de implementação ou condicionadas aos seus próprios gates.
+
+## Reconciliação econômica de IA - evidência sintética
+
+- Teste: `tests/test_audit_cost_explain.py::test_large_point_deviation_is_not_a_calculation_defect_by_itself`.
+- Contrato: não confundir diferença da estimativa pontual com precisão do intervalo, falha de cálculo ou fatura real.
+- Cenários: desvio +320,69% integralmente coberto; chamada opcional não comparável; cobertura monetária incompleta.
+- Evidência real da AUD-01D61DBA30DD45D19F99401AB927580D: comparação causal ainda pendente de inspeção de forecast/ledgers persistidos, sem nova API paga.
+- Aceite: workflow econômico verde no SHA exato; cenário sintético não substitui exame financeiro real.

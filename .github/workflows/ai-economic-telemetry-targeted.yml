@@ -37,6 +37,8 @@ on:
       - 'tests/test_ai_economic_telemetry.py'
       - 'tests/test_audit_attempt_timeline.py'
       - 'tests/test_ai_economic_reporting.py'
+      - 'tests/test_audit_cost_explain.py'
+      - 'docs/CONSOLE_COST_AND_USAGE.md'
       - '.github/workflows/ai-economic-telemetry-targeted.yml'
   workflow_dispatch:
 
@@ -97,6 +99,7 @@ jobs:
           tests/test_ai_cost_policy.py
           tests/test_ai_native_usage_pricing.py
           tests/test_cost_forecast.py
+          tests/test_audit_cost_explain.py
           tests/test_console_cost_confirmation.py
           tests/test_console_reprocess_final_refinements.py
           tests/test_fulfillment_execution_contract.py

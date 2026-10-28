@@ -396,3 +396,9 @@ Isso impede contabilização de páginas estrangeiras em comparações
 financeiras. Fixtures offline verificam single-URL, 8 necessidades,
 pool AUTO sem cap, múltiplas páginas, fontes SQLite ausentes e
 AUD estrangeira sem novas requisições.
+
+## Reconciliação de desvio previsto versus atribuído na estabilização
+
+O desvio pontual elevado não constitui, isoladamente, prova de erro de preço ou cálculo. Para comparação rigorosa, identificar escopo econômico previsto (núcleo versus tarefas opcionais), moeda, cobertura de tentativas precificadas, tokens nativos, retries/fallback e intervalo histórico. Se qualquer pré-condição de comparabilidade falhar, a apresentação deve abster-se de classificar precisão total, mesmo quando houver soma financeira persistida. Não recalibrar fatores com base em uma única AUD.
+
+A regressão sintética `test_large_point_deviation_is_not_a_calculation_defect_by_itself` exercita +320,69% com valor observado dentro do intervalo provável, além de cenários com tentativa opcional e cobertura incompleta. Não reproduz a AUD física #668 nem determina sua causa: exigem-se os ledgers e forecast persistidos para concluir sobre a diferença real. O workflow `ai-economic-telemetry-targeted.yml` executa essa regressão em runner padrão após alteração do teste ou deste documento.

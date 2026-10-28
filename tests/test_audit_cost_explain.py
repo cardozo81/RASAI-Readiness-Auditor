@@ -218,3 +218,36 @@ def test_currency_equivalence_must_be_explicit_true(unverified):
     assert "Moedas dos custos" in html
     assert "Posição do custo na faixa histórica: N/D" in html
     assert "Desvio frente à estimativa pontual" not in html
+
+
+def test_large_point_deviation_is_not_a_calculation_defect_by_itself():
+    # Synthetic analogue of a +320.69% deviation; not a reproduction of a private AUD.
+    forecast = {
+        "expected_cost": 0.10,
+        "likely_low": 0.04,
+        "likely_high": 0.45,
+        "potential": 0.60,
+    }
+    observed = 0.42069
+    valid = forecast_readout(
+        forecast, observed_total=observed,
+        priced_attempts=5, total_attempts=5,
+    )
+    assert "+320.69%" in valid
+    assert "dentro da faixa histórica provável" in valid
+    assert "não constitui fatura" in valid
+
+    optional = forecast_readout(
+        forecast, observed_total=observed,
+        priced_attempts=5, total_attempts=5, optional_attempts=1,
+    )
+    assert "análise complementar/direcionada" in optional
+    assert "Desvio frente à estimativa pontual" not in optional
+    assert "dentro da faixa histórica provável" not in optional
+
+    incomplete = forecast_readout(
+        forecast, observed_total=observed,
+        priced_attempts=4, total_attempts=5,
+    )
+    assert "4/5 tentativa" in incomplete
+    assert "Desvio frente à estimativa pontual" not in incomplete
