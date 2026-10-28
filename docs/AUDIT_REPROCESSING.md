@@ -598,3 +598,7 @@ quando `finished_at` está ausente. Work-items podem sobrepor tentativas IA
 ou HTTP. O relatório é descritivo, somente-leitura e independe de decisão de
 nova execução. O mecanismo de seleção/reprocessamento mantém as mesmas
 operações e persistência homologadas.
+
+## Gate de idempotência semântica para estabilização
+
+A regressão `tests/test_rpr_semantic_success_idempotency.py` reconcilia repetidamente um item `SEMANTIC_AI` já concluído em `SUCCESS` e exige estabilidade de `attempt_count`, `effective_result_ref` e `last_success_at`. Esta prova local verifica a preservação da proveniência de sucesso e não substitui a homologação ponta a ponta do RPR, de custos incrementais ou de reaquisição seletiva. A aprovação requer resultado CI no SHA da PR.
