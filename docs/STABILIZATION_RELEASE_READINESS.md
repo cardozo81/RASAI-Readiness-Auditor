@@ -39,3 +39,22 @@
 ## Gate visual offline dos relatórios CAT/GEO
 
 O workflow `report-catalog-visual-smoke.yml` executa, no mesmo gate, regressões de seções CAT-06/CAT-07, confiança de IA em percentual fracionário e rótulos/proveniência de KPMs Dynatrace, além de screenshots sintéticos de desktop, mobile e impressão. Os gatilhos passam a incluir esses testes e as camadas canônicas de apresentação afetadas. Este smoke usa fixture sintética; não atesta pertinência semântica de todos os relatórios reais nem a calibração estatística da confiança declarada pela IA. Artefatos visuais permanecem sujeitos à revisão humana.
+
+## Evidências de CI da candidata (28/10/2026)
+
+Commit de referência: `9ea28c20ae5a0da5154184f154fd273babf449d5`. A matriz abaixo documenta somente resultados efetivamente consultados no GitHub Actions; seu estado pertence ao SHA indicado, não automaticamente a commits posteriores.
+
+| Gate | Execução | Evidência consultada | Interpretação |
+| --- | --- | --- | --- |
+| Relatórios CAT/GEO: smoke visual offline | [40645430058](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40645430058) | Job `synthetic-visual-report` concluído com sucesso; artefato `rasai-catalog-report-smoke`, ID `12797755212`, 22.346.624 bytes | Regressão sintética e geração de imagens aprovadas; inspeção visual humana pendente |
+| Telemetria econômica | [40645430025](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40645430025) | SUCCESS | Comparação e apresentação econômicas cobertas pelos testes do workflow; discrepância da AUD física não reconciliada |
+| Contrato público | [40645430105](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40645430105) | SUCCESS | Contrato público automatizado aprovado |
+| RPR: contadores direcionados | [40645430029](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40645430029) | SUCCESS | Cobertura isolada dos contadores; não substitui RPR integral |
+| CONS-5: pipeline completo | [40645430031](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40645430031) | Em execução na consulta | Sem aceite conclusivo nesta observação |
+| RPR: pipeline completo | [40645430027](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40645430027) | Em execução na consulta | Sem aceite conclusivo nesta observação |
+
+### Critérios de inspeção humana dos screenshots
+
+Ao revisar o artefato publicado, conferir correspondência de cada seção ao relatório (CAT-06, CAT-07 e GEO), integridade de textos em pt-BR, leitura e hierarquia em mobile/desktop/impressão, duplicidades e coerência dos blocos, apresentação percentual de confiança **somente quando o dado permitir conversão válida**, proveniência e códigos das métricas Dynatrace, separação entre gravidade da regra e confiança declarada pela IA, e ausência de extrapolação causal. Divergências devem ser reproduzidas em fixtures ou relatórios de AUD com evidência rastreável antes de alterar os motores.
+
+**Limite de aceite:** não considerar o pacote de 22 MB revisado apenas porque foi publicado. Para a release, ficam pendentes inspeção dos artefatos, análise comparativa de uma AUD real e aprovação humana explícita; não há GO automático por CI verde.
