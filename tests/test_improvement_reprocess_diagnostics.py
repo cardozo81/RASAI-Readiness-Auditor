@@ -169,7 +169,7 @@ def test_registered_ai_dispatch_reports_missing_hook_without_provider(monkeypatc
         diagnostics._install_registered_ai_dispatch_guard()
         outcome = phase.run_registered_ai_phase(
             audit_id="AUD-1",
-            workspace=SimpleNamespace(),
+            workspace=SimpleNamespace(root=tmp_path),
             evidence_snapshot=SimpleNamespace(evidence_snapshot_id="AIE-1"),
             purposes={"IMPROVEMENT_INTELLIGENCE"},
         )
@@ -189,7 +189,7 @@ def test_registered_ai_dispatch_reports_missing_hook_without_provider(monkeypatc
 
 
 def test_registered_ai_dispatch_executes_present_hook_and_diagnoses_missing(
-    monkeypatch,
+    monkeypatch, tmp_path,
 ) -> None:
     from rasai import audit_runner
     from rasai import governed_reprocess_runtime as governed
