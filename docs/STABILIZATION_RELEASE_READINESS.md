@@ -1,4 +1,4 @@
-# Estabilização CONS/RPR/relatórios — matriz inicial de evidências
+# Estabilização CONS/RPR/relatórios - matriz inicial de evidências
 
 > Registro incremental da branch única. Não equivale a aceite de release.
 
