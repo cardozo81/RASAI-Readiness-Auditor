@@ -108,6 +108,58 @@ class Cons5MaterializationTests(unittest.TestCase):
             self.assertEqual(payload["materialization_contract"], MATERIALIZATION_CONTRACT)
             self.assertEqual(payload["temporal_apdex"]["base_request_fingerprint"], "base")
 
+    def test_find_existing_rejects_tampered_package_and_preserves_source_files(self) -> None:
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "consolidated" / "CONS-INTEGRITY-TEST"
+            output.mkdir(parents=True)
+            required = (
+                "report.html",
+                "decision-context.json",
+                "longitudinal-evidence.json",
+                "execution.json",
+            )
+            for name in required:
+                (output / name).write_text(
+                    "<html>relatório sintético</html>" if name == "report.html" else "{}",
+                    encoding="utf-8",
+                )
+            fingerprint = request_fingerprint("source", ConsolidationFilter())
+            payload = {
+                "report_format_version": REPORT_FORMAT_VERSION,
+                "request_fingerprint": fingerprint,
+                "materialization_contract": MATERIALIZATION_CONTRACT,
+                "temporal_apdex": {"contract": "TEMPORAL-APDEX-001"},
+                "longitudinal_analysis": {
+                    "contract": LONGITUDINAL_CONTRACT,
+                    "catalog_contract": "CONSOLIDATED-CATALOG-LONGITUDINAL-006",
+                    "ai_status": "NOT_REQUESTED",
+                },
+                "source_governance": {"contract": "CONSOLIDATED-SOURCE-GOVERNANCE-003"},
+                "decision_context": {"contract": "CONSOLIDATED-DECISION-CONTEXT-002"},
+                "specialist_ai": {"requested": False},
+                "package_integrity": {
+                    "files": {
+                        name: {"sha256": hashlib.sha256((output / name).read_bytes()).hexdigest()}
+                        for name in required
+                    }
+                },
+            }
+            (output / "manifest.json").write_text(json.dumps(payload), encoding="utf-8")
+            refresh = RefreshResult(1, 0, 1, 0, ())
+            initial = find_existing(root, fingerprint, refresh)
+            self.assertIsNotNone(initial)
+            self.assertTrue(initial.reused)
+            baseline = {name: (output / name).read_bytes() for name in required}
+            (output / "report.html").write_text("<html>alterado</html>", encoding="utf-8")
+            self.assertIsNone(find_existing(root, fingerprint, refresh))
+            self.assertEqual(
+                {name: (output / name).read_bytes() for name in required if name != "report.html"},
+                {name: content for name, content in baseline.items() if name != "report.html"},
+            )
+
     def test_request_fingerprint_is_stable_and_filter_sensitive(self) -> None:
         base = request_fingerprint("source", ConsolidationFilter())
         self.assertEqual(base, request_fingerprint("source", ConsolidationFilter()))
