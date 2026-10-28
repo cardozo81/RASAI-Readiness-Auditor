@@ -1901,11 +1901,15 @@ def run_longitudinal_ai(
             dict[str, tuple[str, ...]],
         ] | None = None
 
+        terminal_provider_ids: set[int] = set()
+
         def candidates() -> tuple[Any, ...]:
-            return canonical_candidate_objects(
-                selection,
-                hint,
-                scope=AI_SCOPE,
+            return tuple(
+                item for item in canonical_candidate_objects(
+                    selection,
+                    hint,
+                    scope=AI_SCOPE,
+                ) if id(item) not in terminal_provider_ids
             )
 
         def invoke(provider: Any, cycle: int, call_index: int) -> AiProviderInvocation:
@@ -2024,6 +2028,10 @@ def run_longitudinal_ai(
                     else DECISION_FALLBACK
                 ),
             )
+            if invocation.outcome is AiProviderOutcome.PROVIDER_TERMINAL:
+                # Terminal provider errors must not be retried in later cycles,
+                # even when an explicit selection has no routing coordinator.
+                terminal_provider_ids.add(id(provider))
             record_canonical_attempt(
                 provider,
                 attempt,
