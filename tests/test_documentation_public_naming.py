@@ -10,7 +10,8 @@ _INTERNAL_MILESTONE_REFERENCE = re.compile(r"(?i)(?<![A-Za-z0-9])m\d+")
 
 
 def _documentation_files() -> tuple[Path, ...]:
-    from test_user_facing_language_contract import _public_documentation_paths
+    from runpy import run_path
+    _public_documentation_paths = run_path(str(REPOSITORY_ROOT / "tests/test_user_facing_language_contract.py"))["_public_documentation_paths"]
     return _public_documentation_paths()
 
 def test_documentation_does_not_expose_internal_milestone_identifiers() -> None:
