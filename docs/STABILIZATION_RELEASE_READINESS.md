@@ -58,3 +58,26 @@ Commit de referência: `9ea28c20ae5a0da5154184f154fd273babf449d5`. A matriz abai
 Ao revisar o artefato publicado, conferir correspondência de cada seção ao relatório (CAT-06, CAT-07 e GEO), integridade de textos em pt-BR, leitura e hierarquia em mobile/desktop/impressão, duplicidades e coerência dos blocos, apresentação percentual de confiança **somente quando o dado permitir conversão válida**, proveniência e códigos das métricas Dynatrace, separação entre gravidade da regra e confiança declarada pela IA, e ausência de extrapolação causal. Divergências devem ser reproduzidas em fixtures ou relatórios de AUD com evidência rastreável antes de alterar os motores.
 
 **Limite de aceite:** não considerar o pacote de 22 MB revisado apenas porque foi publicado. Para a release, ficam pendentes inspeção dos artefatos, análise comparativa de uma AUD real e aprovação humana explícita; não há GO automático por CI verde.
+
+## Plano de encerramento dos itens parciais sem intervenção humana
+
+Este quadro determina o executor e a evidência mínima sem antecipar aceite humano nem iniciar novos motores. Referência automatizada de 28/10/2026: SHA `6f5a1c567f71663b0926ab2d2445ae2afd4d60af`. Nesse SHA, CONS-5 e smoke visual estavam verdes; workflow integral RPR seguia executando o job Windows após sucesso do job Linux.
+
+| Pendência parcial | Pode ser realizada sem humano? | Ação e condição de encerramento |
+| --- | --- | --- |
+| CONS-5: regressão de integridade, seleção e IA simulada | Sim | CI CONS verde no SHA; encerramento apenas **do gate sintético**, não da homologação de AUD real |
+| RPR: regressão Linux/Windows completa | Sim | Aguardar conclusão do mesmo workflow no SHA, analisar logs e corrigir falhas comprovadas |
+| Contadores RPR e ausência de chamadas tarifadas | Sim | Testes determinísticos, ledger por `reprocess_id`; nunca declarar precisão financeira do provedor a partir desses contadores |
+| Relatórios CAT/GEO: smoke visual | Sim | CI gera screenshots e HTML sintéticos; revisão de presença, erros técnicos e conteúdo verificável por fixtures |
+| Relatórios CAT/GEO: julgamento final de UX/CX e pertinência em AUD real | Parcialmente | Agente faz pré-revisão; aceite visual humano permanece pendente quando exigido |
+| Desvio financeiro da AUD física #668 | Condicional | Reconciliar forecast e tentativas/tokens usando arquivos persistidos acessíveis. Na ausência do ledger real, não substituir por fixture nem atribuir causa |
+| Documentação incremental | Sim | Conferir links, contratos, nomes/versão e consistência com HEAD; preservar história de versões |
+| Publicação de v0.9.0, merge e exclusão da branch | Não | Exigem autorização humana explícita, CI final verde e verificações pré-release |
+
+### Critérios anti-falso-positivo
+
+- Cada resultado verde pertence a um SHA e a um workflow; testes não disparados ou ainda em andamento permanecem pendentes.
+- Artefato visual gerado não é revisão visual concluída.
+- Um desvio econômico sintético não substitui inspeção dos dados persistidos da AUD real.
+- Não criar novo `AUD-*`, não reexecutar IA paga e não modificar `main` neste ciclo.
+- O encerramento técnico automatizado nunca concede, por si só, autorização de merge ou release.
