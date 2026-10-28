@@ -602,3 +602,7 @@ operações e persistência homologadas.
 ## Gate de idempotência semântica para estabilização
 
 A regressão `tests/test_rpr_semantic_success_idempotency.py` reconcilia repetidamente um item `SEMANTIC_AI` já concluído em `SUCCESS` e exige estabilidade de `attempt_count`, `effective_result_ref` e `last_success_at`. Esta prova local verifica a preservação da proveniência de sucesso e não substitui a homologação ponta a ponta do RPR, de custos incrementais ou de reaquisição seletiva. A aprovação requer resultado CI no SHA da PR.
+
+## Gate de fechamento de dependências read-only
+
+A regressão `test_repeated_dependency_expansion_preserves_success_work_item` comprova com SQLite temporário que expandir duas vezes a seleção de `RENDER_CAPTURE`, partindo de `HTTP_ACQUISITION` já em `SUCCESS`, produz o mesmo fechamento e não altera estado, referência efetiva nem número de tentativas de nenhum work-item. A prova é restrita ao planejamento das dependências; não equivale à execução física ou ao fechamento funcional de RPR.

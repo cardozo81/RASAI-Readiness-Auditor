@@ -213,3 +213,26 @@ def test_experience_apdex_is_not_artificially_bound_to_render_capture(tmp_path: 
     )
 
     assert expanded == frozenset({selected})
+
+def test_repeated_dependency_expansion_preserves_success_work_item(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    _register(workspace, "HTTP_ACQUISITION", "PGE-1", status=SUCCESS, temporal_mode=LIVE_RECOLLECTION)
+    _register(
+        workspace, "RENDER_CAPTURE", "PLANNED:PGE-1:MOBILE",
+        status=PENDING, temporal_mode=LIVE_RECOLLECTION,
+    )
+    selected = item_key("RENDER_CAPTURE", "PLANNED:PGE-1:MOBILE")
+    original = {
+        (item.component, item.scope_key): (item.status, item.effective_result_ref, item.attempt_count)
+        for item in list_work_items(workspace, AUDIT_ID)
+    }
+    first = expand_selected_items(workspace, AUDIT_ID, [selected], use_ai=False)
+    second = expand_selected_items(workspace, AUDIT_ID, [selected], use_ai=False)
+    assert first == second
+    assert first is not None
+    assert selected in first
+    after = {
+        (item.component, item.scope_key): (item.status, item.effective_result_ref, item.attempt_count)
+        for item in list_work_items(workspace, AUDIT_ID)
+    }
+    assert after == original
