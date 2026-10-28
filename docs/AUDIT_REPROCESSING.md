@@ -606,3 +606,7 @@ A regressão `tests/test_rpr_semantic_success_idempotency.py` reconcilia repetid
 ## Gate de fechamento de dependências read-only
 
 A regressão `test_repeated_dependency_expansion_preserves_success_work_item` comprova com SQLite temporário que expandir duas vezes a seleção de `RENDER_CAPTURE`, partindo de `HTTP_ACQUISITION` já em `SUCCESS`, produz o mesmo fechamento e não altera estado, referência efetiva nem número de tentativas de nenhum work-item. A prova é restrita ao planejamento das dependências; não equivale à execução física ou ao fechamento funcional de RPR.
+
+## Gate de segregação de contadores por tentativa RPR
+
+`tests/test_optional_reprocess_accounting.py` verifica com SQLite temporário que atualizações incrementais de contadores de duas tentativas `RPR-*` permanecem associadas a seus próprios `reprocess_id`, sem criar outra identidade `AUD-*`. Esta regressão valida contadores operacionais, não a precisão monetária de tokens/preços nem faturamento de provedores. O aceite depende do workflow no SHA final da PR.
