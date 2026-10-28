@@ -35,6 +35,14 @@ _INTERNAL_ARCHITECTURE_DOCS = frozenset({
     "docs/PUBLIC_LANGUAGE.md",
     "docs/READINESS_MATCHED_PILOT.md",
     # Evidence/reviewer/method contracts name physical collectors by design.
+    # Technical cross-motor provenance documents retain canonical collector IDs.
+    "docs/ARCHITECTURE_CONSUMER_ELIGIBILITY.md",
+    "docs/ARCHITECTURE_PREVIEW_LEDGER.md",
+    "docs/AUD_A167_DISCOVERY_GEO_RECOVERY.md",
+    "docs/EXECUTION_PROGRESS_MODEL.md",
+    "docs/M3_MATERIALITY_SEARCH_CONSUMERS.md",
+    "docs/OUTPUTS_AND_ARTIFACTS.md",
+    "docs/REPORT_GUIDE.md",
     "docs/ARCHITECTURE_DISCOVERY_ACCEPTANCE.md",
     "docs/CLAIM_REVIEW_HANDOFF.md",
     "docs/CLAIM_VERIFICATION.md",
