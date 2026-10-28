@@ -232,6 +232,10 @@ def stage_console_lines(projection: dict[str, Any]) -> tuple[str, ...]:
             _duration(projection["total_union_ms"]),
         )
     ]
+    lines.append(
+        "Fontes de tentativas: M18+M20 quando presentes; a união de intervalos "
+        "não representa tempo exclusivo de fase."
+    )
     if projection.get("unknown_ai_intervals", 0):
         lines.append(
             "Relógios IA incompletos: %s tentativa(s) sem intervalo "

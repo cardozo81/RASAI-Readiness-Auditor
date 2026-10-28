@@ -402,3 +402,7 @@ AUD estrangeira sem novas requisições.
 O desvio pontual elevado não constitui, isoladamente, prova de erro de preço ou cálculo. Para comparação rigorosa, identificar escopo econômico previsto (núcleo versus tarefas opcionais), moeda, cobertura de tentativas precificadas, tokens nativos, retries/fallback e intervalo histórico. Se qualquer pré-condição de comparabilidade falhar, a apresentação deve abster-se de classificar precisão total, mesmo quando houver soma financeira persistida. Não recalibrar fatores com base em uma única AUD.
 
 A regressão sintética `test_large_point_deviation_is_not_a_calculation_defect_by_itself` exercita +320,69% com valor observado dentro do intervalo provável, além de cenários com tentativa opcional e cobertura incompleta. Não reproduz a AUD física #668 nem determina sua causa: exigem-se os ledgers e forecast persistidos para concluir sobre a diferença real. O workflow `ai-economic-telemetry-targeted.yml` executa essa regressão em runner padrão após alteração do teste ou deste documento.
+
+## Projeção operacional de duração por etapa
+
+A apresentação retrospectiva do console informa explicitamente que a telemetria agrega tentativas persistidas nos ledgers M18+M20 quando presentes. A soma e a união de intervalos não são duração exclusiva da etapa nem tempo de ponta a ponta da AUD. Esta indicação evita interpretar o rótulo como comprovação de atividade contínua. A regressão associada é `tests/test_ai_economic_reporting.py::test_319_posthoc_phase_readout_uses_eight_ledger_attempts`.
