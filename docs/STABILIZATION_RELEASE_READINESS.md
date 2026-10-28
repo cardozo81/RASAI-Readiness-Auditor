@@ -81,3 +81,25 @@ Este quadro determina o executor e a evidência mínima sem antecipar aceite hum
 - Um desvio econômico sintético não substitui inspeção dos dados persistidos da AUD real.
 - Não criar novo `AUD-*`, não reexecutar IA paga e não modificar `main` neste ciclo.
 - O encerramento técnico automatizado nunca concede, por si só, autorização de merge ou release.
+
+## Revisão do artefato visual publicado - evidência do agente
+
+Origem: [workflow 40645919644](https://github.com/cardozo81/RASAI-Readiness-Auditor/actions/runs/40645919644), SHA `062765052cf89001831c5531ce7522b3b4b5667e`, artefato `rasai-catalog-report-smoke` (ID `12797263282`). O ZIP foi aberto em leitura, sem alteração da fixture.
+
+- Inventário verificado: 92 entradas no ZIP; HTMLs das dez páginas `cat-01.html` a `cat-10.html`, `geo.html`, `network.html`, `sari.html`, `metrics.html`, `ai-integrations.html`, `directed-analysis.html` e demais páginas de suporte.
+- Imagens presentes para desktop, mobile e tablet, além de três PDFs de impressão (`cat-07`, índice e análise direcionada).
+- Inspeção por folha de contato das 20 capturas desktop: navegação lateral, título contextual e blocos em cartões/tabelas aparentam seguir uma família visual consistente. **Essa inspeção reduzida não certifica legibilidade de cada texto em resolução nativa nem a ausência de overflow no mobile/impressão.**
+- Hierarquia textual inspecionada no HTML: cada CAT apresenta título próprio, resumo, escopo solicitado, configuração efetiva e execução; GEO, rede, métricas e SARI têm títulos e seções temáticas diferenciados.
+- A fixture de `network.html` contém seção `Mapa e caminho de rede` e indica dados indisponíveis. **Não é evidência de rota geográfica completa**; a ausência de dados na fixture não constitui defeito demonstrado do motor.
+- As capturas exibem uma fixture sintética, portanto não demonstram cobertura de findings, recomendações ou níveis de confiança de uma AUD física. Não marcar validação semântica real como concluída.
+- Versão atual verificada em `pyproject.toml` e `src/rasai/__init__.py`: `0.8.0`. A versão candidata `0.9.0` ainda não foi aplicada; não alterar versão antes de decisão de release.
+
+### Estado técnico verificado no GitHub Actions
+
+No SHA `062765052cf89001831c5531ce7522b3b4b5667e`, todos os **12 workflows** estavam `completed/success`, incluindo `Audit Fulfillment and Reprocessing` Windows/Linux, `Consolidated reporting safety`, `AI Economic Telemetry 195 Targeted` e `Report catalog offline visual smoke`. Esse é o baseline de CI integral verde **antes** deste registro documental.
+
+### Itens restantes para GO
+
+1. Conferir os HTMLs e screenshots na resolução original e confrontá-los com AUD física representativa, incluindo completude das recomendações e proveniência das avaliações de IA.
+2. Reconciliar o custo da AUD #668 com forecast e tentativas persistidas, caso o pacote da auditoria esteja disponível; não inferir causa apenas do desvio numérico.
+3. Fechar revisão do changelog/versão e obter decisão humana sobre aceite visual e publicação. Nenhuma dessas pendências implica autorização automática para merge.
