@@ -40,6 +40,8 @@ def _architecture_runtime_state_label(value: Any) -> str:
     """Portuguese labels only for observed states, never inferred network facts."""
     states = {
         "CAPTURED": "Capturado nesta auditoria",
+        "NOT_AVAILABLE": "Instrumentação de scripts indisponível",
+        "NO_SCRIPT_DATA": "Sem respostas de script na janela observada",
         "NO_OBSERVATIONS": "Instrumentação executada; nenhuma resposta observada",
         "UNAVAILABLE": "Instrumentação indisponível nesta captura",
         "UNAVAILABLE_RENDER_FAILURE": "Instrumentação indisponível por falha de renderização",
@@ -47,6 +49,17 @@ def _architecture_runtime_state_label(value: Any) -> str:
         "OBSERVED_MAIN_DOCUMENT_RESPONSE": "Resposta principal observada pelo navegador",
     }
     return states.get(str(value or ""), "N/D (estado da observação não reconhecido)")
+
+
+def _observed_status(value: Any) -> str:
+    """Evidence state, not a claim of absence outside this bounded session."""
+    if value in {"CAPTURED", "OBSERVED_MAIN_DOCUMENT_RESPONSE", "OBSERVED"}:
+        return "OBSERVED"
+    if value in {"NO_OBSERVATIONS", "NO_SCRIPT_DATA", "NOT_OBSERVED"}:
+        return "NOT_OBSERVED"
+    if value == "BLOCKED":
+        return "BLOCKED"  # Reserved for explicit, attributed blockers only.
+    return "UNKNOWN"
 
 
 def _public_host(value: Any) -> str | None:
@@ -129,6 +142,8 @@ def _network_facts(
     kinds: Counter[str] = Counter()
     rhosts: Counter[str] = Counter()
     rstatuses: Counter[str] = Counter()
+    rprotocols: Counter[str] = Counter()
+    order: list[tuple[str, str, str]] = []
     for item in resource_rows[:160]:
         if not isinstance(item, Mapping) or item.get("resource_type") not in {"Stylesheet","SubframeDocument","XHR","Fetch"}:
             continue
@@ -139,6 +154,14 @@ def _network_facts(
         status = item.get("status")
         if type(status) is int and 100 <= status <= 599:
             rstatuses[str(status // 100) + "xx"] += 1
+        protocol = item.get("protocol")
+        if isinstance(protocol, str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9._+-]{0,20}", protocol):
+            rprotocols[protocol] += 1
+        if len(order) < 8:
+            # CDP responseReceived insertion order, not initiation chronology
+            # or causal dependency chain. Only public hosts and finite enums.
+            order.append((item["resource_type"], host or "N/D",
+                          str(status) if type(status) is int and 100 <= status <= 599 else "N/D"))
     doc = metadata.get("main_response_network")
     doc = doc if isinstance(doc, Mapping) else {}
     tls_fields = {}
@@ -177,15 +200,19 @@ def _network_facts(
         "dom_count": dom_count, "dom_types": dict(declared), "dom_hosts": top(dom_hosts),
         "script_count": num(scripts,"count"),
         "script_state": scripts.get("state","NOT_COLLECTED"),
+        "script_observation_status": _observed_status(scripts.get("state")),
         "script_statuses": dict(statuses), "script_protocols": dict(protocols),
         "script_hosts": top(shosts),
         "response_state": resources.get("state","NOT_COLLECTED"),
+        "response_observation_status": _observed_status(resources.get("state")),
         "response_count": num(resources,"count"), "response_types": dict(kinds),
         "response_statuses": dict(rstatuses), "response_hosts": top(rhosts),
+        "response_protocols": dict(rprotocols), "response_order": tuple(order),
         "response_truncated": resources.get("truncated") is True,
         "navigation_count": min(len(nav),100) if isinstance(nav,list) else None,
         "cookie_events": num(cookies,"count"),
         "main_response_state": doc.get("state", "NOT_COLLECTED"),
+        "main_response_observation_status": _observed_status(doc.get("state")),
         "main_response_security": tls_fields,
         "topology": "NETWORK_TOPOLOGY_NOT_DETERMINABLE",
     }
@@ -565,6 +592,10 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             return ", ".join(f"{k}: {n}" for k,n in sorted(v.items())) if isinstance(v,dict) and v else "N/D"
         def hosts(v: Any) -> str:
             return ", ".join(f"{k} ({n})" for k,n in v) if v else "N/D"
+        def order_text(v: Any) -> str:
+            # Already restricted to safe host/type/status by _network_facts.
+            return "; ".join(f"{index}. {kind} · {host} · HTTP {status}"
+                             for index, (kind, host, status) in enumerate(v, 1)) if v else "N/D"
         parts.append(
             "<div class='architecture-fact-grid'>"
             "<section class='architecture-fact-group'><h5>Recursos declarados no DOM</h5><dl>"
@@ -575,7 +606,8 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             + "</dl></section>"
             "<section class='architecture-fact-group'><h5>Scripts observados na rede</h5><dl>"
             + display("Proveniência", "Respostas Chromium/CDP nesta navegação")
-            + display("Estado", net.get("script_state"))
+            + display("Estado observacional", net.get("script_observation_status"))
+            + display("Estado técnico da captura", _architecture_runtime_state_label(net.get("script_state")))
             + display("Respostas de scripts", net.get("script_count"))
             + display("Classes HTTP", counts(net.get("script_statuses")))
             + display("Protocolos", counts(net.get("script_protocols")))
@@ -583,11 +615,14 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             + "</dl></section>"
             "<section class='architecture-fact-group'><h5>CSS, APIs e subframes na rede</h5><dl>"
             + display("Proveniência", "Somente respostas da mesma navegação; sem coleta adicional")
-            + display("Estado", _architecture_runtime_state_label(net.get("response_state")))
+            + display("Estado observacional", net.get("response_observation_status"))
+            + display("Estado técnico da captura", _architecture_runtime_state_label(net.get("response_state")))
             + display("Respostas observadas", net.get("response_count"))
             + display("Categorias", counts(net.get("response_types")))
             + display("Classes HTTP", counts(net.get("response_statuses")))
+            + display("Protocolos HTTP informados", counts(net.get("response_protocols")))
             + display("Domínios públicos observados, até oito", hosts(net.get("response_hosts")))
+            + display("Ordem de respostas registradas, até oito", order_text(net.get("response_order")))
             + display("Limite de observação", "Atingido" if net.get("response_truncated") else "Não evidenciado")
             + "</dl></section>"
             "<section class='architecture-fact-group'><h5>Contexto adicional</h5><dl>"
@@ -597,7 +632,11 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             + "</dl></section></div>"
             "<p class='architecture-limit'>Tags declaradas não comprovam requisições "
             "concluídas; observações de rede não constituem inventário de toda a "
-            "infraestrutura. DNS, cadeia TLS completa, CDN, WAF, balanceador e backend permanecem "
+            "infraestrutura. A ordem de respostas é a sequência registrada pelo CDP, "
+            "não estabelece dependência causal, instante UTC ou conclusão de carregamento. "
+            "NOT_OBSERVED significa apenas ausência de eventos na janela observada; "
+            "BLOCKED exige evidência explícita de bloqueio; UNKNOWN não é zero. "
+            "DNS, cadeia TLS completa, CDN, WAF, balanceador e backend permanecem "
             "não determináveis. Capturas anteriores à instrumentação adicional "
             "são descritas como não coletadas, não como zero recursos.</p>"
         )
@@ -605,7 +644,8 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
         parts.append(
             "<div class='architecture-fact-grid'><section class='architecture-fact-group'>"
             "<h5>Resposta principal: transporte e TLS observados</h5><dl>"
-            + display("Estado da observação", _architecture_runtime_state_label(net.get("main_response_state")))
+            + display("Estado observacional", net.get("main_response_observation_status"))
+            + display("Estado técnico da captura", _architecture_runtime_state_label(net.get("main_response_state")))
             + display("Protocolo HTTP informado", sec.get("http_protocol"))
             + display("Versão TLS informada", sec.get("tls_protocol"))
             + display("Emissor do certificado informado", sec.get("tls_issuer"))
