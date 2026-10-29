@@ -41,6 +41,11 @@ def test_snapshot_resource_declaration_not_misclassified_as_network(tmp_path):
     assert result["script_count"] == 1
     assert result["response_count"] == 1
     assert result["response_types"] == {"Stylesheet":1}
+    assert result["script_observation_status"] == "OBSERVED"  # explicit CAPTURED state and one observed script
+    assert result["response_observation_status"] == "OBSERVED"
+    assert result["main_response_observation_status"] == "OBSERVED"
+    assert result["response_order"] == (("Stylesheet", "cdn.example.org", "200"),)
+    assert result["response_protocols"] == {}
     assert result["cookie_events"] == 9
     assert result["navigation_count"] == 2
     assert result["topology"] == "NETWORK_TOPOLOGY_NOT_DETERMINABLE"
@@ -59,6 +64,9 @@ def test_no_table_and_legacy_audit_keep_unknown_distinct_from_zero(tmp_path):
     result=_network_facts(db,"A","S",{})
     assert result["dom_count"] is None
     assert result["response_state"] == "NOT_COLLECTED"
+    assert result["response_observation_status"] == "UNKNOWN"
+    assert result["script_observation_status"] == "UNKNOWN"
+    assert result["main_response_observation_status"] == "UNKNOWN"
     assert result["response_count"] is None
     assert result["main_response_state"] == "NOT_COLLECTED"
 
@@ -78,3 +86,47 @@ def test_untrusted_peer_source_metadata_does_not_break_network_projection(tmp_pa
     facts = _network_facts(db, "AUD-1", "SN-1", metadata)
     assert facts["main_response_security"]["remote_public_peer_ip"] == "8.8.4.4"
     assert "remote_public_peer_ip_source" not in facts["main_response_security"]
+
+
+
+def test_bounded_inventory_states_and_response_order_without_urls(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE irrelevant (id TEXT)")
+    metadata = {
+        "script_runtime": {"state": "NO_SCRIPT_DATA", "count": 0},
+        "network_resource_observations": {
+            "state": "CAPTURED", "count": 3,
+            "items": [
+                {"resource_type": "Stylesheet", "host": "cdn.example.org", "status": 200, "protocol": "h2"},
+                {"resource_type": "SubframeDocument", "host": "other.example.org", "status": 302, "protocol": "http/1.1"},
+                {"resource_type": "XHR", "host": "192.168.0.1", "status": 403,
+                 "protocol": "h2", "url": "https://secret.invalid/path?token=hidden"},
+            ],
+        },
+    }
+    facts = _network_facts(db, "AUD-X", "SN-X", metadata)
+    assert facts["script_observation_status"] == "NOT_OBSERVED"
+    assert facts["response_observation_status"] == "OBSERVED"
+    assert facts["response_types"] == {"Stylesheet": 1, "SubframeDocument": 1, "XHR": 1}
+    assert facts["response_protocols"] == {"h2": 2, "http/1.1": 1}
+    assert facts["response_order"][2] == ("XHR", "N/D", "403")
+    assert "hidden" not in repr(facts)
+    for state, expected in [("UNAVAILABLE", "UNKNOWN"), ("BLOCKED", "BLOCKED"),
+                            ("NO_OBSERVATIONS", "NOT_OBSERVED")]:
+        observed = _network_facts(db, "AUD-X", "SN-X",
+                                  {"network_resource_observations": {"state": state, "count": 0}})
+        assert observed["response_observation_status"] == expected
+
+
+
+def test_untrusted_state_does_not_crash_projection(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE dummy (x TEXT)")
+    facts = _network_facts(db, "A", "S", {
+        "script_runtime": {"state": ["CAPTURED"]},
+        "network_resource_observations": {"state": {"bogus": "OBSERVED"}},
+    })
+    assert facts["script_observation_status"] == "UNKNOWN"
+    assert facts["response_observation_status"] == "UNKNOWN"

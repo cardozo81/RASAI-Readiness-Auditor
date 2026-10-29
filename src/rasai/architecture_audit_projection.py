@@ -14,7 +14,8 @@ from typing import Any
 from rasai.architecture_context import resolve_architecture, CONTRACT_VERSION
 from rasai.architecture_choice_audit_adapter import read_architecture_choice_for_reprocess
 from rasai.architecture_m6_evidence import read_audit_architecture_observations
-from rasai.audit_configuration_reuse import normalize_audit_id
+from rasai.audit_configuration_reuse import normalize_audit_id, load_reusable_audit_configuration
+from rasai.architecture_preview_store import REFERENCE_KEY, validate_preview_reference
 
 MAX_SNAPSHOTS = 100
 VERSION = "architecture-audit-advisory-v1"
@@ -25,7 +26,7 @@ def _empty(audit_id: str | None, reason: str) -> dict[str, Any]:
         "contract": VERSION, "resolver": CONTRACT_VERSION, "audit_id": audit_id,
         "status": "NOT_VERIFIABLE", "reason": reason, "snapshots": [],
         "choice_origin": "UNVERIFIED", "selection": "UNFORCED",
-        "provided_architecture": None, "audit_writes": 0,
+        "provided_architecture": None, "preview_reference": None, "audit_writes": 0,
         "provider_requests": 0, "applied_to_scoring": False,
     }
 
@@ -111,6 +112,16 @@ def inspect_audit_architecture_context(
         observations = read_audit_architecture_observations(root, identity)
         if _unsealed(db) or _stamp(db) != before:
             return _empty(identity, "AUD_SOURCE_CHANGED_DURING_READ")
+        # Only a verified, sealed execution configuration may expose a preview
+        # reference; a live mutable preview ledger is never consulted here.
+        preview_reference = None
+        try:
+            sealed = load_reusable_audit_configuration(root, identity)
+            record = sealed.configuration.get(REFERENCE_KEY)
+            if record is not None:
+                preview_reference = validate_preview_reference(record)
+        except (OSError, ValueError, TypeError, KeyError):
+            pass
         mode = choice.choice.mode if choice is not None else "UNFORCED"
         declared = choice.choice.declared_architecture if choice is not None else None
         source = choice.source if choice is not None else "UNVERIFIED_OR_LEGACY"
@@ -147,6 +158,7 @@ def inspect_audit_architecture_context(
             "reason": None, "snapshots": rows,
             "choice_origin": source, "selection": mode,
             "provided_architecture": declared,
+            "preview_reference": preview_reference,
             "audit_writes": 0, "provider_requests": 0,
             "applied_to_scoring": False,
             "limitations": (

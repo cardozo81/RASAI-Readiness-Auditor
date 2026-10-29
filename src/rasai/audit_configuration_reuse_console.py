@@ -21,6 +21,7 @@ from rasai.audit_configuration_reuse_runtime import configuration_context
 _INSTALLED = False
 _SESSION_SOURCE: dict[int, ReusableAuditConfiguration] = {}
 _ARCHITECTURE_SELECTION: dict[int, object] = {}
+_PREVIEW_SELECTION: dict[int, str] = {}  # session-only; never restored from another AUD/INI
 
 
 def _search_execution_settings(state: Any) -> dict[str, Any] | None:
@@ -463,6 +464,8 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
             _ARCHITECTURE_SELECTION.pop(id(state), None)
         else:
             _ARCHITECTURE_SELECTION[id(state)] = choice
+        # Reusing a historical AUD never silently reuses its preview reference.
+        _PREVIEW_SELECTION.pop(id(state), None)
     except BaseException:
         # A rejected restore must not leave a mixture of two AUD configurations.
         for name in set(previous_environment) | set(os.environ):
@@ -604,6 +607,8 @@ def install(interactive_console: ModuleType) -> None:
                 print("L. Carregar configuração de AUD [NOVA EXECUÇÃO]")
                 print("Y. Arquitetura para esta auditoria [SEM ALTERAR OS ÍNDICES]")
                 print("   Atual: " + describe_session_architecture_choice(state))
+                print("   Prévia consultiva da próxima AUD: "
+                      + _PREVIEW_SELECTION.get(id(state), "NÃO VINCULADA"))
             return original_input(prompt)
 
         builtins.input = input_with_hint
@@ -623,8 +628,35 @@ def install(interactive_console: ModuleType) -> None:
             print("1. Sem forçar arquitetura")
             print("2. Automática, baseada na descoberta")
             print("3. Definida por você")
+            print("4. Vincular prévia já salva, explicitamente (sem herdar arquitetura)")
+            print("5. Desvincular prévia desta sessão")
+            print("Prévia atual: " + _PREVIEW_SELECTION.get(id(state), "NÃO VINCULADA"))
             selected = builtins.input("Opção (V para voltar): ").strip().upper()
             if selected in {"V", ""}:
+                return
+            if selected == "4":
+                from rasai.architecture_preview_store import list_previews
+                from rasai.domain import DeviceContext
+                try:
+                    device = DeviceContext(str(state.device).upper())
+                    previews = list_previews(None, url=str(state.target), device=device)[:8]
+                except (OSError, ValueError):
+                    previews = ()
+                if not previews:
+                    print("Nenhuma prévia íntegra, válida e não expirada para URL/dispositivo exatos.")
+                    return
+                for number, record in enumerate(previews, 1):
+                    print(f"{number}. {record['preview_id']} | {record['created_utc']} | "
+                          f"{record['architecture']} (PRELIMINARY_UNVERIFIED)")
+                chosen = builtins.input("Número da prévia (V para voltar): ").strip()
+                if not chosen.isdigit() or not 1 <= int(chosen) <= len(previews):
+                    return
+                _PREVIEW_SELECTION[id(state)] = previews[int(chosen)-1]["preview_id"]
+                print("Referência consultiva selecionada. Não altera M6 nem seleção AUTO/DECLARED/UNFORCED.")
+                return
+            if selected == "5":
+                _PREVIEW_SELECTION.pop(id(state), None)
+                print("Referência de prévia removida da preparação.")
                 return
             if selected == "1":
                 selection = ArchitectureChoice("UNFORCED")
@@ -669,7 +701,22 @@ def install(interactive_console: ModuleType) -> None:
         # is sealed for execution, including explicit architecture selection.
         from rasai.architecture_choice_audit_adapter import prepare_audit_choice_configuration
         choice = _ARCHITECTURE_SELECTION.get(id(state))
-        sealed_effective = prepare_audit_choice_configuration(effective, choice=choice)
+        preview_reference = None
+        preview_id = _PREVIEW_SELECTION.get(id(state))
+        if preview_id:
+            from rasai.architecture_preview_store import reference_saved_preview
+            from rasai.domain import DeviceContext
+            try:
+                preview_reference = reference_saved_preview(
+                    None, preview_id=preview_id, url=targets[0],
+                    device=DeviceContext(str(state.device).upper()),
+                )
+            except (OSError, ValueError):
+                _PREVIEW_SELECTION.pop(id(state), None)
+                print("Prévia anterior expirada ou incompatível com URL/dispositivo; vínculo descartado.")
+        sealed_effective = prepare_audit_choice_configuration(
+            effective, choice=choice, preview_reference=preview_reference,
+        )
         # Advisory AUTO discovery is a separate operation: never part of the
         # sealed configuration, scoring, audit capture, RPR or complements.
         if getattr(choice, "mode", None) == "AUTO" and len(targets) == 1:
@@ -695,6 +742,7 @@ def install(interactive_console: ModuleType) -> None:
             kind=KIND_CONSOLE,
             configuration=effective,
             architecture_choice=choice,
+            preview_reference=preview_reference,
             source_audit_id=source.audit_id if source else None,
             source_configuration_hash=source.configuration_hash if source else None,
             changed_fields=differences,
