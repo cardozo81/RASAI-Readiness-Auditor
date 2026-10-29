@@ -1,5 +1,7 @@
 # Candidata v0.9.0 - pacote de decisão pré-release
 
+> **REGISTRO HISTÓRICO PRÉ-PUBLICAÇÃO:** a [release `v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) foi publicada em 29/10/2026, `immutable=true`, sobre `5da8e6247094c20dcdbe770474ac31e7f93383b2`. As declarações `DRAFT`, `NO-GO`, branch de preparação e CI pendente abaixo descrevem decisões anteriores à publicação e são preservadas para rastreabilidade, não como status atual.
+
 **Estado:** PREPARAÇÃO / NÃO PUBLICADO. A PR #675 foi integrada e a issue #674 encerrada. A release pública vigente permanece `v0.8.0`; o pacote da branch exclusiva `release/prepare-v0.9.0` foi atualizado para `0.9.0` somente como candidata. Este documento preserva a cronologia histórica do ciclo #675 e não representa uma release publicada.
 
 ## Atualização de homologação física e decisão de aceite - 29/10/2026

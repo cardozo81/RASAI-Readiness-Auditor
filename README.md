@@ -5,7 +5,7 @@
 **Descritor:** Search & AI Readiness Auditor  
 **Framework:** RASAi Framework  
 **Versão pública:** `001`  
-**Pacote Python nesta candidata:** `0.9.0` (não publicado; última release pública: `v0.8.0`)  
+**Pacote Python (release estável):** `0.9.0` ([`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0), publicada em 29/10/2026)  
 **Índice público:** **Search & AI Readiness Index - Índice de Prontidão Search & IA** · ID técnico `SARI-001`  
 **Método de pontuação:** **Método de Pontuação de Prontidão** · versão pública `001` · contrato técnico vigente para novas auditorias `SCORE-GEO-005` (replay histórico `SCORE-GEO-004`)
 
@@ -390,7 +390,7 @@ RASAi fornece auditoria técnica/semântica, evidência, heurísticas proprietá
 <!-- rasai-doc-index-20260908 -->
 ## Contrato da documentação
 
-A documentação está organizada em [`docs/README.md`](docs/README.md). A última release pública é `v0.8.0`; o pacote desta branch de preparação identifica a candidata não publicada `0.9.0`. O merge da PR #675 foi concluído no commit `810cc076052df93f1d18c6807c18e63b225d9473`, mas o bump de versão e a preparação da candidata não criam tag nem GitHub Release. O desenvolvimento contínuo ocorre na linha pós-release; o **Método de Pontuação de Prontidão**, versão pública **001**, permanece como a metodologia vigente; `SCORE-GEO-005` é o contrato técnico vigente para novas auditorias. Auditorias históricas preservam sua versão de scoring.
+A documentação está organizada em [`docs/README.md`](docs/README.md). A última release pública estável é [`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0), publicada em 29/10/2026 como GitHub Release imutável sobre o commit `5da8e6247094c20dcdbe770474ac31e7f93383b2`. A `v0.8.0` permanece como marco histórico. O **Método de Pontuação de Prontidão** segue na versão pública **001**, com contrato `SCORE-GEO-005` vigente para novas auditorias e `SCORE-GEO-004` preservado para replay histórico.
 
 
 ### Network Intelligence consultiva

@@ -1,5 +1,7 @@
 # Checklist de preparação e publicação da candidata v0.9.0
 
+> **REGISTRO HISTÓRICO PRÉ-PUBLICAÇÃO:** a [release `v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) foi publicada em 29/10/2026, `immutable=true`, sobre `5da8e6247094c20dcdbe770474ac31e7f93383b2`. As declarações `DRAFT`, `NO-GO`, branch de preparação e CI pendente abaixo descrevem decisões anteriores à publicação e são preservadas para rastreabilidade, não como status atual.
+
 **Estado:** PREPARAÇÃO, NÃO PUBLICADO. Este roteiro é um artefato operacional, não uma autorização de criação de tag ou de GitHub Release.
 
 ## 1. Referências verificadas

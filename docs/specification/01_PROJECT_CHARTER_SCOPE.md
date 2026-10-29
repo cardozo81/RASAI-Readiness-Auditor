@@ -1,7 +1,7 @@
 # RASAi - Search & AI Readiness Auditor - visão e escopo do produto
 
 **Estado:** APROVADO / VIGENTE  
-**Fase do produto:** `v0.5.0` publicada, com operação local suportada e fundação SaaS/Pilot disponível no código atual; a evolução continua na linha pós-release.
+**Fase do produto:** [`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) publicada e estável, com operação local suportada e fundação SaaS/Pilot disponível no código atual; `v0.5.0` permanece como marco histórico.
 
 ## 1. Visão do produto
 
@@ -12,7 +12,7 @@ O produto transforma evidências técnicas, estruturais e semânticas em:
 - findings verificáveis;
 - scores por dimensão;
 - **Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001**, ID técnico `SARI-001`;
-- **Método de Pontuação de Prontidão**, versão pública **001**, contrato técnico `SCORE-GEO-004`;
+- **Método de Pontuação de Prontidão**, versão pública **001**, contrato técnico vigente `SCORE-GEO-005` (`SCORE-GEO-004` preservado em replay histórico);
 - resultados por contexto Desktop/Mobile quando esses contextos existem;
 - riscos e oportunidades;
 - recomendações e remediações priorizadas;
