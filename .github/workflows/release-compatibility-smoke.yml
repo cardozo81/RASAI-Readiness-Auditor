@@ -1,0 +1,40 @@
+name: Release compatibility offline smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/RELEASE_COMPATIBILITY_SMOKE.ps1'
+      - '.github/workflows/release-compatibility-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-installation:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Isolated candidate and baseline smoke
+        id: smoke
+        shell: pwsh
+        run: ./scripts/RELEASE_COMPATIBILITY_SMOKE.ps1
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.smoke.outputs.evidence != ''
+        with:
+          name: release-compatibility-${{ matrix.os }}
+          path: |
+            ${{ steps.smoke.outputs.evidence }}/results.json
+            ${{ steps.smoke.outputs.evidence }}/transcript.txt
