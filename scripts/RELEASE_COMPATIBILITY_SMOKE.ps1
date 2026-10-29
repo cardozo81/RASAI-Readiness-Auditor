@@ -46,7 +46,9 @@ try {
         if ($name -eq 'candidate') { $package = '.[attestation,geoip]' }
         Invoke-Checked $runtime @('-m', 'pip', 'install', '-e', $package, 'pytest')
         Invoke-Checked $runtime @('-m', 'pip', 'check')
-        Invoke-Checked $runtime @('-c', 'import rasai; import importlib.metadata as m; assert m.version("rasai-readiness-auditor") == "0.8.0"; print(m.version("rasai-readiness-auditor"))')
+        # Check each installed runtime against the manifest of its archived commit.
+        $versionCheck = 'import rasai; import importlib.metadata as m; import tomllib; from pathlib import Path; expected=tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]; installed=m.version("rasai-readiness-auditor"); assert installed == expected, f"installed={installed} manifest={expected}"; assert rasai.__version__ == expected, f"namespace={rasai.__version__} manifest={expected}"; print("PACKAGE_VERSION_PASS", expected)'
+        Invoke-Checked $runtime @('-c', $versionCheck)
         $cli = Join-Path (Split-Path $runtime) 'rasai'
         if ($env:OS -eq 'Windows_NT') { $cli += '.exe' }
         Invoke-Checked $cli @('--version')
