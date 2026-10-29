@@ -12,6 +12,7 @@ import ipaddress
 import json
 import os
 from pathlib import Path
+from typing import Any, Mapping
 import re
 import uuid
 from urllib.parse import urlsplit
@@ -22,6 +23,8 @@ from rasai.domain import DeviceContext
 from rasai.url_utils import normalize_url
 
 CONTRACT = "RASAI-ARCH-PREVIEW-657-A-v1"
+REFERENCE_CONTRACT = "RASAI-ARCH-PREVIEW-657-LINK-v1"
+REFERENCE_KEY = "architecture_preview_reference"
 MAX_RECORD_BYTES = 4096
 MAX_RECORDS = 20
 KEEP_DAYS = 30
@@ -218,3 +221,73 @@ def _prune(directory: Path, *, now: datetime) -> None:
             valid.append((record["created_utc"], path))
     for _, path in sorted(valid, reverse=True)[MAX_RECORDS:]:
         path.unlink(missing_ok=True)
+
+
+
+def validate_preview_reference(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate a sealed advisory reference; never load or trust a preview as M6."""
+    fields = {
+        "contract", "preview_id", "created_utc", "device", "status",
+        "scope_sha256", "record_sha256", "preview_architecture",
+        "method", "limitation",
+    }
+    if not isinstance(value, Mapping) or set(value) != fields:
+        raise ValueError("INVALID_PREVIEW_REFERENCE")
+    if (value["contract"] != REFERENCE_CONTRACT
+            or value["status"] != "PRELIMINARY_UNVERIFIED"
+            or value["device"] not in {"MOBILE", "DESKTOP"}
+            or not isinstance(value["preview_id"], str)
+            or not _FILE.fullmatch(value["preview_id"] + ".json")):
+        raise ValueError("INVALID_PREVIEW_REFERENCE")
+    if any(not isinstance(value[key], str) or
+           not re.fullmatch(r"[0-9a-f]{64}", value[key])
+           for key in ("scope_sha256", "record_sha256")):
+        raise ValueError("INVALID_PREVIEW_REFERENCE")
+    if (value["preview_architecture"] not in
+            {"UNKNOWN", "CSR_SPA", "HYDRATED", "MIXED", "STATIC_OR_SSR"}
+            or any(not isinstance(value[key], str) or
+                   not _CODE.fullmatch(value[key])
+                   for key in ("method", "limitation"))):
+        raise ValueError("INVALID_PREVIEW_REFERENCE")
+    try:
+        created = datetime.fromisoformat(value["created_utc"])
+        if created.tzinfo is None:
+            raise ValueError
+    except (ValueError, TypeError):
+        raise ValueError("INVALID_PREVIEW_REFERENCE") from None
+    return dict(value)
+
+
+def reference_saved_preview(
+    root: Path | None, *, preview_id: str, url: str, device: DeviceContext,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Explicit new-AUD reference from exact-scope, unexpired local opt-in ledger.
+
+    Only non-secret, non-authoritative metadata crosses the audit boundary.
+    Never reads or writes audit.db, and never acquires any network resource.
+    """
+    if not isinstance(preview_id, str) or not _FILE.fullmatch(preview_id + ".json"):
+        raise ValueError("INVALID_PREVIEW_ID")
+    selected = next(
+        (row for row in list_previews(root, url=url, device=device, now=now)
+         if row["preview_id"] == preview_id),
+        None,
+    )
+    if selected is None:
+        raise ValueError("PREVIEW_SCOPE_MISMATCH_OR_EXPIRED")
+    limitations = selected.get("limitations")
+    if not isinstance(limitations, list) or not limitations:
+        raise ValueError("INVALID_PREVIEW_LIMITATIONS")
+    return validate_preview_reference({
+        "contract": REFERENCE_CONTRACT,
+        "preview_id": selected["preview_id"],
+        "created_utc": selected["created_utc"],
+        "device": selected["device"],
+        "status": "PRELIMINARY_UNVERIFIED",
+        "scope_sha256": selected["scope_sha256"],
+        "record_sha256": selected["record_sha256"],
+        "preview_architecture": selected["architecture"],
+        "method": selected["method"],
+        "limitation": limitations[0],
+    })

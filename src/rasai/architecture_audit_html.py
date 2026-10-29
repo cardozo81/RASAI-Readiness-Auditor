@@ -64,6 +64,29 @@ def _public_url(value: object) -> str:
         return "URL não verificável"
 
 
+def _preview_reference_html(value: object) -> str:
+    if not isinstance(value, Mapping):
+        return ""
+    from rasai.architecture_preview_store import validate_preview_reference
+    try:
+        reference = validate_preview_reference(value)
+    except (ValueError, TypeError):
+        return ""
+    return (
+        "<p class='notice' data-contract='ARCH-PREVIEW-657-LINK'>"
+        "<strong>Prévia consultiva explicitamente vinculada:</strong> "
+        + _esc(reference["preview_id"])
+        + " · " + _esc(reference["created_utc"])
+        + " · " + _esc(reference["device"])
+        + " · " + _esc(ARCH.get(reference["preview_architecture"], ARCH["UNKNOWN"]))
+        + " · método " + _esc(reference["method"])
+        + " · limitação " + _esc(reference["limitation"])
+        + ". Estado PRELIMINARY_UNVERIFIED; referência selada, não evidência M6. "
+        "O registro local original pode expirar. A observação física da AUD "
+        "prevalece; nenhuma classificação ou perfil foi herdado.</p>"
+    )
+
+
 def architecture_audit_context_html(projection: Mapping[str, Any]) -> str:
     """Escape URL/ID literal and protect technical tokens from humanization."""
     if (not isinstance(projection, Mapping)
@@ -130,7 +153,8 @@ def architecture_audit_context_html(projection: Mapping[str, Any]) -> str:
         "dispositivo e captura, o resultado é N/D. As URLs são exibidas sem "
         "credenciais, parâmetros de consulta ou fragmentos; a diferença entre "
         "destinos não comprova, por si só, o mecanismo de redirecionamento.</p>"
-        "<h3>Capturas arquiteturais registradas (" + str(len(table))
+        + _preview_reference_html(projection.get("preview_reference"))
+        + "<h3>Capturas arquiteturais registradas (" + str(len(table))
         + " captura(s))</h3>"
         "<p class='section-lead'>Os resultados abaixo são visíveis sem interação. "
         "Para os sinais de HTML inicial, estado HTTP, redirecionamentos e "

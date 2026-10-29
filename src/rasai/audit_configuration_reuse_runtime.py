@@ -173,12 +173,14 @@ def configuration_context(
     execution_series_id: str | None = None,
     scope: Mapping[str, Any] | None = None,
     architecture_choice: ArchitectureChoice | None = None,
+    preview_reference: Mapping[str, Any] | None = None,
 ) -> Iterator[None]:
     """Bind one execution's effective, secret-free configuration to its finalizer."""
     pending = PendingAuditConfiguration(
         kind=kind,
         configuration=prepare_audit_choice_configuration(
-            configuration, choice=architecture_choice
+            configuration, choice=architecture_choice,
+            preview_reference=preview_reference,
         ),
         source_audit_id=source_audit_id,
         source_configuration_hash=source_configuration_hash,

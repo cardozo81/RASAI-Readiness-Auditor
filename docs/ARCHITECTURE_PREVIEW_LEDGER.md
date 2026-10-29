@@ -13,8 +13,12 @@ Os estados só podem ser `PRELIMINARY_UNVERIFIED`. Integridade de JSON é necess
 ## Status das fases
 
 - **Fase A** - implementada como repositório opt-in, leitura isolada por escopo e interface interativa, protegendo UNKNOWN e AUD selada.
-- **Vínculo opcional à preparação da próxima AUD** - **pendente**: não se deve chamar a leitura da fase A de associação persistida ou evidência M6. Exige uma escolha explícita na preparação, escopo e contrato separados.
+- **Vínculo opcional à preparação da próxima AUD** - implementado na seleção **Y > 4** da preparação: escolher explicitamente uma prévia local íntegra, não expirada, da URL exata e dispositivo atuais. **Y > 5** remove o vínculo. A referência consultiva (ID, hashes, UTC, método, limitação, classe preliminar) integra apenas a configuração selada da nova AUD; nenhum conteúdo, URL, credencial, solicitação de rede ou classificação M6 é transferido. Troca de URL/dispositivo ou expiração antes da execução invalida o vínculo. Carregar configuração de AUD histórica nunca restaura esse opt-in.
 - **Fase B** - pendente: CSS/JS/subframes somente com contagens observadas e orçamento.
 - **Fase C** - pendente: topologia estritamente observada; rede interna, CDN, WAF e backend N/D quando não provados.
 
 A #657 só deve ser encerrada após essas entregas independentes. Testes offline de fase A não exigem nova visita ao NYTimes ou Docker. Nenhuma configuração AUTO/DECLARED/UNFORCED, M6, M23/M25, Apdex, SARI ou SCORE-GEO é alterada.
+
+## Contrato de referência da nova AUD (#657)
+
+O vínculo usa `architecture_preview_reference` e `RASAI-ARCH-PREVIEW-657-LINK-v1`, sem criar uma auditoria no momento de selecionar a prévia. Não modifica a escolha arquitetural, índices, captura M6, Apdex, M23/M25, RPR ou auditorias seladas. A apresentação de arquitetura da AUD exibe a referência separadamente e a distingue explicitamente do resultado físico. Referência histórica na configuração selada não exige a existência posterior do arquivo efêmero, que pode ser eliminado pela retenção normal. O operador precisa executar a nova auditoria pelo fluxo habitual para persistir sua configuração; escolher uma prévia não gera AUD.
