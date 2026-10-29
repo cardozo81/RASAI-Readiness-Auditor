@@ -37,6 +37,13 @@ from rasai.persistence import AuditPersistence, AuditWorkspace
 from tests.test_m12_stable_baseline import _FixtureRenderer, _server
 
 
+
+def _audit_diagnostics(result, provider):
+    with sqlite3.connect(result.audit_root / "audit.db") as db:
+        audit = db.execute("SELECT status, limitations FROM audits WHERE audit_id=?", (result.audit_id,)).fetchone()
+        semantic = db.execute("SELECT DISTINCT reasoning_summary FROM semantic_assessments").fetchall()
+    return (result.audit_id, audit, semantic, provider.session_snapshot())
+
 def _input(url: str = "https://example.com/produto", snapshot_id: str = "SNP-1") -> SemanticInput:
     return SemanticInput(
         snapshot_id=snapshot_id,
@@ -347,7 +354,7 @@ class M18ProviderTests(unittest.TestCase):
                     "SELECT provider,model,status,input_tokens,output_tokens,estimated_cost,pricing_version,pricing_context,pricing_rule_id,pricing_source_reference,pricing_runtime_conditions FROM ai_provider_attempts WHERE audit_id=? ORDER BY started_at",
                     (result.audit_id,),
                 ).fetchall()
-                self.assertEqual(len(attempts), 1, (result.audit_id, result.audit_root, provider.session_snapshot()))
+                self.assertEqual(len(attempts), 1, _audit_diagnostics(result, provider))
                 self.assertTrue(all(row["provider"] == "OPENAI" for row in attempts))
                 self.assertTrue(all(row["model"] == "gpt-5.6-terra" for row in attempts))
                 self.assertTrue(all(row["status"] == "SUCCESS" for row in attempts))
@@ -423,7 +430,7 @@ class M18ProviderTests(unittest.TestCase):
             finally:
                 connection.close()
             self.assertEqual(devices, {"MOBILE"})
-            self.assertEqual(len(attempts), 1, (result.audit_id, result.audit_root, provider.session_snapshot()))
+            self.assertEqual(len(attempts), 1, _audit_diagnostics(result, provider))
             self.assertEqual({row[0] for row in attempts}, {"MOBILE"})
             self.assertFalse((result.audit_root / "report").exists())
             from rasai.catalog_report_site import materialize_catalog_report_site
