@@ -87,7 +87,16 @@ def test_network_probes_enter_sealed_offline_catalog_without_changing_aud(tmp_pa
     expected_logical = manifest["audit_snapshot"]["source_logical_sha256"]
     current_logical = _sqlite_logical_digest(workspace.database)
     assert current_logical == expected_logical, (current_logical, expected_logical)
-    assert catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace)
+    assert catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace), {
+        "report": str(report),
+        "default_report": str(workspace.root / manifest["catalog_report_dir"]),
+        "audit_id": manifest["audit_id"],
+        "freshness": manifest["freshness"],
+        "source_fingerprint_present": bool(manifest.get("source_fingerprint")),
+        "logical_ok": current_logical == expected_logical,
+        "dependencies_ok": dependencies_ok,
+        "package_ok": valid,
+    }
     assert (workspace.root / "audit.db").read_bytes() == before
 
     _write_verified_packet(workspace, "sample-two")
