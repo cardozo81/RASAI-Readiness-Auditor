@@ -2,7 +2,7 @@
 
 ## Estado do produto
 
-O RASAi possui release pública final `v0.8.0`. A documentação normativa descreve o contrato vigente da linha atual e deve distinguir explicitamente a baseline publicada, a evolução pós-release, registros históricos, protótipos e backlog futuro.
+O RASAi possui release pública final `v0.8.0`. A branch `release/prepare-v0.9.0` identifica o pacote candidato `0.9.0`, ainda não publicado. A documentação normativa descreve o contrato vigente da linha atual e deve distinguir explicitamente a baseline publicada, a evolução pós-release, registros históricos, protótipos e backlog futuro.
 
 O contrato funcional vigente usa:
 
@@ -178,4 +178,4 @@ As referências abaixo sustentam domínios específicos; nenhuma delas homologa 
 Consulte também as páginas de governança de `report-catalog/`, especialmente metodologia, evidências da execução e IA/integrações; elas materializam a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
 ## Preparação da candidata não publicada
 
-A versão pública continua `v0.8.0`. Consultar [notas da candidata](RELEASE_NOTES_DRAFT.md), [matriz de gates](RELEASE_GATE_MATRIX.md) e [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md) para o preparo da candidata `v0.9.0`. Esses registros não autorizam publicação nem alteram o contrato de auditorias históricas.
+A release pública continua `v0.8.0`; a versão do código na branch exclusiva de preparo é `0.9.0`. Consultar [notas da candidata](RELEASE_NOTES_DRAFT.md), [matriz de gates](RELEASE_GATE_MATRIX.md), [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md) e [checklist de publicação](RELEASE_PUBLICATION_CHECKLIST.md) para o preparo da candidata `v0.9.0`. Esses registros não autorizam publicação nem alteram o contrato de auditorias históricas.
