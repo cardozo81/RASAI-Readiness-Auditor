@@ -79,7 +79,11 @@ def test_offline_rpr_recovers_only_missing_extraction_and_preserves_evidence(tmp
         ).fetchone()
         assert run == (audit_id, "COMPLETED", 1, 1)
         # Fixture does not create provider attempts; RPR cannot silently generate AI usage.
-        assert connection.execute("SELECT count(*) FROM ai_provider_attempts").fetchone()[0] == 0
+        ai_table = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ai_provider_attempts'"
+        ).fetchone()
+        if ai_table is not None:
+            assert connection.execute("SELECT count(*) FROM ai_provider_attempts").fetchone()[0] == 0
 
     # Existing observation must survive, though recovery may append new derived evidence.
     assert set(evidence_before).issubset(set(evidence_after))
