@@ -194,3 +194,10 @@ Fonte inalterada: ZIP do artefato `rasai-catalog-report-smoke` (ID `12797263282`
 - Revisão dirigida de `README.md`, `docs/INSTALLATION.md`, `abrir-rasai-console.cmd`, `docs/ENVIRONMENT_VARIABLES.md` e `docs/OUTPUTS_AND_ARTIFACTS.md` verificou consistência básica de comandos, launcher, consentimento de rede e superfície persistida, sem execução real de instalação.
 - Comparação GitHub entre `v0.8.0` e a branch: 1.411 commits à frente; lista de arquivos retornada limitada a 300. **Changelog completo ainda não certificado**; não confundir histórico amplo com alterações exclusivas da PR #675.
 - O pacote de decisão e a matriz de instalação estão em [RELEASE_CANDIDATE_0_9_0.md](RELEASE_CANDIDATE_0_9_0.md). Documentação #674 permanece parcial até os gates remanescentes.
+
+## Aceite incremental — 29/10/2026 — RPR offline no Windows
+
+- Operador executou `python -m pytest -q tests/test_rpr_offline_acceptance.py` após a correção da fixture (`0ab431698b921c5dc276ec0fa5844d6bb8aed6b9`): **1 passed in 0.73s**. O teste cria workspace SQLite temporário, registra `RPR-*`, recupera extração determinística a partir de HTML persistido, preserva sucessos e evidência original e não realiza chamadas externas de IA. A verificação de ausência de tabela opcional de tentativas de IA é válida na fixture offline.
+- Navegação no Windows aprovada pelo operador nos cenários A (CONS > V), B (histórico CONS > V > V) e C (cancelar confirmação de nova auditoria). Na AUD histórica `AUD-741C986F3FDD413DAD0E168934CA0BA4`, seleção de duas pendências IA e prévia de modo/custo foram inspecionadas **sem iniciar reprocessamento**.
+- As duas consolidações físicas `CONS-20261029-071709-322` e `CONS-20261029-071944-660` apresentaram pacotes com hashes íntegros 5/5 e 7/7, respectivamente. Falta prova independente de imutabilidade histórica dos bancos AUD de origem.
+- **Não declarar GO:** o teste offline não substitui retomada real de AUD interrompida; integridade histórica, revisão semântica de HTML, reconciliação econômica, instalação limpa e aprovação humana permanecem gates separados. A CI deve ser reavaliada no HEAD final, pois qualquer commit documental altera o SHA.
