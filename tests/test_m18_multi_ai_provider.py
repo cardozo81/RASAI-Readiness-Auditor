@@ -145,7 +145,7 @@ class M18ProviderTests(unittest.TestCase):
         result = provider.analyze(_input())
         self.assertEqual(result.usage, ProviderUsage(100, 20, 50, 10, 150))
         attempts = provider.attempt_history()
-        self.assertEqual(len(attempts), 1, (result.audit_id, result.audit_root, provider.session_snapshot()))
+        self.assertEqual(len(attempts), 1, (result, provider.session_snapshot()))
         self.assertIsNotNone(attempts[0].estimated_cost)
         self.assertEqual(attempts[0].cost_currency, "USD")
         openai_conditions = {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL"}
