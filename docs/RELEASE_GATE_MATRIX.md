@@ -1,5 +1,15 @@
 # Matriz consolidada de gates da candidata
 
+> **REGISTRO HISTÓRICO PRÉ-PUBLICAÇÃO (29/10/2026):** a linha `NO-GO` e os estados da tabela abaixo descrevem o momento anterior à integração da PR #676 e ao lançamento. Não representam o status da release pública atual.
+
+## Encerramento pós-publicação verificado - 29/10/2026
+
+- [Release estável `v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0): publicada, `draft=false`, `prerelease=false`, `immutable=true` (ID `428194689`).
+- Tag anotada `v0.9.0` -> commit `5da8e6247094c20dcdbe770474ac31e7f93383b2`. Verificação `gh release verify v0.9.0` aprovada no ambiente do operador.
+- PR #676: 16/16 workflows e 18/18 jobs aprovados no HEAD de preparo, com 5.649 testes aprovados, 29 ignorados e 134 subtestes aprovados; instalação isolada Windows/Linux aprovada.
+- `main@5da8e6247094c20dcdbe770474ac31e7f93383b2`: 10/10 workflows de `push` aprovados. As ressalvas `PASS_WITH_LIMITATION` da homologação física da PR #675 permanecem nos limites documentados.
+- Decisão de publicação: **GO efetivado** mediante autorização expressa do operador. A `v0.8.0` é release histórica; a `v0.9.0` deixou de ser candidata não publicada.
+
 **Decisão: NO-GO para publicação da candidata.** A PR #675 foi integrada em `main@810cc076052df93f1d18c6807c18e63b225d9473`, sua branch excluída e a issue #674 encerrada. A release pública ainda é `v0.8.0`; o pacote na branch `release/prepare-v0.9.0` identifica `0.9.0` sem tag/publicação. Esta matriz reconcilia a operação iniciada em `02d2a7fb1a00abe907a5595602dbbab6bcae0603`, com atualização em 29/10/2026. Resultados de CI só valem para o SHA efetivamente executado; o HEAD desta candidata exige nova certificação.
 
 ## Estados

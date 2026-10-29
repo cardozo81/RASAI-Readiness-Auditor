@@ -58,7 +58,9 @@ Valores de versão usados como **dados históricos ou fixtures** em testes não 
 
 ## Rastreabilidade de publicação
 
-A preparação da candidata `v0.9.0` ocorre em `release/prepare-v0.9.0` após `main@810cc076052df93f1d18c6807c18e63b225d9473`. Os dois pontos canônicos de versão do pacote podem exibir `0.9.0` **antes** de existir uma tag pública. Essa alteração **não** representa publicação; a última release publicada permanece `v0.8.0` até existir GitHub Release verificável. Consultar [checklist de publicação](RELEASE_PUBLICATION_CHECKLIST.md).
+**Marco publicado em 29/10/2026:** [GitHub Release `v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0), `draft=false`, `prerelease=false`, `immutable=true`, com tag anotada resolvendo para `main@5da8e6247094c20dcdbe770474ac31e7f93383b2`. O operador confirmou `gh release verify v0.9.0` e os workflows pós-merge terminaram 10/10 em sucesso. A release pública anterior `v0.8.0` permanece preservada. As versões metodológicas `SARI-001` e `SCORE-GEO-005` não foram alteradas pelo lançamento.
+
+**Registro de preparação (histórico):** a candidata `v0.9.0` foi preparada na antiga branch `release/prepare-v0.9.0` sobre `main@810cc076052df93f1d18c6807c18e63b225d9473`. O bump isolado, naquele momento, ainda não representava publicação; consultar o [checklist histórico](RELEASE_PUBLICATION_CHECKLIST.md).
 
 Toda alteração de versão deve deixar rastreabilidade no GitHub por issue/PR ou outro registro equivalente, indicando:
 

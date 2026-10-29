@@ -2,7 +2,7 @@
 
 ## Estado do produto
 
-O RASAi possui release pública final `v0.8.0`. A branch `release/prepare-v0.9.0` identifica o pacote candidato `0.9.0`, ainda não publicado. A documentação normativa descreve o contrato vigente da linha atual e deve distinguir explicitamente a baseline publicada, a evolução pós-release, registros históricos, protótipos e backlog futuro.
+O RASAi possui release pública final `v0.9.0`, [publicada no GitHub](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) em 29/10/2026, com `immutable=true` e baseline publicada `5da8e6247094c20dcdbe770474ac31e7f93383b2`. A `v0.8.0` permanece como release histórica; a evolução pós-release, registros históricos, protótipos e backlog futuro não se confundem com a versão estável publicada. A documentação normativa descreve o contrato vigente da linha atual.
 
 O contrato funcional vigente usa:
 
@@ -176,6 +176,8 @@ As referências abaixo sustentam domínios específicos; nenhuma delas homologa 
 - proposta comunitária `llms.txt`: https://llmstxt.org/
 
 Consulte também as páginas de governança de `report-catalog/`, especialmente metodologia, evidências da execução e IA/integrações; elas materializam a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
-## Preparação da candidata não publicada
+## Release v0.9.0 publicada e histórico pré-release
 
-A release pública continua `v0.8.0`; a versão do código na branch exclusiva de preparo é `0.9.0`. Consultar [notas da candidata](RELEASE_NOTES_DRAFT.md), [matriz de gates](RELEASE_GATE_MATRIX.md), [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md) e [checklist de publicação](RELEASE_PUBLICATION_CHECKLIST.md) para o preparo da candidata `v0.9.0`. Esses registros não autorizam publicação nem alteram o contrato de auditorias históricas.
+A release pública estável é [`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0), publicada em 29/10/2026 sobre `5da8e6247094c20dcdbe770474ac31e7f93383b2`, com tag anotada e GitHub Release imutável verificados. O pacote declara `0.9.0`; `v0.8.0` permanece como marco histórico.
+
+As [notas preparatórias](RELEASE_NOTES_DRAFT.md), a [matriz de gates](RELEASE_GATE_MATRIX.md), o [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md) e o [checklist de publicação](RELEASE_PUBLICATION_CHECKLIST.md) são **registros históricos anteriores à publicação**. Não substituem a [página oficial da release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) nem alteram evidências históricas.

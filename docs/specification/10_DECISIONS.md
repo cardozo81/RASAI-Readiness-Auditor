@@ -10,13 +10,13 @@ Desktop e Mobile são contextos independentes. Scores, Coverage, Confidence e Co
 
 ## D-002 - Índice e scoring
 
-O índice público é o **Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001** e ID técnico `SARI-001`; o método vigente é o **Método de Pontuação de Prontidão**, versão pública **001** e contrato técnico `SCORE-GEO-004`.
+O índice público é o **Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001** e ID técnico `SARI-001`; o método vigente é o **Método de Pontuação de Prontidão**, versão pública **001** e contrato técnico `SCORE-GEO-005` (mantendo `SCORE-GEO-004` para replay histórico).
 
 O scoring é determinístico, evidence-bound e usa as **11 dimensões** definidas pelo contrato atual, incluindo `CONTENT_VALUE`. IA não escolhe pesos nem calcula unilateralmente o score. Coverage e Confidence não substituem Score.
 
 Dimensões integralmente e legitimamente `NOT_APPLICABLE` são excluídas do denominador aplicável e não recebem score artificial 0 ou 100. Ausência de evidência suficiente não é convertida em falha.
 
-JSON-LD permanece `OPCIONAL / REFORÇO`. O contrato distingue a observação persistida pela regra da interpretação efetiva do scoring: quando `BR-GEO-034` registra explicitamente que Structured Data está ausente, o `SCORE-GEO-004` aplica sua política versionada de aplicabilidade e trata essa execução como `NOT_APPLICABLE` para scoring, com `reason=STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT`, preservando o resultado-fonte no estado observado. `BR-GEO-035..037` também permanecem `NOT_APPLICABLE` quando não existe Structured Data a avaliar. Assim, ausência legítima de JSON-LD não reduz o SARI, não recebe score artificial e não é apresentada como requisito universal.
+JSON-LD permanece `OPCIONAL / REFORÇO`. O contrato distingue a observação persistida pela regra da interpretação efetiva do scoring: quando `BR-GEO-034` registra explicitamente que Structured Data está ausente, o `SCORE-GEO-005` aplica sua política versionada de aplicabilidade e trata essa execução como `NOT_APPLICABLE` para scoring, com `reason=STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT`, preservando o resultado-fonte no estado observado. `BR-GEO-035..037` também permanecem `NOT_APPLICABLE` quando não existe Structured Data a avaliar. Assim, ausência legítima de JSON-LD não reduz o SARI, não recebe score artificial e não é apresentada como requisito universal.
 
 Para rastreabilidade, a ausência de JSON-LD é materializada na observação persistida da regra quando efetivamente detectada; a camada de scoring então aplica a política de aplicabilidade descrita acima, sem transformar ausência legítima em penalidade.
 
@@ -183,7 +183,7 @@ O usage ledger é separado de findings/scoring e registra consumo operacional ne
 
 ## D-023 - Regra documental de contrato vigente
 
-O RASAi possui release pública `v0.5.0`. A documentação normativa descreve o contrato vigente da linha atual e deve separar claramente release publicada, evolução pós-release, histórico, protótipos, superfícies piloto/pré-produção e backlog futuro.
+O RASAi possui release pública estável [`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0), publicada em 29/10/2026 sobre `5da8e6247094c20dcdbe770474ac31e7f93383b2`; `v0.5.0` e `v0.8.0` são marcos históricos anteriores. A documentação normativa descreve o contrato vigente da linha atual e deve separar claramente release publicada, evolução pós-release, histórico, protótipos, superfícies piloto/pré-produção e backlog futuro.
 
 Não devem ser tratados como contrato do produto branch, PR, etapa de entrega, caminho removido, alias sem uso vigente ou decisão que não tenha efeito atual no runtime. Git é a fonte apropriada para rastreabilidade de implementação.
 

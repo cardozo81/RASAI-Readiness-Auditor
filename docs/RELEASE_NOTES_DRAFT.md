@@ -1,5 +1,7 @@
 # Notas de mudanças - candidata v0.9.0 não publicada
 
+> **REGISTRO HISTÓRICO PRÉ-PUBLICAÇÃO:** a [release `v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) foi publicada em 29/10/2026, `immutable=true`, sobre `5da8e6247094c20dcdbe770474ac31e7f93383b2`. As declarações `DRAFT`, `NO-GO`, branch de preparação e CI pendente abaixo descrevem decisões anteriores à publicação e são preservadas para rastreabilidade, não como status atual.
+
 A última release pública é `v0.8.0`, mas a branch exclusiva `release/prepare-v0.9.0` já identifica o pacote Python como `0.9.0`, ainda não publicado. Estas notas são um **rascunho de GitHub Release**, não uma divulgação; não autorizam merge da branch de preparação, criação de tag, release draft no GitHub ou publicação. A aprovação para a PR #675 foi específica daquele merge e não autoriza automaticamente este novo ciclo.
 
 ## Referência e abrangência
