@@ -46,7 +46,7 @@ def test_offline_rpr_recovers_only_missing_extraction_and_preserves_evidence(tmp
 
     with sqlite3.connect(workspace.database) as connection:
         evidence_before = tuple(connection.execute(
-            "SELECT evidence_id, observed_value FROM evidences ORDER BY evidence_id"
+            "SELECT evidence_id, observed_value FROM evidence ORDER BY evidence_id"
         ))
 
     # The production RPR run ledger and deterministic replay engine are used directly.
@@ -71,7 +71,7 @@ def test_offline_rpr_recovers_only_missing_extraction_and_preserves_evidence(tmp
     )
     with sqlite3.connect(workspace.database) as connection:
         evidence_after = tuple(connection.execute(
-            "SELECT evidence_id, observed_value FROM evidences ORDER BY evidence_id"
+            "SELECT evidence_id, observed_value FROM evidence ORDER BY evidence_id"
         ))
         run = connection.execute(
             "SELECT audit_id, status, attempted_items, successful_items FROM audit_reprocess_runs "
