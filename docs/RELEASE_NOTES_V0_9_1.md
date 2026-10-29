@@ -1,4 +1,4 @@
-# RASAi 0.9.1 — notas de distribuição
+# RASAi 0.9.1 - notas de distribuição
 
 **Natureza:** atualização PATCH compatível, aprovada para preparação após a publicação imutável de `v0.9.0`. A identidade pública `SARI-001` e os contratos metodológicos `SCORE-GEO-005` (vigente) / `SCORE-GEO-004` (histórico) permanecem inalterados.
 
