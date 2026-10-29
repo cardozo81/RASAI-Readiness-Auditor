@@ -122,7 +122,7 @@ def _workspace(tmp_path: Path):
         )
         connection.execute(
             "INSERT INTO audits VALUES (?,?,?,?,?,?,?)",
-            (AUDIT_ID, "Projeto catálogo", "SUCCESS", "COMPLETE", "2026-09-15T20:00:00Z", "2026-09-15T20:01:00Z", "2026-09-15T20:03:00Z"),
+            (AUDIT_ID, "Projeto catálogo", "COMPLETED", "COMPLETE", "2026-09-15T20:00:00Z", "2026-09-15T20:01:00Z", "2026-09-15T20:03:00Z"),
         )
         connection.execute(
             "INSERT INTO audit_execution_configurations VALUES (?,?,?)",
