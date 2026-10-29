@@ -7,7 +7,7 @@ O RASAi possui release pública final `v0.8.0`. A documentação normativa descr
 O contrato funcional vigente usa:
 
 - índice público `SARI-001`;
-- método de scoring `SCORE-GEO-004`;
+- método de scoring `SCORE-GEO-005` para novas auditorias, preservando a versão das evidências históricas;
 - `report-catalog/sari.html` como superfície canônica do índice;
 - `report-catalog/methodology.html` como superfície canônica da metodologia/scoring;
 - `report-catalog/index.html` como visão executiva;
@@ -176,3 +176,6 @@ As referências abaixo sustentam domínios específicos; nenhuma delas homologa 
 - proposta comunitária `llms.txt`: https://llmstxt.org/
 
 Consulte também as páginas de governança de `report-catalog/`, especialmente metodologia, evidências da execução e IA/integrações; elas materializam a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
+## Preparação da candidata não publicada
+
+A versão pública continua `v0.8.0`. Consultar [notas da candidata](RELEASE_NOTES_DRAFT.md), [matriz de gates](RELEASE_GATE_MATRIX.md) e [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md) para o preparo da candidata `v0.9.0`. Esses registros não autorizam publicação nem alteram o contrato de auditorias históricas.

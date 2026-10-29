@@ -1,0 +1,99 @@
+workflow	name	applicability	reason
+.github/workflows/a167-discovery-geo-focal.yml	A167 discovery GEO focal	NOT_APPLICABLE	Sem gatilho pull_request
+.github/workflows/ai-audit-boundary-targeted.yml	AI audit boundary 199 200 targeted	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/ai-canonical-orchestration-targeted.yml	AI Canonical Orchestration 190 Targeted	APPLICABLE	PR synchronize para main; exemplo: src/rasai/consolidation/specialist.py
+.github/workflows/ai-economic-telemetry-targeted.yml	AI Economic Telemetry 195 Targeted	APPLICABLE	PR synchronize para main; exemplo: .github/workflows/ai-economic-telemetry-targeted.yml
+.github/workflows/ai-native-usage-pricing-targeted.yml	AI native usage pricing targeted	APPLICABLE	PR synchronize para main; exemplo: tests/test_m18_multi_ai_provider.py
+.github/workflows/apdex-catalog-independence.yml	Apdex catalog independence	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/apdex-console-cancel.yml	Apdex console cancel transaction 381	APPLICABLE	PR synchronize para main; exemplo: src/rasai/console_ui_refactor.py
+.github/workflows/apdex-console-navigation.yml	Apdex console Navigation risk 380	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/architecture-preview-focal.yml	Architecture preview 657 phase A	NOT_APPLICABLE	Sem gatilho pull_request
+.github/workflows/aud-ai-completion-boundary.yml	Audit completion AI economics 319	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/aud-postseal-gate-targeted.yml	Initial AUD postseal AI gate 136 (isolated)	APPLICABLE	PR synchronize para main; exemplo: src/rasai/audit_runner.py
+.github/workflows/audit-local-integrity.yml	Console execution gate and local AUD integrity 374-375	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/audit-reprocessing-ci.yml	Audit Fulfillment and Reprocessing	APPLICABLE	PR synchronize para main; exemplo: docs/AUDIT_REPROCESSING.md
+.github/workflows/audit-stage-scope-targeted.yml	Audit stage scope 319 targeted	APPLICABLE	PR synchronize para main; exemplo: src/rasai/catalog_report_site.py
+.github/workflows/canonical-capture-regressions.yml	Canonical extraction and HTTP interpretation regressions	NOT_APPLICABLE	Sem gatilho pull_request
+.github/workflows/cat03-jsonld-inline.yml	CAT-03 Inline JSON-LD Evidence	NOT_APPLICABLE	Sem gatilho pull_request
+.github/workflows/cat03-semantic-summary.yml	CAT-03 semantic provenance summary	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/cat05-serp-active-targeted.yml	CAT-05 active SERP provenance 129 (isolated)	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/cat06-browser-labels.yml	CAT-06 typed browser diagnostics (#109)	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/cat07-architecture-guidance.yml	CAT-07 architecture guidance 358 isolated	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/cat07-perplexity-ux.yml	CAT07 report labels and Perplexity intent UX 318-378	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/cat08-no-ai-assurance-targeted.yml	CAT-08 no-AI assurance 133 (isolated)	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/catalog-deselect.yml	Catalog deselect dependency	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/claim-review-focused.yml	Claim review	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/cli-final-fulfillment-targeted.yml	CLI final fulfillment status 245 targeted	APPLICABLE	PR synchronize para main; exemplo: src/rasai/cli.py
+.github/workflows/cons-domain-comparative.yml	CONS same-domain advisory 210 isolated	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/cons-domain-package.yml	CONS domain CDOM package 210	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/cons-domain-preflight.yml	CONS 210 same-domain preflight (offline)	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/console-configuration-controls-targeted.yml	Console configuration controls targeted	APPLICABLE	PR synchronize para main; exemplo: src/rasai/console_ui_refactor.py
+.github/workflows/console-final-authorization.yml	Console final authorization 374	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/console-integration-diagnostics-targeted.yml	Console Integration Diagnostics Targeted	NOT_APPLICABLE	Sem gatilho pull_request
+.github/workflows/console-usage-separation.yml	Console generative vs Search usage 319	APPLICABLE	PR synchronize para main; exemplo: docs/CONSOLE_COST_AND_USAGE.md
+.github/workflows/console-windows-navigation.yml	Windows Console Navigation	APPLICABLE	PR synchronize para main; exemplo: src/rasai/console_ui_refactor.py
+.github/workflows/consolidated-reporting-ci.yml	Consolidated reporting safety	APPLICABLE	PR synchronize para main; exemplo: README.md
+.github/workflows/content-readiness-probe-targeted.yml	Content Readiness Probe 322 Targeted	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/content-readiness-provenance.yml	Content readiness provenance contract 322	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/cost-report-integrity.yml	Cost/report post-run integrity	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/directed-analysis-targeted.yml	Directed Analysis Targeted	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/directed-roadmap-ux.yml	Directed Roadmap UX focused	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/duration-forecast-targeted.yml	Historical Duration Preview 319 Targeted	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/dynatrace-apdex-advisory-targeted.yml	Dynatrace Apdex architecture advisory 355 (isolated)	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/dynatrace-crosscheck.yml	Dynatrace offline settings USQL crosscheck 355	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/dynatrace-live-crosscheck.yml	Dynatrace live dual API crosscheck 355	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/dynatrace-rum-usql.yml	Dynatrace RUM USQL 355 aggregates	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/external-observability-finalizer-targeted.yml	External observability pre-seal ownership 138 (targeted)	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/full-regression.yml	Full RASAi Regression	APPLICABLE	PR synchronize para main; exemplo: .github/workflows/full-regression.yml
+.github/workflows/geo-aud710-focal.yml	GEO AUD710 contract (offline)	NOT_APPLICABLE	Sem gatilho pull_request
+.github/workflows/geo-cat-crossref.yml	GEO CAT crossref current snapshot only (308 309)	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/geo-competitor-cobs.yml	GEO competitor sidecar provenance 330	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/geo-competitor-content.yml	GEO competitor content 330 offline	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/geo-competitor-robots.yml	GEO competitor robots opt-in 330	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/geo-cons-package.yml	GEO CONS versioned companion 311	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/geo-hardening-targeted.yml	GEO focused hardening 308-309-306-304	APPLICABLE	PR synchronize para main; exemplo: src/rasai/catalog_report_site.py
+.github/workflows/geo-longitudinal-targeted.yml	GEO Longitudinal 311 Read-Only	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/geo-query-ledger.yml	GEO per-query ledger 304	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/geo-read-only-inspection-targeted.yml	GEO Supplement and AUD Attempt Inspection	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/interrupted-stage-restart-targeted.yml	Interrupted stage restart 127 (targeted)	APPLICABLE	PR synchronize para main; exemplo: docs/AUDIT_REPROCESSING.md
+.github/workflows/m23-interruption-targeted.yml	M23 interrupted AUD/RPR checkpoints - targeted	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/m24-crawling-discovery-ci.yml	M24 crawling discovery safety	APPLICABLE	PR synchronize para main; exemplo: README.md
+.github/workflows/m25-validation.yml	M25 calibrated synthetic UX validation	APPLICABLE	PR synchronize para main; exemplo: src/rasai/m25_experimental_probe_runtime.py
+.github/workflows/m26-observed-visibility-ci.yml	M26 observed generative visibility safety	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/m3-content-materiality-focused.yml	M3 content materiality focused	NOT_APPLICABLE	Sem gatilho pull_request
+.github/workflows/mistral-provider-targeted.yml	AI provider extensions targeted	APPLICABLE	PR synchronize para main; exemplo: tests/test_m18_multi_ai_provider.py
+.github/workflows/monitoring-observability-ci.yml	RASAi monitoring and observability safety	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/network-discovery-focused.yml	Network discovery and external-history focused validation	NOT_APPLICABLE	Sem gatilho pull_request
+.github/workflows/network-g1-focused.yml	Network G1 focused validation	APPLICABLE	PR synchronize para main; exemplo: src/rasai/catalog_report_site.py
+.github/workflows/network-geoip-focused.yml	Network GeoIP Focused	APPLICABLE	PR synchronize para main; exemplo: .github/workflows/network-geoip-focused.yml
+.github/workflows/passive-security-targeted.yml	Passive Security Targeted	APPLICABLE	PR synchronize para main; exemplo: src/rasai/catalog_report_site.py
+.github/workflows/perplexity-search-intelligence-targeted.yml	Perplexity Search Intelligence targeted	APPLICABLE	PR synchronize para main; exemplo: docs/README.md
+.github/workflows/portable-sqlite-safety.yml	Portable SQLite Safety	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/postgresql-control-plane-ci.yml	PostgreSQL control-plane validation	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/product-platform-ci.yml	Product platform architecture	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/public-contract-consistency.yml	Public Contract Consistency	APPLICABLE	PR synchronize para main; sem filtro de caminho
+.github/workflows/public-language-targeted.yml	Public language gaps 120 - targeted	APPLICABLE	PR synchronize para main; exemplo: src/rasai/public_language.py
+.github/workflows/public-language.yml	Public UX language 377 isolated	APPLICABLE	PR synchronize para main; exemplo: docs/CONSOLE_COST_AND_USAGE.md
+.github/workflows/readiness-physical-browser-pilot.yml	Primary content readiness physical browser pilot 322	APPLICABLE	PR synchronize para main; exemplo: src/rasai/m25_experimental_probe_runtime.py
+.github/workflows/release-compatibility-smoke.yml	Release compatibility offline smoke	APPLICABLE	PR synchronize para main; exemplo: .github/workflows/release-compatibility-smoke.yml
+.github/workflows/render-failure-diagnostics-targeted.yml	Causal render failure diagnostics - targeted	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/rendered-extraction-targeted.yml	RPR rendered-source extraction upgrade - targeted	APPLICABLE	PR synchronize para main; exemplo: src/rasai/public_language.py
+.github/workflows/report-catalog-output-targeted.yml	Report Catalog Output Targeted	NOT_APPLICABLE	Sem gatilho pull_request
+.github/workflows/report-catalog-targeted.yml	Report Catalog Targeted	APPLICABLE	PR synchronize para main; exemplo: src/rasai/catalog_report_site.py
+.github/workflows/report-catalog-visual-smoke.yml	Report catalog offline visual smoke	APPLICABLE	PR synchronize para main; exemplo: .github/workflows/report-catalog-visual-smoke.yml
+.github/workflows/report-humanization-semantic-serp.yml	CAT-03 and CAT-05 humanization	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/report-humanization-targeted.yml	Humanização contextual de relatórios - testes pontuais	APPLICABLE	PR synchronize para main; exemplo: src/rasai/public_language.py
+.github/workflows/report-rematerialization-targeted.yml	Read-only Report Rematerialization	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/report-residual-typed.yml	Residual typed public fields	APPLICABLE	PR synchronize para main; exemplo: src/rasai/ai_dependency_reporting.py
+.github/workflows/report-section-ux.yml	CAT report section UX 328 targeted	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/reprocess-accounting-targeted.yml	RPR contadores e fechamento - testes isolados	APPLICABLE	PR synchronize para main; exemplo: .github/workflows/reprocess-accounting-targeted.yml
+.github/workflows/reprocess-dependencies-targeted.yml	Reprocess Dependencies Targeted	NOT_APPLICABLE	Sem gatilho pull_request
+.github/workflows/score-geo-validation.yml	SCORE-GEO-005 validation	APPLICABLE	PR synchronize para main; sem filtro de caminho
+.github/workflows/search-aud-diagnostic-targeted.yml	Initial AUD Search diagnostic 132 (isolated)	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/secret-safety.yml	Secret and Configuration Safety	APPLICABLE	PR synchronize para main; sem filtro de caminho
+.github/workflows/serp-provider-cache-targeted.yml	SERP provider cache and provenance 129 - targeted	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/shared-collection-ai-gate-targeted.yml	Shared collection/AI closure - targeted	APPLICABLE	PR synchronize para main; exemplo: src/rasai/audit_runner.py
+.github/workflows/source-quality-safety.yml	Source quality safety	APPLICABLE	PR synchronize para main; exemplo: src/rasai/audit_runner.py
+.github/workflows/synthetic-acquisition-homologation.yml	Synthetic acquisition homologation	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros
+.github/workflows/target-scope-focal.yml	Target scope reconciliation	NOT_APPLICABLE	Sem gatilho pull_request
+.github/workflows/web-api-foundation.yml	Web API and execution foundation	NOT_APPLICABLE	Nenhum caminho do diff satisfaz os filtros

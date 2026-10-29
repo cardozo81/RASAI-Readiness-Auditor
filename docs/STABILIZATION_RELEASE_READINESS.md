@@ -1,10 +1,10 @@
 # Estabilização CONS/RPR/relatórios - matriz inicial de evidências
 
-> Registro incremental da branch única. Não equivale a aceite de release.
+> Registro histórico incremental da branch única. Não equivale a aceite de release. A situação vigente está em [RELEASE_GATE_MATRIX.md](RELEASE_GATE_MATRIX.md); preservar os SHAs e resultados históricos abaixo.
 
 - Baseline: `main@06dd1bfaafc981eb238e893ec1b37007c1948b27` (27/10/2026).
 - Release publicada: `v0.8.0`; candidato `v0.9.0` ainda não decidido.
-- Branch: `stabilization/cons-rpr-reports-release-readiness`; PR Draft obrigatória.
+- Branch: `stabilization/cons-rpr-reports-release-readiness`; PR #675 aberta e pronta para revisão humana, sem autorização de merge.
 - Issue documental incremental: #674. #650 exclusivamente pós-v1.0.0.
 - Restrições: offline/mocks, sem APIs pagas, sem sondagem externa, sem merge/tag/publicação sem aceite humano.
 

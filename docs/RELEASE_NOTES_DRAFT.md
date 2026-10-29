@@ -1,45 +1,44 @@
-# Notas de mudanças verificadas - candidata à próxima release
+# Notas de mudanças - candidata v0.9.0 não publicada
 
-**Situação:** rascunho de release, não publicado. Versão pública corrente: `v0.8.0`. Versão candidata avaliada: `v0.9.0`. A abrangência deste documento é o diff da PR #675, não todo o histórico desde a versão pública.
+A versão pública e a versão no código continuam `0.8.0`. Estas notas reconciliam a evolução acumulada desde a tag `v0.8.0`, não apenas a PR #675. Não autorizam merge, bump, tag ou publicação.
 
-## Funcionalidade e confiabilidade
+## Referência e abrangência
 
-### Consolidação longitudinal
+Comparação local completa entre `v0.8.0` (`4e9a3026ec0bbf6f46a4f30f3659fc2ab5a02a08`) e a baseline desta operação `02d2a7fb1a00abe907a5595602dbbab6bcae0603`: **1.495 commits alcançáveis, 503 na cadeia de primeiro pai, 822 entradas de diff com detecção de renomes, 112.484 inserções e 1.748 exclusões**. Contagens de commits não equivalem a número de funcionalidades.
 
-- Regressões de integridade dos pacotes de consolidação, incluindo hashes de artefatos obrigatórios.
-- Regressões de seleção das auditorias fonte e prevenção de reutilização de pacotes adulterados.
-- Cobertura de pacotes com análises opcionais de IA simulada, incluindo evidência e registro de trocas.
+O [inventário completo](RELEASE_CHANGE_INVENTORY.tsv) contém 289 entradas de runtime, 321 de testes, 108 documentais, 90 de CI e 14 operacionais. Foi obtido por `git diff --name-status --find-renames` entre os SHAs acima, sem o limite de 300 arquivos da API. Os renomes são contabilizados como uma entrada. Este inventário é mecânico; as notas abaixo agrupam os efeitos para o produto e não afirmam homologação física de cada capacidade. Mudanças posteriores desta operação ficam registradas separadamente na PR e na issue #674.
 
-### Reprocessamento seletivo
+## Recursos e comportamento público
 
-- Regressões de idempotência para sucessos semânticos já concluídos.
-- Cobertura do fechamento de dependências sem reexecutar trabalho válido.
-- Segregação de contadores e tentativas por reprocessamento, preservando a identidade da auditoria original.
+- **Consolidação e reprocessamento:** comparações consultivas de fontes do mesmo domínio, pacotes separados com proveniência e verificação de integridade; recuperação seletiva de conteúdo persistido, preservação de sucessos e contadores por tentativa. Os limites de comparabilidade e a elegibilidade das fontes continuam obrigatórios. Referências: [consolidação](CONSOLIDATED_REPORTING.md), [validação](CONSOLIDATED_REPORTING_VALIDATION.md), [reprocessamento](AUDIT_REPROCESSING.md).
+- **Busca e evidência GEO:** inventários por consulta, identidade exata de URL, proveniência temporal, comparação de conteúdo concorrente e pacotes consultivos independentes. Captura opcional continua sujeita a consentimento, escopo e controles de rede. Não representa aprovação integral dos roadmaps ainda abertos. Referências: [consultas](GEO_QUERY_LEDGER.md), [conteúdo concorrente](GEO_COMPETITOR_CONTENT_PROVENANCE.md), [comparação longitudinal](GEO_LONGITUDINAL.md).
+- **Arquitetura e conteúdo observado:** prévia arquitetural, observações limitadas de navegador e recursos, captura isolada, recuperação de conteúdo renderizado e distinção entre hipótese e evidência. FAQ e revisão documental exigem proveniência específica; ausência de observação não prova ausência de conteúdo. Referências: [arquitetura](ARCHITECTURE_DISCOVERY_ACCEPTANCE.md), [FAQ](FAQ_DOM_TRANSITION.md), [alegações](CLAIM_VERIFICATION.md).
+- **Rede e GeoIP:** catálogo e diagnóstico de rede com proveniência, IP público observado quando disponível e GeoIP local opcional. Coordenadas ou caminho indisponíveis não são inventados; sondagens ativas exigem autorização. Referência: [aceite de rede](NETWORK_GEOIP_ACCEPTANCE.md).
+- **Relatórios e experiência:** navegação canônica, painéis com escopo e cobertura explícitos, linguagem pt-BR, recomendações vinculadas a evidências e layouts responsivos. SARI, Apdex, Lighthouse e CrUX mantêm distinções de método e população; confiança de IA não é cobertura de controles. Referências: [guia](REPORT_GUIDE.md), [apresentação](REPORT_PRESENTATION.md), [SARI](SARI_READINESS_INDEX.md).
+- **Economia e operação:** separação entre consumo generativo e Search, custo atribuído e forecast, operação principal e atividades opcionais; projeções de duração com coortes comparáveis e sem atribuir timers agregados a uma etapa exclusiva. Referências: [custos](CONSOLE_COST_AND_USAGE.md), [preços](AI_PRICING_CONFIGURATION.md), [previsão](PRE_EXECUTION_COST_FORECAST.md).
+- **Console e configuração:** restauração tipada de configurações, prévias de escopo e custo, consentimento final explícito e cancelamento/retorno sem persistência acidental. Credenciais não são configuração pública; habilitação de biblioteca não equivale a consentimento de execução. Referências: [configuração](CONSOLE_CONFIG_PERSISTENCE.md), [instalação](INSTALLATION.md).
 
-### Consumo de IA e relatórios
+## Correções e estabilização da PR #675
 
-- Validações de apresentação de tentativas, durações observadas e custo, sem atribuir duração total indevida a uma etapa.
-- Regressões para dados econômicos incompletos e divergências de previsão que não comprovam falha de cálculo por si só.
-- Ajustes de linguagem pública para ocultar códigos internos na documentação funcional e nas descrições de consumo do console.
-- Smoke offline de relatórios do catálogo, com ressalvas visuais documentadas.
+- Contexto semântico determinístico materializado antes do selo de evidências, preservando bloqueio por divergência.
+- Comparação da identidade física de página/contexto através de adaptadores próprios, comprovada pelos testes com Chromium real.
+- Freshness do catálogo baseada no conteúdo lógico SQLite e nas dependências seladas; fixture usa o estado canônico de conclusão.
+- Retries de consolidação distinguem repetição transitória de fallback e preservam quarentena de providers terminais.
+- Relatórios e console preservam evidência bruta enquanto apresentam rótulos funcionais, estados finais e dependências legíveis.
+- Testes restauram os catálogos globais de configuração, evitando contaminação entre cenários.
+- Retorno de CONS e cancelamento não abrem persistência indevida de configuração. Recuperação RPR offline usa workspace temporário e schema real.
+- Gate GeoIP não depende mais de testes não relacionados falharem na branch principal. Contratos documentais permanecem estritos; travessões proibidos foram corrigidos sem alterar testes.
 
-## Qualidade, testes e documentação
+## Compatibilidade, segurança e operação
 
-- Três workflows direcionados adicionados ou ajustados para regressões econômicas, contabilidade do reprocessamento e apresentação visual.
-- Contratos e guias atualizados para consolidação, reprocessamento, custo de IA, nomenclatura pública e preparação da release.
-- Matriz central de gates e limites das evidências em [RELEASE_GATE_MATRIX.md](RELEASE_GATE_MATRIX.md).
+Python continua restrito a `>=3.13,<3.14`. Os extras `attestation` e `geoip` foram adicionados desde a tag pública; o launcher descobre extras declarados. Configurações, bancos e relatórios históricos devem ser preservados antes de qualquer atualização autorizada. Reabrir artefatos novos com versão anterior exige evidência de compatibilidade; o smoke de troca de runtime não certifica downgrade de dados.
 
-## Compatibilidade e comportamento esperado
+Os controles de origem, hashes, tamanho, JSON estrito, identidade de URL, consentimento e segredo foram reforçados nas superfícies afetadas. Isso não constitui certificação universal de segurança nem autorização para providers tarifados. Nenhum motor de scoring foi modificado nesta operação de encerramento.
 
-A candidata não foi publicada e o código permanece na versão `0.8.0`. Os testes não autorizam reescrever evidências históricas, alterar scoring ou tratar relatórios HTML como fonte primária. Instalação limpa e rollback operacional continuam pendentes de comprovação. A atualização deve seguir [INSTALLATION.md](INSTALLATION.md) após autorização de integração.
+## Documentação e qualidade
 
-## Ressalvas e condições antes de publicar
+Guias de instalação, rede, custos, reprocessamento, consolidação e apresentação foram reconciliados com o inventário completo. A regressão integral utiliza Python 3.13 e Chromium; a certificação sempre pertence ao SHA exato. O [smoke de compatibilidade](../scripts/RELEASE_COMPATIBILITY_SMOKE.ps1) produz logs, hashes e resultados em ambiente isolado Windows/Linux. Os testes sintéticos não substituem auditorias físicas.
 
-- Homologação de consolidação e reprocessamento com auditorias físicas, incluindo integridade das fontes.
-- Conciliação do caso histórico de custos com ledger e previsão disponíveis.
-- Conferência de conteúdo e aparência de relatórios de auditorias reais, inclusive impressão.
-- Instalação limpa, leitura de evidências antigas e rollback não destrutivo.
-- Changelog público completo da tag `v0.8.0` até o SHA final: **ainda não certificado**. O histórico acumulado contém muitas mudanças fora da PR e não pode ser sintetizado de modo confiável apenas pelo recorte de arquivos da PR.
-- Aprovação expressa da PR, merge, tag e release.
+## Ressalvas para publicação
 
-**GO/NO-GO:** NO-GO para publicação. A aprovação de workflows automatizados não substitui os critérios físicos nem a autorização humana.
+Permanecem separados: integridade histórica dos bancos fonte de CONS, paridade SQLite/HTML física, recuperação de AUD realmente interrompida, reconciliação causal da AUD econômica, avaliação da impressão CAT-07 e aceite operacional humano. A [matriz vigente](RELEASE_GATE_MATRIX.md) registra evidência e próxima ação. **NO-GO para publicação** até satisfação ou dispensa formal dos gates obrigatórios e autorização expressa. O conteúdo final de uma release futura deve ser novamente confrontado com seu SHA de publicação.

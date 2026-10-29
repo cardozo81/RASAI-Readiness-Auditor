@@ -387,7 +387,7 @@ RASAi fornece auditoria técnica/semântica, evidência, heurísticas proprietá
 <!-- rasai-doc-index-20260908 -->
 ## Contrato da documentação
 
-A documentação está organizada em [`docs/README.md`](docs/README.md). A release pública atual é `v0.8.0`, e o desenvolvimento contínuo ocorre na linha pós-release; o **Método de Pontuação de Prontidão**, versão pública **001**, permanece como a metodologia vigente; `SCORE-GEO-004` permanece como contrato técnico.
+A documentação está organizada em [`docs/README.md`](docs/README.md). A release pública atual é `v0.8.0`, e o desenvolvimento contínuo ocorre na linha pós-release; o **Método de Pontuação de Prontidão**, versão pública **001**, permanece como a metodologia vigente; `SCORE-GEO-005` é o contrato técnico vigente para novas auditorias. Auditorias históricas preservam sua versão de scoring.
 
 
 ### Network Intelligence consultiva

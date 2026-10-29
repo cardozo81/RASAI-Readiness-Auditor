@@ -12,7 +12,7 @@
 
 Esses itens descrevem a estabilização em desenvolvimento na PR #675, não todas as alterações publicadas desde v0.8.0. Antes de divulgar o changelog, reconciliar o diff completo entre a tag v0.8.0 e o commit final de publicação.
 
-## Evidências e critérios
+## Evidências históricas e critérios
 
 - Baseline de CI verificada: `c26b75fdbb709a87406471002754b9256603e49e`; 14/14 workflows de PR concluídos com sucesso em 28/10/2026.
 - Detalhes e links dos workflows, ressalvas e matriz de aceite: [STABILIZATION_RELEASE_READINESS.md](STABILIZATION_RELEASE_READINESS.md).
@@ -26,7 +26,7 @@ Esses itens descrevem a estabilização em desenvolvimento na PR #675, não toda
 
 Nenhum bump de versão está autorizado neste estágio; `pyproject.toml` e `src/rasai/__init__.py` permanecem em `0.8.0`. Conservar schemas, contratos de scoring, APDEX, SARI, identidades AUD/RPR/CONS e leitura de evidências históricas. Configuração operacional de preços deve permanecer em `config/ai-pricing.toml`; não alterar dados históricos ou promover preços estimados a custos faturados. Consultar [AI_PRICING_CONFIGURATION.md](AI_PRICING_CONFIGURATION.md) e [AUDIT_REPROCESSING.md](AUDIT_REPROCESSING.md).
 
-## Checklist pré-publicação
+## Checklist pré-publicação registrado antes do fechamento autônomo
 
 | Gate | Estado atual | Aceite exigido |
 | --- | --- | --- |
@@ -49,9 +49,9 @@ Nenhum bump de versão está autorizado neste estágio; `pyproject.toml` e `src/
 
 ## Decisão técnica
 
-**NO-GO para publicação agora.** A baseline de testes é verde, mas a issue #674, os gates físicos e a aprovação humana não estão encerrados. A candidata `v0.9.0` é uma proposta SemVer plausível para incremento pré-1.0, não uma decisão de publicação. Manter PR #675 em Draft; não criar tag, release, merge ou excluir branch.
+**NO-GO para publicação agora.** A baseline de testes é verde, mas a issue #674, os gates físicos e a aprovação humana não estão encerrados. A candidata `v0.9.0` é uma proposta SemVer plausível para incremento pré-1.0, não uma decisão de publicação. PR #675 aberta e pronta para revisão humana; esse estado não autoriza publicação; não criar tag, release, merge ou excluir branch.
 
-## Reconciliação do histórico da versão - limite factual
+## Consulta histórica da versão - limite da API
 
 Comparação GitHub `v0.8.0...stabilization/cons-rpr-reports-release-readiness` em 28/10/2026: **1.411 commits à frente**. A API de comparação retornou uma lista de **300 arquivos**, sujeita ao limite de paginação; portanto, ela não prova o inventário integral de arquivos modificados. **Não** utilizar a enumeração parcial como changelog completo, nem atribuir as 1.411 alterações exclusivamente à PR #675.
 
@@ -68,7 +68,7 @@ A candidata inclui um subconjunto de estabilização detalhado neste documento. 
 
 Os testes automatizados de documentação conferem links Markdown internos e contratos textuais cobertos pelo workflow `Public Contract Consistency`. Esta revisão **não** executou todos os links externos, nem uma instalação limpa Windows/Linux. Nenhum defeito funcional foi comprovado nesta inspeção.
 
-## Encerramento integrado de subgates e trilha de execução
+## Registro histórico de subgates e trilha de execução
 
 A [matriz consolidada de gates](RELEASE_GATE_MATRIX.md) é a fonte resumida de estados, evidências, limitações e próximos testes da candidata. A baseline inicial desta consolidação é `4b20e485eaa55b7e24348574c9f4831f8ff032c3` com 14/14 workflows de PR aprovados. Nenhuma nova execução deve ser presumida aprovada após atualização da branch.
 
@@ -83,3 +83,9 @@ As mudanças verificáveis e as limitações da PR #675 estão reunidas em [RELE
 ## Certificação final de testes
 
 A candidata exige a execução verde do workflow [Full RASAi Regression](../.github/workflows/full-regression.yml) no SHA final, além de todos os demais workflows aplicáveis. O workflow agora é elegível à PR de estabilização quando os arquivos cobertos forem alterados e continua podendo ser acionado manualmente. O acionamento não equivale a aprovação: conferir conclusão efetiva, testes executados e status de cada job. Consultar [RELEASE_GATE_MATRIX.md](RELEASE_GATE_MATRIX.md) para critérios de GO/NO-GO.
+
+## Estado operacional reconciliado em 29/10/2026
+
+A matriz vigente é [RELEASE_GATE_MATRIX.md](RELEASE_GATE_MATRIX.md). As contagens e SHAs acima são registros históricos, não certificação do HEAD atual. O inventário Git completo desde a tag pública substitui a limitação de 300 arquivos da consulta antiga; consultar [RELEASE_NOTES_DRAFT.md](RELEASE_NOTES_DRAFT.md) e [inventário](RELEASE_CHANGE_INVENTORY.tsv). Nenhum bump foi aplicado. Os aceites Windows A/B/C e RPR offline permanecem válidos; não repetir sem alteração funcional que os invalide.
+
+O [smoke isolado](../scripts/RELEASE_COMPATIBILITY_SMOKE.ps1) instala a candidata e a baseline em diretórios temporários distintos, verifica CLI, dependências, Chromium offline e contratos sintéticos. Ele não abre AUD histórica nem comprova downgrade de schema. A homologação operacional do computador do usuário e a autorização de publicação são gates distintos.
