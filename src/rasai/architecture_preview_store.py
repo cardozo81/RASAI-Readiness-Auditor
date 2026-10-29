@@ -235,6 +235,7 @@ def validate_preview_reference(value: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("INVALID_PREVIEW_REFERENCE")
     if (value["contract"] != REFERENCE_CONTRACT
             or value["status"] != "PRELIMINARY_UNVERIFIED"
+            or not isinstance(value["device"], str)
             or value["device"] not in {"MOBILE", "DESKTOP"}
             or not isinstance(value["preview_id"], str)
             or not _FILE.fullmatch(value["preview_id"] + ".json")):
@@ -243,7 +244,8 @@ def validate_preview_reference(value: Mapping[str, Any]) -> dict[str, Any]:
            not re.fullmatch(r"[0-9a-f]{64}", value[key])
            for key in ("scope_sha256", "record_sha256")):
         raise ValueError("INVALID_PREVIEW_REFERENCE")
-    if (value["preview_architecture"] not in
+    if (not isinstance(value["preview_architecture"], str)
+            or value["preview_architecture"] not in
             {"UNKNOWN", "CSR_SPA", "HYDRATED", "MIXED", "STATIC_OR_SSR"}
             or any(not isinstance(value[key], str) or
                    not _CODE.fullmatch(value[key])

@@ -53,6 +53,8 @@ def _architecture_runtime_state_label(value: Any) -> str:
 
 def _observed_status(value: Any) -> str:
     """Evidence state, not a claim of absence outside this bounded session."""
+    if not isinstance(value, str):
+        return "UNKNOWN"
     if value in {"CAPTURED", "OBSERVED_MAIN_DOCUMENT_RESPONSE", "OBSERVED"}:
         return "OBSERVED"
     if value in {"NO_OBSERVATIONS", "NO_SCRIPT_DATA", "NOT_OBSERVED"}:
@@ -155,7 +157,7 @@ def _network_facts(
         if type(status) is int and 100 <= status <= 599:
             rstatuses[str(status // 100) + "xx"] += 1
         protocol = item.get("protocol")
-        if isinstance(protocol, str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9._+-]{0,20}", protocol):
+        if isinstance(protocol, str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9._+/-]{0,20}", protocol):
             rprotocols[protocol] += 1
         if len(order) < 8:
             # CDP responseReceived insertion order, not initiation chronology

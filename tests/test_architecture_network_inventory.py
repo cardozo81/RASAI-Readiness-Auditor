@@ -117,3 +117,16 @@ def test_bounded_inventory_states_and_response_order_without_urls(tmp_path):
         observed = _network_facts(db, "AUD-X", "SN-X",
                                   {"network_resource_observations": {"state": state, "count": 0}})
         assert observed["response_observation_status"] == expected
+
+
+
+def test_untrusted_state_does_not_crash_projection(tmp_path):
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE dummy (x TEXT)")
+    facts = _network_facts(db, "A", "S", {
+        "script_runtime": {"state": ["CAPTURED"]},
+        "network_resource_observations": {"state": {"bogus": "OBSERVED"}},
+    })
+    assert facts["script_observation_status"] == "UNKNOWN"
+    assert facts["response_observation_status"] == "UNKNOWN"
