@@ -40,7 +40,7 @@ numericamente sem explicação metodológica. A política está registrada em
 
 O método produz um índice operacional que pode ser calculado, auditado e reproduzido em uma auditoria individual sem depender de corpus externo ou artifact de calibração.
 
-A nomenclatura humana e o propósito de `SARI-001`, `SCORE-GEO-004`, `BR-GEO-*`, `AUD-*`, `CONS-*` e demais IDs estão em [`GLOSSARY.md`](GLOSSARY.md). O segmento `GEO` dos IDs técnicos não define o escopo de negócio; **GEO - Generative Engine Optimization - Otimização para Mecanismos Generativos** só é expandido quando essa disciplina for o assunto explícito.
+A nomenclatura humana e o propósito de `SARI-001`, `SCORE-GEO-005` vigente, `SCORE-GEO-004` histórico, `BR-GEO-*`, `AUD-*`, `CONS-*` e demais IDs estão em [`GLOSSARY.md`](GLOSSARY.md). O segmento `GEO` dos IDs técnicos não define o escopo de negócio; **GEO - Generative Engine Optimization - Otimização para Mecanismos Generativos** só é expandido quando essa disciplina for o assunto explícito.
 
 O contrato separa:
 

@@ -1,7 +1,7 @@
 # Fluxos de execução
 
 **Estado:** vigente  
-**Scoring:** `SCORE-GEO-004`
+**Scoring vigente para novas AUDs:** `SCORE-GEO-005`
 
 ## 1. Fluxo principal da auditoria
 
@@ -16,11 +16,13 @@ Inicializar
 → Comparar Desktop × Mobile quando aplicável
 → Findings
 → Scores por dimensão
-→ Overall SCORE-GEO-004
+→ Overall SCORE-GEO-005
 → Prioridade / remediação
 → Site estático de relatório
 → Concluir
 ```
+
+Auditorias históricas com `SCORE-GEO-004` mantêm seus dados e notas no replay. O fluxograma mostra o contrato vigente para novas auditorias.
 
 Os princípios centrais são Evidence First, isolamento de falhas, escopo explícito de dispositivo, IA opcional e separação entre readiness, resultados observados, Web Performance, acessibilidade e Apdex.
 
@@ -52,7 +54,7 @@ O fluxo de scoring:
 - calcula contribuições determinísticas das dimensões;
 - calcula Score e Coverage por dimensão;
 - deriva Confidence e Consolidation;
-- calcula Overall segundo `SCORE-GEO-004`;
+- calcula Overall segundo `SCORE-GEO-005`;
 - valida a reprodutibilidade de BR-GEO-054.
 
 Contrato Overall:
