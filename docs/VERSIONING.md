@@ -38,7 +38,8 @@ Identificadores como os abaixo possuem ciclo próprio e **não** são alterados 
 
 ```text
 SARI-001
-SCORE-GEO-004
+SCORE-GEO-005  (contrato vigente para novas AUDs)
+SCORE-GEO-004  (replay histórico)
 HIERARCHICAL_WEIGHTED_READINESS_V1
 BR-GEO-*
 ```
@@ -56,6 +57,8 @@ Versões em `prototypes/**/package.json` pertencem aos protótipos privados e n�
 Valores de versão usados como **dados históricos ou fixtures** em testes não devem ser substituídos mecanicamente em um bump. Só os pontos canônicos do produto devem mudar, salvo quando um teste estiver explicitamente validando a versão vigente.
 
 ## Rastreabilidade de publicação
+
+A preparação da candidata `v0.9.0` ocorre em `release/prepare-v0.9.0` após `main@810cc076052df93f1d18c6807c18e63b225d9473`. Os dois pontos canônicos de versão do pacote podem exibir `0.9.0` **antes** de existir uma tag pública. Essa alteração **não** representa publicação; a última release publicada permanece `v0.8.0` até existir GitHub Release verificável. Consultar [checklist de publicação](RELEASE_PUBLICATION_CHECKLIST.md).
 
 Toda alteração de versão deve deixar rastreabilidade no GitHub por issue/PR ou outro registro equivalente, indicando:
 

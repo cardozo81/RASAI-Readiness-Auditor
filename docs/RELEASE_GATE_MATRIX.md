@@ -1,8 +1,10 @@
 # Matriz consolidada de gates da candidata
 
-**Decisão: NO-GO para publicação.** PR #675 aberta e pronta para revisão humana, branch exclusiva `stabilization/cons-rpr-reports-release-readiness`. Versão no código: `0.8.0`. Candidata `v0.9.0` não publicada. Esta matriz reconcilia a operação iniciada em `02d2a7fb1a00abe907a5595602dbbab6bcae0603`, em 29/10/2026. Resultados finais de CI, com SHA e run IDs, devem ser conferidos na PR e na issue #674 após o último commit; não é possível um documento conter o hash do próprio commit.
+**Decisão: NO-GO para publicação da candidata.** A PR #675 foi integrada em `main@810cc076052df93f1d18c6807c18e63b225d9473`, sua branch excluída e a issue #674 encerrada. A release pública ainda é `v0.8.0`; o pacote na branch `release/prepare-v0.9.0` identifica `0.9.0` sem tag/publicação. Esta matriz reconcilia a operação iniciada em `02d2a7fb1a00abe907a5595602dbbab6bcae0603`, com atualização em 29/10/2026. Resultados de CI só valem para o SHA efetivamente executado; o HEAD desta candidata exige nova certificação.
 
 ## Estados
+
+O histórico técnico da PR #675 foi aceito com limitações. Os estados `PASS_WITH_LIMITATION` documentam o universo realmente validado; não tornam automaticamente íntegra qualquer auditoria ou release futuro. O checklist canônico para o novo pacote está em [RELEASE_PUBLICATION_CHECKLIST.md](RELEASE_PUBLICATION_CHECKLIST.md).
 
 Usar somente `PASS`, `PASS_WITH_LIMITATION`, `PARTIAL`, `FAIL`, `BLOCKED` ou `NOT_VERIFIABLE`. O método e a limitação acompanham cada resultado. `PASS` automatizado não significa homologação física. Resultados históricos estão em [STABILIZATION_RELEASE_READINESS.md](STABILIZATION_RELEASE_READINESS.md).
 
@@ -12,8 +14,8 @@ Usar somente `PASS`, `PASS_WITH_LIMITATION`, `PARTIAL`, `FAIL`, `BLOCKED` ou `NO
 | --- | --- | --- | --- | --- |
 | CI-BASELINE | FAIL | HEAD inicial: 36 workflows, 34 success e 2 failure; full run 40860226266: 5.647 passed, 2 failed, 29 skipped, 134 subtests | Duas falhas documentais; correção de dois travessões em um título, sem relaxar contrato | Não |
 | DOC-CONTRACT | PASS | Correção 96d7dc00775fb4a55551f383148208d08d28fefc: 24 testes focais e gate público local aprovados | Revalidar no último SHA com Public Contract Consistency | Não |
-| CI-FINAL | PARTIAL | Baseline certificada no HEAD anterior `ff587677ac2b0c7a3e20372d0790886914b9b1b1`: 37/37 workflows e 46/46 checks; regressão 5.649 passed, 29 skipped e 134 subtests | Commit documental desta reconciliação exige conferir checks aplicáveis no novo HEAD; não atribuir os runs anteriores ao novo SHA | Não |
-| CHANGELOG | PASS_WITH_LIMITATION | [Notas por capacidades](RELEASE_NOTES_DRAFT.md) e inventário integral de 822 entradas, tag pública até baseline inicial | Reconciliação da candidata, não publicação; incluir commits desta operação e revisar qualquer alteração posterior | Revisão editorial final |
+| CI-FINAL | PARTIAL | No HEAD `b72ca79253327ea1d7a58f95be9a9d72591cb2f4` da PR #675: 37/37 workflows e 46/46 jobs success, 5.649 passed, 29 skipped, 134 subtests. Pós-merge `main@810cc076052df93f1d18c6807c18e63b225d9473`: 18/18 workflows de push success | A candidata `0.9.0` possui novo SHA; verificar todos os workflows de PR e regressão integral antes de promover a PASS no próprio HEAD | Não |
+| CHANGELOG | PARTIAL | [Notas](RELEASE_NOTES_DRAFT.md), [inventário de 822 caminhos](RELEASE_CHANGE_INVENTORY.tsv) na baseline 02d2a7 e [delta de 22 caminhos](RELEASE_CHANGE_DELTA_V0_9_0.tsv) até a main integrada | Os 22 caminhos do delta podem sobrepor-se aos 822; conferir a candidata final e revisar notas antes de publicar | Revisão editorial final |
 | CONS-AUTOMATED | PASS | Regressão local conjunta: 47 passed, 12 subtests, incluindo pacote CONS, RPR, economia e compatibilidade | Fixtures temporárias; confirmar também workflow CONS no SHA final | Não |
 | CONS-PHYSICAL | PASS_WITH_LIMITATION | Dois CONS: 12/12 artefatos íntegros; 14/14 hashes de bancos fonte e 14/14 SARI conferidos; 437/437 cópias estáveis no suplemento | Fontes são históricas e sem hash independente pré-consolidação; conjuntos 2 vs 12 AUDs não são experimento controlado de IA | Ressalvas aceitas pelo operador |
 | RPR-OFFLINE | PASS | Operador Windows: 1 passed in 0.73s; regressão local novamente aprovada | Workspace temporário real, sem provider; não equivale a retomada histórica | Aceite já obtido |
@@ -27,8 +29,8 @@ Usar somente `PASS`, `PASS_WITH_LIMITATION`, `PARTIAL`, `FAIL`, `BLOCKED` ou `NO
 | ROLLBACK-RUNTIME | PASS_WITH_LIMITATION | Dois runtimes isolados, candidata e tag pública fixa; hashes de arquivo sentinela sintético | Não é rollback de bancos nem prova de leitura histórica; workflow 40864404198 aprovado nos dois sistemas; revalidar no SHA final | Não |
 | HISTORICAL-COMPATIBILITY | PASS_WITH_LIMITATION | 14/14 bancos e snapshots com integrity_check OK e 0 violações FK; schemas iguais; 11/14 paridades de linhas completas; 3 diferenças de fulfillment/timestamps classificadas | Hashes independentes anteriores não existem neste pacote; preservação histórica não é certificada retroativamente; risco residual aceito | Ressalva aceita pelo operador |
 | SECURITY-NETWORK | PARTIAL | Workflows de segredos, rede/GeoIP e contratos aplicáveis ao SHA final | Não comprova rota física, licença GeoIP ou segurança universal; não habilitar chamadas tarifadas | Aceite operacional quando aplicável |
-| DOC-ISSUE | PARTIAL | Reconciliação editorial de SCORE-GEO-005 atual versus SCORE-GEO-004 histórico; documentação de CONS/RPR físicos, economia e CAT-07 na PR e issue #674 | Conferir CI documental e revisão final no HEAD efetivo; questão permanece aberta até decisão final | Revisão da PR |
-| RELEASE-AUTHORIZATION | BLOCKED | Sem autorização de merge, versão, tag ou release | Só operador pode autorizar após gates obrigatórios ou dispensas explícitas | Sim |
+| DOC-ISSUE | PASS | Documentação e matriz da PR #675 reconciliadas; issue #674 encerrada depois do merge; contratos SCORE-GEO-005 vigente e 004 histórico distinguidos | Este novo ciclo de preparação conserva documentação de release separada e exige revisão do changelog final | Revisão editorial da candidata |
+| RELEASE-AUTHORIZATION | BLOCKED | Autorização humana da PR #675 limitou-se ao merge; branch nova de preparação não integrada; sem tag `v0.9.0` ou GitHub Release | Primeiro revisão de CI/nota e autorização específica do merge da nova PR; em outro ato autorizar tag, release imutável e eventual distribuição | Sim |
 
 ## Arquivos físicos recebidos e preservação
 

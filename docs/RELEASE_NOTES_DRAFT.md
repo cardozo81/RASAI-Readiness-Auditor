@@ -1,12 +1,16 @@
 # Notas de mudanças - candidata v0.9.0 não publicada
 
-A versão pública e a versão no código continuam `0.8.0`. Estas notas reconciliam a evolução acumulada desde a tag `v0.8.0`, não apenas a PR #675. Não autorizam merge, bump, tag ou publicação.
+A última release pública é `v0.8.0`, mas a branch exclusiva `release/prepare-v0.9.0` já identifica o pacote Python como `0.9.0`, ainda não publicado. Estas notas são um **rascunho de GitHub Release**, não uma divulgação; não autorizam merge da branch de preparação, criação de tag, release draft no GitHub ou publicação. A aprovação para a PR #675 foi específica daquele merge e não autoriza automaticamente este novo ciclo.
 
 ## Referência e abrangência
+
+**Referência do ciclo de release:** tag imutável `v0.8.0` -> `4e9a3026ec0bbf6f46a4f30f3659fc2ab5a02a08`; `main` após a integração da PR #675 -> `810cc076052df93f1d18c6807c18e63b225d9473`. A comparação GitHub entre esses pontos registra **1.501 commits à frente, zero atrás**. O endpoint expõe somente 300 arquivos, portanto **não** é fonte do inventário integral. A versão `0.9.0` é aplicada somente na branch de preparação e ainda exige regressão integral no HEAD que for submetido à publicação.
 
 Comparação local completa entre `v0.8.0` (`4e9a3026ec0bbf6f46a4f30f3659fc2ab5a02a08`) e a baseline desta operação `02d2a7fb1a00abe907a5595602dbbab6bcae0603`: **1.495 commits alcançáveis, 503 na cadeia de primeiro pai, 822 entradas de diff com detecção de renomes, 112.484 inserções e 1.748 exclusões**. Contagens de commits não equivalem a número de funcionalidades.
 
 O [inventário completo](RELEASE_CHANGE_INVENTORY.tsv) contém 289 entradas de runtime, 321 de testes, 108 documentais, 90 de CI e 14 operacionais. Foi obtido por `git diff --name-status --find-renames` entre os SHAs acima, sem o limite de 300 arquivos da API. Os renomes são contabilizados como uma entrada. Este inventário é mecânico; as notas abaixo agrupam os efeitos para o produto e não afirmam homologação física de cada capacidade. Mudanças posteriores desta operação ficam registradas separadamente na PR e na issue #674.
+
+**Complemento pós-inventário:** a comparação entre `02d2a7fb1a00abe907a5595602dbbab6bcae0603` e `main@810cc076052df93f1d18c6807c18e63b225d9473` identifica **6 commits e 22 caminhos** afetados. A [matriz incremental de 22 caminhos](RELEASE_CHANGE_DELTA_V0_9_0.tsv) identifica o delta, incluindo arquivos novos de CI e documentação. Os mesmos caminhos podem já integrar o inventário de 822 entradas; **não** somar 822 + 22 como arquivos únicos. A inclusão do próprio bump e de documentos da branch `release/prepare-v0.9.0` é um recorte posterior e também não equivale a mudança publicada.
 
 ## Recursos e comportamento público
 
@@ -41,4 +45,8 @@ Guias de instalação, rede, custos, reprocessamento, consolidação e apresenta
 
 ## Ressalvas para publicação
 
-Permanecem separados: integridade histórica dos bancos fonte de CONS, paridade SQLite/HTML física, recuperação de AUD realmente interrompida, reconciliação causal da AUD econômica, avaliação da impressão CAT-07 e aceite operacional humano. A [matriz vigente](RELEASE_GATE_MATRIX.md) registra evidência e próxima ação. **NO-GO para publicação** até satisfação ou dispensa formal dos gates obrigatórios e autorização expressa. O conteúdo final de uma release futura deve ser novamente confrontado com seu SHA de publicação.
+As homologações físicas de CONS, RPR, SQLite/HTML, economia e impressão CAT-07 foram concluídas **com limitações documentadas**, não com prova irrestrita. O RPR físico recuperou seletivamente `PASSIVE_SECURITY` (1/1), a auditoria continuou parcial; o ledger econômico interno não constitui fatura externa; PDFs históricos não equivalem aos relatórios reemitidos no novo código. Os riscos foram aceitos no ciclo #675, sem inventar evidência adicional.
+
+A **CI do ciclo #675** encerrou 37/37 workflows e 46/46 jobs no HEAD `b72ca79253327ea1d7a58f95be9a9d72591cb2f4` (regressão: 5.649 aprovados, 29 ignorados, 134 subtestes); após o merge, 18/18 workflows acionados por `push` na `main` terminaram com sucesso. Essa evidência **não é CI da candidata com bump 0.9.0**. Consultar [matriz](RELEASE_GATE_MATRIX.md) e [checklist de publicação](RELEASE_PUBLICATION_CHECKLIST.md).
+
+**NO-GO para publicar a v0.9.0 enquanto não houver revisão das notas finais, todos os checks obrigatórios aprovados no SHA definitivo, verificação de Immutable Releases, aceite do merge da branch de preparo e autorização posterior específica de publicação.** Nenhuma tag ou release foi criada.

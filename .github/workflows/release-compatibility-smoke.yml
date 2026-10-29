@@ -6,6 +6,8 @@ on:
     paths:
       - 'scripts/RELEASE_COMPATIBILITY_SMOKE.ps1'
       - '.github/workflows/release-compatibility-smoke.yml'
+      - 'pyproject.toml'
+      - 'src/rasai/__init__.py'
   workflow_dispatch:
 
 permissions:

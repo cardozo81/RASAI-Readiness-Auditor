@@ -1,8 +1,10 @@
 # Candidata v0.9.0 - pacote de decisão pré-release
 
-**Estado:** DRAFT / NÃO PUBLICADO. Documento restrito à PR #675 e ao ciclo da issue #674. A versão pública vigente permanece `v0.8.0`; não utilizar este documento como changelog de uma release publicada.
+**Estado:** PREPARAÇÃO / NÃO PUBLICADO. A PR #675 foi integrada e a issue #674 encerrada. A release pública vigente permanece `v0.8.0`; o pacote da branch exclusiva `release/prepare-v0.9.0` foi atualizado para `0.9.0` somente como candidata. Este documento preserva a cronologia histórica do ciclo #675 e não representa uma release publicada.
 
 ## Atualização de homologação física e decisão de aceite - 29/10/2026
+
+**Nota posterior ao merge:** o operador autorizou a integração da PR #675, concluída em `main@810cc076052df93f1d18c6807c18e63b225d9473`; a branch anterior foi excluída e #674 encerrada. A certificação da PR foi 37/37 workflows, 46/46 jobs e 5.649 testes aprovados; a `main` recebeu 18/18 workflows `push` com sucesso. O bump `0.9.0` está isolado na nova branch e exige **nova certificação específica**, seguida de autorização para seu merge e, separadamente, publicação. Leia [RELEASE_PUBLICATION_CHECKLIST.md](RELEASE_PUBLICATION_CHECKLIST.md) e [RELEASE_NOTES_DRAFT.md](RELEASE_NOTES_DRAFT.md).
 
 Esta seção registra a conclusão técnica posterior ao checklist histórico abaixo; não implica merge, bump ou publicação. Evidências e ressalvas encontram-se em [RELEASE_GATE_MATRIX.md](RELEASE_GATE_MATRIX.md) e nos comentários de aceite da [issue #674](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/674).
 
@@ -40,7 +42,7 @@ Os itens abaixo registram o estágio anterior à homologação física e não su
 
 ## Compatibilidade e configuração
 
-Nenhum bump de versão está autorizado neste estágio; `pyproject.toml` e `src/rasai/__init__.py` permanecem em `0.8.0`. Conservar schemas, contratos de scoring, APDEX, SARI, identidades AUD/RPR/CONS e leitura de evidências históricas. Configuração operacional de preços deve permanecer em `config/ai-pricing.toml`; não alterar dados históricos ou promover preços estimados a custos faturados. Consultar [AI_PRICING_CONFIGURATION.md](AI_PRICING_CONFIGURATION.md) e [AUDIT_REPROCESSING.md](AUDIT_REPROCESSING.md).
+O bump de preparação `0.9.0` foi autorizado neste ciclo e aplicado apenas na branch `release/prepare-v0.9.0`: `pyproject.toml` e `src/rasai/__init__.py` devem permanecer coerentes; `main` continua `0.8.0` até autorização de integração da nova PR. Conservar schemas, contratos de scoring, APDEX, SARI, identidades AUD/RPR/CONS e leitura de evidências históricas. Configuração operacional de preços deve permanecer em `config/ai-pricing.toml`; não alterar dados históricos ou promover preços estimados a custos faturados. Consultar [AI_PRICING_CONFIGURATION.md](AI_PRICING_CONFIGURATION.md) e [AUDIT_REPROCESSING.md](AUDIT_REPROCESSING.md).
 
 ## Checklist pré-publicação registrado antes do fechamento autônomo
 
@@ -65,7 +67,7 @@ Nenhum bump de versão está autorizado neste estágio; `pyproject.toml` e `src/
 
 ## Decisão técnica
 
-**NO-GO para publicação agora.** A baseline de testes é verde, mas a issue #674, os gates físicos e a aprovação humana não estão encerrados. A candidata `v0.9.0` é uma proposta SemVer plausível para incremento pré-1.0, não uma decisão de publicação. PR #675 aberta e pronta para revisão humana; esse estado não autoriza publicação; não criar tag, release, merge ou excluir branch.
+**NO-GO para publicação agora.** A PR #675 foi integrada e seus gates físicos foram aprovados com limitações; a issue #674 foi encerrada. A candidata `v0.9.0` está em branch exclusiva, aguardando CI de release, revisão editorial e autorização expressa para integrar essa branch. Não criar tag, GitHub Release nem publicar pacote sem aprovação posterior distinta.
 
 ## Consulta histórica da versão - limite da API
 
@@ -90,7 +92,7 @@ A [matriz consolidada de gates](RELEASE_GATE_MATRIX.md) é a fonte resumida de e
 
 O diff verificado da PR #675 afeta 20 caminhos: três workflows, dez documentos, uma projeção de apresentação de custos de IA e seis arquivos de testes. Esta lista descreve apenas esta PR, não a evolução integral acumulada desde `v0.8.0`. A comparação ampla de versões indicou 1.416 commits à frente no momento da consulta, com resposta de arquivos limitada; não afirmar completude do inventário com base nesse recorte.
 
-**Lançamento condicionado:** manter `0.8.0` como versão no código durante o preparo documental. Qualquer bump da candidata exige decisão explícita, reconciliação de changelog e CI no SHA resultante. A ausência de uma AUD física ou ledger não transforma limitação de evidência em bug e não autoriza considerar o requisito homologado.
+**Lançamento condicionado:** o bump `0.9.0` foi autorizado na branch de preparo, mas sua integração/publicação ainda depende de CI, revisão de changelog e autorização expressa posterior. A ausência de uma AUD física ou ledger não transforma limitação de evidência em bug e não autoriza considerar o requisito homologado.
 
 ## Notas de mudanças do escopo da PR
 
@@ -102,6 +104,6 @@ A candidata exige a execução verde do workflow [Full RASAi Regression](../.git
 
 ## Estado operacional reconciliado em 29/10/2026
 
-A matriz vigente é [RELEASE_GATE_MATRIX.md](RELEASE_GATE_MATRIX.md). As contagens e SHAs acima são registros históricos, não certificação do HEAD atual. O inventário Git completo desde a tag pública substitui a limitação de 300 arquivos da consulta antiga; consultar [RELEASE_NOTES_DRAFT.md](RELEASE_NOTES_DRAFT.md) e [inventário](RELEASE_CHANGE_INVENTORY.tsv). Nenhum bump foi aplicado. Os aceites Windows A/B/C e RPR offline permanecem válidos; não repetir sem alteração funcional que os invalide.
+A matriz vigente é [RELEASE_GATE_MATRIX.md](RELEASE_GATE_MATRIX.md). As contagens e SHAs acima são registros históricos, não certificação do HEAD atual. O inventário Git completo desde a tag pública substitui a limitação de 300 arquivos da consulta antiga; consultar [RELEASE_NOTES_DRAFT.md](RELEASE_NOTES_DRAFT.md) e [inventário](RELEASE_CHANGE_INVENTORY.tsv). O bump `0.9.0` foi aplicado somente na branch de preparo após a integração da PR #675. Os aceites Windows A/B/C e o RPR físico seletivo permanecem válidos; não repetir sem alteração funcional que os invalide.
 
 O [smoke isolado](../scripts/RELEASE_COMPATIBILITY_SMOKE.ps1) instala a candidata e a baseline em diretórios temporários distintos, verifica CLI, dependências, Chromium offline e contratos sintéticos. Ele não abre AUD histórica nem comprova downgrade de schema. A homologação operacional do computador do usuário e a autorização de publicação são gates distintos.
