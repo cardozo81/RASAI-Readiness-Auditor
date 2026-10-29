@@ -441,6 +441,11 @@ def _install_configure_persistence(console: ModuleType) -> None:
     original, old_mark = console._configure, console.mark_dirty
 
     def configure(state: Any, choice: str):
+        # Read-only navigation (CONS) and explicit back/cancel are not configuration
+        # edits. In particular _ensure_mix mutates the device-mix fingerprint,
+        # which otherwise causes a spurious "DESTINO DA ALTERAÇÃO" after V.
+        if choice in {"C", "F"}:
+            return original(state, choice)
         # System defaults is an independent, confirmed action. A V/cancel must
         # return directly to the console, never open a second persistence menu.
         # In particular, _ensure_mix may otherwise change the fingerprint even
