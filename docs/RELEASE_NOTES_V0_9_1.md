@@ -12,7 +12,7 @@
 ## Entregas incorporadas da #657
 
 - Prévia arquitetural opcional fora da AUD, com armazenamento isolado, retenção limitada, verificação de integridade e escopo exato de URL/dispositivo. A prévia exploratória não é persistida por padrão.
-- Vínculo **explícito** de uma prévia válida à configuração selada de uma **nova** AUD. É apenas referência `PRELIMINARY_UNVERIFIED`, nunca classificação M6 nem alteração automática de `AUTO/DECLARED/UNFORCED`. Configurações históricas não restauram o opt-in.
+- Vínculo **explícito** de uma prévia válida à configuração selada de uma **nova** AUD. É apenas referência `PRELIMINARY_UNVERIFIED`, nunca classificação física de arquitetura nem alteração automática de `AUTO/DECLARED/UNFORCED`. Configurações históricas não restauram o opt-in.
 - Inventário consultivo de scripts, CSS, XHR/Fetch e documentos de subframe baseado em observações Chromium/CDP já coletadas na navegação autorizada. Contagens por categoria, estados `OBSERVED`, `NOT_OBSERVED`, `UNKNOWN`, `BLOCKED` (somente bloqueio atestado), protocolos e ordem limitada dos eventos de resposta; a ordem não comprova causalidade.
 - Projeção CAT-01 de HTTP/TLS e par remoto público **somente quando observados**. Ausência de comprovação de DNS, backend, CDN, WAF, rede interna ou topologia completa permanece `NETWORK_TOPOLOGY_NOT_DETERMINABLE`, sem inferência ou varredura adicional.
 - Sanitização de metadados para impedir exposição de URLs com parâmetros sensíveis e identificadores privados no inventário.
