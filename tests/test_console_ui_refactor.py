@@ -27,6 +27,32 @@ def _isolate_console_ui_process_state():
         ui._SESSION_META.clear()
 
 
+
+@pytest.mark.parametrize("choice", ["C", "F"])
+def test_read_only_navigation_does_not_offer_configuration_persistence(monkeypatch, choice) -> None:
+    """Returning from CONS/back must not normalize device mix or request an INI save."""
+    console = ModuleType("test_read_only_navigation")
+    calls = []
+    console._configure = lambda state, selected: calls.append(selected)
+    console.mark_dirty = lambda state, value=True: None
+    console._save_configuration = lambda state: pytest.fail("Navigation cannot save configuration")
+    state = ApdexConsoleState(device="desktop")
+    state.apdex_experience_device_mix = "mobile=100,desktop=0,tablet=0"
+    before = ui._fingerprint(state)
+    inherited = ui._mix_inherited(state)
+
+    monkeypatch.setattr(
+        builtins, "input",
+        lambda prompt="": pytest.fail("Navigation cannot prompt for persistence"),
+    )
+    ui._install_configure_persistence(console)
+    console._configure(state, choice)
+
+    assert calls == [choice]
+    assert ui._fingerprint(state) == before
+    assert ui._mix_inherited(state) == inherited
+
+
 def test_configuration_ids_are_numeric_stable_and_unique_for_current_catalog() -> None:
     from rasai import console_provider_environment as environment
 
