@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import shutil
 
+import pytest
+
 from rasai.ai_execution_configuration import (
     current_execution_environment,
     execution_ai_configuration,
@@ -14,6 +16,24 @@ from rasai.system_defaults import load_system_defaults
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def restore_parent_ai_catalogs():
+    """Operator snapshots intentionally refresh globals; test catalogs must not leak."""
+    from rasai.ai_cost_policy import effective_pricing_catalog
+    from rasai.ai_model_runtime import effective_model_catalog
+    from rasai.ai_execution_configuration import (
+        _refresh_parent_models, _refresh_parent_pricing,
+    )
+
+    pricing = effective_pricing_catalog()
+    models = effective_model_catalog()
+    try:
+        yield
+    finally:
+        _refresh_parent_models(models)
+        _refresh_parent_pricing(pricing)
 
 
 def test_operator_ai_catalogs_exist_and_are_valid() -> None:
