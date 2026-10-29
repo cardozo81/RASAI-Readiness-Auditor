@@ -79,33 +79,33 @@ def test_semantic_backfill_preserves_existing_success_provenance(tmp_path: Path)
 
     assert reconciled_ref == original_ref
 
-    # Mirror the SUCCESS branch of _backfill_contract: the registration may reconcile
-    # durable configuration, but it must not manufacture a new success event.
-    register_work_item(
-        workspace,
-        audit_id=AUDIT_ID,
-        component="SEMANTIC_AI",
-        scope_key=SNAPSHOT_ID,
-        required=True,
-        temporal_mode=REPLAY_SAFE,
-        status=SUCCESS,
-        retryable=True,
-        configuration={"provider": "OPENAI"},
-    )
-    set_work_item_status(
-        workspace,
-        audit_id=AUDIT_ID,
-        component="SEMANTIC_AI",
-        scope_key=SNAPSHOT_ID,
-        status=SUCCESS,
-        result_ref=reconciled_ref,
-    )
-    after = dict(_row(workspace))
-
-    assert after["status"] == SUCCESS
-    assert after["attempt_count"] == before["attempt_count"]
-    assert after["effective_result_ref"] == before["effective_result_ref"] == original_ref
-    assert after["last_success_at"] == before["last_success_at"]
+    # Multiple read/reconciliation passes must not add semantic attempts
+    # or replace the provenance of an already successful work item.
+    for _ in range(3):
+        register_work_item(
+            workspace,
+            audit_id=AUDIT_ID,
+            component="SEMANTIC_AI",
+            scope_key=SNAPSHOT_ID,
+            required=True,
+            temporal_mode=REPLAY_SAFE,
+            status=SUCCESS,
+            retryable=True,
+            configuration={"provider": "OPENAI"},
+        )
+        set_work_item_status(
+            workspace,
+            audit_id=AUDIT_ID,
+            component="SEMANTIC_AI",
+            scope_key=SNAPSHOT_ID,
+            status=SUCCESS,
+            result_ref=reconciled_ref,
+        )
+        after = dict(_row(workspace))
+        assert after["status"] == SUCCESS
+        assert after["attempt_count"] == before["attempt_count"]
+        assert after["effective_result_ref"] == before["effective_result_ref"] == original_ref
+        assert after["last_success_at"] == before["last_success_at"]
 
 
 def test_semantic_backfill_keeps_canonical_fallback_for_new_work_item(tmp_path: Path) -> None:

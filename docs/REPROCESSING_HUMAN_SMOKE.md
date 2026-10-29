@@ -4,7 +4,7 @@ Este roteiro valida a experiência final do operador depois dos testes automatiz
 
 ## Pré-condições
 
-- para o smoke de fechamento da #15, usar `main` atualizada após as correções #20 e #22; a referência esperada é package `0.3.3`;
+- para homologação da PR #675, utilizar a branch `stabilization/cons-rpr-reports-release-readiness` no HEAD certificado; a versão declarada do pacote permanece `0.8.0` até aprovação do release;
 - executar no Windows;
 - possuir ao menos um `AUD-*` em estado `Parcial - pode reprocessar` com uma pendência recuperável;
 - preferencialmente usar um AUD que tenha IA configurada e alguma tentativa/custo persistido, para validar a prévia monetária;
@@ -15,12 +15,16 @@ Antes do smoke:
 ```powershell
 cd C:\IA-PROJETOS\github\RASAI-Readiness-Auditor
 git fetch origin
-git switch main
-git pull --ff-only origin main
+git switch stabilization/cons-rpr-reports-release-readiness
+git pull --ff-only origin stabilization/cons-rpr-reports-release-readiness
 python -m pip install -e . pytest
 python -c "import rasai; print(rasai.__version__)"
-pytest -q tests/test_audit_resume_runtime.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_reprocess_dependency_closure.py tests/test_governed_reprocess_dependencies.py tests/test_console_reprocess_parity.py tests/test_console_reprocess_final_refinements.py
+pytest -q tests/test_rpr_offline_acceptance.py tests/test_audit_resume_runtime.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_reprocess_dependency_closure.py tests/test_governed_reprocess_dependencies.py tests/test_console_reprocess_parity.py tests/test_console_reprocess_final_refinements.py
 ```
+
+## Gate offline, sem AUD histórica e sem IA externa
+
+Caso nenhuma AUD do histórico tenha pendência determinística recuperável, executar primeiro `python -m pytest -q tests/test_rpr_offline_acceptance.py`. A fixture usa o próprio motor de persistência e a recuperação real de extração em workspace temporário com HTML já persistido. Confere novo RPR, preservação de sucessos e de evidência existente, sem fazer chamadas de IA, browser ou rede. **Não** fabricar pendências no `audit.db` de uma AUD histórica. O resultado offline é aceite técnico de trajetória controlada; não prova recuperação de uma auditoria real interrompida e não dispensa os gates humanos eventualmente exigidos.
 
 ## Roteiro
 

@@ -8,7 +8,7 @@ A análise semântica possui um baseline local, evidence-bound e versionado:
 SEMANTIC-BASELINE-001
 ```
 
-Seu objetivo é permitir que uma auditoria `NO_AI` produza `RuleExecution` avaliável para regras semânticas quando as evidências persistidas forem suficientes, sem transformar a ausência de IA em requisito indireto de consolidação do `SARI-001 / SCORE-GEO-004`.
+Seu objetivo é permitir que uma auditoria `NO_AI` produza `RuleExecution` avaliável para regras semânticas quando as evidências persistidas forem suficientes, sem transformar a ausência de IA em requisito indireto de consolidação do `SARI-001 / SCORE-GEO-005`.
 
 O baseline **não calcula o score**. Ele produz avaliações de regras; o `ScoringEngine` continua sendo o único responsável pela aritmética de Score, Coverage, Confidence e Consolidation.
 
@@ -64,13 +64,13 @@ O audit registra a capability:
 semantic_baseline:SEMANTIC-BASELINE-001
 ```
 
-Isso permite distinguir auditorias antigas das novas sem alterar a identidade pública `SARI-001` nem a versão matemática `SCORE-GEO-004`.
+Isso permite distinguir auditorias antigas das novas sem alterar a identidade pública `SARI-001` nem recalcular a versão persistida: `SCORE-GEO-005` para novas AUDs ou `SCORE-GEO-004` no histórico.
 
 ## Consolidação sem IA
 
 `NO_AI` não significa automaticamente `CONSOLIDATED`.
 
-Um Overall só pode ser consolidado quando os requisitos normais do `SCORE-GEO-004` forem satisfeitos. Portanto, mesmo com o baseline, uma página com evidência insuficiente, pré-requisitos bloqueados ou grupos de regras legitimamente não resolvidos pode permanecer `PARTIAL` ou `NOT_CONSOLIDATED`.
+Um Overall só pode ser consolidado quando os requisitos normais do `SCORE-GEO-005` forem satisfeitos. Portanto, mesmo com o baseline, uma página com evidência insuficiente, pré-requisitos bloqueados ou grupos de regras legitimamente não resolvidos pode permanecer `PARTIAL` ou `NOT_CONSOLIDATED`.
 
 A diferença é que **a simples ausência de API key/provider deixa de ser, por si só, a causa mecânica para que dimensões semânticas permaneçam sem avaliação**.
 

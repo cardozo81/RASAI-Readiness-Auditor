@@ -151,7 +151,7 @@ def test_entrypoints_use_canonical_improvement_causal_contracts() -> None:
         )
 
 
-def test_registered_ai_dispatch_reports_missing_hook_without_provider(monkeypatch) -> None:
+def test_registered_ai_dispatch_reports_missing_hook_without_provider(monkeypatch, tmp_path) -> None:
     from rasai import audit_runner
     from rasai import governed_reprocess_runtime as governed
 
@@ -169,7 +169,7 @@ def test_registered_ai_dispatch_reports_missing_hook_without_provider(monkeypatc
         diagnostics._install_registered_ai_dispatch_guard()
         outcome = phase.run_registered_ai_phase(
             audit_id="AUD-1",
-            workspace=SimpleNamespace(),
+            workspace=SimpleNamespace(root=tmp_path),
             evidence_snapshot=SimpleNamespace(evidence_snapshot_id="AIE-1"),
             purposes={"IMPROVEMENT_INTELLIGENCE"},
         )
@@ -189,7 +189,7 @@ def test_registered_ai_dispatch_reports_missing_hook_without_provider(monkeypatc
 
 
 def test_registered_ai_dispatch_executes_present_hook_and_diagnoses_missing(
-    monkeypatch,
+    monkeypatch, tmp_path,
 ) -> None:
     from rasai import audit_runner
     from rasai import governed_reprocess_runtime as governed
@@ -217,7 +217,7 @@ def test_registered_ai_dispatch_executes_present_hook_and_diagnoses_missing(
         diagnostics._install_registered_ai_dispatch_guard()
         outcomes = phase.run_registered_ai_phase(
             audit_id="AUD-1",
-            workspace=SimpleNamespace(),
+            workspace=SimpleNamespace(root=tmp_path),
             evidence_snapshot=SimpleNamespace(evidence_snapshot_id="AIE-1"),
             purposes={"PRESENT", "MISSING"},
         )
@@ -236,7 +236,7 @@ def test_registered_ai_dispatch_executes_present_hook_and_diagnoses_missing(
 
 
 def test_improvement_configuration_error_is_projected_before_provider(
-    monkeypatch,
+    monkeypatch, tmp_path,
 ) -> None:
     saved = phase._AI_HOOKS.get("IMPROVEMENT_INTELLIGENCE")
     provider_calls: list[str] = []
@@ -276,7 +276,7 @@ def test_improvement_configuration_error_is_projected_before_provider(
         diagnostics._install_governed_hook_guard()
         outcome = phase._AI_HOOKS["IMPROVEMENT_INTELLIGENCE"].callback(
             audit_id="AUD-1",
-            workspace=SimpleNamespace(),
+            workspace=SimpleNamespace(root=tmp_path),
             evidence_snapshot=SimpleNamespace(evidence_snapshot_id="AIE-1"),
         )
     finally:

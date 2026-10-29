@@ -62,7 +62,8 @@ def test_blocked_dependency_snapshot_is_visible_before_provider_execution() -> N
         html = dependency_html(database, SimpleNamespace(audit_id="AUD-1"))
         assert "Dependências antes da IA" in html
         assert "Bloqueado" in html
-        assert "SEARCH_INTELLIGENCE" in html
+        assert "Inteligência de busca" in html
+        assert "Contexto de evidências para melhorias" in html
         assert "Provider não elegível neste ponto" in html
         assert "AI-DEPENDENCY-001" in html
 

@@ -537,6 +537,14 @@ def run_audit(
             _sync_persisted_components(audit_id=audit_id, workspace=workspace)
             synchronize_core_work_items(workspace, audit_id)
 
+            # M7 consumes this deterministic context as input evidence. It must
+            # exist before the seal even for direct API callers whose runtime
+            # composition has not installed the optional pre-seal hook.
+            from rasai.m7 import materialize_semantic_context_evidence
+            materialize_semantic_context_evidence(
+                audit_id=audit_id, workspace=workspace,
+            )
+
             evidence_snapshot = seal_collection_evidence(
                 audit_id=audit_id,
                 workspace=workspace,

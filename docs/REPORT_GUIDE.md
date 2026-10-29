@@ -73,9 +73,9 @@ Relatórios standalone, como monitoring, verification, timelines, históricos e 
 ## Índice e método de pontuação
 
 - **Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001** - ID técnico `SARI-001`;
-- **Método de Pontuação de Prontidão**, versão pública **001** - contrato técnico `SCORE-GEO-004`.
+- **Método de Pontuação de Prontidão**, versão pública **001** - contrato técnico `SCORE-GEO-005` para novas AUDs; `SCORE-GEO-004` permanece preservado no replay histórico.
 
-`sari.html` apresenta dimensões, Cobertura, Confiança, Consolidação, resultado geral e limitações. `methodology.html` apresenta a versão pública, o contrato técnico efetivamente usado, pesos, grupos, critérios críticos, rastreabilidade e interpretação do resultado geral.
+`sari.html` apresenta dimensões, Cobertura, Confiança, Consolidação, resultado geral e limitações. `methodology.html` apresenta a versão pública, o contrato técnico efetivamente usado, pesos, grupos, critérios críticos, rastreabilidade e interpretação do resultado geral. Relatórios já materializados podem ter sido gerados com código mais antigo; sua antiguidade não é, isoladamente, um defeito da candidata. O status `STALE` de um catálogo deve ser avaliado separadamente da versão de geração.
 
 O Overall vigente usa agregação hierárquica ponderada (`HIERARCHICAL_WEIGHTED_READINESS_V1`), não média simples de igual peso entre todas as dimensões.
 
@@ -104,7 +104,7 @@ A lista de superfícies audit-owned é definida por `src/rasai/catalog_report_co
 | contexto de captura | `capture-context.html` | escopo URL/dispositivo e topologia da captura |
 | evidências da execução | `execution-evidence.html` | fulfillment, estados de execução e integridade operacional |
 | IA e integrações | `ai-integrations.html` | tentativas, providers, modelos, tokens, custos e integrações |
-| método de pontuação | `methodology.html` | Método de Pontuação de Prontidão, contrato técnico `SCORE-GEO-004`, pesos, critérios críticos e rastreabilidade |
+| método de pontuação | `methodology.html` | Método de Pontuação de Prontidão, contrato técnico efetivamente persistido (`SCORE-GEO-005` em novas AUDs ou `SCORE-GEO-004` histórico), pesos, critérios críticos e rastreabilidade |
 | índices e métricas | `metrics.html` | inventário transversal de métricas persistidas |
 
 Não existem, no contrato audit-owned atual, páginas independentes `mobile.html`, `desktop.html`, `standards.html`, `ai-visibility.html`, `observability.html`, `quality.html` ou `references.html`. `geo.html` é a superfície transversal observacional da AUD, distinta de um índice oficial dos buscadores. Os respectivos dados são projetados nas páginas responsáveis acima quando persistidos. Relatórios comparativos e temporais, como Monitoring, Fix Verification e Evidence Timeline, permanecem artefatos standalone fora de `report-catalog/`.
@@ -200,7 +200,7 @@ devem estar ligados à medição, sem inferir duração a partir de arquitetura.
 
 `cat-01.html` concentra robots/crawler policy, sitemaps, feeds, `llms.txt` experimental e evidências correlatas no escopo `ORIGIN`. Quando artifacts textuais foram efetivamente capturados, o relatório pode exibir uma pré-visualização read-only sem fazer nova requisição de rede.
 
-O peso direto de `llms.txt` no `SARI-001` é `0`: presença, ausência ou erro não alteram `SCORE-GEO-004`. O arquivo permanece um sinal experimental/advisory, não um requisito normativo de Search ou de sistemas generativos.
+O peso direto de `llms.txt` no `SARI-001` é `0`: presença, ausência ou erro não alteram `SCORE-GEO-005`. O arquivo permanece um sinal experimental/advisory, não um requisito normativo de Search ou de sistemas generativos.
 
 Diagnósticos auxiliares permanecem advisory. Quando IA técnica estiver habilitada e produzir avaliação evidence-bound válida de robots/sitemap, somente a classe bounded do mesmo recurso pode compartilhar o grupo de scoring correspondente, com fatores estáticos e sem bônus duplicado.
 
@@ -208,7 +208,7 @@ Diagnósticos auxiliares permanecem advisory. Quando IA técnica estiver habilit
 
 `cat-02.html` apresenta automação/evidência disponível ou estado explícito de indisponibilidade/desabilitação. Lighthouse accessibility não equivale a certificação WCAG integral.
 
-A página não altera `SCORE-GEO-004`.
+A página não altera `SCORE-GEO-005`.
 
 ## Web Performance
 
@@ -230,7 +230,7 @@ Esses sinais permanecem complementares/advisory, salvo quando existir mapeamento
 
 `cat-06.html` existe sempre como superfície canônica. Quando Synthetic Navigation Apdex foi habilitado e persistido, apresenta T/4T, classificação Satisfied/Tolerating/Frustrated, amostras, exclusões, perfil operacional e limitações. Quando não foi executado, apresenta estado neutro e não dispara navegações apenas para preencher o HTML.
 
-É sintético, não RUM e não altera `SCORE-GEO-004`.
+É sintético, não RUM e não altera `SCORE-GEO-005`.
 
 ## Synthetic User Experience Apdex
 
@@ -256,7 +256,7 @@ A análise pode correlacionar:
 
 O output separa finding observado de recomendação gerada por IA, pode mostrar HTML original versus HTML sugerido e prioriza ações por impacto potencial, confiança e esforço. Segurança é somente passiva: ausência de header ou configuração é postura observada, não prova automática de vulnerabilidade explorável; não há pentest ativo, fuzzing ou exploração.
 
-Search/SERP é contexto observacional e não sustenta promessa causal de ranking. Nenhuma recomendação altera `SARI-001`, `SCORE-GEO-004`, Coverage, Confidence ou gates. O ganho efetivo só pode ser afirmado depois de deploy e nova auditoria/before-after.
+Search/SERP é contexto observacional e não sustenta promessa causal de ranking. Nenhuma recomendação altera `SARI-001`, `SCORE-GEO-005`, Coverage, Confidence ou gates. O ganho efetivo só pode ser afirmado depois de deploy e nova auditoria/before-after.
 
 Detalhes: [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md).
 
@@ -296,7 +296,7 @@ Observed Generative Visibility
 = resultados observados/importados sob fonte e protocolo declarados
 ```
 
-Pode mostrar métricas reportadas pela fonte, atividade de URLs, grounding queries, trends e controlled query-runs quando houver observação. Na ausência de dataset/import, a página mostra estado neutro; ausência de observação não vira score zero artificial. Observed Generative Visibility não altera `SARI-001/SCORE-GEO-004`.
+Pode mostrar métricas reportadas pela fonte, atividade de URLs, grounding queries, trends e controlled query-runs quando houver observação. Na ausência de dataset/import, a página mostra estado neutro; ausência de observação não vira score zero artificial. Observed Generative Visibility não altera `SARI-001/SCORE-GEO-005`.
 
 ## Search Intelligence
 
@@ -328,7 +328,7 @@ Leitura correta:
 
 Qualidade da evidência, estados de fulfillment e controles estruturais são projetados nas superfícies de governança, especialmente `execution-evidence.html`, `index.html` e `metrics.html`, conforme o dado disponível. Não existe `quality.html` no contrato audit-owned atual.
 
-Quality não cria um novo readiness score e não altera Severity nem `SCORE-GEO-004`.
+Quality não cria um novo readiness score e não altera Severity nem `SCORE-GEO-005`.
 
 ## Monitoring, Verification e Timeline
 

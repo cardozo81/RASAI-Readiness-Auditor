@@ -37,6 +37,13 @@ from rasai.persistence import AuditPersistence, AuditWorkspace
 from tests.test_m12_stable_baseline import _FixtureRenderer, _server
 
 
+
+def _audit_diagnostics(result, provider):
+    with sqlite3.connect(result.audit_root / "audit.db") as db:
+        audit = db.execute("SELECT status, limitations FROM audits WHERE audit_id=?", (result.audit_id,)).fetchone()
+        semantic = db.execute("SELECT DISTINCT reasoning_summary FROM semantic_assessments").fetchall()
+    return (result.audit_id, audit, semantic, provider.session_snapshot())
+
 def _input(url: str = "https://example.com/produto", snapshot_id: str = "SNP-1") -> SemanticInput:
     return SemanticInput(
         snapshot_id=snapshot_id,
@@ -145,7 +152,7 @@ class M18ProviderTests(unittest.TestCase):
         result = provider.analyze(_input())
         self.assertEqual(result.usage, ProviderUsage(100, 20, 50, 10, 150))
         attempts = provider.attempt_history()
-        self.assertEqual(len(attempts), 1)
+        self.assertEqual(len(attempts), 1, (result, provider.session_snapshot()))
         self.assertIsNotNone(attempts[0].estimated_cost)
         self.assertEqual(attempts[0].cost_currency, "USD")
         openai_conditions = {"service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL"}
@@ -320,10 +327,15 @@ class M18ProviderTests(unittest.TestCase):
             html = f"""<!doctype html><html lang='pt-BR'><head><title>Guia M18</title>
 <meta name='description' content='Guia técnico.'><link rel='canonical' href='{origin}/'>
 <script type='application/ld+json'>{{"@context":"https://schema.org","@type":"Article","headline":"Guia M18"}}</script>
-</head><body><main><h1>Guia M18</h1><h2>Visão geral</h2><p>Conteúdo técnico verificável para integração M18.</p></main></body></html>"""
+</head><body><main><h1>Guia M18</h1><h2>Visão geral</h2><p>{"Conteúdo técnico verificável sobre integração e avaliação semântica. " * 25}</p></main></body></html>"""
             secret = "M18-INTEGRATION-SECRET"
             provider = OpenAIProvider(api_key=secret, transport=_success_transport())
-            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "mobile"}, clear=False):
+            # This scenario verifies provider telemetry after a READY collection
+            # gate; readiness and fail-closed behavior have separate contract tests.
+            from rasai.audit_collection_gate import CollectionReadiness
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "mobile"}, clear=False), \
+                 patch("rasai.audit_collection_gate.evaluate_collection_readiness",
+                       return_value=CollectionReadiness(ready=True, required_count=0, blockers=())):
                 result = run_audit(
                     f"{origin}/",
                     audits_root=Path(directory),
@@ -342,7 +354,7 @@ class M18ProviderTests(unittest.TestCase):
                     "SELECT provider,model,status,input_tokens,output_tokens,estimated_cost,pricing_version,pricing_context,pricing_rule_id,pricing_source_reference,pricing_runtime_conditions FROM ai_provider_attempts WHERE audit_id=? ORDER BY started_at",
                     (result.audit_id,),
                 ).fetchall()
-                self.assertEqual(len(attempts), 1)
+                self.assertEqual(len(attempts), 1, _audit_diagnostics(result, provider))
                 self.assertTrue(all(row["provider"] == "OPENAI" for row in attempts))
                 self.assertTrue(all(row["model"] == "gpt-5.6-terra" for row in attempts))
                 self.assertTrue(all(row["status"] == "SUCCESS" for row in attempts))
@@ -392,9 +404,14 @@ class M18ProviderTests(unittest.TestCase):
     def test_mobile_device_context_limits_semantic_provider_to_one_context_per_page(self) -> None:
         with _server() as origin, TemporaryDirectory() as directory:
             html = """<!doctype html><html lang='pt-BR'><head><title>Mobile AI</title></head>
-<body><main><h1>Mobile AI</h1><p>Conteúdo técnico para validar custo por dispositivo.</p></main></body></html>"""
+<body><main><h1>Mobile AI</h1><p>""" + ("Conteúdo técnico móvel verificável para avaliar custo por dispositivo e telemetria. " * 25) + """</p></main></body></html>"""
             provider = OpenAIProvider(api_key="x", transport=_success_transport())
-            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "mobile"}, clear=False):
+            # This scenario verifies provider telemetry after a READY collection
+            # gate; readiness and fail-closed behavior have separate contract tests.
+            from rasai.audit_collection_gate import CollectionReadiness
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "mobile"}, clear=False), \
+                 patch("rasai.audit_collection_gate.evaluate_collection_readiness",
+                       return_value=CollectionReadiness(ready=True, required_count=0, blockers=())):
                 result = run_audit(
                     f"{origin}/",
                     audits_root=Path(directory),
@@ -413,7 +430,7 @@ class M18ProviderTests(unittest.TestCase):
             finally:
                 connection.close()
             self.assertEqual(devices, {"MOBILE"})
-            self.assertEqual(len(attempts), 1)
+            self.assertEqual(len(attempts), 1, _audit_diagnostics(result, provider))
             self.assertEqual({row[0] for row in attempts}, {"MOBILE"})
             self.assertFalse((result.audit_root / "report").exists())
             from rasai.catalog_report_site import materialize_catalog_report_site

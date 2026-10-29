@@ -1,7 +1,7 @@
 # RASAi - Search & AI Readiness Auditor - índice da especificação
 
 **Contrato vigente:** VIGENTE  
-**Scoring:** `SCORE-GEO-004`  
+**Scoring vigente para novas AUDs:** `SCORE-GEO-005`  
 **Índice público:** `SARI-001`  
 **Contrato de relatório:** `CATALOG-REPORT-002`  
 **Idioma normativo:** português do Brasil, preservando identificadores e termos técnicos quando necessário.
@@ -10,7 +10,7 @@
 
 Este diretório constitui a fonte normativa do RASAi. A especificação deve permitir compreender o produto e seus contratos atuais sem depender de chats, mecanismos de entrega ou estados de desenvolvimento que não façam parte do produto vigente.
 
-A documentação normativa descreve somente o comportamento atual.
+A documentação normativa descreve o comportamento atual. Evidências históricas preservam a versão de pontuação persistida, inclusive `SCORE-GEO-004`, sem alterar dados ou recalcular notas.
 
 As regras gerais de idioma, direitos autorais/citações, credenciais externas e apresentação de default/valores permitidos/recomendados estão definidas em `../README.md`, `../ENVIRONMENT_VARIABLES.md` e `../EXTERNAL_CREDENTIALS.md` e aplicam-se a todos os arquivos deste diretório.
 
@@ -68,7 +68,7 @@ Protótipos em `../../prototypes/` não são fonte normativa. Eles podem represe
 
 ```text
 Public index:        SARI-001
-Runtime scoring:     SCORE-GEO-004
+Runtime scoring:     SCORE-GEO-005
 Overall aggregation: HIERARCHICAL_WEIGHTED_READINESS_V1
 Canonical HTML:      report-catalog/methodology.html
 ```
@@ -108,7 +108,7 @@ A materialização do catálogo é projeção read-only sobre os dados persistid
 
 | Domínio | Finalidade | Fronteira |
 |---|---|---|
-| SARI / SCORE-GEO-004 | readiness | proprietário, determinístico, evidence-bound |
+| SARI / SCORE-GEO-005 | readiness | proprietário, determinístico, evidence-bound |
 | Web Performance | PageSpeed/Lighthouse/CrUX | externo; não entra diretamente no Overall |
 | Acessibilidade automatizada | diagnóstico | não certifica WCAG integral; separado do SARI |
 | Synthetic Navigation Apdex | navegação sintética | não é RUM; separado do SARI |
@@ -127,7 +127,7 @@ A materialização do catálogo é projeção read-only sobre os dados persistid
 
 ## 7. Observed Generative Visibility e validação empírica
 
-`26_OBSERVED_GENERATIVE_VISIBILITY.md` define resultados observados/importados. Esses dados não recalculam o AUD fonte e não entram automaticamente no `SCORE-GEO-004`.
+`26_OBSERVED_GENERATIVE_VISIBILITY.md` define resultados observados/importados. Esses dados não recalculam o AUD fonte e não entram automaticamente no `SCORE-GEO-005`.
 
 Datasets externos podem ser usados em pesquisa/benchmarking para avaliar associação entre readiness e resultados. Isso é separado do runtime de scoring e qualquer mudança decorrente exige nova versão metodológica explícita.
 
@@ -157,7 +157,7 @@ rasai observability ...
 - identidade `(dataset_id, record_id)`;
 - provenance explícita;
 - `NULL` externo não vira zero;
-- não altera `audit.db` nem SARI/SCORE-GEO-004, exceto a Evidence/RuleExecution mínima de `BR-GEO-060` quando a corroboração Common Crawl positiva qualifica para scoring.
+- não altera `audit.db` nem SARI/SCORE-GEO-005, exceto a Evidence/RuleExecution mínima de `BR-GEO-060` quando a corroboração Common Crawl positiva qualifica para scoring.
 
 ### Quality
 
@@ -197,7 +197,7 @@ Nenhum relatório deve reinterpretar timestamp persistido como timezone local se
 
 O RASAi não representa seu score ou thresholds internos como standard GEO/AEO universal.
 
-Referências primárias externas sustentam fenômenos específicos. Elas não homologam automaticamente `SARI-001` ou `SCORE-GEO-004`.
+Referências primárias externas sustentam fenômenos específicos. Elas não homologam automaticamente `SARI-001` ou `SCORE-GEO-005`.
 
 Heurísticas BR-GEO sem equivalente normativo permanecem identificadas como heurística interna.
 

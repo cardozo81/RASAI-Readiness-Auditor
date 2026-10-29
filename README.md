@@ -6,7 +6,7 @@
 **Framework:** RASAi Framework  
 **Versão pública:** `001`  
 **Índice público:** **Search & AI Readiness Index - Índice de Prontidão Search & IA** · ID técnico `SARI-001`  
-**Método de pontuação:** **Método de Pontuação de Prontidão** · versão pública `001` · contrato técnico `SCORE-GEO-004`
+**Método de pontuação:** **Método de Pontuação de Prontidão** · versão pública `001` · contrato técnico vigente para novas auditorias `SCORE-GEO-005` (replay histórico `SCORE-GEO-004`)
 
 RASAi é um auditor de **Search & AI Readiness** com evidência persistida, scoring reproduzível, análise semântica opcional por IA, remediação advisory, diagnósticos de crawling/discovery, Acessibilidade, Web Performance/Lighthouse/CrUX, métricas e padrões Web, Apdex sintético, observabilidade e comparação longitudinal.
 
@@ -20,7 +20,7 @@ Capacidades integradas no contrato atual:
 - uma AUD usa um único contexto de device: `mobile` ou `desktop`;
 - persistência em SQLite + artefatos + log operacional;
 - relatório HTML pertencente à auditoria em `report-catalog/`, derivado da evidência persistida;
-- Índice de Prontidão Search & IA com Método de Pontuação de Prontidão, Cobertura, Confiança e Consolidação separados; IDs técnicos `SARI-001` e `SCORE-GEO-004` preservados;
+- Índice de Prontidão Search & IA com Método de Pontuação de Prontidão, Cobertura, Confiança e Consolidação separados; ID público `SARI-001` e contrato técnico vigente `SCORE-GEO-005`, com replay histórico `SCORE-GEO-004` preservado;
 - análise semântica opcional por IA e fallback independente de provedor;
 - remediação textual/JSON-LD advisory e evidence-bound;
 - Análise profunda e melhorias (Improvement Intelligence) opcional para uma URL, reutilizando a seleção principal de IA e a política canônica de `AI=auto`, com análise técnica/conteúdo/SERP/segurança passiva e backlog priorizado;
@@ -40,11 +40,13 @@ Capacidades integradas no contrato atual:
 
 ## Método de Pontuação de Prontidão
 
-O método apresentado ao usuário inicia na **versão pública 001**. O contrato técnico preservado pelo runtime é:
+O método apresentado ao usuário inicia na **versão pública 001**. O contrato técnico vigente para novas auditorias é:
 
 ```text
-SCORE-GEO-004
+SCORE-GEO-005
 ```
+
+Auditorias antigas que persistiram `SCORE-GEO-004` conservam a interpretação e os valores originais no replay. Não se recalcula nem se reescreve uma AUD histórica como se tivesse sido criada sob `SCORE-GEO-005`.
 
 O Overall usa o contrato:
 
@@ -178,11 +180,11 @@ O RASAi não trata toda evolução como uma única “versão”. Os eixos relev
 | `auditor_version` | versão do produto/runtime | versão do pacote RASAi |
 | `ruleset_version` | versão do conjunto de regras | persistida no AUD |
 | `sari_version` | identidade pública do índice | `SARI-001` |
-| `scoring_version` | fórmula/contrato de scoring | `SCORE-GEO-004` |
+| `scoring_version` | fórmula/contrato de scoring | `SCORE-GEO-005` para novas AUDs; `SCORE-GEO-004` em evidências históricas |
 | `catalog_report_contract` | contrato da projeção HTML audit-owned e do manifest | `CATALOG-REPORT-002` |
 | `observability_contract_version` | contrato do sidecar observacional | `OBSERVABILITY-CONTRACT-001` |
 
-A comparação longitudinal deve manter `scoring_version` compatível entre baseline e current. Nesta fase de desenvolvimento, o único **Método de Pontuação de Prontidão** suportado usa o contrato técnico `SCORE-GEO-004`.
+A comparação longitudinal deve manter `scoring_version` compatível entre baseline e current. O método público permanece na versão 001; novas auditorias usam `SCORE-GEO-005` e a leitura/reprodução de auditorias antigas respeita `SCORE-GEO-004`. As duas versões não são numericamente intercambiáveis sem qualificar a aplicabilidade das regras.
 
 ## Instalação rápida - Windows
 
@@ -267,7 +269,7 @@ rasai audit https://example.com --ai-provider none --web-performance
 
 Lighthouse é medição de laboratório; CrUX é dado agregado de campo quando disponível. Acessibilidade automatizada reutiliza o artefato Lighthouse persistido e não equivale a certificação WCAG integral.
 
-Esses indicadores permanecem separados do `SARI-001/SCORE-GEO-004`. Web Performance e Acessibilidade não exigem IA. No relatório audit-owned, Web Performance é projetada em `report-catalog/cat-04.html` e acessibilidade automatizada em `report-catalog/cat-02.html`; ausência, indisponibilidade ou coleta parcial devem permanecer explícitas, sem inventar resultado.
+Esses indicadores permanecem separados do `SARI-001` e do contrato `SCORE-GEO-005` vigente para novas AUDs (ou da versão histórica persistida). Web Performance e Acessibilidade não exigem IA. No relatório audit-owned, Web Performance é projetada em `report-catalog/cat-04.html` e acessibilidade automatizada em `report-catalog/cat-02.html`; ausência, indisponibilidade ou coleta parcial devem permanecer explícitas, sem inventar resultado.
 
 ## Apdex
 
@@ -358,7 +360,7 @@ Princípios:
 - resultados externos `NULL` não viram zero;
 - nenhuma referência externa homologa automaticamente o SARI completo;
 - nenhuma temporalidade isolada prova causalidade;
-- relatórios preservam `scoring_version`; nesta fase de desenvolvimento, a única metodologia suportada é `SCORE-GEO-004`.
+- relatórios preservam `scoring_version`; nesta fase de desenvolvimento, novas AUDs usam `SCORE-GEO-005` e replays históricos preservam `SCORE-GEO-004`.
 
 ## Documentação principal
 
@@ -387,7 +389,7 @@ RASAi fornece auditoria técnica/semântica, evidência, heurísticas proprietá
 <!-- rasai-doc-index-20260908 -->
 ## Contrato da documentação
 
-A documentação está organizada em [`docs/README.md`](docs/README.md). A release pública atual é `v0.5.0`, e o desenvolvimento contínuo ocorre na linha pós-release; o **Método de Pontuação de Prontidão**, versão pública **001**, permanece como a metodologia vigente; `SCORE-GEO-004` permanece como contrato técnico.
+A documentação está organizada em [`docs/README.md`](docs/README.md). A release pública atual é `v0.8.0`, e o desenvolvimento contínuo ocorre na linha pós-release; o **Método de Pontuação de Prontidão**, versão pública **001**, permanece como a metodologia vigente; `SCORE-GEO-005` é o contrato técnico vigente para novas auditorias. Auditorias históricas preservam sua versão de scoring.
 
 
 ### Network Intelligence consultiva

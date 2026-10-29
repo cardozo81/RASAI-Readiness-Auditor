@@ -746,7 +746,13 @@ def test_cost_preview_uses_canonical_pricing_and_request_token_hints() -> None:
             ai_model="gpt-5.6-luna",
             ai_reasoning="LOW",
         )
-        provider = SimpleNamespace(name="OPENAI", model="gpt-5.6-luna", reasoning_profile="LOW", requested_reasoning_effort="LOW")
+        provider = SimpleNamespace(
+            name="OPENAI", model="gpt-5.6-luna", reasoning_profile="LOW",
+            requested_reasoning_effort="LOW",
+            pricing_runtime_conditions=lambda: {
+                "service_tier": "DEFAULT", "operation_mode": "REALTIME", "region": "GLOBAL",
+            },
+        )
         with patch("rasai.consolidation.specialist._build_ai", return_value=provider):
             preview = preview_longitudinal_specialist(root, filters)
         assert preview.available is True
@@ -987,6 +993,7 @@ def test_longitudinal_ai_retries_transient_failure_once() -> None:
     class Selection:
         excluded_configurations = ()
         coordinator = Coordinator()
+        providers = (provider,)
 
         def ordered_candidates_for_need(self, request, *, scope):
             return (provider,)
@@ -1030,7 +1037,7 @@ def test_longitudinal_ai_retries_transient_failure_once() -> None:
     assert run.attempts[0].retry_eligible is True
     assert run.attempts[0].decision == "RETRY_ROUND"
     assert run.attempts[1].status == "SUCCESS"
-    sleep.assert_called_once_with(5.0)
+    sleep.assert_called_once_with(60.0)
 
 
 def test_longitudinal_ai_does_not_retry_terminal_error() -> None:
@@ -1058,6 +1065,7 @@ def test_longitudinal_ai_does_not_retry_terminal_error() -> None:
     class Selection:
         excluded_configurations = ()
         coordinator = Coordinator()
+        providers = (provider,)
 
         def ordered_candidates_for_need(self, request, *, scope):
             return (provider,)

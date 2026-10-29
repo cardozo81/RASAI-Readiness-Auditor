@@ -146,7 +146,7 @@ class _FakePage:
     def __init__(self) -> None:
         self._content = [
             "<html><body><main aria-busy='true'><div class='skeleton'></div></main></body></html>",
-            "<html><body><main><h1>Pronto</h1><p>Conteúdo materializado.</p></main></body></html>",
+            "<html><body><main><h1>Pronto</h1><p>" + ("Conteúdo principal materializado e verificável. " * 24) + "</p></main></body></html>",
         ]
 
     def on(self, *_args) -> None:
@@ -157,6 +157,10 @@ class _FakePage:
 
     def wait_for_load_state(self, *_args, **_kwargs) -> None:
         return None
+
+    def evaluate(self, _script: str, *_args) -> dict[str, object]:
+        # Browser metadata instrumentation may sample DOM state via evaluate.
+        return {}
 
     def wait_for_timeout(self, _milliseconds: int) -> None:
         return None
@@ -199,14 +203,17 @@ def test_identity_renderer_projects_capture_quality_in_browser_metadata() -> Non
     renderer = BrowserIdentityRenderer()
     renderer._browser = _FakeBrowser(page)
     renderer._capture_element_observations = lambda _page: ()
+    renderer._capture_dom_visibility = lambda _page: {"state": "NOT_OBSERVED"}
 
-    result = renderer._render_once(
+    # The materiality contract targets the core renderer, independent of
+    # optional global capture extensions exercised in their own suites.
+    result = renderer._render_once_core(
         url="https://example.test/",
         profile=__import__("rasai.rendering", fromlist=["DESKTOP_PROFILE"]).DESKTOP_PROFILE,
         options={},
         identity={"user_agent": "test", "locale": "pt-BR"},
     )
 
-    assert result.succeeded is True
+    assert result.succeeded is True, (result.error_kind, result.browser_metadata)
     assert result.browser_metadata["capture_quality"]["state"] == "RECOVERED"
-    assert "Conteúdo materializado" in (result.rendered_html or "")
+    assert "Conteúdo principal materializado e verificável" in (result.rendered_html or "")

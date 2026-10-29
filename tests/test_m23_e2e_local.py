@@ -57,7 +57,7 @@ class M23LocalE2ETests(unittest.TestCase):
                 self.assertTrue(report.is_file())
                 html = report.read_text(encoding="utf-8")
                 self.assertIn("Apdex", html)
-                self.assertIn("abaixo de 100 amostras", html.casefold())
+                self.assertIn("grupo normal a partir de 100 amostras válidas", html.casefold())
                 index = (report_root / "index.html").read_text(encoding="utf-8")
                 self.assertIn("cat-06.html", index)
                 self.assertFalse((workspace / "report").exists())

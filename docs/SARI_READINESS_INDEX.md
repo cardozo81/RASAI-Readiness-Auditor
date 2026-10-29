@@ -22,11 +22,13 @@ A leitura pública do SARI **não deve ser reduzida ao número 0-100**. O result
 
 ## 2. Método vigente
 
-O índice usa o **Método de Pontuação de Prontidão**, versão pública **001**. O contrato técnico preservado é:
+O índice usa o **Método de Pontuação de Prontidão**, versão pública **001**. O contrato técnico vigente para novas auditorias é:
 
 ```text
-SCORE-GEO-004
+SCORE-GEO-005
 ```
+
+Auditorias históricas com `scoring_version=SCORE-GEO-004` preservam seu contrato e não são recalculadas retroativamente. Diferenças de aplicabilidade entre 004 e 005 devem ser qualificadas em comparações.
 
 Contrato de agregação vigente:
 
@@ -467,7 +469,7 @@ report-catalog/directed-analysis.html   -> análise direcionada
 
 Resultados preservam:
 
-- `scoring_version = SCORE-GEO-004`;
+- `scoring_version` persistido (`SCORE-GEO-005` em novas AUDs, `SCORE-GEO-004` nos replays históricos);
 - `OVERALL_AGGREGATION:HIERARCHICAL_WEIGHTED_READINESS_V1`;
 - versão dos pesos de dimensão/grupo;
 - versão de Critical Gates e Confidence;
@@ -508,6 +510,6 @@ Isso não confirma a cobertura real das SERPs nem a experiência dos usuários.
 
 ## Matriz executiva de universos de evidência
 
-O painel `Matriz decisória de evidências` na visão geral e o recorte metodológico da página SARI explicam por que um índice SARI elevado pode coexistir com Lighthouse baixo, métricas CrUX de ORIGIN, amostras Apdex parciais e SERP incompleta. Valores continuam físicos e independentes; nenhuma média cruzada ou recalibração do SCORE-GEO-004 é produzida. A confiança alta do método não comprova resultados externos de ranking, menção em IA ou conformidade regulatória.
+O painel `Matriz decisória de evidências` na visão geral e o recorte metodológico da página SARI explicam por que um índice SARI elevado pode coexistir com Lighthouse baixo, métricas CrUX de ORIGIN, amostras Apdex parciais e SERP incompleta. Valores continuam físicos e independentes; nenhuma média cruzada ou recalibração retroativa de `SCORE-GEO-004`/`SCORE-GEO-005` é produzida. A confiança alta do método não comprova resultados externos de ranking, menção em IA ou conformidade regulatória.
 
 O diagnóstico read-only `python -m rasai.report_decision_matrix_cli /caminho/AUD-ID` permite confrontar a fonte SQLite selada e a apresentação. Contrato consultivo RASAI-DECISION-EVIDENCE-604-001; escopos e limites em [`REPORT_DECISION_MATRIX.md`](REPORT_DECISION_MATRIX.md).

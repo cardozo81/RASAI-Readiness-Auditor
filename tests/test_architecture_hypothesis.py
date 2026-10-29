@@ -58,7 +58,7 @@ def test_server_content_and_framework_markers_do_not_prove_hydration():
 
 
 def test_server_content_without_framework_can_only_suggest_static_or_ssr():
-    raw = f'<main><h1>Title</h1>{LONG_MAIN}</main>'
+    raw = f'<!doctype html><html lang="en"><head><title>Server content</title></head><body><main id="main-content"><article><h1>Title</h1><p>{LONG_MAIN}</p></article></main></body></html>'
     value = assess_architecture(raw_html=raw, rendered_html=None)
     assert value.architecture is Classification.UNKNOWN
     assert value.hypothesis.likely is Classification.STATIC_OR_SSR
@@ -84,7 +84,7 @@ def test_missing_material_positive_signals_does_not_invent_a_hypothesis():
 
 
 def test_successfully_observed_dom_uses_canonical_classifier_without_hypothesis():
-    raw = f'<main><h1>Title</h1>{LONG_MAIN}</main>'
+    raw = f'<html><body><main><h1>Title</h1><p>{LONG_MAIN}</p></main></body></html>'
     value = assess_architecture(raw_html=raw, rendered_html=raw)
     assert value.architecture is Classification.STATIC_OR_SSR
     assert value.hypothesis is None

@@ -197,7 +197,7 @@ def test_646_architecture_report_escapes_urls_and_does_not_promote_redirect_to_f
     assert "PRIVATE_SCRIPT" not in result_html
     assert "<script>" not in result_html
     assert "não extrapolar" in result_html
-    assert "não demonstra sozinha" in result_html
+    assert "não comprova, por si só, o mecanismo de redirecionamento" in result_html
     assert all(row["effective_architecture"] is None for row in result["snapshots"])
 
 

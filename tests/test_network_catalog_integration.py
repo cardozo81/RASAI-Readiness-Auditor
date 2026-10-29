@@ -76,7 +76,27 @@ def test_network_probes_enter_sealed_offline_catalog_without_changing_aud(tmp_pa
 
     valid, reasons = verify_catalog_report_package(report)
     assert valid, reasons
-    assert catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace)
+    # On failure, distinguish immutable package integrity from a stale dependency.
+    from rasai.catalog_source_dependencies import verify_source_dependencies
+    manifest = json.loads((report / "manifest.json").read_text(encoding="utf-8"))
+    dependencies_ok, dependency_errors = verify_source_dependencies(
+        workspace.root, manifest.get("source_dependencies"),
+    )
+    assert dependencies_ok, dependency_errors
+    from rasai.catalog_report_site import _sqlite_logical_digest
+    expected_logical = manifest["audit_snapshot"]["source_logical_sha256"]
+    current_logical = _sqlite_logical_digest(workspace.database)
+    assert current_logical == expected_logical, (current_logical, expected_logical)
+    assert catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace), {
+        "report": str(report),
+        "default_report": str(workspace.root / manifest["catalog_report_dir"]),
+        "audit_id": manifest["audit_id"],
+        "freshness": manifest["freshness"],
+        "source_fingerprint_present": bool(manifest.get("source_fingerprint")),
+        "logical_ok": current_logical == expected_logical,
+        "dependencies_ok": dependencies_ok,
+        "package_ok": valid,
+    }
     assert (workspace.root / "audit.db").read_bytes() == before
 
     _write_verified_packet(workspace, "sample-two")

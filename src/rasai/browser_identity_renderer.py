@@ -226,7 +226,7 @@ class BrowserIdentityRenderer(BrowserRenderer):
         metadata["secure_redirect_recovery"] = recovery_metadata
         return replace(first, browser_metadata=metadata)
 
-    def _render_once(
+    def _render_once_core(
         self,
         *,
         url: str,
@@ -352,8 +352,12 @@ class BrowserIdentityRenderer(BrowserRenderer):
             return self._navigation_failure(url=url, profile=profile, page=page, error_kind=RenderErrorKind.NAVIGATION_TIMEOUT, identity=identity, navigation_trace=navigation_trace, request_headers=request_headers)
         except PlaywrightError:
             return self._navigation_failure(url=url, profile=profile, page=page, error_kind=RenderErrorKind.NAVIGATION_ERROR, identity=identity, navigation_trace=navigation_trace, request_headers=request_headers)
-        except Exception:
-            return self._navigation_failure(url=url, profile=profile, page=page, error_kind=RenderErrorKind.RENDERER_ERROR, identity=identity, navigation_trace=navigation_trace, request_headers=request_headers)
+        except Exception as exc:
+            # Fail closed, but retain the exception class for safe diagnosis;
+            # never expose exception messages (which may contain request data).
+            failure = self._navigation_failure(url=url, profile=profile, page=page, error_kind=RenderErrorKind.RENDERER_ERROR, identity=identity, navigation_trace=navigation_trace, request_headers=request_headers)
+            failure.browser_metadata["renderer_exception_type"] = type(exc).__name__
+            return failure
         finally:
             if page is not None:
                 try:
@@ -365,6 +369,15 @@ class BrowserIdentityRenderer(BrowserRenderer):
                     context.close()
                 except PlaywrightError:
                     pass
+
+    def _render_once(
+        self, *, url: str, profile: BrowserProfile,
+        options: dict[str, Any], identity: dict[str, Any],
+    ) -> BrowserRenderResult:
+        """Extension point for live browser capture; delegate to the canonical core."""
+        return self._render_once_core(
+            url=url, profile=profile, options=options, identity=identity,
+        )
 
     def _navigation_failure(
         self,

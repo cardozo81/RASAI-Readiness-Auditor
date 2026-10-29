@@ -12,7 +12,8 @@ A camada de apresentação usa nomes de negócio em pt-BR e mantém os identific
 |---|---|---|
 | **RASAI / RASAi** | **Readiness Assessment for Search & AI - Avaliação de Prontidão para Search e IA**. `RASAi` é a grafia pública. | Nomeia a plataforma de avaliação de prontidão, evidências, diagnóstico, remediação e evolução para Search e IA. |
 | **SARI-001** | **Search & AI Readiness Index - Índice de Prontidão Search & IA**. Versão pública **001**. | Identificador metodológico técnico do índice agregado do RASAi. A apresentação humana usa o nome por extenso; o ID permanece disponível para rastreabilidade. |
-| **SCORE-GEO-004** | **Método de Pontuação de Prontidão**. Versão pública **001**. | Contrato técnico que define pesos, fatores, agregação, Cobertura, Confiança, Consolidação e critérios críticos. `SCORE-GEO-004` é tratado como ID técnico indivisível; o segmento `GEO` não define o escopo de negócio do método. |
+| **SCORE-GEO-005** | **Método de Pontuação de Prontidão**. Versão pública **001**. | Contrato técnico vigente para novas auditorias. Mantém agregação e pesos, mas versiona a aplicabilidade de ausências opcionais comprovadas. | 
+| **SCORE-GEO-004** | **Método de Pontuação de Prontidão**. Versão pública **001**. | Contrato técnico histórico preservado para replay de AUDs produzidas sob a versão 004; não reescrever nem converter o score para a versão 005. O segmento `GEO` nos IDs é indivisível e não define escopo de negócio. |
 | **BR-GEO-*** | **Regra de Avaliação de Prontidão**. | Identifica uma verificação individual com aplicabilidade, evidência, resultado e eventual contribuição para pontuação. O ID técnico não implica que a regra pertença exclusivamente a Generative Engine Optimization. |
 | **EV-GEO-*** | **Evidência da Auditoria**. | Identifica uma observação persistida e rastreável que sustenta regra, achado, medição ou conclusão. O ID técnico não define um domínio GEO. |
 | **FR-GEO-*** | **Functional Requirement - Requisito Funcional do RASAi**. | Identifica requisito funcional normativo do produto; não representa pontuação. |
@@ -120,7 +121,7 @@ Exemplo:
 
 ```text
 Pontuação de prontidão Search & AI (SARI-001)
-Método de cálculo (SCORE-GEO-004)
+Método de cálculo (SCORE-GEO-005 em novas AUDs; SCORE-GEO-004 histórico)
 Regra de Avaliação de Prontidão (ID técnico BR-GEO-011)
 Catálogo 10 - Segurança passiva (CAT-10)
 ```

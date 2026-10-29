@@ -33,6 +33,8 @@ def _purpose_label(value: Any) -> str:
 _DEPENDENCY_PUBLIC_LABELS = {
     "EVIDENCE_SEALED": "Evidências determinísticas seladas",
     "SEMANTIC_EVIDENCE_CONTEXT": "Contexto semântico baseado nas evidências",
+    "SEARCH_INTELLIGENCE": "Inteligência de busca",
+    "IMPROVEMENT_EVIDENCE_CONTEXT": "Contexto de evidências para melhorias",
 }
 
 

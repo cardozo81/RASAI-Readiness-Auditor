@@ -386,7 +386,8 @@ def test_319_posthoc_phase_readout_uses_eight_ledger_attempts(tmp_path):
     assert "Análise Direcionada" in html
     assert "Apdex navegação e experiência" in html
     assert "não tempo de fase" in output
-    assert "M18+M20" in output
+    assert "registros de análise por IA e remediação de conteúdo" in output
+    assert "M18+M20" not in output
     assert db.read_bytes() == original
 
 

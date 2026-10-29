@@ -247,10 +247,16 @@ def test_console_ini_contract_persists_only_feature_controls() -> None:
     code = r'''
 from rasai.ai_efficiency_policy import install as install_ai
 from rasai import interactive_console
-from rasai.improvement_intelligence_console import install
+from rasai.improvement_intelligence_console import install, _install_settings
 from rasai import console_settings
+import os
+from rasai.improvement_intelligence import ENABLED_ENV
+os.environ.pop(ENABLED_ENV, None)  # Persist the explicit console choice, not an inherited override.
 install_ai()
 install(interactive_console)
+# Assert the feature persistence adapter is active independently of other
+# console wrappers installed earlier in this isolated interpreter.
+_install_settings(interactive_console)
 state = interactive_console.State()
 state.ai_provider = "openai"
 state.ai_model = "gpt-5.6-luna"

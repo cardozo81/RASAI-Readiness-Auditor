@@ -122,8 +122,11 @@ def test_five_physical_same_gateway_m25_ab_pairs(monkeypatch):
                 pair[arm] = (item, saved)
                 if arm == "probe":
                     observed = gateway.last_advisory_observation
+                    # A successful same-page observation is the canonical typed
+                    # record. Only fail-closed diagnostic outcomes are mappings.
+                    assert hasattr(observed, "sample_id") and hasattr(observed, "status"), observed
                     assert observed.status == "OBSERVED", (
-                        observed.status, getattr(observed, "reason", None),
+                        observed.status, observed.reason,
                     )
                     assert item.experimental_sample_id == saved.sample_id
                     assert observed.sample_id == saved.sample_id

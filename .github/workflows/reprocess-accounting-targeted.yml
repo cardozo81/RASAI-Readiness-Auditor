@@ -11,6 +11,7 @@ on:
       - 'src/rasai/reprocess_measurements.py'
       - 'tests/test_m23_interrupted_resume.py'
       - 'tests/test_reprocess_accounting.py'
+      - 'tests/test_optional_reprocess_accounting.py'
       - 'tests/test_rpr_semantic_success_idempotency.py'
       - '.github/workflows/reprocess-accounting-targeted.yml'
   workflow_dispatch:

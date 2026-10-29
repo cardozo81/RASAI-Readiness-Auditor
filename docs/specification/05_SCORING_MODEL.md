@@ -2,13 +2,13 @@
 
 **Estado:** vigente  
 **Versão pública do método:** **001**  
-**Contrato técnico de pontuação:** `SCORE-GEO-004`  
+**Contrato técnico de pontuação:** `SCORE-GEO-005`  
 **Índice público:** **Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001**, ID técnico `SARI-001`  
 **Agregação:** **Agregação Hierárquica Ponderada de Prontidão**, versão pública **001**, ID técnico `HIERARCHICAL_WEIGHTED_READINESS_V1`
 
 ## 0. Natureza metodológica
 
-O **Método de Pontuação de Prontidão** é a metodologia proprietária e versionada do RASAi; `SCORE-GEO-004` é seu contrato técnico vigente.
+O **Método de Pontuação de Prontidão** é a metodologia proprietária e versionada do RASAi; `SCORE-GEO-005` é o contrato técnico vigente para novas auditorias. O replay de AUDs com `SCORE-GEO-004` preserva a interpretação e as notas históricas.
 
 O status vigente identifica um contrato metodológico interno do produto. Não significa homologação por Google, OpenAI, Microsoft, Anthropic, NIST, W3C, Schema.org ou outro mantenedor.
 
@@ -219,7 +219,7 @@ Os thresholds são governança interna versionada e não configuráveis por audi
 | `NOT_CONSOLIDATED` | Coverage < 50% ou Confidence `UNAVAILABLE` | fixo no contrato | preservar |
 | `NOT_APPLICABLE` | dimensão legitimamente fora do universo aplicável | fixo no contrato | não imputar score |
 
-## 11. Overall - SCORE-GEO-004
+## 11. Overall - SCORE-GEO-005
 
 Existem separadamente:
 
@@ -378,7 +378,7 @@ O cálculo do Overall não chama IA e não depende de provider específico.
 
 - RuleExecutions e versões;
 - ScoreContributions;
-- `scoring_version = SCORE-GEO-004`;
+- `scoring_version` persistida (`SCORE-GEO-005` em novas AUDs e `SCORE-GEO-004` em registros históricos);
 - evidências persistidas;
 - limitações e estados de aplicabilidade;
 - `HIERARCHICAL_WEIGHTED_READINESS_V1`;
@@ -401,7 +401,7 @@ O RASAi separa:
 3. regra/heurística RASAi;
 4. outcomes externos observados.
 
-Core Web Vitals, Lighthouse, WCAG, Apdex, E-E-A-T/YMYL e Observed Generative Visibility não entram automaticamente no Overall `SCORE-GEO-004`.
+Core Web Vitals, Lighthouse, WCAG, Apdex, E-E-A-T/YMYL e Observed Generative Visibility não entram automaticamente no Overall `SCORE-GEO-005`.
 
 A exceção explicitamente score-eligible desta família é `BR-GEO-060`, que usa Common Crawl somente como corroboração externa positiva de `DISCOVERY_ACCESS`:
 

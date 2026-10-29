@@ -2,12 +2,12 @@
 
 ## Estado do produto
 
-O RASAi possui release pública final `v0.5.0`. A documentação normativa descreve o contrato vigente da linha atual e deve distinguir explicitamente a baseline publicada, a evolução pós-release, registros históricos, protótipos e backlog futuro.
+O RASAi possui release pública final `v0.8.0`. A documentação normativa descreve o contrato vigente da linha atual e deve distinguir explicitamente a baseline publicada, a evolução pós-release, registros históricos, protótipos e backlog futuro.
 
 O contrato funcional vigente usa:
 
 - índice público `SARI-001`;
-- método de scoring `SCORE-GEO-004`;
+- método de scoring `SCORE-GEO-005` para novas auditorias, preservando a versão das evidências históricas;
 - `report-catalog/sari.html` como superfície canônica do índice;
 - `report-catalog/methodology.html` como superfície canônica da metodologia/scoring;
 - `report-catalog/index.html` como visão executiva;
@@ -116,7 +116,7 @@ A referência central consolidada de variáveis é [`ENVIRONMENT_VARIABLES.md`](
 1. [`GLOSSARY.md`](GLOSSARY.md) - siglas, identificadores, taxonomia e significado dos termos usados pelo RASAi.
 2. [`CATALOG_AND_REPORT_SURFACES.md`](CATALOG_AND_REPORT_SURFACES.md) e [`REPORT_GUIDE.md`](REPORT_GUIDE.md) - contrato uniforme de CAT-01 a CAT-10, páginas transversais e interpretação do relatório.
 3. [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md) - definição, versão pública 001 e limites do **Índice de Prontidão Search & IA** (`SARI-001`).
-4. [`SCORING_GUIDE.md`](SCORING_GUIDE.md) e [`SCORE_GEO.md`](SCORE_GEO.md) - **Método de Pontuação de Prontidão**, versão pública 001, fórmula, Cobertura, Confiança e critérios críticos; `SCORE-GEO-004` permanece como contrato técnico.
+4. [`SCORING_GUIDE.md`](SCORING_GUIDE.md) e [`SCORE_GEO.md`](SCORE_GEO.md) - **Método de Pontuação de Prontidão**, versão pública 001, fórmula, Cobertura, Confiança e critérios críticos; `SCORE-GEO-005` é o contrato técnico vigente para novas AUDs; `SCORE-GEO-004` permanece disponível para replay histórico.
 5. [`RULES_GUIDE.md`](RULES_GUIDE.md) e [`DISCOVERY_RESOURCES.md`](DISCOVERY_RESOURCES.md) - **Regras de Avaliação de Prontidão** (IDs técnicos `BR-GEO-*`), evidências, aplicabilidade e topologia de `robots.txt`, múltiplos sitemaps e `llms.txt` raiz/scoped.
 6. [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md) e [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md) - experiência sintética independente do SARI.
 7. [`ACCESSIBILITY_PERFORMANCE_DOMAINS.md`](ACCESSIBILITY_PERFORMANCE_DOMAINS.md), [`LIGHTHOUSE_WEB_QUALITY.md`](LIGHTHOUSE_WEB_QUALITY.md) e [`LIGHTHOUSE_CATEGORIES.md`](LIGHTHOUSE_CATEGORIES.md) - fronteiras entre Performance, Accessibility, Best Practices, SEO técnico, Agentic Browsing experimental, Core Web Vitals e readiness.
@@ -176,3 +176,6 @@ As referências abaixo sustentam domínios específicos; nenhuma delas homologa 
 - proposta comunitária `llms.txt`: https://llmstxt.org/
 
 Consulte também as páginas de governança de `report-catalog/`, especialmente metodologia, evidências da execução e IA/integrações; elas materializam a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
+## Preparação da candidata não publicada
+
+A versão pública continua `v0.8.0`. Consultar [notas da candidata](RELEASE_NOTES_DRAFT.md), [matriz de gates](RELEASE_GATE_MATRIX.md) e [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md) para o preparo da candidata `v0.9.0`. Esses registros não autorizam publicação nem alteram o contrato de auditorias históricas.

@@ -1,0 +1,823 @@
+status	area	source_or_path	rename_destination
+A	ci	.github/workflows/a167-discovery-geo-focal.yml	
+R096	ci	.github/workflows/ai-audit-boundary-199-200-targeted.yml	.github/workflows/ai-audit-boundary-targeted.yml
+R086	ci	.github/workflows/ai-canonical-orchestration-190-targeted.yml	.github/workflows/ai-canonical-orchestration-targeted.yml
+R086	ci	.github/workflows/ai-economic-telemetry-195-targeted.yml	.github/workflows/ai-economic-telemetry-targeted.yml
+R091	ci	.github/workflows/apdex-catalog-independence-150.yml	.github/workflows/apdex-catalog-independence.yml
+A	ci	.github/workflows/apdex-console-cancel.yml	
+A	ci	.github/workflows/apdex-console-navigation.yml	
+A	ci	.github/workflows/architecture-preview-focal.yml	
+A	ci	.github/workflows/aud-ai-completion-boundary.yml	
+R093	ci	.github/workflows/aud-postseal-gate-136-targeted.yml	.github/workflows/aud-postseal-gate-targeted.yml
+A	ci	.github/workflows/audit-local-integrity.yml	
+M	ci	.github/workflows/audit-reprocessing-ci.yml	
+A	ci	.github/workflows/audit-stage-scope-targeted.yml	
+A	ci	.github/workflows/canonical-capture-regressions.yml	
+A	ci	.github/workflows/cat03-jsonld-inline.yml	
+R072	ci	.github/workflows/cat03-semantic-summary-109.yml	.github/workflows/cat03-semantic-summary.yml
+R093	ci	.github/workflows/cat05-serp-active-129-targeted.yml	.github/workflows/cat05-serp-active-targeted.yml
+R074	ci	.github/workflows/cat06-browser-labels-109.yml	.github/workflows/cat06-browser-labels.yml
+A	ci	.github/workflows/cat07-architecture-guidance.yml	
+A	ci	.github/workflows/cat07-perplexity-ux.yml	
+R082	ci	.github/workflows/cat08-no-ai-assurance-133-targeted.yml	.github/workflows/cat08-no-ai-assurance-targeted.yml
+R091	ci	.github/workflows/catalog-deselect-148.yml	.github/workflows/catalog-deselect.yml
+A	ci	.github/workflows/claim-review-focused.yml	
+R084	ci	.github/workflows/cli-final-fulfillment-245-targeted.yml	.github/workflows/cli-final-fulfillment-targeted.yml
+A	ci	.github/workflows/cons-domain-comparative.yml	
+A	ci	.github/workflows/cons-domain-package.yml	
+A	ci	.github/workflows/cons-domain-preflight.yml	
+M	ci	.github/workflows/console-configuration-controls-targeted.yml	
+A	ci	.github/workflows/console-final-authorization.yml	
+A	ci	.github/workflows/console-usage-separation.yml	
+M	ci	.github/workflows/console-windows-navigation.yml	
+A	ci	.github/workflows/content-readiness-probe-targeted.yml	
+A	ci	.github/workflows/content-readiness-provenance.yml	
+R094	ci	.github/workflows/cost-report-integrity-152.yml	.github/workflows/cost-report-integrity.yml
+M	ci	.github/workflows/directed-analysis-targeted.yml	
+A	ci	.github/workflows/directed-roadmap-ux.yml	
+A	ci	.github/workflows/duration-forecast-targeted.yml	
+A	ci	.github/workflows/dynatrace-apdex-advisory-targeted.yml	
+A	ci	.github/workflows/dynatrace-crosscheck.yml	
+A	ci	.github/workflows/dynatrace-live-crosscheck.yml	
+A	ci	.github/workflows/dynatrace-rum-usql.yml	
+R075	ci	.github/workflows/external-observability-finalizer-138-targeted.yml	.github/workflows/external-observability-finalizer-targeted.yml
+M	ci	.github/workflows/full-regression.yml	
+A	ci	.github/workflows/geo-aud710-focal.yml	
+A	ci	.github/workflows/geo-cat-crossref.yml	
+A	ci	.github/workflows/geo-competitor-cobs.yml	
+A	ci	.github/workflows/geo-competitor-content.yml	
+A	ci	.github/workflows/geo-competitor-robots.yml	
+A	ci	.github/workflows/geo-cons-package.yml	
+A	ci	.github/workflows/geo-hardening-targeted.yml	
+A	ci	.github/workflows/geo-longitudinal-targeted.yml	
+A	ci	.github/workflows/geo-query-ledger.yml	
+A	ci	.github/workflows/geo-read-only-inspection-targeted.yml	
+R064	ci	.github/workflows/interrupted-stage-restart-127-targeted.yml	.github/workflows/interrupted-stage-restart-targeted.yml
+M	ci	.github/workflows/m24-crawling-discovery-ci.yml	
+M	ci	.github/workflows/m25-validation.yml	
+M	ci	.github/workflows/m26-observed-visibility-ci.yml	
+A	ci	.github/workflows/m3-content-materiality-focused.yml	
+M	ci	.github/workflows/mistral-provider-targeted.yml	
+M	ci	.github/workflows/monitoring-observability-ci.yml	
+A	ci	.github/workflows/network-discovery-focused.yml	
+A	ci	.github/workflows/network-g1-focused.yml	
+A	ci	.github/workflows/network-geoip-focused.yml	
+M	ci	.github/workflows/passive-security-targeted.yml	
+M	ci	.github/workflows/perplexity-search-intelligence-targeted.yml	
+M	ci	.github/workflows/portable-sqlite-safety.yml	
+M	ci	.github/workflows/postgresql-control-plane-ci.yml	
+M	ci	.github/workflows/product-platform-ci.yml	
+M	ci	.github/workflows/public-contract-consistency.yml	
+R095	ci	.github/workflows/public-language-120-targeted.yml	.github/workflows/public-language-targeted.yml
+A	ci	.github/workflows/public-language.yml	
+A	ci	.github/workflows/readiness-physical-browser-pilot.yml	
+M	ci	.github/workflows/render-failure-diagnostics-targeted.yml	
+R081	ci	.github/workflows/rendered-extraction-121-targeted.yml	.github/workflows/rendered-extraction-targeted.yml
+M	ci	.github/workflows/report-catalog-output-targeted.yml	
+M	ci	.github/workflows/report-catalog-targeted.yml	
+A	ci	.github/workflows/report-catalog-visual-smoke.yml	
+R074	ci	.github/workflows/report-humanization-109-semantic-serp.yml	.github/workflows/report-humanization-semantic-serp.yml
+R079	ci	.github/workflows/report-humanization-109-targeted.yml	.github/workflows/report-humanization-targeted.yml
+R051	ci	.github/workflows/report-rematerialization-141-targeted.yml	.github/workflows/report-rematerialization-targeted.yml
+R084	ci	.github/workflows/report-residual-typed-109.yml	.github/workflows/report-residual-typed.yml
+A	ci	.github/workflows/report-section-ux.yml	
+R076	ci	.github/workflows/reprocess-accounting-108-targeted.yml	.github/workflows/reprocess-accounting-targeted.yml
+R050	ci	.github/workflows/score-geo-004-validation.yml	.github/workflows/score-geo-validation.yml
+R082	ci	.github/workflows/search-aud-diagnostic-132-targeted.yml	.github/workflows/search-aud-diagnostic-targeted.yml
+M	ci	.github/workflows/secret-safety.yml	
+R088	ci	.github/workflows/serp-provider-cache-129-targeted.yml	.github/workflows/serp-provider-cache-targeted.yml
+R071	ci	.github/workflows/synthetic-acquisition-homologation-207.yml	.github/workflows/synthetic-acquisition-homologation.yml
+A	ci	.github/workflows/target-scope-focal.yml	
+M	ci	.github/workflows/web-api-foundation.yml	
+M	operations	.gitignore	
+A	operations	Dockerfile.architecture-offline	
+A	operations	Dockerfile.architecture-offline.dockerignore	
+M	documentation	README.md	
+M	operations	abrir-rasai-console.cmd	
+M	operations	config/ai-models.toml	
+M	operations	config/ai-pricing.toml	
+A	documentation	docs/ADR_FAQ_NORMATIVE_SEMANTICS.md	
+A	documentation	docs/ADR_OPTIONAL_SEO_SCORING.md	
+A	documentation	docs/ADR_PERPLEXITY_SEARCH_REUSE.md	
+M	documentation	docs/AI_GUIDE.md	
+M	documentation	docs/AI_MODEL_CONFIGURATION.md	
+M	documentation	docs/AI_PRICING_CONFIGURATION.md	
+A	documentation	docs/APDEX_CONTENT_READINESS_INVESTIGATION.md	
+A	documentation	docs/APDEX_DYNATRACE_ARCH_ADVISORY.md	
+A	documentation	docs/ARCHITECTURE_AND_SCORING_DECISION.md	
+A	documentation	docs/ARCHITECTURE_AUDIT_ADVISORY.md	
+A	documentation	docs/ARCHITECTURE_CONSUMER_ELIGIBILITY.md	
+A	documentation	docs/ARCHITECTURE_CONTEXT_CONTRACT.md	
+A	documentation	docs/ARCHITECTURE_DISCOVERY_ACCEPTANCE.md	
+A	documentation	docs/ARCHITECTURE_F3_APPROVAL_GATE.md	
+A	documentation	docs/ARCHITECTURE_PREVIEW_LEDGER.md	
+M	documentation	docs/AUDIT_CONFIGURATION_REUSE.md	
+M	documentation	docs/AUDIT_REPROCESSING.md	
+A	documentation	docs/AUDIT_STAGE_SCOPE.md	
+A	documentation	docs/AUD_A167_DISCOVERY_GEO_RECOVERY.md	
+A	documentation	docs/AUD_AI_COMPLETION_BOUNDARY.md	
+A	documentation	docs/AUD_LOCAL_INTEGRITY.md	
+M	documentation	docs/AUD_RPR_COLLECTION_AI_GATE.md	
+R100	documentation	docs/AUD_RPR_PARITY_MATRIX_110.md	docs/AUD_RPR_PARITY_MATRIX.md
+A	documentation	docs/AUD_TARGET_SCOPE_RECONCILIATION.md	
+M	documentation	docs/AUTO_COST_AWARE_AI_ROUTING.md	
+A	documentation	docs/CAT07_EXPERIENCE_ARCH_GUIDANCE.md	
+M	documentation	docs/CATALOG_AND_REPORT_SURFACES.md	
+A	documentation	docs/CLAIM_REVIEW_HANDOFF.md	
+A	documentation	docs/CLAIM_VERIFICATION.md	
+M	documentation	docs/CONFIGURATION.md	
+M	documentation	docs/CONSOLE_CONFIGURATION_UX.md	
+A	documentation	docs/CONSOLE_CONFIG_PERSISTENCE.md	
+M	documentation	docs/CONSOLE_COST_AND_USAGE.md	
+M	documentation	docs/CONSOLE_READINESS_REFINEMENTS.md	
+M	documentation	docs/CONSOLE_SEARCH_INTELLIGENCE.md	
+M	documentation	docs/CONSOLIDATED_REPORTING_VALIDATION.md	
+A	documentation	docs/CONS_DOMAIN_COMPARATIVE.md	
+A	documentation	docs/CONS_SAME_DOMAIN_PREFLIGHT.md	
+A	documentation	docs/DYNATRACE_LIVE_CROSSCHECK.md	
+A	documentation	docs/DYNATRACE_POPULATION_CROSSCHECK.md	
+M	documentation	docs/ENVIRONMENT_VARIABLES.md	
+M	documentation	docs/EXECUTION_PROGRESS_MODEL.md	
+A	documentation	docs/EXPERIMENTAL_BROWSER_ACCEPTANCE.md	
+A	documentation	docs/FAQ_DOM_TRANSITION.md	
+A	documentation	docs/FAQ_OBSERVATION_BOUNDARIES.md	
+A	documentation	docs/FAQ_TARGET_AUTHORIZATION.md	
+A	documentation	docs/GEO_AUD710_QUERY_AND_PRESENTATION_ACCEPTANCE.md	
+A	documentation	docs/GEO_CATALOG_CONTEXT.md	
+A	documentation	docs/GEO_COMPETITOR_CAPTURE_BUNDLE.md	
+A	documentation	docs/GEO_COMPETITOR_CONTENT_PROVENANCE.md	
+A	documentation	docs/GEO_COMPETITOR_FETCH.md	
+A	documentation	docs/GEO_CONS_COMPANION.md	
+A	documentation	docs/GEO_CONS_PACKAGE.md	
+A	documentation	docs/GEO_LONGITUDINAL.md	
+A	documentation	docs/GEO_LONGITUDINAL_CONS_PREFLIGHT.md	
+A	documentation	docs/GEO_QUERY_LEDGER.md	
+M	documentation	docs/INDICATOR_PROVENANCE.md	
+M	documentation	docs/INSTALLATION.md	
+M	documentation	docs/INTERACTIVE_CONSOLE.md	
+A	documentation	docs/ISSUE_ACCEPTANCE_EVIDENCE_PLAN.md	
+A	documentation	docs/M3_MATERIALITY_SEARCH_CONSUMERS.md	
+A	documentation	docs/NETWORK_GEOIP_ACCEPTANCE.md	
+A	documentation	docs/OPEN_ISSUES_DELIVERY_MATRIX.md	
+M	documentation	docs/OUTPUTS_AND_ARTIFACTS.md	
+M	documentation	docs/PERPLEXITY_SEARCH_INTELLIGENCE.md	
+M	documentation	docs/PRE_EXECUTION_COST_FORECAST.md	
+A	documentation	docs/PRE_SMOKE_READINESS_GATE.md	
+M	documentation	docs/PROVIDER_REGISTRY.md	
+M	documentation	docs/PROVIDER_SETUP.md	
+A	documentation	docs/PUBLIC_LANGUAGE.md	
+A	documentation	docs/READINESS_BROWSER_PILOT.md	
+A	documentation	docs/READINESS_MATCHED_PILOT.md	
+M	documentation	docs/README.md	
+M	documentation	docs/RECOMMENDATION_GOVERNANCE.md	
+A	documentation	docs/RELEASE_CANDIDATE_0_9_0.md	
+A	documentation	docs/RELEASE_GATE_MATRIX.md	
+A	documentation	docs/RELEASE_NOTES_DRAFT.md	
+A	documentation	docs/REPORT_DECISION_MATRIX.md	
+A	documentation	docs/REPORT_DESIGN_BACKGROUND.md	
+A	documentation	docs/REPORT_DESIGN_SYSTEM.md	
+M	documentation	docs/REPORT_GUIDE.md	
+M	documentation	docs/REPORT_PRESENTATION.md	
+M	documentation	docs/REPORT_PRESENTATION_CONTRACT.md	
+R064	documentation	docs/REPORT_REMATERIALIZATION_141.md	docs/REPORT_REMATERIALIZATION.md
+A	documentation	docs/REPORT_SECTION_UX.md	
+A	documentation	docs/REPORT_VISUAL_ACCEPTANCE.md	
+A	documentation	docs/REPOSITORY_FILENAME_POLICY.md	
+M	documentation	docs/REPROCESSING_HUMAN_SMOKE.md	
+A	documentation	docs/RESIDUAL_IMPLEMENTATION_PLAN.md	
+M	documentation	docs/RULES_GUIDE.md	
+M	documentation	docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md	
+A	documentation	docs/SARI_DECISION_SCOPE.md	
+M	documentation	docs/SARI_READINESS_INDEX.md	
+R092	documentation	docs/SCORE_GEO_004.md	docs/SCORE_GEO.md
+M	documentation	docs/SCORING_GUIDE.md	
+M	documentation	docs/SECURE_REDIRECT_RECOVERY.md	
+R100	documentation	docs/SERP_CACHE_FRESHNESS_129.md	docs/SERP_CACHE_FRESHNESS.md
+A	documentation	docs/SMOKE_GATE.md	
+A	documentation	docs/SMOKE_READINESS_GATE.md	
+A	documentation	docs/STABILIZATION_RELEASE_READINESS.md	
+M	documentation	docs/SYNTHETIC_APDEX.md	
+M	documentation	docs/SYNTHETIC_USER_EXPERIENCE_APDEX.md	
+M	documentation	docs/specification/00_SPEC_INDEX.md	
+M	documentation	docs/specification/01_PROJECT_CHARTER_SCOPE.md	
+M	documentation	docs/specification/05_SCORING_MODEL.md	
+M	documentation	docs/specification/13_MODEL_ROUTING_POLICY.md	
+M	documentation	docs/specification/18_MULTI_AI_PROVIDER_ROUTING.md	
+M	operations	pyproject.toml	
+A	operations	scripts/NETWORK_GEOIP_WINDOWS_ACCEPTANCE.ps1	
+R100	operations	scripts/SMOKE_REPORT_REMATERIALIZATION_141.ps1	scripts/SMOKE_REPORT_REMATERIALIZATION.ps1
+A	operations	scripts/claim_review_prepare_handoff.py	
+A	operations	scripts/claim_review_reviewer_finalize.py	
+A	operations	scripts/claim_review_windows_acceptance.py	
+A	operations	scripts/faq_windows_acceptance.py	
+A	operations	scripts/geo_audit_diagnosis.py	
+M	runtime	src/rasai/accepted_audit_refinements.py	
+M	runtime	src/rasai/acquisition.py	
+M	runtime	src/rasai/ai_dependency_reporting.py	
+M	runtime	src/rasai/ai_dependency_runtime.py	
+M	runtime	src/rasai/ai_economic_telemetry.py	
+A	runtime	src/rasai/apdex_content_readiness_observation.py	
+A	runtime	src/rasai/apdex_readiness_review.py	
+A	runtime	src/rasai/apdex_readiness_review_cli.py	
+A	runtime	src/rasai/apdex_readiness_review_html.py	
+A	runtime	src/rasai/apdex_readiness_sidecar.py	
+A	runtime	src/rasai/apdex_sampling_reliability_reporting.py	
+A	runtime	src/rasai/architecture_acquisition_preferences.py	
+A	runtime	src/rasai/architecture_acquisition_service.py	
+A	runtime	src/rasai/architecture_attestation.py	
+A	runtime	src/rasai/architecture_audit_cli.py	
+A	runtime	src/rasai/architecture_audit_facts.py	
+A	runtime	src/rasai/architecture_audit_html.py	
+A	runtime	src/rasai/architecture_audit_projection.py	
+A	runtime	src/rasai/architecture_choice.py	
+A	runtime	src/rasai/architecture_choice_audit_adapter.py	
+A	runtime	src/rasai/architecture_choice_precedence.py	
+A	runtime	src/rasai/architecture_choice_snapshot.py	
+A	runtime	src/rasai/architecture_consumer_eligibility.py	
+A	runtime	src/rasai/architecture_context.py	
+A	runtime	src/rasai/architecture_discovery.py	
+A	runtime	src/rasai/architecture_dom_settle.py	
+A	runtime	src/rasai/architecture_hypothesis.py	
+A	runtime	src/rasai/architecture_image_identity.py	
+A	runtime	src/rasai/architecture_isolated_capture.py	
+A	runtime	src/rasai/architecture_isolation_smoke.py	
+A	runtime	src/rasai/architecture_live_capture.py	
+A	runtime	src/rasai/architecture_m6_evidence.py	
+A	runtime	src/rasai/architecture_observation_reader.py	
+A	runtime	src/rasai/architecture_offline_worker.py	
+A	runtime	src/rasai/architecture_preview_store.py	
+A	runtime	src/rasai/architecture_probe.py	
+A	runtime	src/rasai/architecture_public_html.py	
+A	runtime	src/rasai/architecture_raw_signals.py	
+A	runtime	src/rasai/architecture_resource_budget.py	
+A	runtime	src/rasai/architecture_resource_diagnostic.py	
+A	runtime	src/rasai/architecture_static_capture.py	
+A	runtime	src/rasai/audit_ai_completion_boundary.py	
+A	runtime	src/rasai/audit_ai_workload_sensitivity.py	
+A	runtime	src/rasai/audit_attempt_inspection.py	
+A	runtime	src/rasai/audit_attempt_timeline.py	
+M	runtime	src/rasai/audit_collection_gate.py	
+M	runtime	src/rasai/audit_configuration_reuse_console.py	
+M	runtime	src/rasai/audit_configuration_reuse_runtime.py	
+A	runtime	src/rasai/audit_cost_explain.py	
+A	runtime	src/rasai/audit_duration_forecast.py	
+A	runtime	src/rasai/audit_fulfillment_stage_timing.py	
+A	runtime	src/rasai/audit_fulfillment_timing.py	
+A	runtime	src/rasai/audit_integrity_review.py	
+M	runtime	src/rasai/audit_progress_runtime.py	
+M	runtime	src/rasai/audit_runner.py	
+A	runtime	src/rasai/audit_stage_cost_presentation.py	
+A	runtime	src/rasai/audit_step_timer_inspection.py	
+M	runtime	src/rasai/browser_identity_renderer.py	
+A	runtime	src/rasai/cat07_architecture_reporting.py	
+M	runtime	src/rasai/catalog_report_adherence.py	
+M	runtime	src/rasai/catalog_report_analysis.py	
+M	runtime	src/rasai/catalog_report_assurance.py	
+M	runtime	src/rasai/catalog_report_contract.py	
+M	runtime	src/rasai/catalog_report_evidence.py	
+M	runtime	src/rasai/catalog_report_final_refinements.py	
+M	runtime	src/rasai/catalog_report_governance.py	
+M	runtime	src/rasai/catalog_report_integrations.py	
+M	runtime	src/rasai/catalog_report_metrics.py	
+M	runtime	src/rasai/catalog_report_page.py	
+M	runtime	src/rasai/catalog_report_presentation.py	
+M	runtime	src/rasai/catalog_report_public_labels.py	
+M	runtime	src/rasai/catalog_report_search_trust.py	
+M	runtime	src/rasai/catalog_report_site.py	
+M	runtime	src/rasai/catalog_report_style.py	
+M	runtime	src/rasai/catalog_source_dependencies.py	
+A	runtime	src/rasai/claim_aud_binding.py	
+A	runtime	src/rasai/claim_review_batch.py	
+A	runtime	src/rasai/claim_review_batch_html.py	
+A	runtime	src/rasai/claim_review_import_cli.py	
+A	runtime	src/rasai/claim_review_physical_gate.py	
+A	runtime	src/rasai/claim_review_receipt.py	
+A	runtime	src/rasai/claim_source_verification.py	
+M	runtime	src/rasai/cli.py	
+M	runtime	src/rasai/cli_extensions.py	
+M	runtime	src/rasai/config/ai-models-defaults.toml	
+M	runtime	src/rasai/config/ai-pricing-defaults.toml	
+M	runtime	src/rasai/config/rasai-defaults.ini	
+A	runtime	src/rasai/console_acceptance_contract.py	
+M	runtime	src/rasai/console_apdex_configuration.py	
+A	runtime	src/rasai/console_apdex_duration_scope.py	
+A	runtime	src/rasai/console_apdex_effective_validation.py	
+A	runtime	src/rasai/console_architecture_discovery.py	
+M	runtime	src/rasai/console_artifacts.py	
+M	runtime	src/rasai/console_audit_catalog_extension.py	
+M	runtime	src/rasai/console_catalog_ui.py	
+M	runtime	src/rasai/console_complete_persistence.py	
+M	runtime	src/rasai/console_config_path.py	
+A	runtime	src/rasai/console_config_provenance.py	
+A	runtime	src/rasai/console_configuration_inventory.py	
+A	runtime	src/rasai/console_core_consumer_preflight.py	
+M	runtime	src/rasai/console_cost.py	
+M	runtime	src/rasai/console_cost_confirmation.py	
+M	runtime	src/rasai/console_entrypoint.py	
+M	runtime	src/rasai/console_environment.py	
+M	runtime	src/rasai/console_first_run_cost_preview.py	
+M	runtime	src/rasai/console_governed_search_runtime.py	
+A	runtime	src/rasai/console_gsc_consumer_preflight.py	
+M	runtime	src/rasai/console_m23.py	
+M	runtime	src/rasai/console_navigation.py	
+A	runtime	src/rasai/console_network_settings.py	
+M	runtime	src/rasai/console_operator_navigation_refinements.py	
+A	runtime	src/rasai/console_perplexity_readiness.py	
+A	runtime	src/rasai/console_perplexity_run_gate.py	
+M	runtime	src/rasai/console_progress_presentation.py	
+M	runtime	src/rasai/console_provider_environment.py	
+M	runtime	src/rasai/console_reprocess_parity.py	
+M	runtime	src/rasai/console_runtime.py	
+M	runtime	src/rasai/console_search_configuration_groups.py	
+A	runtime	src/rasai/console_search_consumer_preflight.py	
+A	runtime	src/rasai/console_search_duration_scope.py	
+M	runtime	src/rasai/console_search_intelligence.py	
+M	runtime	src/rasai/console_search_parameter_menu.py	
+M	runtime	src/rasai/console_search_scope_presentation.py	
+A	runtime	src/rasai/console_search_usage.py	
+M	runtime	src/rasai/console_session.py	
+M	runtime	src/rasai/console_settings.py	
+A	runtime	src/rasai/console_target_dependency_guide.py	
+A	runtime	src/rasai/console_typed_reconciliation.py	
+M	runtime	src/rasai/console_ui_catalog.py	
+M	runtime	src/rasai/console_ui_refactor.py	
+M	runtime	src/rasai/consolidation/console.py	
+M	runtime	src/rasai/consolidation/consolidated_report_enrichment.py	
+A	runtime	src/rasai/consolidation/domain_comparative_html.py	
+A	runtime	src/rasai/consolidation/domain_comparative_index.py	
+A	runtime	src/rasai/consolidation/domain_comparative_package.py	
+A	runtime	src/rasai/consolidation/domain_comparative_preview.py	
+A	runtime	src/rasai/consolidation/domain_preflight.py	
+M	runtime	src/rasai/consolidation/presentation.py	
+M	runtime	src/rasai/consolidation/specialist.py	
+M	runtime	src/rasai/consolidation_cli.py	
+M	runtime	src/rasai/content_extractability.py	
+M	runtime	src/rasai/cost_forecast.py	
+M	runtime	src/rasai/device_context_capture.py	
+M	runtime	src/rasai/directed_analysis_reporting.py	
+M	runtime	src/rasai/discovery.py	
+A	runtime	src/rasai/dynatrace_apdex_arch_advisory.py	
+A	runtime	src/rasai/dynatrace_apdex_review_cli.py	
+A	runtime	src/rasai/dynatrace_effective_values_adapter.py	
+A	runtime	src/rasai/dynatrace_live_crosscheck.py	
+A	runtime	src/rasai/dynatrace_population_crosscheck.py	
+A	runtime	src/rasai/dynatrace_population_crosscheck_html.py	
+A	runtime	src/rasai/dynatrace_rum_population.py	
+A	runtime	src/rasai/dynatrace_settings_live.py	
+M	runtime	src/rasai/entrypoint.py	
+A	runtime	src/rasai/experience_architecture_guidance.py	
+A	runtime	src/rasai/experimental_observation_report.py	
+M	runtime	src/rasai/external_sari.py	
+M	runtime	src/rasai/external_sari_reporting.py	
+M	runtime	src/rasai/extraction.py	
+A	runtime	src/rasai/faq_aud_receipt_binding.py	
+A	runtime	src/rasai/faq_existing_page_pilot.py	
+A	runtime	src/rasai/faq_interaction_receipt.py	
+A	runtime	src/rasai/faq_observation.py	
+A	runtime	src/rasai/faq_snapshot_scope.py	
+A	runtime	src/rasai/faq_target_inventory.py	
+A	runtime	src/rasai/faq_transition_policy.py	
+M	runtime	src/rasai/fulfillment_execution_contract.py	
+A	runtime	src/rasai/geo_ai.py	
+A	runtime	src/rasai/geo_catalog_context.py	
+A	runtime	src/rasai/geo_competitor_capture_bundle.py	
+A	runtime	src/rasai/geo_competitor_consent.py	
+A	runtime	src/rasai/geo_competitor_content_provenance.py	
+A	runtime	src/rasai/geo_competitor_fetch.py	
+A	runtime	src/rasai/geo_competitor_inline_render.py	
+A	runtime	src/rasai/geo_competitor_offline_assets.py	
+A	runtime	src/rasai/geo_competitor_pair.py	
+A	runtime	src/rasai/geo_competitor_pair_html.py	
+A	runtime	src/rasai/geo_competitor_pinned_egress.py	
+A	runtime	src/rasai/geo_cons_companion.py	
+A	runtime	src/rasai/geo_cons_package.py	
+A	runtime	src/rasai/geo_extraction_quality.py	
+A	runtime	src/rasai/geo_longitudinal.py	
+A	runtime	src/rasai/geo_longitudinal_html.py	
+A	runtime	src/rasai/geo_observation.py	
+A	runtime	src/rasai/geo_post_audit_complement.py	
+A	runtime	src/rasai/geo_query_ledger.py	
+A	runtime	src/rasai/geo_query_ledger_html.py	
+A	runtime	src/rasai/geo_query_ledger_report.py	
+A	runtime	src/rasai/geo_report.py	
+A	runtime	src/rasai/geo_search_alignment.py	
+A	runtime	src/rasai/geo_snapshot_context.py	
+A	runtime	src/rasai/geo_supplement_inspection.py	
+A	runtime	src/rasai/geo_temporal_provenance.py	
+M	runtime	src/rasai/improvement_intelligence.py	
+M	runtime	src/rasai/improvement_intelligence_console.py	
+M	runtime	src/rasai/integration_diagnostics.py	
+M	runtime	src/rasai/integration_diagnostics_console.py	
+M	runtime	src/rasai/interactive_console.py	
+M	runtime	src/rasai/m14_discovery.py	
+M	runtime	src/rasai/m18_ai.py	
+M	runtime	src/rasai/m2.py	
+M	runtime	src/rasai/m21_reporting.py	
+M	runtime	src/rasai/m24_crawling_discovery.py	
+M	runtime	src/rasai/m24_discovery_extensions.py	
+M	runtime	src/rasai/m24_reporting.py	
+M	runtime	src/rasai/m25_apdex_experience.py	
+M	runtime	src/rasai/m25_cli.py	
+A	runtime	src/rasai/m25_experimental_probe_runtime.py	
+M	runtime	src/rasai/m25_runtime.py	
+M	runtime	src/rasai/m3.py	
+A	runtime	src/rasai/m3_experimental_faq_runtime.py	
+A	runtime	src/rasai/m3_faq_capture_provenance.py	
+M	runtime	src/rasai/m3_render_deadline_runtime.py	
+M	runtime	src/rasai/m4.py	
+M	runtime	src/rasai/m5.py	
+M	runtime	src/rasai/m6.py	
+M	runtime	src/rasai/m7.py	
+M	runtime	src/rasai/m9.py	
+A	runtime	src/rasai/network_acceptance.py	
+A	runtime	src/rasai/network_active_policy.py	
+A	runtime	src/rasai/network_active_probe.py	
+A	runtime	src/rasai/network_auto_probe.py	
+A	runtime	src/rasai/network_enrichment.py	
+A	runtime	src/rasai/network_geoip_bootstrap.py	
+A	runtime	src/rasai/network_geoip_install.py	
+A	runtime	src/rasai/network_geoip_maintenance.py	
+A	runtime	src/rasai/network_geoip_operations.py	
+A	runtime	src/rasai/network_geoip_schedule.py	
+A	runtime	src/rasai/network_intelligence.py	
+A	runtime	src/rasai/network_intelligence_ai.py	
+A	runtime	src/rasai/network_intelligence_reporting.py	
+A	runtime	src/rasai/network_map.py	
+A	runtime	src/rasai/network_observation.py	
+A	runtime	src/rasai/network_observation_store.py	
+A	runtime	src/rasai/network_progression.py	
+A	runtime	src/rasai/network_reporting.py	
+A	runtime	src/rasai/network_traceroute.py	
+A	runtime	src/rasai/network_world_land.py	
+M	runtime	src/rasai/observability/external_sources.py	
+A	runtime	src/rasai/optional_seo_audit_replay.py	
+A	runtime	src/rasai/optional_seo_evidence_matrix.py	
+A	runtime	src/rasai/optional_seo_interpretation.py	
+A	runtime	src/rasai/optional_seo_policy.py	
+A	runtime	src/rasai/optional_seo_policy_decision.py	
+A	runtime	src/rasai/optional_seo_score_scenarios.py	
+A	runtime	src/rasai/playwright_primary_content_probe.py	
+M	runtime	src/rasai/provider_runtime_policy.py	
+M	runtime	src/rasai/public_contract_gate.py	
+M	runtime	src/rasai/public_language.py	
+A	runtime	src/rasai/public_rule_titles.py	
+M	runtime	src/rasai/quality/analysis.py	
+A	runtime	src/rasai/readiness_matched_pilot.py	
+A	runtime	src/rasai/readiness_probe_cost_pilot.py	
+M	runtime	src/rasai/render_materiality.py	
+M	runtime	src/rasai/rendering.py	
+A	runtime	src/rasai/report_claim_review_advisory.py	
+M	runtime	src/rasai/report_completion.py	
+M	runtime	src/rasai/report_contract.py	
+A	runtime	src/rasai/report_decision_html_acceptance.py	
+A	runtime	src/rasai/report_decision_matrix.py	
+A	runtime	src/rasai/report_decision_matrix_cli.py	
+M	runtime	src/rasai/report_presentation.py	
+A	runtime	src/rasai/report_ptbr_copy.py	
+M	runtime	src/rasai/report_registry.py	
+M	runtime	src/rasai/report_rematerialization.py	
+A	runtime	src/rasai/runtime_prerequisites.py	
+A	runtime	src/rasai/same_sample_observation.py	
+M	runtime	src/rasai/sari_readiness_presentation.py	
+R097	runtime	src/rasai/score_geo_004.py	src/rasai/score_geo.py
+R094	runtime	src/rasai/score_geo_004_cli.py	src/rasai/score_geo_cli.py
+R099	runtime	src/rasai/score_geo_004_reporting.py	src/rasai/score_geo_reporting.py
+M	runtime	src/rasai/scoring.py	
+M	runtime	src/rasai/scoring_v004.py	
+A	runtime	src/rasai/scoring_v005.py	
+M	runtime	src/rasai/search_audit_runtime.py	
+M	runtime	src/rasai/search_intelligence/cli.py	
+M	runtime	src/rasai/search_intelligence/competitive_runtime.py	
+M	runtime	src/rasai/search_intelligence/content.py	
+M	runtime	src/rasai/search_intelligence/history_reporting.py	
+M	runtime	src/rasai/search_intelligence/perplexity.py	
+A	runtime	src/rasai/search_intelligence/perplexity_request_policy.py	
+M	runtime	src/rasai/secret_safety.py	
+M	runtime	src/rasai/selective_optional_reprocess.py	
+M	runtime	src/rasai/semantic_coherence_reporting.py	
+M	runtime	src/rasai/semantic_recovery_runtime.py	
+A	runtime	src/rasai/semantic_rendered_source.py	
+M	runtime	src/rasai/source_quality_browser.py	
+M	runtime	src/rasai/system_defaults.py	
+A	runtime	src/rasai/target_scope_reconciliation.py	
+A	tests	tests/architecture_offline_classification_matrix.py	
+A	tests	tests/report_catalog_visual_smoke.py	
+A	tests	tests/test_a167_semantic_geo_alignment.py	
+M	tests	tests/test_accepted_audit_refinements.py	
+R100	tests	tests/test_ai_canonical_orchestration_190.py	tests/test_ai_canonical_orchestration.py
+M	tests	tests/test_ai_cost_policy.py	
+M	tests	tests/test_ai_dependency_reporting.py	
+A	tests	tests/test_ai_economic_reporting.py	
+D	tests	tests/test_ai_economic_reporting_195.py	
+M	tests	tests/test_ai_economic_telemetry.py	
+R100	tests	tests/test_issue_164_ai_evidence_snapshot.py	tests/test_ai_evidence_snapshot.py
+M	tests	tests/test_ai_execution_configuration.py	
+M	tests	tests/test_ai_model_catalog.py	
+M	tests	tests/test_ai_model_saas.py	
+M	tests	tests/test_ai_native_usage_pricing.py	
+R100	tests	tests/test_ai_orchestration_190_characterization.py	tests/test_ai_orchestration_characterization.py
+M	tests	tests/test_ai_pricing_configuration.py	
+M	tests	tests/test_ai_pricing_saas.py	
+R100	tests	tests/test_apdex_catalog_independence_150.py	tests/test_apdex_catalog_independence.py
+A	tests	tests/test_apdex_content_readiness.py	
+A	tests	tests/test_apdex_readiness_review.py	
+A	tests	tests/test_apdex_readiness_sidecar.py	
+A	tests	tests/test_apdex_report_cohesion.py	
+A	tests	tests/test_apdex_sampling_reliability.py	
+A	tests	tests/test_architecture_acquisition_preferences.py	
+A	tests	tests/test_architecture_acquisition_service.py	
+A	tests	tests/test_architecture_attestation.py	
+A	tests	tests/test_architecture_audit_facts.py	
+A	tests	tests/test_architecture_audit_projection.py	
+A	tests	tests/test_architecture_choice.py	
+A	tests	tests/test_architecture_choice_audit_adapter.py	
+A	tests	tests/test_architecture_choice_console_restore.py	
+A	tests	tests/test_architecture_choice_precedence.py	
+A	tests	tests/test_architecture_choice_runtime.py	
+A	tests	tests/test_architecture_choice_snapshot.py	
+A	tests	tests/test_architecture_context.py	
+A	tests	tests/test_architecture_context_acceptance_matrix.py	
+A	tests	tests/test_architecture_context_policy_matrix.py	
+A	tests	tests/test_architecture_delayed_content.py	
+A	tests	tests/test_architecture_discovery.py	
+A	tests	tests/test_architecture_hypothesis.py	
+A	tests	tests/test_architecture_isolated_capture.py	
+A	tests	tests/test_architecture_live_capture.py	
+A	tests	tests/test_architecture_m6_evidence.py	
+A	tests	tests/test_architecture_network_inventory.py	
+A	tests	tests/test_architecture_observation_reader.py	
+A	tests	tests/test_architecture_offline_worker.py	
+A	tests	tests/test_architecture_preview_store.py	
+A	tests	tests/test_architecture_probe.py	
+A	tests	tests/test_architecture_public_html.py	
+A	tests	tests/test_architecture_resource_diagnostic.py	
+A	tests	tests/test_audit_ai_completion_boundary.py	
+A	tests	tests/test_audit_attempt_timeline.py	
+M	tests	tests/test_audit_configuration_reuse_console.py	
+A	tests	tests/test_audit_cost_explain.py	
+A	tests	tests/test_audit_duration_forecast.py	
+M	tests	tests/test_audit_fulfillment_reprocessing.py	
+A	tests	tests/test_audit_fulfillment_stage_timing.py	
+A	tests	tests/test_audit_inspection_cli.py	
+A	tests	tests/test_audit_integrity_review.py	
+A	tests	tests/test_audit_stage_scope.py	
+A	tests	tests/test_canonical_capture_regressions.py	
+A	tests	tests/test_captured_dom_visibility.py	
+A	tests	tests/test_cat03_jsonld_inline.py	
+A	tests	tests/test_cat07_architecture_integration.py	
+R100	tests	tests/test_cat08_no_ai_assurance_133.py	tests/test_cat08_no_ai_assurance.py
+R100	tests	tests/test_catalog_population_apdex_227.py	tests/test_catalog_population_apdex.py
+M	tests	tests/test_catalog_report_assurance.py	
+R100	tests	tests/test_catalog_report_contract_002.py	tests/test_catalog_report_contract.py
+M	tests	tests/test_catalog_report_cosmetics.py	
+M	tests	tests/test_catalog_report_final_refinements.py	
+M	tests	tests/test_catalog_report_limitation_labels.py	
+M	tests	tests/test_catalog_report_presentation_refinements.py	
+M	tests	tests/test_catalog_report_search_trust.py	
+M	tests	tests/test_catalog_report_site.py	
+R084	tests	tests/test_issue_246_catalog_source_dependencies.py	tests/test_catalog_source_dependencies.py
+A	tests	tests/test_claim_collection_provenance.py	
+A	tests	tests/test_claim_private_handoff.py	
+A	tests	tests/test_claim_review_batch.py	
+A	tests	tests/test_claim_reviewer_finalize.py	
+A	tests	tests/test_claim_windows_preflight.py	
+M	tests	tests/test_competitive_acquisition_policy.py	
+A	tests	tests/test_competitive_empty_content.py	
+A	tests	tests/test_cons_domain_comparative.py	
+A	tests	tests/test_cons_domain_comparative_index.py	
+A	tests	tests/test_cons_domain_preflight.py	
+A	tests	tests/test_console_acceptance_contract.py	
+A	tests	tests/test_console_apdex_cancel_transaction.py	
+A	tests	tests/test_console_apdex_navigation.py	
+A	tests	tests/test_console_architecture_discovery.py	
+A	tests	tests/test_console_bootstrap_ini_precedence.py	
+M	tests	tests/test_console_catalog_workflow.py	
+M	tests	tests/test_console_complete_persistence.py	
+A	tests	tests/test_console_config_provenance.py	
+A	tests	tests/test_console_configuration_inventory.py	
+M	tests	tests/test_console_configuration_registry_and_catalog_actions.py	
+A	tests	tests/test_console_core_consumer_preflight.py	
+M	tests	tests/test_console_cost_confirmation.py	
+A	tests	tests/test_console_device_mix_migration.py	
+A	tests	tests/test_console_execution_gate_composition.py	
+M	tests	tests/test_console_first_run_cost_preview.py	
+A	tests	tests/test_console_fresh_process_roundtrip.py	
+M	tests	tests/test_console_governed_search_runtime.py	
+A	tests	tests/test_console_gsc_consumer_preflight.py	
+A	tests	tests/test_console_inventory_secret_policy.py	
+M	tests	tests/test_console_launcher_contract.py	
+M	tests	tests/test_console_navigation.py	
+M	tests	tests/test_console_operator_navigation_refinements.py	
+A	tests	tests/test_console_optional_override_clearing.py	
+A	tests	tests/test_console_perplexity_readiness.py	
+A	tests	tests/test_console_perplexity_run_gate.py	
+A	tests	tests/test_console_persistence_matrix.py	
+A	tests	tests/test_console_post_core_progress.py	
+M	tests	tests/test_console_progress_presentation.py	
+M	tests	tests/test_console_provider_environment.py	
+A	tests	tests/test_console_registry_new_process_roundtrip.py	
+M	tests	tests/test_console_search_configuration_groups.py	
+A	tests	tests/test_console_search_consumer_preflight.py	
+A	tests	tests/test_console_search_duration_scope.py	
+M	tests	tests/test_console_search_intelligence.py	
+M	tests	tests/test_console_search_parameter_menu.py	
+M	tests	tests/test_console_search_scope_presentation.py	
+A	tests	tests/test_console_search_usage.py	
+A	tests	tests/test_console_typed_reconciliation.py	
+M	tests	tests/test_console_ui_refactor.py	
+A	tests	tests/test_console_windows_environment_persistence.py	
+M	tests	tests/test_consolidated_selection_flow.py	
+M	tests	tests/test_consolidation_cons5.py	
+A	tests	tests/test_consolidation_domain_mode.py	
+M	tests	tests/test_consolidation_specialist.py	
+R100	tests	tests/test_issue_58_cookie_assurance.py	tests/test_cookie_assurance.py
+R100	tests	tests/test_issue_257_copilot_diagnostic_causality.py	tests/test_copilot_diagnostic_causality.py
+M	tests	tests/test_core_reprocessing.py	
+M	tests	tests/test_cost_forecast.py	
+A	tests	tests/test_cwv_field_assessment_explanation.py	
+M	tests	tests/test_deepseek_semantic_contract_and_console_actions.py	
+M	tests	tests/test_device_context_capture.py	
+A	tests	tests/test_device_network_resource_observations.py	
+M	tests	tests/test_directed_analysis.py	
+R100	tests	tests/test_issue_54_directed_analysis_target_context.py	tests/test_directed_analysis_target_context.py
+A	tests	tests/test_directed_roadmap_layout.py	
+M	tests	tests/test_documentation_contract.py	
+M	tests	tests/test_documentation_public_naming.py	
+A	tests	tests/test_dynatrace_apdex_arch_advisory.py	
+A	tests	tests/test_dynatrace_live_crosscheck.py	
+A	tests	tests/test_dynatrace_pinned_transport.py	
+A	tests	tests/test_dynatrace_population_crosscheck.py	
+A	tests	tests/test_dynatrace_rum_population.py	
+M	tests	tests/test_environment_surface_parity.py	
+M	tests	tests/test_execution_progress_model.py	
+R093	tests	tests/test_issue_66_execution_reprocess_parity.py	tests/test_execution_reprocess_parity.py
+A	tests	tests/test_experience_architecture_guidance.py	
+A	tests	tests/test_experimental_observation_report.py	
+R100	tests	tests/test_external_observability_finalizer_138.py	tests/test_external_observability_finalizer.py
+M	tests	tests/test_external_observability_integrations.py	
+M	tests	tests/test_external_sari.py	
+A	tests	tests/test_faq_aud_receipt_binding.py	
+A	tests	tests/test_faq_existing_page_pilot.py	
+A	tests	tests/test_faq_interaction_receipt.py	
+A	tests	tests/test_faq_snapshot_scope.py	
+A	tests	tests/test_faq_target_inventory.py	
+A	tests	tests/test_faq_transition_policy.py	
+M	tests	tests/test_fulfillment_execution_contract.py	
+R100	tests	tests/test_issue_18_fulfillment_lifecycle.py	tests/test_fulfillment_lifecycle.py
+A	tests	tests/test_geo_ai.py	
+A	tests	tests/test_geo_baseline_without_perplexity.py	
+A	tests	tests/test_geo_catalog_context.py	
+A	tests	tests/test_geo_competitor_capture_bundle.py	
+A	tests	tests/test_geo_competitor_consent.py	
+A	tests	tests/test_geo_competitor_content_provenance.py	
+A	tests	tests/test_geo_competitor_fetch.py	
+A	tests	tests/test_geo_competitor_inline_render.py	
+A	tests	tests/test_geo_competitor_offline_assets.py	
+A	tests	tests/test_geo_competitor_pinned_egress.py	
+A	tests	tests/test_geo_cons_companion.py	
+A	tests	tests/test_geo_cons_package.py	
+A	tests	tests/test_geo_extraction_quality.py	
+A	tests	tests/test_geo_lifecycle.py	
+A	tests	tests/test_geo_longitudinal.py	
+A	tests	tests/test_geo_nytimes_regressions.py	
+A	tests	tests/test_geo_observation.py	
+A	tests	tests/test_geo_post_audit_complement.py	
+A	tests	tests/test_geo_query_ledger.py	
+A	tests	tests/test_geo_query_ledger_report.py	
+A	tests	tests/test_geo_report.py	
+A	tests	tests/test_geo_snapshot_context.py	
+A	tests	tests/test_http_content_normalization.py	
+M	tests	tests/test_improvement_intelligence.py	
+R100	tests	tests/test_issue_48_improvement_material_fingerprint.py	tests/test_improvement_material_fingerprint.py
+M	tests	tests/test_improvement_reprocess_diagnostics.py	
+M	tests	tests/test_integration_diagnostics.py	
+M	tests	tests/test_interactive_console.py	
+M	tests	tests/test_lazy_probe_reuse.py	
+R100	tests	tests/test_lighthouse_report_quality_20260913.py	tests/test_lighthouse_report_quality.py
+M	tests	tests/test_lighthouse_web_quality_reporting.py	
+M	tests	tests/test_m14_visual_multiurl.py	
+M	tests	tests/test_m18_multi_ai_provider.py	
+M	tests	tests/test_m21_cli_fail_open.py	
+A	tests	tests/test_m21_field_scope_presentation.py	
+M	tests	tests/test_m21_web_performance.py	
+M	tests	tests/test_m23_e2e_local.py	
+A	tests	tests/test_m24_architecture.py	
+A	tests	tests/test_m25_advisory_sample_bridge.py	
+A	tests	tests/test_m25_experimental_probe_runtime.py	
+R100	tests	tests/test_m25_interrupted_stage_restart_126.py	tests/test_m25_interrupted_stage_restart.py
+R100	tests	tests/test_m25_user_action_boundary_226.py	tests/test_m25_user_action_boundary.py
+A	tests	tests/test_m3_experimental_faq_runtime.py	
+A	tests	tests/test_m3_faq_capture_provenance.py	
+M	tests	tests/test_m6_javascript_spa.py	
+M	tests	tests/test_m7_content_extractability_gap.py	
+M	tests	tests/test_m9_scoring.py	
+R100	tests	tests/test_nav_browser_diagnostic_labels_109.py	tests/test_nav_browser_diagnostic_labels.py
+A	tests	tests/test_network_acceptance.py	
+A	tests	tests/test_network_active_policy.py	
+A	tests	tests/test_network_active_probe.py	
+A	tests	tests/test_network_auto_probe.py	
+A	tests	tests/test_network_catalog_integration.py	
+A	tests	tests/test_network_enrichment.py	
+A	tests	tests/test_network_geoip_bootstrap.py	
+A	tests	tests/test_network_geoip_install.py	
+A	tests	tests/test_network_geoip_maintenance.py	
+A	tests	tests/test_network_geoip_operations.py	
+A	tests	tests/test_network_geoip_schedule.py	
+A	tests	tests/test_network_intelligence.py	
+A	tests	tests/test_network_map.py	
+A	tests	tests/test_network_observation.py	
+A	tests	tests/test_network_progression.py	
+A	tests	tests/test_network_reporting.py	
+A	tests	tests/test_network_route_g1.py	
+A	tests	tests/test_network_traceroute.py	
+A	tests	tests/test_operator_runtime_registry.py	
+M	tests	tests/test_optional_reprocess_accounting.py	
+A	tests	tests/test_optional_seo_policy_decision.py	
+A	tests	tests/test_optional_seo_policy_errors.py	
+R100	tests	tests/test_issue_51_owned_standards_service_state.py	tests/test_owned_standards_service_state.py
+A	tests	tests/test_perplexity_activation_flag.py	
+A	tests	tests/test_perplexity_request_policy.py	
+M	tests	tests/test_perplexity_search_intelligence.py	
+A	tests	tests/test_perplexity_serp_copy.py	
+A	tests	tests/test_playwright_primary_content_probe.py	
+A	tests	tests/test_playwright_real_browser_readiness.py	
+M	tests	tests/test_post_run_reprocess_shortcut.py	
+R100	tests	tests/test_post_smoke_adherence_20260908.py	tests/test_post_smoke_adherence.py
+R100	tests	tests/test_issue_41_pre_m7_semantic_resume.py	tests/test_pre_m7_semantic_resume.py
+R100	tests	tests/test_issue_25_pre_scoring_resume.py	tests/test_pre_scoring_resume.py
+M	tests	tests/test_prepublication_documentation_contract.py	
+R100	tests	tests/test_issue_50_preselection_reconciliation.py	tests/test_preselection_reconciliation.py
+M	tests	tests/test_provider_onboarding_cli.py	
+M	tests	tests/test_provider_registry.py	
+M	tests	tests/test_provider_runtime_policy.py	
+M	tests	tests/test_public_contract_gate_catalog.py	
+M	tests	tests/test_public_documentation_naming.py	
+A	tests	tests/test_public_language.py	
+M	tests	tests/test_rasai_namespace_contract.py	
+M	tests	tests/test_rasai_runtime_branding_and_reports.py	
+M	tests	tests/test_rasai_sari_branding.py	
+A	tests	tests/test_readiness_matched_pilot.py	
+A	tests	tests/test_readiness_probe_cost_pilot.py	
+A	tests	tests/test_real_browser_matched_readiness.py	
+A	tests	tests/test_render_materiality.py	
+R100	tests	tests/test_rendered_extraction_upgrade_121.py	tests/test_rendered_extraction_upgrade.py
+M	tests	tests/test_report_catalog_public_labels.py	
+A	tests	tests/test_report_confidence_kpm_labels.py	
+A	tests	tests/test_report_decision_html_acceptance.py	
+A	tests	tests/test_report_decision_matrix.py	
+R093	tests	tests/test_report_humanization_109.py	tests/test_report_humanization.py
+M	tests	tests/test_report_humanization_contract.py	
+R097	tests	tests/test_report_humanization_109_semantic_serp.py	tests/test_report_humanization_semantic_serp.py
+A	tests	tests/test_report_literal_evidence.py	
+A	tests	tests/test_report_numeric_zero.py	
+R095	tests	tests/test_report_polish_20260908.py	tests/test_report_polish.py
+M	tests	tests/test_report_presentation.py	
+A	tests	tests/test_report_ptbr_copy.py	
+A	tests	tests/test_report_rematerialization.py	
+D	tests	tests/test_report_rematerialization_141.py	
+R100	tests	tests/test_report_residual_typed_fields_109.py	tests/test_report_residual_typed_fields.py
+A	tests	tests/test_report_section_readability.py	
+A	tests	tests/test_report_transverse_security.py	
+R095	tests	tests/test_reporting_governance_refinement_20260908.py	tests/test_reporting_governance_refinement.py
+A	tests	tests/test_repository_filename_policy.py	
+R100	tests	tests/test_reprocess_accounting_108.py	tests/test_reprocess_accounting.py
+R100	tests	tests/test_issue_43_reprocess_ai_timeout.py	tests/test_reprocess_ai_timeout.py
+M	tests	tests/test_reprocess_dependency_closure.py	
+R100	tests	tests/test_request_remediation_canonical_190.py	tests/test_request_remediation_canonical.py
+A	tests	tests/test_rpr_offline_acceptance.py	
+R077	tests	tests/test_issue_166_rpr_semantic_success_idempotency.py	tests/test_rpr_semantic_success_idempotency.py
+R100	tests	tests/test_issue_56_runtime_intelligence.py	tests/test_runtime_intelligence.py
+A	tests	tests/test_runtime_prerequisites.py	
+A	tests	tests/test_same_sample_observation.py	
+R100	tests	tests/test_sari_input_traceability_20260908.py	tests/test_sari_input_traceability.py
+M	tests	tests/test_sari_readiness_presentation.py	
+R098	tests	tests/test_score_geo_004.py	tests/test_score_geo.py
+R098	tests	tests/test_score_geo_004_applicability.py	tests/test_score_geo_applicability.py
+R100	tests	tests/test_score_geo_004_reopenability.py	tests/test_score_geo_reopenability.py
+A	tests	tests/test_score_geo_v005_optional_seo.py	
+A	tests	tests/test_scoring_discovery_refinement.py	
+D	tests	tests/test_scoring_discovery_refinement_20260908.py	
+R081	tests	tests/test_scoring_report_layout_20260908.py	tests/test_scoring_report_layout.py
+R100	tests	tests/test_search_aud_diagnostic_132.py	tests/test_search_aud_diagnostic.py
+M	tests	tests/test_search_intelligence_history.py	
+M	tests	tests/test_secret_safety.py	
+M	tests	tests/test_selective_optional_reprocess.py	
+R100	tests	tests/test_issue_46_semantic_backfill_causality.py	tests/test_semantic_backfill_causality.py
+R100	tests	tests/test_semantic_summary_provenance_109.py	tests/test_semantic_summary_provenance.py
+R100	tests	tests/test_serp_cache_provenance_129.py	tests/test_serp_cache_provenance.py
+M	tests	tests/test_shared_collection_ai_gate.py	
+A	tests	tests/test_sitemap_budget_aud_a167.py	
+R100	tests	tests/test_smoke_backlog_20260908.py	tests/test_smoke_backlog.py
+M	tests	tests/test_source_quality_render_materiality.py	
+M	tests	tests/test_source_quality_secure_redirect_recovery.py	
+R100	tests	tests/test_stability_refinement_20260908.py	tests/test_stability_refinement.py
+R100	tests	tests/test_issue_253_structured_data_absence_remediation.py	tests/test_structured_data_absence_remediation.py
+R100	tests	tests/test_synthetic_acquisition_homologation_207.py	tests/test_synthetic_acquisition_homologation.py
+R100	tests	tests/test_synthetic_acquisition_reprocess_206.py	tests/test_synthetic_acquisition_reprocess.py
+R100	tests	tests/test_synthetic_population_apdex_227.py	tests/test_synthetic_population_apdex.py
+M	tests	tests/test_synthetic_runtime_profiles_contract.py	
+M	tests	tests/test_system_defaults.py	
+A	tests	tests/test_target_scope_reconciliation.py	
+M	tests	tests/test_user_facing_language_contract.py	
+R100	tests	tests/test_visual_semantics_refinement_20260908.py	tests/test_visual_semantics_refinement.py
+M	tests	tests/test_ymyl_context_flow.py	

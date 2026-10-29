@@ -1,6 +1,6 @@
 # Reprocessamento seletivo de auditorias
 
-A baseline pública atual é `v0.5.0`. Este documento descreve o contrato vigente de reprocessamento na linha pós-release.
+A última release pública publicada é `v0.8.0` (verificada em 27/10/2026). Este documento descreve o contrato vigente de reprocessamento na linha pós-release; a versão candidata seguinte permanece condicionada à homologação e à decisão de publicação.
 
 O RASAi trata cada `AUD-*` como **uma única observação lógica**. Uma auditoria pode precisar de zero, uma ou várias reexecuções para satisfazer integralmente a configuração escolhida pelo usuário, sem transformar essas reexecuções em novas observações para histórico, tendência ou consolidação.
 
@@ -598,3 +598,15 @@ quando `finished_at` está ausente. Work-items podem sobrepor tentativas IA
 ou HTTP. O relatório é descritivo, somente-leitura e independe de decisão de
 nova execução. O mecanismo de seleção/reprocessamento mantém as mesmas
 operações e persistência homologadas.
+
+## Gate de idempotência semântica para estabilização
+
+A regressão `tests/test_rpr_semantic_success_idempotency.py` reconcilia repetidamente um item `SEMANTIC_AI` já concluído em `SUCCESS` e exige estabilidade de `attempt_count`, `effective_result_ref` e `last_success_at`. Esta prova local verifica a preservação da proveniência de sucesso e não substitui a homologação ponta a ponta do RPR, de custos incrementais ou de reaquisição seletiva. A aprovação requer resultado CI no SHA da PR.
+
+## Gate de fechamento de dependências read-only
+
+A regressão `test_repeated_dependency_expansion_preserves_success_work_item` comprova com SQLite temporário que expandir duas vezes a seleção de `RENDER_CAPTURE`, partindo de `HTTP_ACQUISITION` já em `SUCCESS`, produz o mesmo fechamento e não altera estado, referência efetiva nem número de tentativas de nenhum work-item. A prova é restrita ao planejamento das dependências; não equivale à execução física ou ao fechamento funcional de RPR.
+
+## Gate de segregação de contadores por tentativa RPR
+
+`tests/test_optional_reprocess_accounting.py` verifica com SQLite temporário que atualizações incrementais de contadores de duas tentativas `RPR-*` permanecem associadas a seus próprios `reprocess_id`, sem criar outra identidade `AUD-*`. Esta regressão valida contadores operacionais, não a precisão monetária de tokens/preços nem faturamento de provedores. O aceite depende do workflow no SHA final da PR.

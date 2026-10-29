@@ -35,7 +35,7 @@ def test_audit_identification_typography_is_secondary() -> None:
 def test_dark_gray_is_reserved_for_explicit_neutral_states() -> None:
     from rasai.catalog_report_presentation import _display_value
 
-    assert "--secondary-ink:#475467" in _CSS
+    assert "--secondary-ink:#445c69" in _CSS
     assert "td{color:var(--ink)}" in _CSS
     assert ".modal-body{padding:18px 20px;overflow:auto;max-height:calc(88vh - 120px);color:var(--ink)}" in _CSS
     assert ".kv dd{overflow-wrap:anywhere;color:var(--ink)}" in _CSS
@@ -186,7 +186,7 @@ def test_score_low_band_is_font_only_orange() -> None:
     assert "result-value low" in rendered
     assert rendered.startswith("<strong")
     assert "badge" not in rendered
-    assert "--orange:#9a5b13" in _CSS
+    assert "--orange:#94551e" in _CSS
 
 
 def test_cat05_automatic_model_does_not_expose_technical_auto_token() -> None:
@@ -229,7 +229,7 @@ def test_zero_ai_cost_and_tokens_use_light_gray_font_only() -> None:
     assert "USD 0.00000000" in mixed_range
     assert "USD 0.50000000" in mixed_range
     assert "120 / 42" in str(_token_pair_display(120, 42, cost=0))
-    assert "--light-muted:#6c7789" in _CSS
+    assert "--light-muted:#596c76" in _CSS
     assert ".no-cost-value{color:var(--light-muted);font-weight:400}" in _CSS
 
     assert "no-cost-value" not in str(_money_display(Decimal("0.01"), "USD"))

@@ -32,7 +32,7 @@ Regras podem declarar `OFFICIAL`, `STANDARD` ou `HEURISTIC`. Regras de integrida
 ## Relação com a pontuação
 
 - **Índice de Prontidão Search & IA**, versão pública **001** - ID técnico `SARI-001`;
-- **Método de Pontuação de Prontidão**, versão pública **001** - contrato técnico `SCORE-GEO-004`;
+- **Método de Pontuação de Prontidão**, versão pública **001** - contrato técnico `SCORE-GEO-005`;
 - **Agregação Hierárquica Ponderada de Prontidão**, versão pública **001** - ID técnico `HIERARCHICAL_WEIGHTED_READINESS_V1`.
 
 O manifesto vigente mapeia explicitamente regra -> dimensão -> `scoring_group` -> papel de evidência. O peso de um grupo é fixo e distribuído entre páginas/escopos aplicáveis; quantidade de páginas não multiplica o peso metodológico.
@@ -240,7 +240,7 @@ BR-GEO-054 reconstrói o método vigente a partir de:
 - Coverage/Confidence/Consolidation;
 - Critical Gates.
 
-O contrato ativo é `SCORE-GEO-004` com agregação `HIERARCHICAL_WEIGHTED_READINESS_V1`.
+O contrato vigente para novas auditorias é `SCORE-GEO-005` com agregação `HIERARCHICAL_WEIGHTED_READINESS_V1`. Evidências históricas com `SCORE-GEO-004` mantêm o contrato original no replay.
 
 ## Evidência e remediation
 

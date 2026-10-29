@@ -13,8 +13,10 @@ class _Page:
         self.waits: list[int] = []
 
     def evaluate(self, script: str) -> None:
-        assert "scrollBy" in script
-        self.scrolls += 1
+        if "scrollBy" in script:
+            self.scrolls += 1
+        else:
+            assert "scrollTo" in script  # The probe restores the original viewport.
 
     def wait_for_timeout(self, milliseconds: int) -> None:
         self.waits.append(milliseconds)
@@ -25,9 +27,10 @@ class _Page:
 
 def test_lazy_probe_reuses_same_page_without_navigation() -> None:
     initial = "<html><body><img loading='lazy' data-src='/hero.jpg'></body></html>"
-    page = _Page("<html><body><main>Conteúdo carregado após scroll</main></body></html>")
+    page = _Page("<html><body><main><h1>Conteúdo pronto</h1><p>" + ("Conteúdo carregado após scroll. " * 30) + "</p></main></body></html>")
 
-    metadata = _same_session_lazy_probe(page, initial)
+    metadata, candidate_html = _same_session_lazy_probe(page, initial)
+    assert candidate_html == page.after_html
 
     assert metadata["attempted"] is True
     assert metadata["state"] == "CAPTURED"

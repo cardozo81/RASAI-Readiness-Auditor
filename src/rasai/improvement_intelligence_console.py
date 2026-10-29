@@ -108,7 +108,14 @@ def _install_settings(console_module: ModuleType) -> None:
 
     def state_values(state: Any) -> dict[str, dict[str, str]]:
         values = dict(original_values(state))
-        enabled, domains, maximum, timeout = _effective_feature_settings(state)
+        # Persist explicit console choices, not environment overrides that are
+        # valid only for the current process and must not leak into the INI.
+        enabled = bool(getattr(state, "improvement_enabled", False))
+        domains = parse_domains(tuple(getattr(state, "improvement_domains", DEFAULT_DOMAINS)))
+        maximum = int(getattr(state, "improvement_max_recommendations", 30))
+        timeout = float(getattr(state, "improvement_timeout", 240.0))
+        if not 1 <= maximum <= 100 or not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("configuração de melhorias inválida para persistência")
         values["improvement_intelligence"] = {
             "enabled": "true" if enabled else "false",
             "domains": ",".join(domains),

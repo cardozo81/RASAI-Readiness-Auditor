@@ -87,12 +87,14 @@ def test_declined_preparation_makes_no_host_changes(tmp_path):
                return_value=None), patch("rasai.runtime_prerequisites.expected_source_sha256", return_value="d" * 64), patch(
         "rasai.architecture_isolated_capture.local_docker_transport", return_value=True
     ), patch("rasai.runtime_prerequisites.shutil.which", return_value="docker"
-    ), patch("rasai.runtime_prerequisites.subprocess.run") as run:
+    ), patch("rasai.runtime_prerequisites.subprocess.run",
+             return_value=SimpleNamespace(returncode=0, stdout="29.8.2")) as run:
         result = prepare_prerequisite(
             ARCHITECTURE_BROWSER, consent=lambda _: False, source_root=tmp_path,
         )
     assert not result.ready and result.reason == "PREREQUISITE_DECLINED"
-    run.assert_not_called()
+    run.assert_called_once()
+    assert run.call_args.args[0][:2] == ["docker", "info"]
 
 
 def test_consented_build_reuses_single_fixed_image(tmp_path):

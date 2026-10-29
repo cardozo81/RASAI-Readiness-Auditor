@@ -380,3 +380,30 @@ Validar pontualmente:
 - CAT-04 continua podendo consumir o conjunto completo de tentativas de desempenho conforme seu contrato próprio.
 
 - `collected_at`, `materialized_at`, `consumed_at` e `lighthouse_fetch_time` não podem, isoladamente, produzir alteração longitudinal;
+
+## Matriz de regressão para estabilização pré-release
+
+Esta matriz distingue **testes existentes** de **testes executados e homologados**. A mera existência dos testes não constitui aceite.
+
+| Contrato/risco | Regressão existente | Evidência necessária para aceite |
+| --- | --- | --- |
+| Materialização CONS-5 e fingerprint | `tests/test_consolidation_cons5.py` | Execução verde com SHA exato e manifesto conferido |
+| Comparabilidade e universo de URLs | `tests/test_consolidation_comparability.py` | Conferir série comparável e aviso de não comparabilidade |
+| Fonte parcial e conclusividade | `tests/test_consolidation_fulfillment_gate.py` | Confirmar transparência de origem parcial, sem promover `FINAL` |
+| Seleção, console e políticas de fontes | `tests/test_consolidated_selection_flow.py`; `tests/test_consolidation_console_integration.py` | Validar políticas e decisões do console com fixtures isoladas |
+| IA opcional e governança | `tests/test_consolidation_specialist.py` | Resposta simulada, fallback sem IA e nenhum acesso tarifado |
+| Apdex temporal e exibição | `tests/test_consolidation_temporal_apdex.py`; `tests/test_consolidation_presentation.py` | Preservar versões metodológicas e legibilidade de estados |
+
+Gate prioritário: workflow `consolidated-reporting-ci.yml` com runner Windows, mantendo a separação entre simulação determinística e homologação humana. Os casos não cobertos por esses testes devem ser registrados como pendentes e receber regressão dedicada apenas quando houver lacuna demonstrada.
+
+### Gate de integridade do snapshot CONS-5
+
+A regressão `test_find_existing_rejects_tampered_package_and_preserves_source_files` usa somente fixture temporária e verifica adulteração e ausência de cada arquivo obrigatório do pacote determinístico: `report.html`, `decision-context.json`, `longitudinal-evidence.json` e `execution.json`. Após restauração, a reutilização deve voltar a ser possível e manifest/arquivos devem permanecer idênticos. Este teste não certifica pacote completo de IA.
+
+### Gate de pacote com IA simulada
+
+A regressão `test_find_existing_ai_snapshot_requires_both_hashed_ai_artifacts` valida offline a presença e o SHA-256 de `specialist-analysis.json` e `ai-exchanges.json` em snapshots com IA solicitada e marcada como `COMPLETE`. A adulteração, ausência ou transição para `UNAVAILABLE` deve impedir reutilização; não se faz chamada real a provedor e o resultado exige CI verde antes de ser aceito.
+
+### Gate de política de seleção e fronteiras de compatibilidade
+
+Os testes offline em `tests/test_consolidated_selection_flow.py` incluem a rejeição de URL incompatível, a seleção manual de AUD fora do intervalo e a recusa do modo `SUCCESS_ONLY` quando o marco ATUAL exige reprocessamento. A execução verde no SHA da PR é obrigatória; o resultado não autoriza considerar auditorias parciais como conclusivas.

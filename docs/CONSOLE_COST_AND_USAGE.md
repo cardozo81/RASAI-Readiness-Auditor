@@ -161,7 +161,7 @@ inalterados.
 
 A única referência autorizada é a sessão física da AUD quando o registro
 `console_execution_projections` comprova exatamente um intervalo íntegro,
-offset-aware, logicamente `COMPLETED/COMPLETE`. As chamadas M18 e M20
+offset-aware, logicamente `COMPLETED/COMPLETE`. As tentativas de IA registradas nas fontes operacionais pertinentes
 são incluídas, sem dupla contagem dentro de cada ledger. O recorte
 separa números de tentativas, soma descritiva de durações IA, união
 temporal quando todos os relógios do grupo são válidos, custo
@@ -209,7 +209,7 @@ fulfillment dos requisitos obrigatórios da auditoria.
 ## Telemetria de tempo/custo por operação (#319)
 
 O relatório **IA e integrações > Tempos e custos por etapa** e a tela de
-consumo pós-AUD no console leem as duas tabelas físicas M18 e M20,
+consumo pós-AUD no console leem os registros persistidos de tentativas de IA e de conteúdo,
 sem executar nova auditoria e sem efetuar chamadas tarifáveis. São exibidas
 tentativas por operação (Improvement, Análise Direcionada opcional, análise
 semântica/técnica, conteúdo, concorrência e Search API opcional), custo USD
@@ -328,7 +328,7 @@ o subtotal bruto histórico das durações quando houver medição parcial;
 **o console/HTML não o apresenta como soma total**. A projeção de
 apresentação `inspect_stage_economics` passa a publicar
 `timing_complete=false`, `unknown_ai_intervals` e
-`total_summed_ms=null` quando **qualquer** tentativa IA de M18/M20
+`total_summed_ms=null` quando **qualquer** tentativa de IA registrada
 carece de relógio válido. A mesma regra vale para cada etapa individual:
 `summed_ms=null`, `active_ms=null` e aviso de N/D. Para depuração
 estruturada, o subtotal aferido fica sob
@@ -347,7 +347,7 @@ score ou previsão ex ante é realizado.
 
 A mesma projeção `inspect_stage_economics` soma custos pós-hoc
 **sem usar tokens de uma chamada duas vezes**, separando
-`CORE_RECORDED` (M18/M20 e demais operações com registro) de
+`CORE_RECORDED` (operações centrais com consumo persistido) de
 `OPTIONAL_DIRECTED_OR_SEARCH` (operações explícitas
 `DIRECTED_ANALYSIS` e tentativas rotuladas como `SEARCH_API`).
 Cada tentativa entra em exatamente uma coorte; uma análise que ocorreu
@@ -396,3 +396,13 @@ Isso impede contabilização de páginas estrangeiras em comparações
 financeiras. Fixtures offline verificam single-URL, 8 necessidades,
 pool AUTO sem cap, múltiplas páginas, fontes SQLite ausentes e
 AUD estrangeira sem novas requisições.
+
+## Reconciliação de desvio previsto versus atribuído na estabilização
+
+O desvio pontual elevado não constitui, isoladamente, prova de erro de preço ou cálculo. Para comparação rigorosa, identificar escopo econômico previsto (núcleo versus tarefas opcionais), moeda, cobertura de tentativas precificadas, tokens nativos, retries/fallback e intervalo histórico. Se qualquer pré-condição de comparabilidade falhar, a apresentação deve abster-se de classificar precisão total, mesmo quando houver soma financeira persistida. Não recalibrar fatores com base em uma única AUD.
+
+A regressão sintética `test_large_point_deviation_is_not_a_calculation_defect_by_itself` exercita +320,69% com valor observado dentro do intervalo provável, além de cenários com tentativa opcional e cobertura incompleta. Não reproduz a AUD física #668 nem determina sua causa: exigem-se os ledgers e forecast persistidos para concluir sobre a diferença real. O workflow `ai-economic-telemetry-targeted.yml` executa essa regressão em runner padrão após alteração do teste ou deste documento.
+
+## Projeção operacional de duração por etapa
+
+A apresentação retrospectiva do console informa explicitamente que a telemetria agrega tentativas persistidas nos registros persistidos de consumo de IA quando presentes. A soma e a união de intervalos não são duração exclusiva da etapa nem tempo de ponta a ponta da AUD. Esta indicação evita interpretar o rótulo como comprovação de atividade contínua. A regressão associada é `tests/test_ai_economic_reporting.py::test_319_posthoc_phase_readout_uses_eight_ledger_attempts`.

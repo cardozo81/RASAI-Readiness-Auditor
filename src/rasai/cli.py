@@ -468,7 +468,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Páginas auditadas: {result.audited_pages}")
         print(f"Contexto de dispositivo: {device_context.upper()}")
         print(f"Sugestões de conteúdo por IA: {'HABILITADAS' if content_remediation else 'DESABILITADAS'}")
-        if not web_performance.enabled:
+        if not web_performance.enabled or (web_result is not None and web_result.status == "DISABLED"):
+            # An explicit disabled result is authoritative even when a caller
+            # requested optional collection: never describe zero work as enabled.
             print("Web Performance externo: DESABILITADO")
         elif web_result is not None:
             print(

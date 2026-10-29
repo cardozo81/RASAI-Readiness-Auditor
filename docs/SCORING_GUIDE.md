@@ -1,7 +1,7 @@
 # Guia do Método de Pontuação de Prontidão
 
 **Versão pública:** **001**  
-**Contrato técnico:** `SCORE-GEO-004`
+**Contrato técnico vigente para novas auditorias:** `SCORE-GEO-005`
 
 Guia operacional do **Search & AI Readiness Index - Índice de Prontidão Search & IA**, cujo identificador metodológico técnico é `SARI-001`.
 
@@ -10,9 +10,11 @@ Siglas, IDs e taxonomia: [`GLOSSARY.md`](GLOSSARY.md).
 ## Método de Pontuação de Prontidão
 
 ```text
-scoring_version = SCORE-GEO-004
+scoring_version = SCORE-GEO-005
 overall_aggregation = HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
+
+A versão técnica `SCORE-GEO-005` é aplicada prospectivamente. A versão `SCORE-GEO-004` permanece disponível para replay fiel de AUDs históricas, sem mudança de valores, evidências ou regra aplicada à época.
 
 O método é determinístico sobre RuleExecutions/evidências persistidas e não representa probabilidade de ranking ou citação.
 
@@ -313,7 +315,7 @@ Configurável pelo operador:
 - Synthetic Apdex;
 - limites de coleta/execução.
 
-Fixo no `SCORE-GEO-004`:
+Fixo no contrato técnico versionado (atualmente `SCORE-GEO-005`):
 
 - dimensões e pesos;
 - scoring groups e pesos;
@@ -341,7 +343,7 @@ O comando deve refletir o contrato vigente e não executar rede.
 - evidências;
 - ScoreContributions;
 - manifesto e pesos estáticos;
-- `SCORE-GEO-004`;
+- a `scoring_version` efetivamente persistida (`SCORE-GEO-005` em novas AUDs ou `SCORE-GEO-004` em replays históricos);
 - `HIERARCHICAL_WEIGHTED_READINESS_V1`.
 
 Não é necessário reexecutar website, IA ou APIs externas.
@@ -362,4 +364,4 @@ Auditorias só devem participar da mesma série quantitativa quando o contrato d
 
 ## Limite de validade
 
-SARI-001/SCORE-GEO-004 são metodologias proprietárias do RASAi. Os pesos vigentes são decisões metodológicas do produto e não coeficientes causais homologados por Google, Microsoft, OpenAI ou outro mantenedor.
+SARI-001 e seus contratos técnicos versionados (`SCORE-GEO-005` vigente; `SCORE-GEO-004` histórico) são metodologias proprietárias do RASAi. Os pesos vigentes são decisões metodológicas do produto e não coeficientes causais homologados por Google, Microsoft, OpenAI ou outro mantenedor.
