@@ -5,7 +5,7 @@
 **Descritor:** Search & AI Readiness Auditor  
 **Framework:** RASAi Framework  
 **Versão pública:** `001`  
-**Pacote Python (release estável):** `0.9.0` ([`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0), publicada em 29/10/2026)  
+**Pacote Python (código-fonte atual):** `0.9.1` ([notas da v0.9.1](docs/RELEASE_NOTES_V0_9_1.md); [GitHub Releases](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases)) · **marco anterior publicado:** [`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0)  
 **Índice público:** **Search & AI Readiness Index - Índice de Prontidão Search & IA** · ID técnico `SARI-001`  
 **Método de pontuação:** **Método de Pontuação de Prontidão** · versão pública `001` · contrato técnico vigente para novas auditorias `SCORE-GEO-005` (replay histórico `SCORE-GEO-004`)
 
