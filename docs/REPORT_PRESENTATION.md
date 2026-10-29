@@ -29,7 +29,7 @@ A tradução ocorre apenas quando o valor aparece isolado como conteúdo princip
 Identificadores necessários para diagnóstico e rastreabilidade não são substituídos. A camada humana apresenta primeiro o conceito de negócio e mantém o ID técnico como detalhe secundário. Exemplos:
 
 - `BR-GEO-*` como ID técnico de **Regra de Avaliação de Prontidão**;
-- `SCORE-GEO-004` como contrato técnico do **Método de Pontuação de Prontidão**, versão pública **001**;
+- `SCORE-GEO-005` como contrato técnico vigente do **Método de Pontuação de Prontidão** para novas AUDs, versão pública **001**; `SCORE-GEO-004` quando efetivamente persistido em AUD histórica;
 - `SARI-001` como ID técnico do **Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001**;
 - códigos HTTP;
 - IDs oficiais do Lighthouse;
@@ -37,7 +37,9 @@ Identificadores necessários para diagnóstico e rastreabilidade não são subst
 - SHA, Audit ID e outros identificadores;
 - JSON e conteúdo dentro de blocos `code` ou `pre`.
 
-Quando um código técnico também precisar de explicação humana, a explicação deve ser exibida como texto principal e o código deve permanecer como detalhe de rastreabilidade. O segmento `GEO` de IDs como `BR-GEO-*` e `SCORE-GEO-004` não é expandido na camada humana; **GEO - Generative Engine Optimization - Otimização para Mecanismos Generativos** é usado somente quando essa disciplina for explicitamente o assunto.
+Quando um código técnico também precisar de explicação humana, a explicação deve ser exibida como texto principal e o código deve permanecer como detalhe de rastreabilidade. O segmento `GEO` de IDs como `BR-GEO-*` e `SCORE-GEO-005` não é expandido na camada humana; **GEO - Generative Engine Optimization - Otimização para Mecanismos Generativos** é usado somente quando essa disciplina for explicitamente o assunto.
+
+A distinção 004/005 é temporal: a camada HTML mostra a versão persistida em cada AUD, sem substituir a identificação histórica pelo contrato atual.
 
 ## Escopo
 
@@ -48,7 +50,7 @@ A camada é exclusivamente de apresentação. Ela não altera:
 - `audit.db` ou `observability.db`;
 - enums e estados persistidos;
 - SARI-001;
-- SCORE-GEO-004;
+- SCORE-GEO-005;
 - Coverage, Confidence ou Consolidation;
 - regras de release gate;
 - comparabilidade entre auditorias.

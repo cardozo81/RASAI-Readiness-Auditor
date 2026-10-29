@@ -2,6 +2,20 @@
 
 **Estado:** DRAFT / NÃO PUBLICADO. Documento restrito à PR #675 e ao ciclo da issue #674. A versão pública vigente permanece `v0.8.0`; não utilizar este documento como changelog de uma release publicada.
 
+## Atualização de homologação física e decisão de aceite - 29/10/2026
+
+Esta seção registra a conclusão técnica posterior ao checklist histórico abaixo; não implica merge, bump ou publicação. Evidências e ressalvas encontram-se em [RELEASE_GATE_MATRIX.md](RELEASE_GATE_MATRIX.md) e nos comentários de aceite da [issue #674](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/674).
+
+- CI certificada no HEAD anterior `ff587677ac2b0c7a3e20372d0790886914b9b1b1`: 37/37 workflows e 46/46 checks, 5.649 testes aprovados; após o commit estritamente documental, conferir os checks aplicáveis ao novo SHA sem atribuir a ele resultados antigos.
+- CONS físico: 12/12 artefatos de dois CONS e 14/14 fontes/SARI conferidos, com ressalvas de séries não controladas e ausência de hashes preexistentes independentes.
+- RPR físico: `RPR-49D1B894D5DB45AFAE6E51F5D941BA81` recuperou `PASSIVE_SECURITY` (1/1) numa AUD descartável interrompida, preservando sucessos e integridade SQLite; a AUD original continua parcial. Resultado `PASS_WITH_LIMITATION` para a trajetória seletiva.
+- Economia: ledger interno reconciliado exatamente em USD 0.144491916; projeção USD 0.0343468 não inclui escopos adicionais homogêneos e não há invoice externa. Aceite com ressalvas.
+- Relatórios: 322/322 catálogos, 280 HTML, 14 PDFs CAT-07/114 páginas inspecionadas tecnicamente; limitação de primeira página pouco aproveitada aceita como ressalva estética, sem afirmar inspeção visual pessoal do operador.
+- Proveniência temporal: relatórios de AUD/CONS históricos podem ter sido gerados por código anterior às melhorias atuais. Diferenciar data/contrato de observação, materialização HTML e geração CONS; ausência retroativa de recurso não constitui regressão. `STALE` é estado de coerência independente da antiguidade do arquivo.
+- `SCORE-GEO-005` vigente para novas AUDs; `SCORE-GEO-004` preservado para replay histórico. Não converter scores, bases ou relatórios antigos retroativamente.
+
+**Decisão:** GO técnico com ressalvas aceitas pelo operador; **NO-GO para publicação até CI aplicável no HEAD final, revisão editorial e autorização expressa posterior de integração e versão**. O aceite de ressalvas não significa teste não executado `PASS`.
+
 ## Escopo da candidata
 
 - Regressões de integridade e reuso do pacote CONS-5, incluindo arquivos obrigatórios e artefatos opcionais de IA simulada.
@@ -13,6 +27,8 @@
 Esses itens descrevem a estabilização em desenvolvimento na PR #675, não todas as alterações publicadas desde v0.8.0. Antes de divulgar o changelog, reconciliar o diff completo entre a tag v0.8.0 e o commit final de publicação.
 
 ## Evidências históricas e critérios
+
+Os itens abaixo registram o estágio anterior à homologação física e não substituem a atualização de 29/10/2026 acima.
 
 - Baseline de CI verificada: `c26b75fdbb709a87406471002754b9256603e49e`; 14/14 workflows de PR concluídos com sucesso em 28/10/2026.
 - Detalhes e links dos workflows, ressalvas e matriz de aceite: [STABILIZATION_RELEASE_READINESS.md](STABILIZATION_RELEASE_READINESS.md).
