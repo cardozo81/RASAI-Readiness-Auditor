@@ -25,6 +25,18 @@ _costs: dict[str, dict[str, Any]] = defaultdict(dict)
 _MAX_OBSERVATIONS = 128
 
 
+def _physical_scope(page: Any, context: Any) -> tuple[Any, Any]:
+    """Unwrap only the owned, transparent acquisition/evidence adapters."""
+    from rasai.accepted_apdex_error_evidence import _PageProxy, _ContextProxy
+    from rasai.synthetic_acquisition_engine import TimedPageProxy, TimedContextProxy
+
+    while isinstance(page, (_PageProxy, TimedPageProxy)):
+        page = page._page if isinstance(page, _PageProxy) else page._raw_page
+    while isinstance(context, (_ContextProxy, TimedContextProxy)):
+        context = context._context if isinstance(context, _ContextProxy) else context._raw_context
+    return page, context
+
+
 def configure_one_shot_readiness(
     *, architecture: str, window_ms: int = 1200,
     operator_opt_in: bool = False,
@@ -66,8 +78,10 @@ def experimental_gateway_factory(*, session_mode: str, policy: tuple[str, int]):
     ) -> PrimaryContentReadiness | dict[str, object]:
         # Only the existing M25 page/context. Never write at this stage.
         try:
+            page, live_context = _physical_scope(page, live_context)
             if (page is None or page.context is not live_context
-                    or page.url != final_url or len(live_context.pages) != 1):
+                    or page.url != final_url or len(live_context.pages) != 1
+                    or live_context.pages[0] is not page):
                 return {"status": "EXPERIMENTAL_SAME_PAGE_SCOPE_NOT_VERIFIED"}
             timed = measure_existing_playwright_probe_cost(
                 page=page, sample_id=sample_id, context_id=context_id,

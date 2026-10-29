@@ -75,3 +75,32 @@ def test_post_seal_requires_persisted_same_sample_id(tmp_path, monkeypatch):
     assert saved == [(source,"UXA-1")]
     assert (source / "audit.db").read_bytes() == before
     assert probe.publish_after_seal(audit_id=source.name, aud_dir=source)["eligible"] == 0
+
+
+def test_same_page_observer_accepts_owned_adapters_and_rejects_foreign_context(monkeypatch):
+    from types import SimpleNamespace
+    from rasai.accepted_apdex_error_evidence import _PageProxy, _ContextProxy
+    from rasai.synthetic_acquisition_engine import TimedPageProxy, TimedContextProxy
+    from rasai import readiness_probe_cost_pilot as pilot
+
+    context = SimpleNamespace(pages=[])
+    page = SimpleNamespace(context=context, url="https://example.test/")
+    context.pages.append(page)
+    wrapped_page = TimedPageProxy(_PageProxy(page), {})
+    wrapped_context = TimedContextProxy(_ContextProxy(context), {})
+    calls = []
+    timed = SimpleNamespace(observation=_observed())
+    def measure(**kwargs):
+        calls.append(kwargs)
+        return timed
+    monkeypatch.setattr(pilot, "measure_existing_playwright_probe_cost", measure)
+    gateway = probe.experimental_gateway_factory(session_mode="cold", policy=("CSR_SPA", 1200))
+    args = dict(page=wrapped_page, live_context=wrapped_context,
+                requested_url=page.url, final_url=page.url, device="MOBILE",
+                navigation_started_monotonic_ns=1, load_ms=200,
+                audit_id="AUD-PROXY", page_id="PAGE-1", sample_id="UXA-1", context_id="UXC-1")
+    assert gateway.advisory_same_page_observer(**args) is timed.observation
+    assert calls[0]["page"] is page
+    args["live_context"] = SimpleNamespace(pages=[page])
+    assert gateway.advisory_same_page_observer(**args)["status"] == "EXPERIMENTAL_SAME_PAGE_SCOPE_NOT_VERIFIED"
+    assert len(calls) == 1
