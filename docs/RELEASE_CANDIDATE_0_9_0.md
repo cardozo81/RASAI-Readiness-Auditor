@@ -17,7 +17,7 @@ Esses itens descrevem a estabilização em desenvolvimento na PR #675, não toda
 - Baseline de CI verificada: `c26b75fdbb709a87406471002754b9256603e49e`; 14/14 workflows de PR concluídos com sucesso em 28/10/2026.
 - Detalhes e links dos workflows, ressalvas e matriz de aceite: [STABILIZATION_RELEASE_READINESS.md](STABILIZATION_RELEASE_READINESS.md).
 - CONS-5: teste sintético aprovado; homologação com fontes físicas, comparação longitudinal e hash das AUDs ainda não comprovada nesta candidata.
-- RPR: regressões aprovadas; smoke físico de retomada seletiva permanece pendente de evidência.
+- RPR: seleção e prévia econômica em AUD histórica verificadas no console Windows (sem executar chamadas pagas); smoke offline determinístico com motor/persistência reais aprovado no Windows (`tests/test_rpr_offline_acceptance.py`, `1 passed in 0.73s`, informado pelo operador em 29/10/2026). Retomada física de AUD interrompida permanece sem evidência; não equiparar o teste offline à homologação completa.
 - IA/pricing: desvio histórico +320,69% reportado, ainda sem reconciliação causal do ledger físico. Não declarar fatura efetiva.
 - Relatórios: smoke sintético aprovado, com ressalva de paginação inicial do PDF CAT-07 e sem paridade demonstrada com AUD física.
 - Instalação limpa: execução de workflows em Windows/Linux não substitui instalação limpa em ambiente operacional.
@@ -32,7 +32,7 @@ Nenhum bump de versão está autorizado neste estágio; `pyproject.toml` e `src/
 | --- | --- | --- |
 | CI no SHA anterior de estabilização | PASS | Reexecutar no SHA final da candidata |
 | Regressões CONS-5/RPR | PASS | Preservar baseline verde |
-| Homologação física CONS/RPR | NOT_VERIFIABLE | Evidências ou ressalva formal aprovada |
+| Homologação física CONS/RPR | PARTIAL | CONS físico e RPR offline apresentados; faltam integridade histórica das fontes e recuperação física de AUD interrompida ou ressalva formal aprovada |
 | Reconciliação histórica de IA | NOT_VERIFIABLE | Ledger físico e análise causal, se mandatórios |
 | Relatórios e impressão | PASS_WITH_LIMITATION | Avaliação de ressalvas e paridade conforme critério de aceite |
 | Documentação #674 | PARTIAL | Links, termos, comandos e contratos revisados; CI verde |
