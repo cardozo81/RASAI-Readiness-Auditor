@@ -41,7 +41,7 @@ def test_snapshot_resource_declaration_not_misclassified_as_network(tmp_path):
     assert result["script_count"] == 1
     assert result["response_count"] == 1
     assert result["response_types"] == {"Stylesheet":1}
-    assert result["script_observation_status"] == "UNKNOWN"  # legacy fixture omitted script state
+    assert result["script_observation_status"] == "OBSERVED"  # explicit CAPTURED state and one observed script
     assert result["response_observation_status"] == "OBSERVED"
     assert result["main_response_observation_status"] == "OBSERVED"
     assert result["response_order"] == (("Stylesheet", "cdn.example.org", "200"),)
