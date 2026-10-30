@@ -19,6 +19,8 @@ pré-existente já admite atributo `query` por fonte quando fisicamente disponí
 e consistente; a síntese GEO canônica usa uma query por execução para garantir
 proveniência.
 
+A interpretação GEO por IA ocorre **após** a coleta central e possui finalidade distinta de Perplexity Search API. Tentativas efetivas do LLM competitivo devem ser persistidas pelo ledger M18 em `ai_provider_attempts` (operação `COMPETITIVE_INTELLIGENCE`) e no `ai_exchange_log` sanitizado, independentemente da sessão de IA central. Custo Search e custo de inferência generativa não são intercambiáveis. Falha na telemetria GEO não autoriza nova chamada faturável nem promoção de resultado a `AVAILABLE`.
+
 ## 2. AUD inicial: GEO IA por 2-5 consultas
 
 Quando GEO IA NÃO estiver solicitada, a Search API mantém o comportamento
