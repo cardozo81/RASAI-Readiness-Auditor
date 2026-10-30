@@ -89,6 +89,37 @@ class CompletedAuditIntegrationReplayTests(unittest.TestCase):
                 Path(first["package"]) / "reanalysis.html"
             ).read_text(encoding="utf-8"))
 
+    def test_latest_failed_search_does_not_promote_old_success(self):
+        with tempfile.TemporaryDirectory() as temp:
+            aud = Path(temp) / "AUD-RECENT"
+            aud.mkdir()
+            with closing(sqlite3.connect(aud / "audit.db")) as con, con:
+                con.execute("CREATE TABLE audits(audit_id TEXT)")
+                con.execute("INSERT INTO audits VALUES ('AUD-RECENT')")
+                con.execute("CREATE TABLE perplexity_search_runs("
+                            "run_id TEXT,audit_id TEXT,query_json TEXT,"
+                            "status TEXT,started_at TEXT)")
+                con.execute("CREATE TABLE perplexity_search_sources(run_id TEXT,url TEXT)")
+                con.executemany(
+                    "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?)",
+                    [
+                        ("old", "AUD-RECENT", '["term"]', "SUCCESS",
+                         "2026-10-29T22:00:00+00:00"),
+                        ("new", "AUD-RECENT", '["term"]', "TIMEOUT",
+                         "2026-10-29T23:00:00+00:00"),
+                    ],
+                )
+                con.execute("INSERT INTO perplexity_search_sources VALUES "
+                            "('old','https://source.example')")
+            with patch(
+                "rasai.geo_post_audit_complement._sealed_audit",
+                return_value=("dbhash", "manifesthash", "statehash"),
+            ):
+                report = inspect_completed_audit(aud)
+            self.assertEqual(report["current_verified_run_ids"], ["new"])
+            self.assertEqual(report["operations"][1]["state"], "NOT_ELIGIBLE")
+            self.assertFalse(report["saved_local_interpretations"])
+
     def test_missing_sources_do_not_become_eligible(self):
         with tempfile.TemporaryDirectory() as temp:
             aud = Path(temp) / "AUD-2"

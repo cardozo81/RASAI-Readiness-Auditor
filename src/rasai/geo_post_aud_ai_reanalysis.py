@@ -95,8 +95,17 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
             ),
         })
     from rasai.geo_multiquery_batch import latest_batch
-    batch = latest_batch(db, audit_id) if "geo_search_batches" in tables else None
-    if batch:
+    has_batch_intent = False
+    if "geo_search_batches" in tables:
+        with sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True) as con:
+            has_batch_intent = con.execute(
+                "SELECT 1 FROM geo_search_batches WHERE audit_id=? LIMIT 1",
+                (audit_id,),
+            ).fetchone() is not None
+    batch = latest_batch(db, audit_id) if has_batch_intent else None
+    if has_batch_intent and batch is None:
+        current_rows = []  # Ambiguous batch provenance: fail closed.
+    elif batch:
         selected = {x.get("run_id") for x in batch["items"]
                     if x.get("search_state") == "SUCCESS" and x.get("run_id")}
         current_rows = [x for x in per_query if x["run_id"] in selected]
@@ -178,6 +187,7 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
         "source_sha256": source_sha,
         "catalog_manifest_sha256": manifest_sha,
         "source_state_fingerprint": source_fingerprint,
+        "current_verified_run_ids": [row["run_id"] for row in current_rows],
         "original_audit_mutated": False,
         "provider_calls": 0,
         "operations": [
@@ -465,8 +475,6 @@ def execute_authorized_geo_ai(aud_dir: Path, *, provider: str,
     Reserve the exact intent BEFORE any potentially billable model request.
     """
     from rasai.geo_ai import execute_geo_ai
-    from rasai.geo_multiquery_batch import latest_batch
-
     report = inspect_completed_audit(aud_dir)
     root = Path(aud_dir)
     provider = str(provider).strip().casefold()
@@ -481,19 +489,10 @@ def execute_authorized_geo_ai(aud_dir: Path, *, provider: str,
     if source_run_id is not None:
         eligible = [row for row in eligible if row["run_id"] == source_run_id]
     else:
-        # Keep re-analysis bounded to the CURRENT physically attributed batch,
-        # or the most recent eligible single query on an older AUD.
-        batch = latest_batch(root / "audit.db", report["audit_id"])
-        if batch:
-            identities = {
-                item.get("run_id") for item in batch["items"]
-                if item.get("run_id") and item.get("search_state") == "SUCCESS"
-            }
-            eligible = [row for row in eligible if row["run_id"] in identities]
-        elif eligible and eligible[-1]["run_id"] == report["saved_external_observations"][-1]["run_id"]:
-            eligible = [eligible[-1]]
-        else:
-            eligible = []
+        # Only the same evidence cohort certified by the read-only preflight.
+        # A corrupt/ambiguous latest batch must not promote historical success.
+        verified = set(report.get("current_verified_run_ids", ()))
+        eligible = [row for row in eligible if row["run_id"] in verified]
     if not 1 <= len(eligible) <= 5:
         raise ValueError("no bounded, physically attributed saved GEO query")
     run_ids = [row["run_id"] for row in eligible]

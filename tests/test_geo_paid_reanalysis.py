@@ -23,6 +23,7 @@ def test_paid_geo_ai_uses_derived_db_and_deduplicates_identical_intent():
             "audit_id": "AUD-ONE",
             "source_sha256": sha256(bytes_before).hexdigest(),
             "catalog_manifest_sha256": "manifest",
+            "current_verified_run_ids": ["px-run-1"],
             "saved_external_observations": [{
                 "run_id": "px-run-1",
                 "queries": ["uma consulta"],
