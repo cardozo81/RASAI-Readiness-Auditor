@@ -70,6 +70,15 @@ def reserve_batch(database: Path, audit_id: str, queries: tuple[str, ...],
                 created_at TEXT NOT NULL
             )
         """)
+        # Fail closed on repeat activation of the same paid intent. A new
+        # physical observation requires a separately authorised supplement/AUD;
+        # neither a crash nor repeated console dispatch may re-send the batch.
+        if con.execute(
+            "SELECT 1 FROM geo_search_batches WHERE audit_id=? "
+            "AND request_fingerprint=? LIMIT 1",
+            (audit_id, fingerprint),
+        ).fetchone():
+            raise ValueError("GEO batch already reserved: no automatic resend")
         con.execute(
             "INSERT INTO geo_search_batches VALUES (?,?,?,?,?,?,?,?)",
             (batch_id, audit_id, CONTRACT, fingerprint,
