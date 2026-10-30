@@ -107,6 +107,6 @@ def geo_multiquery_html(database: Path, audit_id: str) -> str:
         "<p>Fontes da Search API não comprovam citação em respostas generativas. "
         "Confiança transversal: N/D (resumo determinístico, sem mensuração "
         "estatística independente). Custos de Search e IA são "
-        "contabilizados separadamente nos ledgers.</p>
+        "contabilizados separadamente nos ledgers.</p>"
         "</section>"
     )
