@@ -120,6 +120,39 @@ class CompletedAuditIntegrationReplayTests(unittest.TestCase):
             self.assertEqual(report["operations"][1]["state"], "NOT_ELIGIBLE")
             self.assertFalse(report["saved_local_interpretations"])
 
+    def test_limited_completed_audit_is_eligible_only_for_consultative_mode(self):
+        from types import SimpleNamespace
+        from rasai.geo_post_audit_complement import _sealed_audit
+        with tempfile.TemporaryDirectory() as temp:
+            aud = Path(temp) / "AUD-LIMITED"
+            aud.mkdir()
+            db = aud / "audit.db"
+            with closing(sqlite3.connect(db)) as con, con:
+                con.execute("CREATE TABLE audits("
+                            "audit_id TEXT,status TEXT,completion_status TEXT)")
+                con.execute("INSERT INTO audits VALUES "
+                            "('AUD-LIMITED','COMPLETED','COMPLETE_WITH_LIMITATIONS')")
+            catalog = aud / "report-catalog"
+            catalog.mkdir()
+            (catalog / "manifest.json").write_text("{}", encoding="utf-8")
+            original = db.read_bytes()
+            workspace = SimpleNamespace(root=aud, database=db)
+            with (
+                patch("rasai.catalog_report_site.verify_catalog_report_package",
+                      return_value=(True, [])),
+                patch("rasai.catalog_report_site.catalog_report_is_fresh",
+                      return_value=True),
+                patch("rasai.catalog_report_site._source_fingerprint",
+                      return_value="sealed-state"),
+            ):
+                with self.assertRaisesRegex(ValueError, "must be COMPLETE"):
+                    _sealed_audit(workspace, "AUD-LIMITED")
+                preview = inspect_completed_audit(aud)
+            self.assertEqual(preview["audit_id"], "AUD-LIMITED")
+            self.assertEqual(preview["provider_calls"], 0)
+            self.assertEqual(preview["saved_local_interpretations"], [])
+            self.assertEqual(original, db.read_bytes())
+
     def test_missing_sources_do_not_become_eligible(self):
         with tempfile.TemporaryDirectory() as temp:
             aud = Path(temp) / "AUD-2"
