@@ -122,6 +122,47 @@ class GeoMultiqueryTests(unittest.TestCase):
             open_workspace.assert_not_called()
             self.assertEqual(latest_batch(db, "AUD-1"), None)
 
+    def test_two_authorized_queries_use_two_attributed_search_and_ai_runs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            db = _db(root)
+            queries = ("a", "b")
+            state = SimpleNamespace(
+                perplexity_queries=queries, ai_provider="auto",
+                geo_multiquery_approval=request_fingerprint(queries, "web"),
+            )
+            workspace = SimpleNamespace(root=root, database=db)
+            calls = []
+            def runner(_workspace, **kwargs):
+                calls.append(tuple(kwargs["query"]))
+                return SimpleNamespace(
+                    status="SUCCESS", run_id="px" + str(len(calls)),
+                    sources=("one",), pricing=SimpleNamespace(estimated_cost=0.005),
+                )
+            with (
+                patch("rasai.persistence.AuditWorkspace.open", return_value=workspace),
+                patch("rasai.geo_observation.materialize_geo_observation") as observe,
+                patch("rasai.geo_ai.execute_geo_ai", return_value="AVAILABLE") as ai,
+            ):
+                result = execute_geo_multiquery_for_audit(
+                    state, runner, root, "AUD-1",
+                    {"search_type": "web", "query": queries, "audit_id": "AUD-1"},
+                )
+            self.assertEqual(result, 0)
+            self.assertEqual(calls, [("a",), ("b",)])
+            self.assertEqual(
+                [entry.kwargs["source_run_id"] for entry in observe.call_args_list],
+                ["px1", "px2"],
+            )
+            self.assertEqual(
+                [entry.kwargs["source_run_id"] for entry in ai.call_args_list],
+                ["px1", "px2"],
+            )
+            self.assertEqual(
+                [item["search_state"] for item in latest_batch(db, "AUD-1")["items"]],
+                ["SUCCESS", "SUCCESS"],
+            )
+
     def test_authorized_execution_separates_queries_and_preserves_partial_failure(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
