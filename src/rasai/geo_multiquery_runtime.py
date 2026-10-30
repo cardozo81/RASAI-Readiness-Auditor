@@ -30,7 +30,9 @@ def execute_geo_multiquery_for_audit(
 
     queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     mode = str(search_kwargs["search_type"]).lower()
-    expected = request_fingerprint(queries, mode)
+    options = search_kwargs.get("search_options")
+    target = str(getattr(state, "perplexity_scope_target", "") or "")
+    expected = request_fingerprint(queries, mode, search_options=options, target=target)
     if getattr(state, "geo_multiquery_approval", "") != expected:
         state.perplexity_last_status = "COMPLETE_WITH_LIMITATIONS"
         state.perplexity_last_detail = (
@@ -44,7 +46,8 @@ def execute_geo_multiquery_for_audit(
     try:
         workspace = AuditWorkspace.open(workspace_path)
         database = Path(workspace.database)
-        batch_id = reserve_batch(database, audit_id, queries, mode)
+        batch_id = reserve_batch(database, audit_id, queries, mode,
+                                 search_options=options, target=target)
     except Exception as exc:
         state.perplexity_last_status = "COMPLETE_WITH_LIMITATIONS"
         state.perplexity_last_detail = (

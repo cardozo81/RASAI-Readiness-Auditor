@@ -219,6 +219,8 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
 
 
 def _mark_perplexity_pending(search_module: ModuleType, state: Any) -> None:
+    # A prior paid multiquery approval cannot survive a configuration edit.
+    state.geo_multiquery_approval = ""
     queries = tuple(getattr(state, "perplexity_queries", ()) or ())
     if not queries:
         state.perplexity_last_status = "NOT_REQUESTED"
@@ -678,11 +680,19 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
                     from rasai.geo_multiquery_batch import (
                         estimated_search_cost_usd, request_fingerprint,
                     )
+                    from rasai.search_intelligence.perplexity_request_policy import resolve_request_options
+                    effective_options = resolve_request_options(
+                        explicit_brazil=search_module._explicit_brazil_scope(
+                            str(getattr(state, "search_region", "") or "")),
+                        search_type=search_type.lower(),
+                    )
+                    approval_target = str(getattr(state, "perplexity_scope_target", "") or "")
                     estimated = estimated_search_cost_usd(len(queries), search_type.lower())
+                    cost_label = f"USD {estimated:.6f}" if estimated is not None else "N/D"
                     print(
                         f"  GEO por consulta: {len(queries)} requests independentes "
                         f"(Search API {search_type}). Estimativa somente Search: "
-                        f"USD {estimated:.6f}; inferências IA geram custo adicional "
+                        f"{cost_label}; inferências IA geram custo adicional "
                         "variável (N/D nesta prévia)."
                     )
                     confirm = input(
@@ -693,6 +703,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
                     if approved:
                         state.geo_multiquery_approval = request_fingerprint(
                             queries, search_type.lower(),
+                            search_options=effective_options, target=approval_target,
                         )
                 state.geo_ai_requested = approved
                 _set_feedback(

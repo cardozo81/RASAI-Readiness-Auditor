@@ -70,8 +70,18 @@ class GeoMultiqueryTests(unittest.TestCase):
                             request_fingerprint(q, "fast"))
         self.assertNotEqual(request_fingerprint(q, "web"),
                             request_fingerprint(tuple(reversed(q)), "web"))
-        self.assertEqual(estimated_search_cost_usd(2, "web"), .01)
-        self.assertEqual(estimated_search_cost_usd(2, "fast"), .002)
+        # Forecast is catalog-backed, not a second hardcoded pricing rule.
+        from rasai.ai_economic_telemetry import price_native_usage
+        with patch("rasai.ai_economic_telemetry.price_native_usage") as price:
+            price.return_value = SimpleNamespace(estimated_cost=0.012)
+            self.assertEqual(estimated_search_cost_usd(2, "web"), 0.012)
+            self.assertEqual(price.call_count, 1)
+        self.assertNotEqual(
+            request_fingerprint(q, "web", search_options={"max_results": 10}),
+            request_fingerprint(q, "web", search_options={"max_results": 15}),
+        )
+        self.assertNotEqual(request_fingerprint(q, "web", target="https://a.example"),
+                            request_fingerprint(q, "web", target="https://b.example"))
 
     def test_guard_denies_unapproved_network_cost(self):
         with tempfile.TemporaryDirectory() as temp:

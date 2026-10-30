@@ -50,6 +50,7 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
     # catalog freshness gate. Never bypass it for optional analysis.
     source_sha, manifest_sha, source_fingerprint = _sealed_audit(
         workspace, audit_id,
+        accepted_completion_statuses=frozenset({"COMPLETE", "COMPLETE_WITH_LIMITATIONS"}),
     )
     with sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True) as con:
         tables = {row[0] for row in con.execute(

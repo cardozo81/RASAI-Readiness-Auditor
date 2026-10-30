@@ -6,6 +6,7 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    "PROVIDER_OUTCOME_NOT_YET_PERSISTED": "Resultado do provedor ainda não persistido; não repetir a solicitação",
     # Read-only acceptance/status literals: translate without certifying a gate.
     "AUD_OR_SIGNED_DOCUMENTARY_PACKET_NOT_ATTESTED": "Auditoria ou pacote documental assinado sem atestação verificável",
     "CANDIDATE_LIMIT_EXCEEDED": "Quantidade de candidatos FAQ acima do limite seguro de inspeção",

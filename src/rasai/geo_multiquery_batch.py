@@ -6,6 +6,7 @@ Readers are offline; no source association is inferred from aggregated searches.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any, Mapping
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -16,21 +17,43 @@ CONTRACT = "RASAI-GEO-MULTIQUERY-BATCH-1"
 _MAX_ROWS = 5
 
 
-def request_fingerprint(queries: tuple[str, ...], search_type: str) -> str:
-    """Bind economic consent to the exact ordered request, not saved drafts."""
+def request_fingerprint(queries: tuple[str, ...], search_type: str, *,
+                        search_options: Mapping[str, Any] | None = None,
+                        target: str = "") -> str:
+    """Bind consent to terms, effective provider filters and target scope."""
+    mode = str(search_type).strip().casefold()
+    from rasai.search_intelligence.perplexity_request_policy import validate_request_options
+    normalized = validate_request_options(search_options or {}, search_type=mode)
     value = {
         "contract": CONTRACT,
         "queries": list(queries),
-        "search_type": str(search_type).lower(),
+        "search_type": mode,
+        "search_options": normalized,
+        "target": str(target or "").strip(),
     }
-    return sha256(json.dumps(value, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+    return sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
+                             separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
-def estimated_search_cost_usd(query_count: int, search_type: str) -> float:
-    """Search-only informational estimate; LLM inference is separate/unpriced."""
+def estimated_search_cost_usd(query_count: int, search_type: str) -> float | None:
+    """Read the canonical request-price catalog; unknown pricing stays N/D."""
     if not 1 <= query_count <= _MAX_ROWS or search_type.lower() not in {"web", "fast"}:
         raise ValueError("invalid GEO Search batch")
-    return query_count * (0.005 if search_type.lower() == "web" else 0.001)
+    from rasai.ai_economic_telemetry import price_native_usage
+    from rasai.ai_native_usage import NativeUsageComponent, PERPLEXITY_SEARCH_REQUEST
+    from math import isfinite
+    now = datetime.now(timezone.utc)
+    quote = price_native_usage(
+        "PERPLEXITY", "SEARCH_API",
+        (NativeUsageComponent(
+            unit=PERPLEXITY_SEARCH_REQUEST, quantity=float(query_count),
+            source_metric="perplexity.search.request", component_type="REQUEST",
+            billable=True, observed_at=now,
+        ),), now,
+        runtime_conditions={"search_type": search_type.upper(), "operation_mode": "REALTIME"},
+    )
+    cost = quote.estimated_cost
+    return float(cost) if cost is not None and isfinite(float(cost)) and cost >= 0 else None
 
 
 def _database(path: Path) -> Path:
@@ -41,13 +64,15 @@ def _database(path: Path) -> Path:
 
 
 def reserve_batch(database: Path, audit_id: str, queries: tuple[str, ...],
-                  search_type: str) -> str:
+                  search_type: str, *, search_options: Mapping[str, Any] | None = None,
+                  target: str = "") -> str:
     """Persist all intended requests BEFORE sending any potentially billable call."""
     if not 2 <= len(queries) <= _MAX_ROWS or any(not isinstance(q, str) or not q.strip() for q in queries):
         raise ValueError("multiquery batch requires 2..5 nonempty queries")
     if len(set(queries)) != len(queries):
         raise ValueError("duplicate queries not allowed")
-    fingerprint = request_fingerprint(queries, search_type)
+    fingerprint = request_fingerprint(queries, search_type,
+                                     search_options=search_options, target=target)
     created_at = datetime.now(timezone.utc).isoformat()
     batch_id = "GQB-" + uuid4().hex.upper()
     items = [
@@ -70,6 +95,10 @@ def reserve_batch(database: Path, audit_id: str, queries: tuple[str, ...],
                 created_at TEXT NOT NULL
             )
         """)
+        # Unique DB constraint closes the cross-process TOCTOU window before
+        # any billable request. Do not rely on SELECT alone for concurrency.
+        con.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_geo_batch_intent "
+                    "ON geo_search_batches(audit_id, request_fingerprint)")
         # Fail closed on repeat activation of the same paid intent. A new
         # physical observation requires a separately authorised supplement/AUD;
         # neither a crash nor repeated console dispatch may re-send the batch.
@@ -79,12 +108,15 @@ def reserve_batch(database: Path, audit_id: str, queries: tuple[str, ...],
             (audit_id, fingerprint),
         ).fetchone():
             raise ValueError("GEO batch already reserved: no automatic resend")
-        con.execute(
-            "INSERT INTO geo_search_batches VALUES (?,?,?,?,?,?,?,?)",
-            (batch_id, audit_id, CONTRACT, fingerprint,
-             json.dumps(queries, ensure_ascii=False), search_type.lower(),
-             json.dumps(items, ensure_ascii=False), created_at),
-        )
+        try:
+            con.execute(
+                "INSERT INTO geo_search_batches VALUES (?,?,?,?,?,?,?,?)",
+                (batch_id, audit_id, CONTRACT, fingerprint,
+                 json.dumps(queries, ensure_ascii=False), search_type.lower(),
+                 json.dumps(items, ensure_ascii=False), created_at),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("GEO batch already reserved or invalid audit identity") from exc
     return batch_id
 
 
