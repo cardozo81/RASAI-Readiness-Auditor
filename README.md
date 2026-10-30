@@ -1,204 +1,36 @@
 # RASAi - Search & AI Readiness Auditor
 
-> **RASAi** é a identidade pública do produto. O acrônimo formal **RASAI** deriva de **Readiness Assessment for Search & AI**.
+**RASAi** (Readiness Assessment for Search & AI) avalia a prontidão técnica e semântica de sites para mecanismos de busca e sistemas de IA. Combina coleta de evidências, avaliação reproduzível, relatórios HTML e recomendações rastreáveis. Não promete ranking, tráfego, conversões ou citações em respostas generativas.
 
-**Descritor:** Search & AI Readiness Auditor  
-**Framework:** RASAi Framework  
-**Versão pública:** `001`  
-**Pacote Python (release estável publicada):** [`v0.9.1`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.1) · **próxima candidata, ainda não publicada:** `v0.9.2`  
-**Pacote Python (versão no código-fonte):** `0.9.2` ([notas de distribuição propostas](docs/RELEASE_NOTES_V0_9_2.md))  
-**Índice público:** **Search & AI Readiness Index - Índice de Prontidão Search & IA** · ID técnico `SARI-001`  
-**Método de pontuação:** **Método de Pontuação de Prontidão** · versão pública `001` · contrato técnico vigente para novas auditorias `SCORE-GEO-005` (replay histórico `SCORE-GEO-004`)
+**Pacote Python (release estável publicada):** [`v0.9.1`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.1)  
+**Pacote Python (versão no código-fonte):** `0.9.2` - [notas da candidata v0.9.2](docs/RELEASE_NOTES_V0_9_2.md); **tag e release ainda não publicadas**.  
+**Índice público:** `SARI-001` (Search & AI Readiness Index)  
+**Método de pontuação:** versão pública `001`; contrato atual `SCORE-GEO-005`. Auditorias históricas preservam `SCORE-GEO-004`.
 
-RASAi é um auditor de **Search & AI Readiness** com evidência persistida, scoring reproduzível, análise semântica opcional por IA, remediação advisory, diagnósticos de crawling/discovery, Acessibilidade, Web Performance/Lighthouse/CrUX, métricas e padrões Web, Apdex sintético, observabilidade e comparação longitudinal.
+## Capacidades principais
 
-O produto avalia sinais técnicos e semânticos úteis para Search e sistemas generativos sem prometer ranking, tráfego, conversão, citação ou presença em respostas de IA. **Readiness, visibilidade observada, ranking, citação, performance, acessibilidade e tráfego são metodologias distintas.**
+- **Auditoria por URL:** aquisição HTTP/DOM, descoberta e rastreamento, semântica, dados estruturados, sinais Search e segurança passiva, com evidências persistidas.
+- **Prontidão e recomendações:** SARI, cobertura e confiança separados, findings e remediações apoiadas nas evidências. Scores não são recalculados a partir de textos gerados por IA.
+- **Experiência e qualidade Web:** Lighthouse/PageSpeed, CrUX, acessibilidade automatizada, padrões Web e Apdex sintético, quando habilitados ou disponíveis.
+- **Search & AI Intelligence:** visibilidade observada, SERP, integrações Perplexity e interpretações por IA opcionais, com proveniência, limites de confiança e controle de custos.
+- **Análise pós-auditoria:** reprocessamento seletivo, reanálise consultiva offline, verificação de correções, monitoramento e comparação longitudinal por `CONS-*`.
+- **Operação:** console Windows, CLI, persistência SQLite local e recursos de plataforma/API para uso em arquitetura hospedada.
 
-## Estado funcional
+Cada auditoria pública recebe **uma URL de entrada e um contexto de dispositivo** (`mobile` ou `desktop`). Comparações entre dispositivos exigem execuções separadas.
 
-Capacidades integradas no contrato atual:
+## Requisitos e instalação
 
-- novas auditorias públicas por exatamente uma URL/domínio de entrada; estruturas multi-URL históricas permanecem legíveis internamente;
-- uma AUD usa um único contexto de device: `mobile` ou `desktop`;
-- persistência em SQLite + artefatos + log operacional;
-- relatório HTML pertencente à auditoria em `report-catalog/`, derivado da evidência persistida;
-- Índice de Prontidão Search & IA com Método de Pontuação de Prontidão, Cobertura, Confiança e Consolidação separados; ID público `SARI-001` e contrato técnico vigente `SCORE-GEO-005`, com replay histórico `SCORE-GEO-004` preservado;
-- análise semântica opcional por IA e fallback independente de provedor;
-- remediação textual/JSON-LD advisory e evidence-bound;
-- Análise profunda e melhorias (Improvement Intelligence) opcional para uma URL, reutilizando a seleção principal de IA e a política canônica de `AI=auto`, com análise técnica/conteúdo/SERP/segurança passiva e backlog priorizado;
-- crawling/discovery e controles de crawlers;
-- PageSpeed/Lighthouse + Core Web Vitals/CrUX como domínio externo separado;
-- Acessibilidade automatizada separada do SARI e sem alegar conformidade WCAG integral;
-- W3C HTML/CSS, MDN Observatory, Web Platform Baseline/WebDX e métricas derivadas conforme configuração/disponibilidade;
-- Synthetic Navigation Apdex;
-- Synthetic User Experience Apdex no mesmo device da AUD, com perfis públicos Mobile/Desktop;
-- Observed Generative Visibility import-first;
-- Search & AI Observability com sidecar próprio;
-- qualidade, verificação de correção (Fix Verification) e linha do tempo de evidências (Evidence Timeline);
-- monitoramento, comparação baseline/current e release gate;
-- control plane local para multiusuário, multiprojeto, multidomínio, milestones/deployments e comparação before/after;
-- relatórios consolidados somente leitura;
-- console interativo Windows com pré-verificação (preflight), custos/quota e persistência de configuração não sensível.
+- **Python:** CPython `>=3.13,<3.14`.
+- **Plataforma:** Windows para console e operação local; Linux para componentes hospedados e serviços.
+- **Browser:** Chromium via Playwright quando a funcionalidade exigir navegação renderizada.
 
-## Método de Pontuação de Prontidão
-
-O método apresentado ao usuário inicia na **versão pública 001**. O contrato técnico vigente para novas auditorias é:
-
-```text
-SCORE-GEO-005
-```
-
-Auditorias antigas que persistiram `SCORE-GEO-004` conservam a interpretação e os valores originais no replay. Não se recalcula nem se reescreve uma AUD histórica como se tivesse sido criada sob `SCORE-GEO-005`.
-
-O Overall usa o contrato:
-
-```text
-HIERARCHICAL_WEIGHTED_READINESS_V1
-```
-
-O cálculo é hierárquico e ponderado por grupos/dimensões conforme o contrato vigente. As dimensões são calculadas deterministicamente a partir de `RuleExecution` e evidências persistidas. Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador. Estados insuficientes não são convertidos em zero.
-
-Para inspecionar o contrato atual:
-
-```powershell
-rasai scoring inspect
-```
-
-Documentação: [docs/SCORE_GEO.md](docs/SCORE_GEO.md), [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md) e [docs/SARI_READINESS_INDEX.md](docs/SARI_READINESS_INDEX.md).
-
-Glossário e taxonomia: [docs/GLOSSARY.md](docs/GLOSSARY.md).
-
-## Relatórios HTML
-
-A saída HTML pertencente a uma execução `rasai audit` é `report-catalog/`, com entrada em:
-
-```text
-<AUD>/report-catalog/index.html
-```
-
-`report-catalog/` é uma projeção somente leitura derivada de `audit.db` + artefatos persistidos. Collectors, scoring, findings, evidências, recomendações, causa raiz, precisão, IA, custos e rastreabilidade pertencem ao processamento/persistência; a renderização HTML não executa nova coleta nem recalcula esses dados.
-
-A fonte de verdade para nomes, ordem e navegação das páginas públicas dessa projeção é `src/rasai/catalog_report_contract.py`. A taxonomia e os títulos dos CAT-01 a CAT-10 vêm de `src/rasai/audit_catalog.py`.
-
-### Como os relatórios se relacionam
-
-- **Auditoria individual (`AUD-*`)**: `report-catalog/` apresenta o estado de uma única execução, seus catálogos, Índice de Prontidão Search & IA, evidências e páginas de governança.
-- **Catálogos (`CAT-01` a `CAT-10`)**: são superfícies funcionais dentro do `report-catalog/`; seus títulos devem seguir a taxonomia canônica do programa.
-- **Relatório consolidado (`CONS-*`)**: é uma saída longitudinal separada, construída somente a partir de auditorias persistidas e compatíveis. Não pertence ao `report-catalog/` de uma AUD.
-- **Saídas especializadas**: monitoramento, verificação, linhas do tempo, históricos e outras projeções com contrato próprio permanecem fora do contrato HTML da auditoria individual.
-
-### Superfícies canônicas de uma execução `rasai audit`
-
-| Arquivo em `report-catalog/` | Título/finalidade exibida |
-|---|---|
-| `index.html` | Visão geral |
-| `sari.html` | Índice de Prontidão Search & IA |
-| `cat-01.html` | CAT-01 · Fundamentos técnicos e descoberta |
-| `cat-02.html` | CAT-02 · Acessibilidade |
-| `cat-03.html` | CAT-03 · Conteúdo, semântica e dados estruturados |
-| `cat-04.html` | CAT-04 · Web Performance |
-| `cat-05.html` | CAT-05 · Search & AI Intelligence |
-| `cat-06.html` | CAT-06 · Apdex de navegação |
-| `cat-07.html` | CAT-07 · Apdex de experiência |
-| `cat-08.html` | CAT-08 · Análise profunda e melhorias |
-| `cat-09.html` | CAT-09 · Remediações |
-| `cat-10.html` | CAT-10 · Segurança passiva |
-| `directed-analysis.html` | Análise Direcionada |
-| `capture-context.html` | Captura e contexto |
-| `execution-evidence.html` | Evidências da execução |
-| `ai-integrations.html` | IA e integrações |
-| `methodology.html` | Metodologia e scoring |
-| `metrics.html` | Índices e métricas |
-
-Os nomes acima refletem o contrato atualmente materializado pelo programa. Termos técnicos consolidados, como SARI, Web Performance, Search & AI Intelligence, Apdex e scoring, permanecem quando sua tradução reduziria precisão ou romperia a correspondência com o produto.
-
-A materialização continua pela rotina canônica `materialize_catalog_report_site(...)` e preserva as regras CAT-*, a Matriz de encerramento estrutural e o conteúdo funcional definido pelo contrato vigente.
-
-### Rematerializar relatório de AUD persistida (sem coletar)
-
-A função Python de renderização `materialize_catalog_report_site(...)` é interna: **não**
-execute a função isoladamente como ferramenta de recuperação, pois instaladores tardios
-dos renderizadores e o estado de publicação são vinculados pela composição completa
-da CLI. Utilize exclusivamente o comando suportado:
-
-```powershell
-rasai rematerialize-report --audit-dir ".\\audits\\AUD-EXEMPLO" --output-root "$env:TEMP\\RASAI-REPORTS-SMOKE"
-```
-
-O comando instala os mesmos bindings da execução normal, copia integralmente a AUD
-para uma pasta de saída nova e **regenera apenas os HTMLs na cópia**. Recusa sobrescrever
-uma pasta de saída existente, acessar rede durante a projeção, alterar qualquer arquivo
-fonte persistido ou publicar um estado de relatório que divirja do fulfillment.
-A AUD original é mantida intacta. O pacote produzido preserva
-`PRELIMINARY` quando a AUD possui pendências, mesmo que sua integridade estrutural
-seja elegível. Não executa `audit`, `reprocess`, derivação ou provider.
-Use uma pasta de saída diferente a cada execução. Detalhes: 
-[docs/REPORT_REMATERIALIZATION.md](docs/REPORT_REMATERIALIZATION.md).
-
-
-### Relatório consolidado longitudinal
-
-O **Relatório Consolidado Longitudinal**, formato público **001**, compara auditorias `AUD-*` compatíveis sem reexecutar coleta, crawl, pontuação ou integrações. O identificador técnico do formato permanece `CONS-5`. A entrada HTML materializada é:
-
-```text
-audits/consolidated/CONS-*/report.html
-```
-
-Estrutura principal do pacote:
-
-```text
-audits/consolidated/CONS-*/
-├── report.html
-├── rules-reference.html        # quando houver regras de avaliação de prontidão citadas (IDs BR-GEO-*)
-├── manifest.json
-├── decision-context.json
-├── longitudinal-evidence.json
-├── execution.json
-├── specialist-analysis.json   # somente quando a IA for solicitada
-└── ai-exchanges.json          # somente quando a IA for solicitada
-```
-
-Cada tentativa de geração também possui rastreabilidade própria em `audits/consolidated/executions/CONRUN-*/`. O modo determinístico é válido sem IA; quando IA é solicitada, ela interpreta o contexto longitudinal governado sem alterar os dados, scores ou evidências das auditorias de origem.
-
-Detalhes: [docs/CONSOLIDATED_REPORTING.md](docs/CONSOLIDATED_REPORTING.md), [docs/CONSOLIDATED_REPORTING_VALIDATION.md](docs/CONSOLIDATED_REPORTING_VALIDATION.md) e [docs/OUTPUTS_AND_ARTIFACTS.md](docs/OUTPUTS_AND_ARTIFACTS.md).
-
-### SaaS / Web
-
-Os endpoints existentes de relatórios permanecem estáveis:
-
-```text
-GET /api/v1/audits/{audit_id}/reports
-GET /api/v1/audits/{audit_id}/reports/{asset_path}
-```
-
-A raiz pública autorizada desses endpoints é exclusivamente `<AUD>/report-catalog/`. `audit.db`, artefatos privados e caminhos internos continuam fora da superfície HTTP.
-
-## Versões e contratos são conceitos diferentes
-
-O RASAi não trata toda evolução como uma única “versão”. Os eixos relevantes são:
-
-| Conceito | Finalidade | Exemplo atual |
-|---|---|---|
-| `auditor_version` | versão do produto/runtime | versão do pacote RASAi |
-| `ruleset_version` | versão do conjunto de regras | persistida no AUD |
-| `sari_version` | identidade pública do índice | `SARI-001` |
-| `scoring_version` | fórmula/contrato de scoring | `SCORE-GEO-005` para novas AUDs; `SCORE-GEO-004` em evidências históricas |
-| `catalog_report_contract` | contrato da projeção HTML audit-owned e do manifest | `CATALOG-REPORT-002` |
-| `observability_contract_version` | contrato do sidecar observacional | `OBSERVABILITY-CONTRACT-001` |
-
-A comparação longitudinal deve manter `scoring_version` compatível entre baseline e current. O método público permanece na versão 001; novas auditorias usam `SCORE-GEO-005` e a leitura/reprodução de auditorias antigas respeita `SCORE-GEO-004`. As duas versões não são numericamente intercambiáveis sem qualificar a aplicabilidade das regras.
-
-## Instalação rápida - Windows
-
-Forma recomendada:
+No Windows, a opção de abertura assistida é:
 
 ```cmd
 abrir-rasai-console.cmd
 ```
 
-O launcher prepara o ambiente local e abre o console interativo.
-
-Fallback manual:
+Instalação manual para desenvolvimento ou execução CLI:
 
 ```powershell
 py -3.13 -m venv .venv
@@ -208,196 +40,64 @@ python -m playwright install chromium
 rasai --version
 ```
 
-Detalhes: [docs/INSTALLATION.md](docs/INSTALLATION.md).
+Consulte [Instalação](docs/INSTALLATION.md), [Compatibilidade](docs/COMPATIBILITY.md) e [Configuração](docs/CONFIGURATION.md) antes de habilitar integrações externas.
 
-## Execução básica
+## Primeiro uso
 
-Sem IA:
-
-```powershell
-rasai audit https://example.com --ai-provider none
-```
-
-Escolha explícita de device:
+Uma auditoria básica pode ser iniciada **sem IA**:
 
 ```powershell
 rasai audit https://example.com --device-context mobile --ai-provider none
-rasai audit https://example.com --device-context desktop --ai-provider none
 ```
 
-Uma AUD não combina Mobile e Desktop. Para comparar devices, execute AUDs separadas e use a camada de comparação/consolidação.
+Para escolher outro dispositivo, use `--device-context desktop`. O console oferece fluxo interativo de configuração, autorização de etapas e acompanhamento de custos.
 
-Novas AUDs não aceitam arquivo/lista de URLs. Informe exatamente um target; a descoberta interna pode ampliar o conjunto de páginas dentro do limite configurado.
+A CLI documenta os demais comandos e parâmetros: [Referência CLI](docs/CLI_REFERENCE.md).
 
-A IA é opcional. Ausência de IA não transforma regras semânticas em `FAIL`; pode reduzir Coverage/Confidence quando evidência semântica aplicável não for obtida.
+## Resultados e integridade
 
-## IA e proveniência da saída
+| Saída | Localização / finalidade |
+| --- | --- |
+| Auditoria `AUD-*` | `audits/AUD-*/audit.db` + artefatos originais da execução |
+| Relatório individual | `audits/AUD-*/report-catalog/index.html` e páginas temáticas CAT-01 a CAT-10 |
+| Consolidação `CONS-*` | `audits/consolidated/CONS-*/report.html`, comparação longitudinal separada |
+| Reanálise consultiva pós-AUD | `audits/.rasai-ai-reanalyses/AUD-*/`, pacotes derivados independentes |
 
-Provedores concretos e seleções aceitas são definidos pelo registro técnico atual e documentados em:
+O `audit.db` e seus artefatos são a fonte de evidência. Relatórios são projeções, não realizam coleta durante a renderização e não devem substituir medições indisponíveis por resultados estimados. Os estados `N/D`, parcial e não comparável são preservados quando aplicáveis.
 
-- [docs/AI_GUIDE.md](docs/AI_GUIDE.md)
-- [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
-- [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
-- [docs/IMPROVEMENT_INTELLIGENCE.md](docs/IMPROVEMENT_INTELLIGENCE.md)
-
-Credencial configurada não comprova saldo, quota, acesso ao modelo ou disponibilidade do provider.
-
-Quando um conteúdo exibido foi produzido por IA, a superfície deve deixar isso explícito e, quando os dados persistidos permitirem, mostrar:
-
-- provedor e modelo efetivamente usados;
-- finalidade da chamada;
-- regra/finding e URL/dispositivo associados;
-- evidências ou `evidence_ids` usados como entrada;
-- contexto editorial/YMYL quando ele participou do prompt;
-- telemetria de tentativas, tokens e custo estimado em `report-catalog/ai-integrations.html`.
-
-Uma resposta da IA continua **advisory/evidence-bound**. O RASAi valida o contrato do retorno e sua associação às evidências permitidas, mas não transforma texto gerado por IA em fato observado. Remediações por IA não alteram Score, Coverage, Confidence ou Consolidation por si só.
-
-### Análise profunda e melhorias (Improvement Intelligence)
-
-A análise profunda é opcional por escolha explícita e só fica elegível para **uma URL explícita**. Ela pode correlacionar HTML/semântica, findings, Lighthouse/PageSpeed, Search/SERP, arquivos de descoberta e postura de segurança passiva. Provedor, modelo e reasoning pertencem à seleção principal de IA da auditoria; quando a seleção é `AI=auto`, a análise profunda reutiliza o mesmo coordenador canônico de custo, elegibilidade, quarentena, circuit breaker e fallback.
-
-O resultado é um backlog priorizado com evidência, impacto potencial, esforço, justificativa e, quando aplicável, comparação entre HTML original e HTML sugerido. Search/SERP é usado como contexto competitivo observacional: nenhuma recomendação promete posição futura. Segurança é passiva; a funcionalidade não executa exploração ou pentest ativo.
-
-O ganho só é comprovado por nova medição/before-after após o deploy. Detalhes: [docs/IMPROVEMENT_INTELLIGENCE.md](docs/IMPROVEMENT_INTELLIGENCE.md).
-
-## Web Performance e Acessibilidade
-
-Exemplo:
+**Reanálise offline de AUD encerrada**, sem chamar provedores nem alterar a auditoria original:
 
 ```powershell
-rasai audit https://example.com --ai-provider none --web-performance
+rasai ai-reanalysis .\audits\AUD-EXEMPLO
+rasai ai-reanalysis .\audits\AUD-EXEMPLO --write-local-replay
 ```
 
-Lighthouse é medição de laboratório; CrUX é dado agregado de campo quando disponível. Acessibilidade automatizada reutiliza o artefato Lighthouse persistido e não equivale a certificação WCAG integral.
+A nova inferência GEO paga e as novas pesquisas externas dependem de autorização específica; o replay local não as executa. Leia [GEO multiquery e reanálise pós-AUD](docs/GEO_AI_MULTIQUERY_AND_REANALYSIS.md) e [Saídas e artefatos](docs/OUTPUTS_AND_ARTIFACTS.md).
 
-Esses indicadores permanecem separados do `SARI-001` e do contrato `SCORE-GEO-005` vigente para novas AUDs (ou da versão histórica persistida). Web Performance e Acessibilidade não exigem IA. No relatório audit-owned, Web Performance é projetada em `report-catalog/cat-04.html` e acessibilidade automatizada em `report-catalog/cat-02.html`; ausência, indisponibilidade ou coleta parcial devem permanecer explícitas, sem inventar resultado.
+## IA, custos e limites metodológicos
 
-## Apdex
+A IA é **opcional**: o núcleo de auditoria funciona com `--ai-provider none`. Provedores e serviços externos dependem de configuração, elegibilidade, disponibilidade e, quando aplicável, consentimento de custo. A ausência de dados de IA ou de integrações não deve ser apresentada como aprovação nem como falha fictícia.
 
-RASAi possui dois domínios sintéticos separados:
+- `SARI-001` é o **índice de prontidão**, não um indicador de tráfego, visibilidade observada ou ranking.
+- `SCORE-GEO-005` é o contrato de scoring para novas auditorias; `SCORE-GEO-004` permanece válido no replay histórico. Comparações incompatíveis não são convertidas silenciosamente.
+- PageSpeed, CrUX, acessibilidade, Apdex, observabilidade e fontes de IA pertencem a metodologias distintas e mantêm seus limites.
+- Interpretações por IA são consultivas e ligadas a evidências. Custos são estimados apenas quando há regra aplicável; provedores não são acionados implicitamente em replays offline.
 
-- **Synthetic Navigation Apdex** - navegação sintética controlada;
-- **Synthetic User Experience Apdex** - população sintética configurável, inclusive Mobile/Desktop/Tablet.
+Consulte [SARI](docs/SARI_READINESS_INDEX.md), [Scoring](docs/SCORE_GEO.md), [Guia de IA](docs/AI_GUIDE.md) e [Custos/uso de IA](docs/CONSOLE_COST_AND_USAGE.md).
 
-No relatório audit-owned, Synthetic Navigation Apdex é projetado em `report-catalog/cat-06.html` e Synthetic User Experience Apdex em `report-catalog/cat-07.html`. Nenhum deles é RUM ou depende de IA. Quando não executados, as páginas permanecem disponíveis em estado neutro e não criam amostras sintéticas. O Experience Apdex permite distribuir percentualmente as amostras sintéticas entre Mobile/Desktop/Tablet; a soma deve ser exatamente 100%. Essa distribuição representa a população de ações de usuário/amostras, não o número bruto de subrequests HTTP disparados por cada página.
+## Documentação
 
-A configuração deve ser comparada com o perfil do sistema de referência antes de interpretar divergências com Dynatrace ou outra plataforma de real-user monitoring.
+A [documentação completa](docs/README.md) centraliza contratos e guias especializados. Páginas de referência:
 
-## Visibilidade generativa observada e observabilidade
+- [Instalação e operação](docs/INSTALLATION.md) · [Referência CLI](docs/CLI_REFERENCE.md) · [Configuração](docs/CONFIGURATION.md)
+- [Relatórios e catálogos](docs/CATALOG_AND_REPORT_SURFACES.md) · [Guia de relatórios](docs/REPORT_GUIDE.md)
+- [Consolidação longitudinal](docs/CONSOLIDATED_REPORTING.md) · [Verificação de correções](docs/REPORT_GUIDE.md)
+- [Monitoramento e observabilidade](docs/MONITORING_OBSERVABILITY.md) · [Plataforma](docs/PRODUCT_PLATFORM_ARCHITECTURE.md)
+- [Versionamento](docs/VERSIONING.md) · [Notas da candidata v0.9.2](docs/RELEASE_NOTES_V0_9_2.md)
+- [Pesquisa futura sobre runner SaaS](docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md) - proposta não implementada, rastreada na **Issue #1**.
 
-Observed Generative Visibility é import-first e permanece fora do SARI. Quando houver dados aplicáveis à AUD, a projeção correspondente permanece no domínio de Search & AI Intelligence, principalmente `report-catalog/cat-05.html` e `report-catalog/metrics.html`, sem criar uma página audit-owned paralela.
+## Segurança e responsabilidade
 
-Search & AI Observability usa `artifacts/observability/observability.db` + artefatos observacionais para resultados externos. Dados ausentes não viram zero e correlação temporal não é tratada como causalidade. A projeção audit-owned correspondente fica no `report-catalog/`, principalmente CAT-05 e métricas.
-
-Comandos principais:
-
-```powershell
-rasai visibility import ...
-rasai observe status ...
-rasai observe report ...
-```
-
-Detalhes: [docs/MONITORING_OBSERVABILITY.md](docs/MONITORING_OBSERVABILITY.md).
-
-## Monitoramento e qualidade
-
-Comparação entre auditorias:
-
-```powershell
-rasai monitor compare --baseline AUD-BASELINE --current AUD-CURRENT
-rasai monitor impact --baseline AUD-BASELINE --current AUD-CURRENT
-rasai monitor gate --baseline AUD-BASELINE --current AUD-CURRENT
-```
-
-Qualidade/verificação:
-
-```powershell
-rasai quality report --audit AUD-...
-rasai quality verify --baseline AUD-A --current AUD-B
-rasai quality timeline --audits-root audits
-```
-
-Essas capacidades são somente leitura sobre a evidência fonte e não criam um segundo score de readiness. Seus relatórios especializados possuem contratos próprios fora de `report-catalog/` e não são superfícies audit-owned da execução `rasai audit`. Quando `scoring_version` é incompatível entre baseline/current, a comparação de score deve permanecer `NOT_COMPARABLE`; nenhum conversor silencioso é permitido.
-
-## Plataforma do produto - Windows primeiro, preparada para SaaS
-
-O control plane local fica separado do `audit.db` imutável:
-
-```text
-audits/.rasai/platform.db
-```
-
-Ele modela Organization, Workspace, Project, Property, Environment, usuários/memberships, milestones/deployments, golden baselines, page lineage, schedules, alerts, integrations e usage ledger.
-
-Comandos principais:
-
-```powershell
-rasai platform --audits-root audits init
-rasai platform --audits-root audits index
-rasai platform --audits-root audits status
-rasai platform --audits-root audits site
-```
-
-A arquitetura alvo para SaaS usa control plane PostgreSQL e workers Linux/containerizados. O runtime Windows local permanece um alvo operacional do produto, enquanto IDs/filenames estáveis, manifests, schemas versionados, persistência histórica imutável e metadados API-friendly sustentam a evolução para operação centralizada sem introduzir infraestrutura SaaS pesada no runtime desktop.
-
-Detalhes: [docs/PRODUCT_PLATFORM_ARCHITECTURE.md](docs/PRODUCT_PLATFORM_ARCHITECTURE.md).
-
-## Observabilidade de rede (issue #659)
-
-A auditoria oferece a página consultiva `network.html` com dados passivos das conexões observadas e informações explícitas sobre o que não foi medido. A extensão opcional `rasai.network_active_probe` executa somente mediante autorização expressa do operador, limitada ao hostname público já pertencente à AUD e às portas 80/443. DNS, TCP/TLS e, quando solicitado, até oito saltos de rede podem ser registrados em pacotes independentes, sem alterar a auditoria original.
-
-Enriquecimento por ASN/GeoIP exige bases MMDB locais opcionais, não realiza downloads ou chamadas pagas. O mapa de coordenadas e as comparações entre sessões funcionam offline e diferenciam fatos, estimativas e lacunas; a localização IP não comprova a posição física de servidores nem a rota. O relatório canônico detecta alterações posteriores nos pacotes complementares e exige nova materialização somente leitura para incorporar novas medições. Uso, limitações e comandos: [docs/OUTPUTS_AND_ARTIFACTS.md](docs/OUTPUTS_AND_ARTIFACTS.md).
-
-## Fonte de verdade e segurança
-
-Princípios:
-
-- `audit.db` + artefatos são evidência imutável da auditoria;
-- `report-catalog/` é projeção reconstruível, não segunda fonte de verdade;
-- `<AUD>/report/`, `<AUD>/report.html` e `<AUD>/remediation.html` não pertencem ao contrato de saída de `rasai audit`;
-- superfície HTML presente não prova que a capacidade, API, provedor ou IA correspondente foi executada;
-- sidecars e índices consolidados são derivados/reconstruíveis;
-- secrets não devem ser persistidos em relatórios, SQLite, INI ou logs;
-- resultados externos `NULL` não viram zero;
-- nenhuma referência externa homologa automaticamente o SARI completo;
-- nenhuma temporalidade isolada prova causalidade;
-- relatórios preservam `scoring_version`; nesta fase de desenvolvimento, novas AUDs usam `SCORE-GEO-005` e replays históricos preservam `SCORE-GEO-004`.
-
-## Documentação principal
-
-- [docs/CATALOG_AND_REPORT_SURFACES.md](docs/CATALOG_AND_REPORT_SURFACES.md)
-- [docs/REPORT_GUIDE.md](docs/REPORT_GUIDE.md)
-- [docs/OUTPUTS_AND_ARTIFACTS.md](docs/OUTPUTS_AND_ARTIFACTS.md)
-- [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)
-- [docs/EXECUTION_SCHEDULING.md](docs/EXECUTION_SCHEDULING.md)
-- [docs/SCORE_GEO.md](docs/SCORE_GEO.md)
-- [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md)
-- [docs/SARI_READINESS_INDEX.md](docs/SARI_READINESS_INDEX.md)
-- [docs/AI_GUIDE.md](docs/AI_GUIDE.md)
-- [docs/IMPROVEMENT_INTELLIGENCE.md](docs/IMPROVEMENT_INTELLIGENCE.md)
-- [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
-- [docs/MONITORING_OBSERVABILITY.md](docs/MONITORING_OBSERVABILITY.md)
-- [docs/CONSOLIDATED_REPORTING.md](docs/CONSOLIDATED_REPORTING.md)
-- [docs/CONSOLIDATED_REPORTING_VALIDATION.md](docs/CONSOLIDATED_REPORTING_VALIDATION.md)
-- [docs/PRODUCT_PLATFORM_ARCHITECTURE.md](docs/PRODUCT_PLATFORM_ARCHITECTURE.md)
-- [docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md](docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md) - avaliação arquitetural futura; não integra o contrato funcional vigente. Rastreabilidade: Issue #1.
-- [docs/specification/00_SPEC_INDEX.md](docs/specification/00_SPEC_INDEX.md)
-
-## Limite de validade
-
-RASAi fornece auditoria técnica/semântica, evidência, heurísticas proprietárias, métricas externas separadas e suporte à decisão. Não garante ranking, citação, tráfego, conversão, conformidade integral ou causalidade de resultado externo.
+Coletas de rede ativas, integrações pagas, modelos externos e processamento de dados sensíveis requerem consentimento e configuração próprios. Não inclua credenciais em artefatos ou relatórios. Mantenha backups de auditorias persistidas antes de atualizar o runtime. Os relatórios distinguem evidência efetivamente observada, inferência e informação indisponível.
 
 <!-- rasai-doc-index-20260908 -->
-## Contrato da documentação
-
-A documentação está organizada em [`docs/README.md`](docs/README.md). A última release pública estável verificada é [`v0.9.1`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.1), publicada em 29/10/2026; `v0.9.0` e `v0.8.0` permanecem marcos históricos. O código-fonte desta branch prepara a versão `0.9.2`, ainda sem tag nem publicação. O **Método de Pontuação de Prontidão** segue na versão pública **001**, com contrato `SCORE-GEO-005` vigente para novas auditorias e `SCORE-GEO-004` preservado para replay histórico.
-
-
-### Network Intelligence consultiva
-O relatório `network.html` inclui diagnóstico explicativo baseado em
-evidências, com confiança por escopo e limitações. A interpretação adicional
-por IA é **opt-in**, via `python -m rasai.network_intelligence_ai`,
-com `--authorize-ai --provider <provedor-configurado>`; nunca é acionada
-durante AUD/RPR/CONS ou geração offline de relatórios e não altera scores.
-Ver `docs/OUTPUTS_AND_ARTIFACTS.md` para contrato e pré-voo.
