@@ -538,6 +538,39 @@ def _review_external_geo_supplements() -> None:
     )
 
 
+def _review_post_aud_ai_reanalysis() -> None:
+    """Operator-selected local-only AUD integration replay."""
+    from pathlib import Path
+    from rasai.geo_post_aud_ai_reanalysis import (
+        inspect_completed_audit, publish_local_reanalysis,
+    )
+    raw = input("Pasta da AUD concluída para reanálise local: ").strip()
+    if not raw:
+        print("  AUD não informada; nenhuma operação executada.")
+        return
+    path = Path(raw).expanduser()
+    try:
+        assessment = inspect_completed_audit(path)
+    except (OSError, ValueError, TypeError) as exc:
+        print(f"  AUD não elegível ({type(exc).__name__}); zero chamadas externas.")
+        return
+    print(f"  AUD {assessment['audit_id']}: "
+          f"{len(assessment['saved_external_observations'])} observação(ões); "
+          "prévia sem cobrança.")
+    for row in assessment["operations"]:
+        print(f"  {row['operation']}: {row['state']}")
+    print("  Modelos e pesquisa externa não são executados nesta opção. "
+          "Inferência comercial exige autorização independente na CLI.")
+    if input("  Gravar pacote consultivo apenas local [S/N]: ").strip().upper() != "S":
+        return
+    try:
+        outcome = publish_local_reanalysis(path)
+        print(f"  Pacote: {outcome['package']}; status={outcome['state']}; "
+              "requests externos=0")
+    except (OSError, ValueError, TypeError) as exc:
+        print(f"  Pacote indisponível ({type(exc).__name__}); AUD preservada.")
+
+
 def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
     """Bounded CAT-05 editor for Perplexity execution inputs and canonical secret."""
     while True:
@@ -641,6 +674,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print("7. Complemento GEO externo em AUD COMPLETE existente (não altera AUD)")
         print("8. Consultar complementos GEO existentes (somente leitura, sem cobrança)")
         print("9. Reutilizar/limpar rascunho Perplexity salvo (solicitação explícita)")
+        print("A. Reanalisar integrações de AUD concluída (somente dados locais)")
         print(f"  Síntese GEO por IA    : {'SOLICITADA' if bool(getattr(state, 'geo_ai_requested', False)) else 'NÃO SOLICITADA'}")
         print("D. Não solicitar Perplexity nesta execução")
         print("V. Voltar ao CAT-05")
@@ -669,6 +703,8 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             _review_external_geo_supplements()
         elif raw == "9":
             _manage_perplexity_draft(search_module, state)
+        elif raw == "A":
+            _review_post_aud_ai_reanalysis()
         elif raw == "5":
             requested = input(
                 "Solicitar análise GEO por IA canônica? Pode consumir quota/custo. [S/N]: "
@@ -714,7 +750,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             else:
                 print("  Escolha S ou N.")
         else:
-            print("  Opção inválida: use 1 a 9, D ou V.")
+            print("  Opção inválida: use 1 a 9, A, D ou V.")
 
 
 def _edit_terms(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:
