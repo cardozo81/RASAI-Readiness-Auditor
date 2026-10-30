@@ -47,12 +47,14 @@ def geo_multiquery_html(database: Path, audit_id: str) -> str:
                     run_id = item.get("run_id")
                     if not isinstance(run_id, str) or not run_id:
                         continue
-                    row = con.execute(
-                        "SELECT state, summary, opportunities_json FROM "
-                        "geo_ai_interpretations WHERE audit_id=? AND perplexity_run_id=? "
-                        "ORDER BY created_at DESC LIMIT 1", (audit_id, run_id)
-                    ).fetchone()
-                    if row is not None:
+                    row = _last_temporally_verified(
+                        con, table="geo_ai_interpretations", audit_id=audit_id,
+                        columns=("state", "summary", "opportunities_json"),
+                        time_column="created_at",
+                        condition=" AND perplexity_run_id=?",
+                        condition_params=(run_id,),
+                    )
+                    if row is not None and row is not _UNVERIFIABLE:
                         ai_rows[run_id] = row
     except (OSError, sqlite3.Error, ValueError, TypeError):
         return ""
@@ -66,10 +68,10 @@ def geo_multiquery_html(database: Path, audit_id: str) -> str:
         geo_state = str(item.get("geo_ai_state") or "N/D")
         if state == "SUCCESS":
             observed += 1
-        if geo_state == "AVAILABLE":
-            interpreted += 1
         run_id = str(item.get("run_id") or "")
         saved = ai_rows.get(run_id)
+        if geo_state == "AVAILABLE" and saved and saved[0] == "AVAILABLE":
+            interpreted += 1
         summary = ""
         if saved and saved[1] and geo_state == "AVAILABLE":
             summary = str(saved[1])[:2500]
@@ -103,6 +105,8 @@ def geo_multiquery_html(database: Path, audit_id: str) -> str:
         "<th>Interpretação GEO IA</th><th>Proveniência e síntese</th>"
         "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
         "<p>Fontes da Search API não comprovam citação em respostas generativas. "
-        "Custos de Search e IA são contabilizados separadamente nos ledgers.</p>"
+        "Confiança transversal: N/D (resumo determinístico, sem mensuração "
+        "estatística independente). Custos de Search e IA são "
+        "contabilizados separadamente nos ledgers.</p>
         "</section>"
     )
