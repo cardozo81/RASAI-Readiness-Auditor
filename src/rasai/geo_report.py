@@ -952,7 +952,7 @@ def geo_body(database: Path, audit_id: str) -> str:
             )
         else:
             summary += "<p>Não solicitada, indisponível ou sem resultado persistido "
-            summary += "para a observação externa mais recente.</p>
+            summary += "para a observação externa mais recente.</p>"
     else:
         summary += "<p>Status: " + escape(str(geo_ai.get("state") or "-"))
         summary += "; provider: " + escape(str(geo_ai.get("provider") or "-"))
