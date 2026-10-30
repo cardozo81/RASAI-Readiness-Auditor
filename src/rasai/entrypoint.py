@@ -547,6 +547,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.geo_supplement_inspection import main as inspect_geo_supplements
         return inspect_geo_supplements(effective[1:])
 
+    if effective and effective[0] == "ai-reanalysis":
+        # Explicit completed-AUD local-only replay. No secrets, collectors,
+        # provider runtime or mutation of the source audit is authorised.
+        from rasai.geo_post_aud_ai_reanalysis import main as ai_reanalysis_main
+        return ai_reanalysis_main(effective[1:])
+
     if effective and effective[0] == "competitor-html-review":
         # Standalone consent-gated static HTML/robots inspection. No AUD,
         # providers or report side effects; all network requires explicit
