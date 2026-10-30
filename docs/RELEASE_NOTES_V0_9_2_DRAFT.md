@@ -17,9 +17,11 @@ Estas notas **não** são release e não autorizam tag, merge ou publicação.
 - Documentação de contratos, limites metodológicos e teste focado.
 
 ## Pendências de release
-- [ ] Completar no escopo #682 a execução de nova inferência canônica
-      sobre evidência histórica em namespace próprio, mediante orçamento
-      e consentimento; o replay local atual **não** realiza nova IA.
+- [ ] Homologar a rota opcional de nova inferência GEO canônica em
+      SQLite derivado, com autorização explícita e custo de IA N/D.
+      A prévia/replay local nunca executa uma IA paga.
+- [ ] Avaliar adapters adicionais replay-safe sob #682; integração GEO
+      é o primeiro caso autorizado.
 - [ ] Validar o fluxo completo multiquery em fixtures, a compatibilidade
       da renderização e os estados parciais/falhas.
 - [ ] Verificar CI estritamente relevante no SHA final e integridade dos

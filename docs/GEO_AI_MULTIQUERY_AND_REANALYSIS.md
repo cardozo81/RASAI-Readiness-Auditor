@@ -82,11 +82,28 @@ A matriz distingue:
   existente; não é replay do mesmo estado físico;
 - **PHYSICAL_RECOLLECTION:** proibida na reanálise consultiva.
 
-**Limite da entrega incremental:** esse comando não cria nova inferência
-generativa; o executor de reanálise com chamadas IA explicitamente
-autorizadas ainda precisa ser integrado ao mesmo contrato em #682. Não
-rotular a prévia/projeção como um novo resultado LLM. Fontes preservadas
-são históricas, não nova captura.
+A execução opcional de **nova inferência GEO por IA canônica** está
+disponível exclusivamente com sinalização explícita de possível custo,
+usando uma **cópia SQLite isolada** do pacote original. O comportamento
+padrão continua sendo zero chamadas externas:
+
+```powershell
+rasai ai-reanalysis .\\audits\\AUD-EXEMPLO --authorize-paid-geo-ai --provider auto
+```
+
+Para limitar a um run histórico específico, informar também
+`--run-id ID-DO-RUN`. O modo padrão pago seleciona somente o grupo
+multiquery elegível mais recente, limitado a cinco runs, ou a última
+consulta única elegível nas AUDs anteriores. A reserva de intenção
+é gravada antes de enviar qualquer modelo; nova tentativa idêntica
+reutiliza ou mantém estado incerto, nunca reenvia. **Custo de IA N/D
+antes da execução:** não alegar teto monetário garantido.
+
+Limite da entrega incremental: a execução remota implementada atende
+a interpretação GEO a partir de resultados Search fisicamente atribuídos.
+Outras operações IA com replay-safe comprovado exigem adaptadores
+adicionais em #682. A prévia e a projeção local não constituem inferência LLM,
+e fontes preservadas continuam sendo observações históricas.
 
 ## 4. Contratos de regressão indispensáveis
 
