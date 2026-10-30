@@ -938,8 +938,21 @@ def geo_body(database: Path, audit_id: str) -> str:
     )
     summary += "<section><h2>Interpretação GEO por IA canônica (opcional)</h2>"
     if geo_ai is None:
-        summary += "<p>Não solicitada, indisponível ou sem resultado persistido "
-        summary += "para a observação externa mais recente.</p>"
+        try:
+            current_queries = json.loads(current.get("query_json") or "[]") if current else []
+        except (ValueError, TypeError):
+            current_queries = []
+        if (current is not None and str(current.get("status") or "") == "SUCCESS"
+                and isinstance(current_queries, list) and len(current_queries) > 1):
+            summary += (
+                "<p>Interpretação GEO IA: NOT_ELIGIBLE - pesquisa externa com várias "
+                "consultas agregadas sem atribuição de fontes por consulta. "
+                "O resultado histórico continua N/D e não gera nova pesquisa "
+                "ou chamada de IA automaticamente.</p>"
+            )
+        else:
+            summary += "<p>Não solicitada, indisponível ou sem resultado persistido "
+            summary += "para a observação externa mais recente.</p>
     else:
         summary += "<p>Status: " + escape(str(geo_ai.get("state") or "-"))
         summary += "; provider: " + escape(str(geo_ai.get("provider") or "-"))
