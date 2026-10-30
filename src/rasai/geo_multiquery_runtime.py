@@ -89,10 +89,13 @@ def execute_geo_multiquery_for_audit(
             try:
                 # Existing canonical selectors intentionally inspect the latest
                 # verified single-query run. No synthetic source mapping.
-                materialize_geo_observation(database, audit_id)
+                materialize_geo_observation(
+                    database, audit_id, source_run_id=run_id,
+                )
                 ai_state = execute_geo_ai(
                     database, audit_id,
                     provider_selection=str(getattr(state, "ai_provider", "none")),
+                    source_run_id=run_id,
                 )
                 if ai_state == "AVAILABLE":
                     ai_available += 1

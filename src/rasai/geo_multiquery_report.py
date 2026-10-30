@@ -8,6 +8,7 @@ from pathlib import Path
 import sqlite3
 
 from rasai.geo_multiquery_batch import latest_batch
+from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
 
 
 def geo_multiquery_html(database: Path, audit_id: str) -> str:
@@ -19,10 +20,12 @@ def geo_multiquery_html(database: Path, audit_id: str) -> str:
     try:
         with sqlite3.connect(Path(database).resolve().as_uri() + "?mode=ro",
                              uri=True) as con:
-            latest = con.execute(
-                "SELECT run_id,started_at FROM perplexity_search_runs "
-                "WHERE audit_id=? ORDER BY started_at DESC LIMIT 1", (audit_id,)
-            ).fetchone()
+            latest = _last_temporally_verified(
+                con, table="perplexity_search_runs", audit_id=audit_id,
+                columns=("run_id", "started_at"), time_column="started_at",
+            )
+            if latest is _UNVERIFIABLE:
+                return ""
             if latest is not None and latest[0] not in {
                 item["run_id"] for item in entries if item.get("run_id")
             }:
