@@ -2,8 +2,8 @@
 
 **RASAi** (Readiness Assessment for Search & AI) avalia a prontidão técnica e semântica de sites para mecanismos de busca e sistemas de IA. Combina coleta de evidências, avaliação reproduzível, relatórios HTML e recomendações rastreáveis. Não promete ranking, tráfego, conversões ou citações em respostas generativas.
 
-**Pacote Python (release estável publicada):** [`v0.9.1`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.1)  
-**Pacote Python (versão no código-fonte):** `0.9.2` - [notas da candidata v0.9.2](docs/RELEASE_NOTES_V0_9_2.md); **tag e release ainda não publicadas**.  
+**Pacote Python (última release publicada):** [consultar no GitHub](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest)  
+**Pacote Python (versão no código-fonte):** `0.9.2` - [notas de distribuição](docs/RELEASE_NOTES_V0_9_2.md). O código não comprova publicação: verifique a tag/release no GitHub.  
 **Índice público:** `SARI-001` (Search & AI Readiness Index)  
 **Método de pontuação:** versão pública `001`; contrato atual `SCORE-GEO-005`. Auditorias históricas preservam `SCORE-GEO-004`.
 
@@ -93,7 +93,7 @@ A [documentação completa](docs/README.md) centraliza contratos e guias especia
 - [Relatórios e catálogos](docs/CATALOG_AND_REPORT_SURFACES.md) · [Guia de relatórios](docs/REPORT_GUIDE.md)
 - [Consolidação longitudinal](docs/CONSOLIDATED_REPORTING.md) · [Verificação de correções](docs/REPORT_GUIDE.md)
 - [Monitoramento e observabilidade](docs/MONITORING_OBSERVABILITY.md) · [Plataforma](docs/PRODUCT_PLATFORM_ARCHITECTURE.md)
-- [Versionamento](docs/VERSIONING.md) · [Notas da candidata v0.9.2](docs/RELEASE_NOTES_V0_9_2.md)
+- [Versionamento](docs/VERSIONING.md) · [Notas v0.9.2](docs/RELEASE_NOTES_V0_9_2.md)
 - [Pesquisa futura sobre runner SaaS](docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md) - proposta não implementada, rastreada na **Issue #1**.
 
 ## Segurança e responsabilidade

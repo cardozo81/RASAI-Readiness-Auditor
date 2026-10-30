@@ -2,7 +2,7 @@
 
 ## Estado do produto
 
-O RASAi possui release estável pública [`v0.9.1`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.1), publicada em 29/10/2026. `v0.9.0` e `v0.8.0` são releases históricas preservadas; `v0.9.2` está em preparação, sem tag nem GitHub Release. O código-fonte candidato não equivale a uma versão já publicada. A documentação normativa descreve o contrato vigente da linha atual.
+A [última GitHub Release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) é a referência para a versão efetivamente distribuída, independentemente do número em `pyproject.toml`. O código-fonte da linha `0.9.2` tem notas próprias, mas sua publicação é comprovada exclusivamente pela tag e GitHub Release. `v0.9.0` e `v0.8.0` permanecem marcos históricos. A documentação normativa descreve o contrato vigente da linha atual.
 
 O contrato funcional vigente usa:
 
@@ -176,11 +176,11 @@ As referências abaixo sustentam domínios específicos; nenhuma delas homologa 
 - proposta comunitária `llms.txt`: https://llmstxt.org/
 
 Consulte também as páginas de governança de `report-catalog/`, especialmente metodologia, evidências da execução e IA/integrações; elas materializam a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
-## Release estável v0.9.1 e preparação v0.9.2
+## Publicações e notas v0.9.2
 
-A release pública estável verificada é [`v0.9.1`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.1), publicada em 29/10/2026; a versão do pacote desta branch é `0.9.2` e **ainda não foi publicada**. O histórico `v0.9.0` permanece associado ao seu próprio SHA imutável. Consulte as [notas propostas da v0.9.2](RELEASE_NOTES_V0_9_2.md) para o gate independente de publicação.
+Consulte a [última release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) para confirmar a versão publicada e seu SHA. A versão do pacote `0.9.2` possui [notas de distribuição](RELEASE_NOTES_V0_9_2.md), mas a identidade distribuída depende da tag e do commit efetivamente publicados. O histórico `v0.9.0` permanece associado ao seu próprio SHA imutável.
 
 As [notas preparatórias](RELEASE_NOTES_DRAFT.md), a [matriz de gates](RELEASE_GATE_MATRIX.md), o [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md) e o [checklist de publicação](RELEASE_PUBLICATION_CHECKLIST.md) são **registros históricos anteriores à publicação**. Não substituem a [página oficial da release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) nem alteram evidências históricas.
 
 
-- [GEO multiquery e reanálise de integrações (integradas, candidata v0.9.2)](GEO_AI_MULTIQUERY_AND_REANALYSIS.md) - atribuição por consulta, governança econômica, replay offline homologado e limites de validação paga não executada.
+- [GEO multiquery e reanálise de integrações (linha v0.9.2)](GEO_AI_MULTIQUERY_AND_REANALYSIS.md) - atribuição por consulta, governança econômica, replay offline homologado e limites de validação paga não executada.
