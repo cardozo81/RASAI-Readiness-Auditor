@@ -820,3 +820,8 @@ URLs retornadas pela Search API não são reparadas por `strip()` ou `str()` ant
 ### JSON da resposta Search API sem ambiguidade (#304)
 
 O decodificador de resposta de sucesso rejeita chaves JSON repetidas em qualquer objeto (inclusive no item de URL individual e seus metadados) e constantes numéricas não conformes como NaN/Infinity. Não escolhe silenciosamente o último `url` ou `results` e não persiste citação inventada por um parser last-key-wins. Resposta HTTP 200 inválida continua classificada `INVALID_RESPONSE` com tentativa potencialmente faturada; nenhum índice ou AUD histórica é regravado.
+
+
+## Evolução candidata v0.9.2 — #681 e #682
+
+O detalhamento normativo da execução multiquery GEO por consulta, da autorização econômica específica, dos estados de proveniência e da reanálise consultiva de AUD concluída está em [GEO_AI_MULTIQUERY_AND_REANALYSIS.md](GEO_AI_MULTIQUERY_AND_REANALYSIS.md). Esta implementação é **candidata**, não homologa chamadas comerciais nem altera retroativamente a interpretação das pesquisas multiquery antigas.
