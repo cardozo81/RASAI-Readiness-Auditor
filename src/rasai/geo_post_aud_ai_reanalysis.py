@@ -52,12 +52,18 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
         workspace, audit_id,
         accepted_completion_statuses=frozenset({"COMPLETE", "COMPLETE_WITH_LIMITATIONS"}),
     )
+    from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
     with sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True) as con:
         tables = {row[0] for row in con.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
         )}
         search_rows = []
+        latest_run = None
         if "perplexity_search_runs" in tables:
+            latest_run = _last_temporally_verified(
+                con, table="perplexity_search_runs", audit_id=audit_id,
+                columns=("run_id",), time_column="started_at",
+            )
             search_rows = con.execute(
                 "SELECT run_id,query_json,status FROM perplexity_search_runs "
                 "WHERE audit_id=? ORDER BY started_at,run_id", (audit_id,),
@@ -110,8 +116,11 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
                     if x.get("search_state") == "SUCCESS" and x.get("run_id")}
         current_rows = [x for x in per_query if x["run_id"] in selected]
     else:
-        # The latest failed Search is never replaced by a historical success.
-        current_rows = per_query[-1:]
+        # SQL lexical ordering is not chronological for mixed UTC offsets.
+        # The canonical temporal selector abstains on ambiguous/invalid clocks.
+        current_rows = [
+            row for row in per_query if row["run_id"] == latest_run[0]
+        ] if latest_run is not None and latest_run is not _UNVERIFIABLE else []
     eligible = sum(
         1 for row in current_rows
         if row["search_status"] == "SUCCESS"

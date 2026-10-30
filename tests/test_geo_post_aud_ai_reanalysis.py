@@ -104,9 +104,9 @@ class CompletedAuditIntegrationReplayTests(unittest.TestCase):
                     "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?)",
                     [
                         ("old", "AUD-RECENT", '["term"]', "SUCCESS",
-                         "2026-10-29T22:00:00+00:00"),
+                         "2026-10-29T23:00:00+02:00"),
                         ("new", "AUD-RECENT", '["term"]', "TIMEOUT",
-                         "2026-10-29T23:00:00+00:00"),
+                         "2026-10-29T20:30:00-02:00"),
                     ],
                 )
                 con.execute("INSERT INTO perplexity_search_sources VALUES "
