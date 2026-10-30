@@ -104,7 +104,11 @@ Para limitar a um run histórico específico, informar também
 multiquery elegível mais recente, limitado a cinco runs, ou a última
 consulta única elegível nas AUDs anteriores. A reserva de intenção
 é gravada antes de enviar qualquer modelo; nova tentativa idêntica
-reutiliza ou mantém estado incerto, nunca reenvia. **Custo de IA N/D
+reutiliza ou mantém estado incerto, nunca reenvia. O pacote pago grava
+`inference-report.json` e `inference-report.html` em separado, com run,
+provedor/modelo/prompt quando materializados pelo consumidor canônico,
+evidências e confiança por oportunidade, custos N/D quando não mensuráveis,
+sem sobrescrever o catálogo original. **Custo de IA N/D
 antes da execução:** não alegar teto monetário garantido.
 
 Limite da entrega incremental: a execução remota implementada atende

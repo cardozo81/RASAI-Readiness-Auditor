@@ -261,6 +261,124 @@ def _report_html(report: dict) -> str:
     )
 
 
+def _publish_paid_report(package: Path, derived: Path, source_report: dict,
+                         run_ids: list[str], outcomes: list[dict],
+                         provider: str, status: str) -> None:
+    """Publish only observed canonical interpretation metadata from the clone."""
+    summaries: dict[str, dict] = {}
+    with sqlite3.connect(derived.resolve().as_uri() + "?mode=ro", uri=True) as con:
+        names = {row[0] for row in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )}
+        if "geo_ai_interpretations" in names:
+            fields = {row[1] for row in con.execute(
+                "PRAGMA table_info(geo_ai_interpretations)"
+            )}
+            expected = {
+                "audit_id", "perplexity_run_id", "state", "provider", "model",
+                "prompt_id", "prompt_version", "summary", "opportunities_json",
+                "created_at",
+            }
+            if expected <= fields:
+                from rasai.geo_temporal_provenance import (
+                    _last_temporally_verified, _UNVERIFIABLE,
+                )
+                columns = ("state", "provider", "model", "prompt_id",
+                           "prompt_version", "summary", "opportunities_json")
+                for run_id in run_ids[:5]:
+                    row = _last_temporally_verified(
+                        con, table="geo_ai_interpretations",
+                        audit_id=source_report["audit_id"], columns=columns,
+                        time_column="created_at",
+                        condition=" AND perplexity_run_id=?",
+                        condition_params=(run_id,),
+                    )
+                    if row is None or row is _UNVERIFIABLE:
+                        continue
+                    try:
+                        opportunities = json.loads(row[6] or "[]")
+                    except (ValueError, TypeError):
+                        opportunities = []
+                    if not isinstance(opportunities, list):
+                        opportunities = []
+                    verified = []
+                    for op in opportunities[:12]:
+                        if not isinstance(op, dict):
+                            continue
+                        refs = op.get("evidence_ids")
+                        if not isinstance(refs, list) or not refs or not all(
+                            isinstance(x, str) and x.startswith("PX:" + run_id + ":")
+                            for x in refs
+                        ):
+                            continue
+                        c = op.get("confidence")
+                        verified.append({
+                            "recommendation": str(op.get("recommendation") or "")[:750],
+                            "evidence_ids": refs[:12],
+                            "confidence_percent": (
+                                round(c * 100, 1)
+                                if isinstance(c, (int, float))
+                                and not isinstance(c, bool) and 0 <= c <= 1
+                                else None
+                            ),
+                        })
+                    summaries[run_id] = {
+                        "state": row[0], "provider": row[1], "model": row[2],
+                        "prompt_id": row[3], "prompt_version": row[4],
+                        "summary": str(row[5] or "")[:2500],
+                        "opportunities": verified,
+                    }
+    report = {
+        "contract": CONTRACT, "audit_id": source_report["audit_id"],
+        "source_audit_sha256": source_report["source_sha256"],
+        "original_catalog_manifest_sha256": source_report["catalog_manifest_sha256"],
+        "state": status, "provider_selection": provider,
+        "observations_are_historical": True,
+        "new_search_requests": 0, "new_physical_collection": False,
+        "estimated_ai_cost_usd": None,
+        "cost_reason": "N/D: modelo, consumo e contrato financeiro não estimados",
+        "runs": [
+            {**row, "canonical_interpretation": summaries.get(row["run_id"])}
+            for row in outcomes[:5]
+        ],
+    }
+    (package / "inference-report.json").write_text(
+        _json(report) + "\n", encoding="utf-8"
+    )
+    lines = ""
+    for row in report["runs"]:
+        detail = row["canonical_interpretation"] or {}
+        lines += (
+            "<section><h2>Consulta e inferência</h2><p>Run: "
+            + escape(row["run_id"]) + "; estado: "
+            + escape(str(row["geo_ai_state"]))
+            + "; modelo: " + escape(str(detail.get("model") or "N/D"))
+            + "; prompt: " + escape(str(detail.get("prompt_id") or "N/D"))
+            + " / " + escape(str(detail.get("prompt_version") or "N/D"))
+            + ".</p><p>" + escape(str(detail.get("summary") or "N/D"))
+            + "</p>"
+        )
+        for op in detail.get("opportunities", []):
+            confidence = op["confidence_percent"]
+            lines += (
+                "<p>Recomendação: " + escape(op["recommendation"])
+                + "; confiança: "
+                + (str(confidence) + "%" if confidence is not None else "N/D")
+                + "; evidências: " + escape(", ".join(op["evidence_ids"]))
+                + ".</p>"
+            )
+        lines += "</section>"
+    html = (
+        "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
+        "<title>RASAi - Reanálise GEO por IA</title></head><body>"
+        "<h1>Reanálise consultiva de IA sobre evidência histórica</h1>"
+        "<p>Auditoria original preservada. Dados de Search são históricos; "
+        "esta interpretação não constitui nova observação da web. "
+        "Custo real ou previsto da IA: N/D.</p>" + lines + "</body></html>"
+    )
+    (package / "inference-report.html").write_text(html, encoding="utf-8")
+
+
 def publish_local_reanalysis(aud_dir: Path) -> dict:
     """Write only a new, deterministic sidecar after verifying source seals."""
     report = inspect_completed_audit(aud_dir)
@@ -420,7 +538,8 @@ def execute_authorized_geo_ai(aud_dir: Path, *, provider: str,
                 if manifest.get("source_sha256") != report["source_sha256"]:
                     raise ValueError("AI inference source mismatch")
                 for name, digest in manifest["files"].items():
-                    if name not in {"intent.json", "derived-audit.db", "results.json"}:
+                    if name not in {"intent.json", "derived-audit.db", "results.json",
+                                "inference-report.json", "inference-report.html"}:
                         raise ValueError("invalid AI manifest filename")
                     artifact = package / name
                     if artifact.is_symlink() or not artifact.is_file() or _hash_file(artifact) != digest:
@@ -480,6 +599,7 @@ def execute_authorized_geo_ai(aud_dir: Path, *, provider: str,
     status = ("COMPLETE" if len(outcomes) == len(eligible)
               and all(x["geo_ai_state"] == "AVAILABLE" for x in outcomes)
               else "COMPLETE_WITH_LIMITATIONS")
+    _publish_paid_report(package, derived, report, run_ids, outcomes, provider, status)
     manifest = {
         "contract": CONTRACT, "state": status,
         "audit_id": report["audit_id"], "provider": provider,
@@ -487,7 +607,8 @@ def execute_authorized_geo_ai(aud_dir: Path, *, provider: str,
         "catalog_manifest_sha256": report["catalog_manifest_sha256"],
         "files": {
             filename: _hash_file(package / filename)
-            for filename in ("intent.json", "derived-audit.db", "results.json")
+            for filename in ("intent.json", "derived-audit.db", "results.json",
+                             "inference-report.json", "inference-report.html")
             if (package / filename).is_file()
         },
     }

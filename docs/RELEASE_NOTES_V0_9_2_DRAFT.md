@@ -17,6 +17,9 @@ Estas notas **não** são release e não autorizam tag, merge ou publicação.
   auditoria original, não executa pesquisa nem modelos comerciais.
 - Ledger #304 reaproveitado como operação offline adicional, com
   abstinência N/D; menu CAT-05 > Perplexity > A para prévia consultiva.
+- Reapresentação offline de interpretação GEO já persistida e relatório
+  consultivo independente de nova inferência autorizada, com modelos,
+  prompts, IDs de evidência e confiança individual quando comprovados.
 - Documentação de contratos, limites metodológicos e teste focado.
 
 ## Pendências de release

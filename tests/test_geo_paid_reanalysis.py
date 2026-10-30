@@ -46,6 +46,13 @@ def test_paid_geo_ai_uses_derived_db_and_deduplicates_identical_intent():
         assert kwargs["source_run_id"] == "px-run-1"
         assert db.read_bytes() == bytes_before
         assert (Path(first["package"]) / "manifest.json").is_file()
+        assert (Path(first["package"]) / "inference-report.json").is_file()
+        assert (Path(first["package"]) / "inference-report.html").is_file()
+        from json import loads
+        sidecar = loads((Path(first["package"]) / "inference-report.json").read_text("utf-8"))
+        assert sidecar["new_search_requests"] == 0
+        assert sidecar["observations_are_historical"] is True
+        assert sidecar["estimated_ai_cost_usd"] is None
         # Existing paid reservations must be verified, not blindly reused.
         (Path(first["package"]) / "intent.json").write_text("{}", encoding="utf-8")
         with patch("rasai.geo_post_aud_ai_reanalysis.inspect_completed_audit",
