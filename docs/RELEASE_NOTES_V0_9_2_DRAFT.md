@@ -11,9 +11,12 @@ Estas notas **não** são release e não autorizam tag, merge ou publicação.
   estados de lote e proteção contra reenvio após ambiguidade de cobrança.
 - `geo.html` com tabela por consulta e síntese determinística das análises
   persistidas, sem nova chamada LLM somente para consolidar a apresentação.
-- Prévia e pacote de reanálise consultiva offline para AUD COMPLETE:
+- Prévia e pacote de reanálise consultiva offline para AUD COMPLETE ou
+  COMPLETE_WITH_LIMITATIONS encerrada:
   `rasai ai-reanalysis AUD_DIR [--write-local-replay]`. Não altera a
   auditoria original, não executa pesquisa nem modelos comerciais.
+- Ledger #304 reaproveitado como operação offline adicional, com
+  abstinência N/D; menu CAT-05 > Perplexity > A para prévia consultiva.
 - Documentação de contratos, limites metodológicos e teste focado.
 
 ## Pendências de release
