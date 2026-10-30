@@ -4,6 +4,7 @@ from __future__ import annotations
 from contextlib import closing
 from pathlib import Path
 import sqlite3
+import json
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -40,6 +41,23 @@ class CompletedAuditIntegrationReplayTests(unittest.TestCase):
                     "INSERT INTO perplexity_search_sources VALUES "
                     "('px1','https://example.org')"
                 )
+                con.execute(
+                    "CREATE TABLE geo_ai_interpretations("
+                    "audit_id TEXT,perplexity_run_id TEXT,created_at TEXT,"
+                    "state TEXT,summary TEXT,provider TEXT,model TEXT,"
+                    "prompt_id TEXT,prompt_version TEXT,opportunities_json TEXT)"
+                )
+                stored = json.dumps([{
+                    "recommendation": "Ajustar arquitetura informacional",
+                    "confidence": 0.91,
+                    "evidence_ids": ["PX:px1:0:abc"],
+                }])
+                con.execute(
+                    "INSERT INTO geo_ai_interpretations VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    ("AUD-1", "px1", "2026-10-29T22:45:00+00:00",
+                     "AVAILABLE", "Síntese pré-existente", "openai", "modelo",
+                     "prompt", "v1", stored),
+                )
             before = database.read_bytes()
             # Canonical package seal is tested separately. The fixture tests
             # only this module's read-only behavior and sidecar isolation.
@@ -49,6 +67,14 @@ class CompletedAuditIntegrationReplayTests(unittest.TestCase):
             ):
                 preview = inspect_completed_audit(aud)
                 self.assertEqual(preview["provider_calls"], 0)
+                self.assertEqual(len(preview["saved_local_interpretations"]), 1)
+                self.assertEqual(
+                    preview["saved_local_interpretations"][0]["opportunities"][0]["confidence_percent"], 91.0,
+                )
+                self.assertTrue(any(
+                    op["operation"] == "GEO_SAVED_INTERPRETATION_REPLAY"
+                    and op["state"] == "ELIGIBLE" for op in preview["operations"]
+                ))
                 self.assertEqual(preview["operations"][1]["state"], "ELIGIBLE")
                 self.assertTrue(any(x["operation"] == "NEW_CANONICAL_AI_INFERENCE"
                                     and x["execution"] == "NOT_EXECUTED"
@@ -59,6 +85,9 @@ class CompletedAuditIntegrationReplayTests(unittest.TestCase):
             self.assertEqual(second["state"], "ALREADY_RECORDED")
             self.assertEqual(before, database.read_bytes())
             self.assertTrue((Path(first["package"]) / "manifest.json").is_file())
+            self.assertIn("Síntese pré-existente", (
+                Path(first["package"]) / "reanalysis.html"
+            ).read_text(encoding="utf-8"))
 
     def test_missing_sources_do_not_become_eligible(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -80,6 +80,10 @@ A matriz distingue:
   prévia e pacote local independente, sem provedor remoto;
 - **GEO_LOCAL_EVIDENCE_REPLAY:** consulta única com fontes externas
   realmente persistidas, usando somente projeção local;
+- **GEO_SAVED_INTERPRETATION_REPLAY:** reapresentação local de interpretação GEO
+  já persistida, apenas no conjunto de runs atualmente elegível; restitui resumo,
+  prompt/modelo, recomendações, evidências por termo e confiança medida, sem
+  chamar novamente o modelo. Ausência/cronologia incerta fica como N/D;
 - **NEW_CANONICAL_AI_INFERENCE:** requer autorização financeira específica.
   **Não é executada por este comando local**;
 - **NEW_PERPLEXITY_RESEARCH:** usar o complemento GEO versionado opt-in

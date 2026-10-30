@@ -109,6 +109,64 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
         and row["source_count"] > 0
         and row["source_attribution"] == "PHYSICAL_SINGLE_QUERY"
     )
+    # Load only existing interpretation rows for current, verified Search input.
+    # The canonical consumer already validated evidence references at write time.
+    saved_local_interpretations = []
+    if "geo_ai_interpretations" in tables and current_rows:
+        from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
+        with sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True) as con:
+            ai_columns = {field[1] for field in con.execute(
+                "PRAGMA table_info(geo_ai_interpretations)"
+            )}
+            fields = ("state", "summary", "provider", "model",
+                      "prompt_id", "prompt_version", "opportunities_json")
+            if set(fields) | {"audit_id", "perplexity_run_id", "created_at"} <= ai_columns:
+                for source_row in current_rows[:5]:
+                    if (source_row["search_status"] != "SUCCESS"
+                            or source_row["source_count"] <= 0
+                            or source_row["source_attribution"] != "PHYSICAL_SINGLE_QUERY"):
+                        continue
+                    row = _last_temporally_verified(
+                        con, table="geo_ai_interpretations", audit_id=audit_id,
+                        columns=fields, time_column="created_at",
+                        condition=" AND perplexity_run_id=?",
+                        condition_params=(source_row["run_id"],),
+                    )
+                    if row is None or row is _UNVERIFIABLE or row[0] != "AVAILABLE":
+                        continue
+                    try:
+                        candidate_opportunities = json.loads(row[6] or "[]")
+                    except (ValueError, TypeError):
+                        candidate_opportunities = []
+                    opportunities = []
+                    if isinstance(candidate_opportunities, list):
+                        for op in candidate_opportunities[:12]:
+                            refs = op.get("evidence_ids") if isinstance(op, dict) else None
+                            confidence = op.get("confidence") if isinstance(op, dict) else None
+                            if not isinstance(refs, list) or not refs or not all(
+                                isinstance(ref, str) and ref.startswith(
+                                    "PX:" + source_row["run_id"] + ":"
+                                ) for ref in refs
+                            ):
+                                continue
+                            opportunities.append({
+                                "recommendation": str(op.get("recommendation") or "")[:750],
+                                "evidence_ids": refs[:12],
+                                "confidence_percent": (
+                                    round(confidence * 100, 1)
+                                    if isinstance(confidence, (int, float))
+                                    and not isinstance(confidence, bool)
+                                    and 0 <= confidence <= 1 else None
+                                ),
+                            })
+                    saved_local_interpretations.append({
+                        "run_id": source_row["run_id"], "queries": source_row["queries"],
+                        "state": row[0], "summary": str(row[1] or "")[:2500],
+                        "provider": row[2], "model": row[3], "prompt_id": row[4],
+                        "prompt_version": row[5], "opportunities": opportunities,
+                        "historical_external_evidence": True,
+                        "new_provider_calls": 0,
+                    })
     # Strict replay-safe adapter allowlist; no generic provider or collector.
     local_ledger_present = all(name in tables for name in (
         "serp_observations", "serp_results",
@@ -131,6 +189,9 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
              "ELIGIBLE" if eligible else "NOT_ELIGIBLE",
              "eligible_query_count": eligible,
              "execution": "LOCAL_DERIVED_ONLY", "new_external_requests": 0},
+            {"operation": "GEO_SAVED_INTERPRETATION_REPLAY", "state":
+             "ELIGIBLE" if saved_local_interpretations else "NOT_ELIGIBLE",
+             "execution": "LOCAL_DERIVED_ONLY", "new_external_requests": 0},
             {"operation": "NEW_CANONICAL_AI_INFERENCE", "state":
              "REQUIRES_EXPLICIT_PAID_AUTHORIZATION", "execution": "NOT_EXECUTED",
              "new_external_requests": 0},
@@ -142,6 +203,7 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
              "new_external_requests": 0},
         ],
         "saved_external_observations": per_query,
+        "saved_local_interpretations": saved_local_interpretations,
         "limitation": (
             "Historical Search sources are not generative citations. Local replay "
             "does not produce new provider inference or claim current web evidence."
@@ -165,6 +227,27 @@ def _report_html(report: dict) -> str:
         + "; limite: " + escape(str(ledger.get("reason") or "N/D")) + ".</p>"
         if isinstance(ledger, dict) else ""
     )
+    interpretations_html = ""
+    for item in report.get("saved_local_interpretations", []):
+        interpretations_html += (
+            "<section><h2>Interpretação GEO histórica reapresentada</h2>"
+            "<p>Consulta: " + escape("; ".join(item["queries"]))
+            + "; run: " + escape(item["run_id"])
+            + "; provedor: " + escape(str(item["provider"] or "N/D"))
+            + "; modelo: " + escape(str(item["model"] or "N/D"))
+            + "; prompt: " + escape(str(item["prompt_id"] or "N/D"))
+            + " / " + escape(str(item["prompt_version"] or "N/D"))
+            + ".</p><p>" + escape(item["summary"]) + "</p>"
+        )
+        for op in item["opportunities"]:
+            confidence = op["confidence_percent"]
+            interpretations_html += (
+                "<p>Recomendação: " + escape(op["recommendation"])
+                + "; confiança: " + (str(confidence) + "%" if confidence is not None else "N/D")
+                + "; evidências: " + escape(", ".join(op["evidence_ids"]))
+                + ".</p>"
+            )
+        interpretations_html += "</section>"
     return (
         "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
         "<title>RASAi — Reanálise consultiva de integrações</title></head><body>"
@@ -174,7 +257,7 @@ def _report_html(report: dict) -> str:
         "nem uma nova inferência generativa.</p><table><thead><tr><th>Run</th>"
         "<th>Consulta</th><th>Search</th><th>Fontes</th><th>GEO IA</th>"
         "</tr></thead><tbody>" + lines + "</tbody></table>"
-        + ledger_html + "</body></html>"
+        + ledger_html + interpretations_html + "</body></html>"
     )
 
 
