@@ -120,6 +120,71 @@ def _prepare(con: sqlite3.Connection, audit_id: str, *,
     return str(row["run_id"]), obj, payload_hash
 
 
+
+def _persist_geo_ai_attempts(
+    database: Path, audit_id: str, provider: Any, *, available: bool = False,
+) -> None:
+    """Persist the post-core competitive LLM calls in the canonical M18 ledger.
+
+    The core M18 flush has already run, and competitive attempts have no page
+    snapshot. Reuse its single-attempt persistence API without overwriting the
+    core ai_audit_sessions row or making any additional provider request.
+    """
+    consume = getattr(provider, "consume_attempts", None)
+    if not callable(consume):
+        return  # Injected deterministic consumers do not own billable attempts.
+    attempts = tuple(consume())
+    if not attempts:
+        # A canonical provider cannot publish an AVAILABLE inference while
+        # silently dropping its required per-attempt economic provenance.
+        # Providers that did not execute (NOT_CONFIGURED) may have no attempts.
+        if available:
+            raise ValueError("GEO_AI_CANONICAL_ATTEMPTS_MISSING")
+        return
+
+    from rasai.domain import new_id
+    from rasai.m18_ai import ProviderAttempt
+    from rasai.m18_persistence import M18Persistence
+    from rasai.persistence import AuditWorkspace
+
+    workspace = AuditWorkspace(database.parent)
+    with M18Persistence(workspace) as store:
+        for attempt in attempts:
+            if not isinstance(attempt, ProviderAttempt):
+                raise TypeError("GEO_AI_INVALID_CANONICAL_ATTEMPT")
+            attempt_id = str(attempt.attempt_id or "").strip() or new_id("AIA")
+            existing = store._connection.execute(
+                "SELECT audit_id FROM ai_provider_attempts WHERE attempt_id=?",
+                (attempt_id,),
+            ).fetchone()
+            if existing is not None:
+                if str(existing[0]) == audit_id:
+                    continue
+                raise ValueError("GEO_AI_ATTEMPT_ID_COLLISION")
+            store.add_attempt(
+                attempt_id=attempt_id,
+                audit_id=audit_id,
+                page_id=None,
+                snapshot_id=None,
+                url="",
+                device=None,
+                attempt=attempt,
+                operation="COMPETITIVE_INTELLIGENCE",
+            )
+
+    # The post-core GEO call happens after audit_runner's exchange-log flush.
+    # Flush only the recorder actually used by this competitive provider.
+    from rasai.ai_execution_state import current_ai_executions
+    from rasai.ai_exchange_log import persist_ai_exchange_log
+
+    runtime = getattr(provider, "runtime", None)
+    for execution in current_ai_executions():
+        if runtime is not None and execution.provider is runtime:
+            persist_ai_exchange_log(
+                audit_id=audit_id, workspace=workspace, recorder=execution.recorder,
+            )
+            break
+
 def execute_geo_ai(
     database: Path, audit_id: str, *,
     provider_selection: str,
@@ -234,6 +299,17 @@ def execute_geo_ai(
             assessment = None
             state = "UNAVAILABLE"
             error_reason = "GEO_AI_CANONICAL_EXECUTION_ERROR"
+        # An AVAILABLE GEO assessment is not acceptable without a durable
+        # ledger for every observable billable attempt. A failed ledger write
+        # must not trigger another request on replay (reservation is retained).
+        try:
+            _persist_geo_ai_attempts(
+                database, audit_id, provider, available=(state == "AVAILABLE"),
+            )
+        except Exception:
+            assessment = None
+            state = "UNAVAILABLE"
+            error_reason = "GEO_AI_TELEMETRY_PERSISTENCE_FAILED"
         if state == "AVAILABLE" and assessment is None:
             state = "UNAVAILABLE"
             error_reason = "GEO_AI_EMPTY_CANONICAL_ASSESSMENT"

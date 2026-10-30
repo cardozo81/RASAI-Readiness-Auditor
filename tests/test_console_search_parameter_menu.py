@@ -471,3 +471,39 @@ def test_loaded_perplexity_draft_type_edit_is_inert(monkeypatch):
     assert "Queries configuradas : 1 | modo=WEB" in rendered
     assert "seguro para família" in rendered
 
+
+
+
+def test_perplexity_new_query_inherits_prepared_fast_mode_without_paid_consent(monkeypatch) -> None:
+    """Choosing FAST on an inert draft must not silently become WEB on opt-in."""
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "test-secret-never-print")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    state = SearchConsoleState(
+        perplexity_draft_queries=("termo anterior", "outro termo"),
+        perplexity_draft_search_type="web",
+    )
+    rendered = _run(
+        state, ["P", "2", "2", "1", "consultoria de ti", "V", "V"],
+    )
+    assert state.perplexity_queries == ("consultoria de ti",)
+    assert state.perplexity_search_type == "fast"
+    assert state.perplexity_draft_queries == ("termo anterior", "outro termo")
+    assert "Queries configuradas : 1 | modo=FAST" in rendered
+    assert "test-secret-never-print" not in rendered
+
+
+def test_perplexity_geo_ai_n_only_removes_inference_intent(monkeypatch) -> None:
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "test-secret-never-print")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    state = SearchConsoleState(
+        perplexity_queries=("consultoria de ti",),
+        perplexity_search_type="fast",
+        geo_ai_requested=True,
+    )
+    rendered = _run(state, ["P", "5", "N", "V", "V"])
+    assert state.geo_ai_requested is False
+    assert state.perplexity_queries == ("consultoria de ti",)
+    assert state.perplexity_search_type == "fast"
+    assert "Configuração         : APTA PARA SOLICITAÇÃO" in rendered
+    assert "Síntese GEO por IA    : NÃO SOLICITADA" in rendered
+    assert "test-secret-never-print" not in rendered

@@ -82,7 +82,11 @@ class SearchConsoleState(BaseState):
 
 
 def _persisted_perplexity_summary(state: object) -> dict[str, object] | None:
-    """Post-AUD facts, independent of cleared per-run consent/draft fields."""
+    """All physically persisted Search runs for this AUD, not just the last query.
+
+    A GEO multiquery creates separate rows. The latest-only projection obscured
+    earlier successful requests and their sources after session consent reset.
+    """
     audit_id = str(getattr(state, "audit_id", "") or "")
     if re.fullmatch(r"AUD-[A-Za-z0-9-]{1,96}", audit_id) is None:
         return None
@@ -95,24 +99,64 @@ def _persisted_perplexity_summary(state: object) -> dict[str, object] | None:
     try:
         with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True) as db:
             db.execute("PRAGMA query_only=ON")
-            row = db.execute(
+            rows = db.execute(
                 """SELECT status,search_type,query_json,run_id
                    FROM perplexity_search_runs WHERE audit_id=?
-                   ORDER BY started_at DESC,rowid DESC LIMIT 1""", (audit_id,),
-            ).fetchone()
+                   ORDER BY started_at DESC,rowid DESC LIMIT 5001""", (audit_id,),
+            ).fetchall()
+            if not rows or len(rows) > 5000:
+                return None
+            # Source count is independent from query count. An earlier or
+            # incompatible source table must be reported as N/D, not zero.
+            try:
+                has_sources = db.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' "
+                    "AND name='perplexity_search_sources'"
+                ).fetchone()
+                sources = int(db.execute(
+                    """SELECT COUNT(*) FROM perplexity_search_sources s
+                       JOIN perplexity_search_runs r ON r.run_id=s.run_id
+                       WHERE r.audit_id=?""", (audit_id,),
+                ).fetchone()[0]) if has_sources else None
+            except sqlite3.Error:
+                sources = None
     except (OSError, sqlite3.Error, ValueError):
         return None
-    if row is None:
-        return None
-    try:
-        queries = json.loads(str(row[2] or "[]"))
-    except (TypeError, ValueError):
-        queries = None
+
+    status_counts: dict[str, int] = {}
+    modes: set[str] = set()
+    total_queries: int | None = 0
+    for status, mode, raw_queries, _run_id in rows:
+        name = str(status or "UNKNOWN")
+        status_counts[name] = status_counts.get(name, 0) + 1
+        modes.add(str(mode or "UNKNOWN").upper())
+        if total_queries is not None:
+            try:
+                decoded = json.loads(str(raw_queries))
+                if not isinstance(decoded, list) or not all(
+                    isinstance(query, str) and bool(query.strip()) for query in decoded
+                ):
+                    raise ValueError("invalid persisted queries")
+                total_queries += len(decoded)
+            except (TypeError, ValueError):
+                total_queries = None
+    successful = status_counts.get("SUCCESS", 0)
+    overall = (
+        "SUCCESS" if successful == len(rows)
+        else "PARTIAL" if successful
+        else str(rows[0][0] or "UNKNOWN")
+    )
     return {
-        "status": str(row[0] or "UNKNOWN"),
-        "mode": str(row[1] or "UNKNOWN").upper(),
-        "queries": len(queries) if isinstance(queries, list) else None,
-        "run_id": str(row[3] or ""),
+        "status": overall,
+        "mode": next(iter(modes)) if len(modes) == 1 else "MIXED",
+        "queries": total_queries,
+        "runs": len(rows),
+        "successful_runs": successful,
+        "sources": sources,
+        "statuses": ", ".join(
+            f"{name}={count}" for name, count in sorted(status_counts.items())
+        ),
+        "run_id": str(rows[0][3] or ""),
     }
 
 
@@ -1072,11 +1116,16 @@ def install(console_module: ModuleType) -> None:
             count = persisted_px["queries"]
             print(
                 f"Perplexity externa    : {persisted_px['status']} | "
+                f"registros={persisted_px['runs']} | "
+                f"sucessos={persisted_px['successful_runs']}/{persisted_px['runs']} | "
                 f"queries={count if count is not None else 'N/D'} | "
+                f"fontes={persisted_px['sources'] if persisted_px['sources'] is not None else 'N/D'} | "
                 f"modo={persisted_px['mode']} | fonte=AUD persistida"
             )
+            if persisted_px["status"] != "SUCCESS":
+                print(f"Estados Perplexity   : {persisted_px['statuses']}")
             if state.perplexity_last_detail:
-                print(f"Detalhe Perplexity   : {state.perplexity_last_detail}")
+                print(f"Última sessão PX     : {state.perplexity_last_detail}")
         elif not perplexity_queries and state.perplexity_last_status == "NOT_REQUESTED":
             print("Perplexity externa    : não solicitada nesta sessão (sem execução persistida verificável)")
         else:
