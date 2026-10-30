@@ -49,8 +49,10 @@ class CompletedAuditIntegrationReplayTests(unittest.TestCase):
             ):
                 preview = inspect_completed_audit(aud)
                 self.assertEqual(preview["provider_calls"], 0)
-                self.assertEqual(preview["operations"][0]["state"], "ELIGIBLE")
-                self.assertEqual(preview["operations"][1]["execution"], "NOT_EXECUTED")
+                self.assertEqual(preview["operations"][1]["state"], "ELIGIBLE")
+                self.assertTrue(any(x["operation"] == "NEW_CANONICAL_AI_INFERENCE"
+                                    and x["execution"] == "NOT_EXECUTED"
+                                    for x in preview["operations"]))
                 first = publish_local_reanalysis(aud)
                 second = publish_local_reanalysis(aud)
             self.assertEqual(first["state"], "PUBLISHED")
@@ -69,7 +71,7 @@ class CompletedAuditIntegrationReplayTests(unittest.TestCase):
                 return_value=("dbhash", "manifesthash", "statehash"),
             ):
                 result = inspect_completed_audit(aud)
-            self.assertEqual(result["operations"][0]["state"], "NOT_ELIGIBLE")
+            self.assertEqual(result["operations"][1]["state"], "NOT_ELIGIBLE")
             self.assertEqual(result["provider_calls"], 0)
 
 
