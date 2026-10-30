@@ -42,14 +42,16 @@ def test_canonical_report_order_follows_reading_flow() -> None:
 
 def test_documentation_distinguishes_published_release_from_current_contract() -> None:
     docs_index = (ROOT / "docs/README.md").read_text(encoding="utf-8")
-    assert "release pública final `v0.9.0`" in docs_index
-    assert "baseline publicada" in docs_index
-    assert "evolução pós-release" in docs_index
+    assert "release estável pública" in docs_index
+    assert "releases/tag/v0.9.1" in docs_index
+    assert "v0.9.2" in docs_index
+    assert "sem tag nem GitHub Release" in docs_index
     assert "v0.8.0" in docs_index  # marco histórico, não release corrente
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "docs/README.md" in readme
-    assert "Pacote Python (release estável):" in readme
-    assert "releases/tag/v0.9.0" in readme
+    assert "Pacote Python (release estável publicada):" in readme
+    assert "releases/tag/v0.9.1" in readme
+    assert "Pacote Python (versão no código-fonte):** `0.9.2`" in readme
 
 def test_actionable_table_rows_are_idempotent() -> None:
     html = "<table><tbody><tr><td>BR-GEO-017</td><td>Alerta</td></tr></tbody></table>"
