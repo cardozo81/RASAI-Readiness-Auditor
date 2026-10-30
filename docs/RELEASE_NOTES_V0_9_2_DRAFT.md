@@ -1,9 +1,9 @@
-# Release candidate - RASAi v0.9.2 (rascunho, NÃO PUBLICADA)
+# Registro histórico de planejamento  -  RASAi v0.9.2 (rascunho arquivado)
 
 **Escopo:** issues #681 e #682, única branch `feat/geo-multiquery-ai-only-rpr`.
-Estas notas **não** são release e não autorizam tag, merge ou publicação.
+**Documento histórico de planejamento, não representa pendências técnicas atuais.** O código das issues #681/#682 foi integrado pela PR #683 em 30/10/2026; a homologação offline e o CI pós-merge estão aprovados. As caixas abaixo preservam os critérios inicialmente propostos, alguns deliberadamente fora do gate de publicação (serviços pagos, adapters futuros). Para o estado publicável consulte [notas finais propostas](RELEASE_NOTES_V0_9_2.md).
 
-## Recursos em implementação
+## Escopo originalmente planejado
 - Pesquisa Perplexity com 2-5 termos e GEO por IA: consultas individuais
   fisicamente atribuíveis quando a síntese é solicitada, usando os
   adapters Search API e IA canônica existentes.
@@ -22,7 +22,7 @@ Estas notas **não** são release e não autorizam tag, merge ou publicação.
   prompts, IDs de evidência e confiança individual quando comprovados.
 - Documentação de contratos, limites metodológicos e teste focado.
 
-## Pendências de release
+## Critérios de planejamento históricos (não são checklist vigente)
 - [ ] Homologar a rota opcional de nova inferência GEO canônica em
       SQLite derivado, com autorização explícita e custo de IA N/D.
       A prévia/replay local nunca executa uma IA paga.

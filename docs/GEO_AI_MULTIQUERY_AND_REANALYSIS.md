@@ -1,9 +1,13 @@
-# GEO Perplexity multiquery e reanálise consultiva pós-AUD (v0.9.2 candidata)
+# GEO Perplexity multiquery e reanálise consultiva pós-AUD (linha v0.9.2)
 
-**Status:** implementação incremental nas issues #681 e #682, branch única
-`feat/geo-multiquery-ai-only-rpr`. **Não homologado para publicação** até
-CI/checks relevantes verdes e aceite do fluxo final. A tag/release v0.9.2
-não deve ser criada antes do gate de publicação.
+**Status técnico em 30/10/2026:** issues #681 e #682 encerradas e integradas na
+[PR #683](https://github.com/cardozo81/RASAI-Readiness-Auditor/pull/683),
+merge em `main@b426e5bb8f654ee3835285094341aaa05d47e7c9`.
+Homologação consultiva offline aprovada e CI pós-merge 40/40 verde.
+A identidade distribuída da v0.9.2 deve ser confirmada pela
+[tag e GitHub Release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.2),
+não apenas pela versão no código. A inferência paga opcional não foi
+homologada contra fornecedor real, nem é exigida para o replay offline.
 
 ## 1. Limite metodológico
 
