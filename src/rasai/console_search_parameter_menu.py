@@ -672,10 +672,33 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
                 "Solicitar análise GEO por IA canônica? Pode consumir quota/custo. [S/N]: "
             ).strip().upper()
             if requested in {"S", "N"}:
-                state.geo_ai_requested = requested == "S"
+                approved = requested == "S"
+                state.geo_multiquery_approval = ""
+                if approved and len(queries) > 1:
+                    from rasai.geo_multiquery_batch import (
+                        estimated_search_cost_usd, request_fingerprint,
+                    )
+                    estimated = estimated_search_cost_usd(len(queries), search_type.lower())
+                    print(
+                        f"  GEO por consulta: {len(queries)} requests independentes "
+                        f"(Search API {search_type}). Estimativa somente Search: "
+                        f"USD {estimated:.6f}; inferências IA geram custo adicional "
+                        "variável (N/D nesta prévia)."
+                    )
+                    confirm = input(
+                        f"  Autorizar {len(queries)} requests Search + "
+                        "uma análise IA por consulta, com custo potencial? [S/N]: "
+                    ).strip().upper()
+                    approved = confirm == "S"
+                    if approved:
+                        state.geo_multiquery_approval = request_fingerprint(
+                            queries, search_type.lower(),
+                        )
+                state.geo_ai_requested = approved
                 _set_feedback(
                     state,
-                    "Síntese GEO por IA " + ("solicitada" if requested == "S" else "não solicitada")
+                    "Síntese GEO por IA " + ("solicitada" if approved else "não solicitada")
+                    + (" (requests individualizados autorizados)" if approved and len(queries) > 1 else "")
                 )
             else:
                 print("  Escolha S ou N.")
