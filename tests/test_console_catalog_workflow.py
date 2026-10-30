@@ -469,3 +469,108 @@ def test_preparation_shows_perplexity_saved_configuration_ready_after_ini_load(
     assert "seguro família alterado na sessão" in active_view
     assert "Perplexity nesta AUD      : SOLICITADA" in active_view
     assert "private-secret-do-not-render" not in active_view
+
+
+def test_cat05_perplexity_only_is_ready_without_serp_or_gsc(monkeypatch) -> None:
+    """An explicitly requested external Search API is a valid CAT-05 source."""
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "fixture-never-print")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    monkeypatch.setattr(
+        plan_module, "raw_capability_status",
+        lambda state, key: ("DESABILITADO", "fonte não solicitada"),
+    )
+    state = _state(
+        search_queries=(),
+        perplexity_queries=("consultoria de ti",),
+        perplexity_search_type="fast",
+    )
+    workflow.set_selected_catalog_ids(state, ["CAT-05"])
+    status, detail = workflow.catalog_status(
+        state, audit_catalog.CATALOG_BY_ID["CAT-05"],
+    )
+    assert status == "APTO"
+    assert "Perplexity" in detail and "FAST" in detail
+    assert workflow.plan_status(state)[0] == "APTO"
+    with workflow._project_execution_plan(state):
+        assert state.search_queries == ()
+        assert state.perplexity_queries == ("consultoria de ti",)
+
+
+def test_cat05_perplexity_configuration_without_request_is_not_ready(monkeypatch) -> None:
+    """A credential and enabled flag alone cannot authorize or unblock Search."""
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "fixture-never-print")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    monkeypatch.setattr(
+        plan_module, "raw_capability_status",
+        lambda state, key: ("DESABILITADO", "fonte não solicitada"),
+    )
+    state = _state(perplexity_queries=())
+    workflow.set_selected_catalog_ids(state, ["CAT-05"])
+    assert workflow.catalog_status(
+        state, audit_catalog.CATALOG_BY_ID["CAT-05"],
+    )[0] == "BLOQUEADO"
+
+
+def test_cat05_perplexity_only_without_credential_is_limited(monkeypatch) -> None:
+    """Missing external credentials are advisory limitations, not fake success."""
+    monkeypatch.delenv("PERPLEXITY_API_KEY", raising=False)
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    monkeypatch.setattr(
+        plan_module, "raw_capability_status",
+        lambda state, key: ("DESABILITADO", "fonte não solicitada"),
+    )
+    state = _state(
+        perplexity_queries=("consultoria de ti",),
+        perplexity_search_type="fast",
+    )
+    workflow.set_selected_catalog_ids(state, ["CAT-05"])
+    status, detail = workflow.catalog_status(
+        state, audit_catalog.CATALOG_BY_ID["CAT-05"],
+    )
+    assert status == "APTO COM LIMITAÇÕES"
+    assert "CREDENCIAL AUSENTE" in detail
+
+
+def test_cat05_perplexity_saved_draft_does_not_grant_paid_consent(monkeypatch) -> None:
+    """A saved draft can reach launch consent, but is not a request itself."""
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "fixture-never-print")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    monkeypatch.setattr(
+        plan_module, "raw_capability_status",
+        lambda state, key: ("DESABILITADO", "fonte não solicitada"),
+    )
+    state = _state(
+        perplexity_queries=(),
+        perplexity_draft_queries=("consultoria de ti",),
+        perplexity_draft_search_type="fast",
+    )
+    workflow.set_selected_catalog_ids(state, ["CAT-05"])
+    status, detail = workflow.catalog_status(
+        state, audit_catalog.CATALOG_BY_ID["CAT-05"],
+    )
+    assert status == "APTO COM LIMITAÇÕES"
+    assert "confirmação explícita" in detail
+    assert state.perplexity_queries == ()
+
+
+def test_cat05_serp_failure_not_hidden_by_perplexity(monkeypatch) -> None:
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "fixture-never-print")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    monkeypatch.setattr(
+        plan_module, "raw_capability_status",
+        lambda state, key: (
+            ("BLOQUEADO", "SERP indisponível")
+            if key == "search-intelligence" else ("DESABILITADO", "GSC não solicitado")
+        ),
+    )
+    state = _state(
+        search_queries=("consultoria",),
+        perplexity_queries=("consultoria",),
+        perplexity_search_type="fast",
+    )
+    workflow.set_selected_catalog_ids(state, ["CAT-05"])
+    status, detail = workflow.catalog_status(
+        state, audit_catalog.CATALOG_BY_ID["CAT-05"],
+    )
+    assert status == "APTO COM LIMITAÇÕES"
+    assert "SERP" in detail
