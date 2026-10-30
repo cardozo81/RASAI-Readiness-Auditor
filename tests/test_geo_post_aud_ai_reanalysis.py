@@ -165,6 +165,7 @@ class CompletedAuditIntegrationReplayTests(unittest.TestCase):
             ):
                 result = inspect_completed_audit(aud)
             self.assertEqual(result["operations"][1]["state"], "NOT_ELIGIBLE")
+            self.assertEqual(result["operations"][3]["state"], "NOT_ELIGIBLE")
             self.assertEqual(result["provider_calls"], 0)
 
 

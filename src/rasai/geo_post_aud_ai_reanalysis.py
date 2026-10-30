@@ -212,7 +212,8 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
              "ELIGIBLE" if saved_local_interpretations else "NOT_ELIGIBLE",
              "execution": "LOCAL_DERIVED_ONLY", "new_external_requests": 0},
             {"operation": "NEW_CANONICAL_AI_INFERENCE", "state":
-             "REQUIRES_EXPLICIT_PAID_AUTHORIZATION", "execution": "NOT_EXECUTED",
+             "REQUIRES_EXPLICIT_PAID_AUTHORIZATION" if eligible else "NOT_ELIGIBLE",
+             "execution": "NOT_EXECUTED", "eligible_query_count": eligible,
              "new_external_requests": 0},
             {"operation": "NEW_PERPLEXITY_RESEARCH", "state":
              "USE_VERSIONED_GEO_SUPPLEMENT", "execution": "NOT_EXECUTED",
