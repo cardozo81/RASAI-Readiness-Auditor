@@ -29,7 +29,8 @@ def _json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
 
-def _prepare(con: sqlite3.Connection, audit_id: str) -> tuple[str, CompetitiveAiInput, str] | None:
+def _prepare(con: sqlite3.Connection, audit_id: str, *,
+             source_run_id: str | None = None) -> tuple[str, CompetitiveAiInput, str] | None:
     tables = {row[0] for row in con.execute(
         "SELECT name FROM sqlite_master WHERE type='table' "
         "AND name IN ('perplexity_search_runs', 'perplexity_search_sources')"
@@ -38,10 +39,19 @@ def _prepare(con: sqlite3.Connection, audit_id: str) -> tuple[str, CompetitiveAi
         return None
     con.row_factory = sqlite3.Row
     selected = ("run_id", "query_json", "status")
-    latest = _last_temporally_verified(
-        con, table="perplexity_search_runs", audit_id=audit_id,
-        columns=selected, time_column="started_at",
-    )
+    if source_run_id is None:
+        latest = _last_temporally_verified(
+            con, table="perplexity_search_runs", audit_id=audit_id,
+            columns=selected, time_column="started_at",
+        )
+    else:
+        # Explicitly scoped post-AUD derivative. The source run must belong
+        # to the SAME AUD and be an actual successful persisted observation.
+        latest = con.execute(
+            "SELECT run_id,query_json,status FROM perplexity_search_runs "
+            "WHERE audit_id=? AND run_id=?",
+            (audit_id, source_run_id),
+        ).fetchone()
     if latest is None or latest is _UNVERIFIABLE or latest[2] != "SUCCESS":
         return None
     row = dict(zip(selected, latest))
@@ -114,6 +124,7 @@ def execute_geo_ai(
     database: Path, audit_id: str, *,
     provider_selection: str,
     provider_factory: Callable[..., Any] | None = None,
+    source_run_id: str | None = None,
 ) -> str:
     """Opt-in only. Reuse one persisted inference for identical input/provider.
 
@@ -136,7 +147,7 @@ def execute_geo_ai(
         # evidence. Probe only the canonical persisted Perplexity rows first:
         # a no-search/failed/multi-query AUD must not acquire even an empty
         # AI table just because the operator toggled an optional feature.
-        prepared = _prepare(con, audit_id)
+        prepared = _prepare(con, audit_id, source_run_id=source_run_id)
         if prepared is None:
             return "NOT_ELIGIBLE"
         con.executescript("""

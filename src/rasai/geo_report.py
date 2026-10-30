@@ -20,6 +20,7 @@ from urllib.parse import urlsplit
 
 from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
 from rasai.geo_query_ledger_report import geo_query_advisory_html
+from rasai.geo_multiquery_report import geo_multiquery_html
 from rasai.report_presentation import fractional_confidence_percentage
 
 
@@ -937,8 +938,21 @@ def geo_body(database: Path, audit_id: str) -> str:
     )
     summary += "<section><h2>Interpretação GEO por IA canônica (opcional)</h2>"
     if geo_ai is None:
-        summary += "<p>Não solicitada, indisponível ou sem resultado persistido "
-        summary += "para a observação externa mais recente.</p>"
+        try:
+            current_queries = json.loads(current.get("query_json") or "[]") if current else []
+        except (ValueError, TypeError):
+            current_queries = []
+        if (current is not None and str(current.get("status") or "") == "SUCCESS"
+                and isinstance(current_queries, list) and len(current_queries) > 1):
+            summary += (
+                "<p>Interpretação GEO IA: NOT_ELIGIBLE - pesquisa externa com várias "
+                "consultas agregadas sem atribuição de fontes por consulta. "
+                "O resultado histórico continua N/D e não gera nova pesquisa "
+                "ou chamada de IA automaticamente.</p>"
+            )
+        else:
+            summary += "<p>Não solicitada, indisponível ou sem resultado persistido "
+            summary += "para a observação externa mais recente.</p>"
     else:
         summary += "<p>Status: " + escape(str(geo_ai.get("state") or "-"))
         summary += "; provider: " + escape(str(geo_ai.get("provider") or "-"))
@@ -982,6 +996,9 @@ def geo_body(database: Path, audit_id: str) -> str:
         summary += "<p>Inferências não comprovam causalidade, preferência de buscadores "
         summary += "ou avaliação do conteúdo integral dos concorrentes.</p>"
     summary += "</section>"
+    # Show all physically attributed GEO queries in the current opt-in batch;
+    # the existing single-run view remains intact for historical AUDs.
+    summary += geo_multiquery_html(database, audit_id)
     ai = _prior_competitive_ai(
         database, audit_id, comparison.get("serp_observation_id") if comparison else None
     )

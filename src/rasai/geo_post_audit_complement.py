@@ -105,7 +105,8 @@ def _safe_supplement_scope_root(workspace: AuditWorkspace, audit_id: str) -> Pat
     return scope
 
 
-def _sealed_audit(workspace: AuditWorkspace, audit_id: str) -> tuple[str, str, str]:
+def _sealed_audit(workspace: AuditWorkspace, audit_id: str, *,
+                  accepted_completion_statuses: frozenset[str] = frozenset({"COMPLETE"})) -> tuple[str, str, str]:
     # No CREATE, UPDATE, connections in read/write mode or manifest rewrite.
     report_root = workspace.root / "report-catalog"
     report_manifest = report_root / "manifest.json"
@@ -128,7 +129,7 @@ def _sealed_audit(workspace: AuditWorkspace, audit_id: str) -> tuple[str, str, s
             (audit_id,),
         ).fetchone()
         if (row is None or str(row[0] or "").upper() != "COMPLETED"
-                or str(row[1] or "").upper() != "COMPLETE"):
+                or str(row[1] or "").upper() not in accepted_completion_statuses):
             raise ValueError("source AUD must be COMPLETE before external supplement")
         if connection.execute("PRAGMA quick_check").fetchone()[0] != "ok":
             raise ValueError("source audit.db integrity check failed")

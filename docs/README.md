@@ -181,3 +181,6 @@ Consulte também as páginas de governança de `report-catalog/`, especialmente 
 A release pública estável é [`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0), publicada em 29/10/2026 sobre `5da8e6247094c20dcdbe770474ac31e7f93383b2`, com tag anotada e GitHub Release imutável verificados. O pacote declara `0.9.0`; `v0.8.0` permanece como marco histórico.
 
 As [notas preparatórias](RELEASE_NOTES_DRAFT.md), a [matriz de gates](RELEASE_GATE_MATRIX.md), o [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md) e o [checklist de publicação](RELEASE_PUBLICATION_CHECKLIST.md) são **registros históricos anteriores à publicação**. Não substituem a [página oficial da release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) nem alteram evidências históricas.
+
+
+- [GEO multiquery e reanálise de integrações (candidata v0.9.2)](GEO_AI_MULTIQUERY_AND_REANALYSIS.md) - atribuição física por consulta, governança econômica, replay offline sem coleta e limites ainda não homologados.

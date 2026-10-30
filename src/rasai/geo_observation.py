@@ -223,7 +223,8 @@ def _descriptive_overlap_metrics(
     return metrics
 
 
-def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
+def materialize_geo_observation(database: Path, audit_id: str, *,
+                                source_run_id: str | None = None) -> str | None:
     """Freeze a deterministic advisory snapshot after an explicitly requested search.
 
     Optional external search must already be persisted by its canonical owner.
@@ -253,10 +254,19 @@ def materialize_geo_observation(database: Path, audit_id: str) -> str | None:
         # textual ISO ordering and opaque IDs may promote stale SUCCESS.
         # Ambiguous clock history is not evidence that the old run is current.
         columns = ("run_id", "query_json", "search_type", "status", "started_at")
-        latest = _last_temporally_verified(
-            con, table="perplexity_search_runs", audit_id=audit_id,
-            columns=columns, time_column="started_at",
-        )
+        if source_run_id is None:
+            latest = _last_temporally_verified(
+                con, table="perplexity_search_runs", audit_id=audit_id,
+                columns=columns, time_column="started_at",
+            )
+        else:
+            # Scoped GEO batch derivation: source run identity is verified
+            # against the AUD. Default latest-selection stays untouched.
+            latest = con.execute(
+                "SELECT run_id,query_json,search_type,status,started_at "
+                "FROM perplexity_search_runs WHERE audit_id=? AND run_id=?",
+                (audit_id, source_run_id),
+            ).fetchone()
         if latest is None or latest is _UNVERIFIABLE:
             return None  # no derived table/write/provider call
         run = dict(zip(columns, latest))

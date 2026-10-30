@@ -610,3 +610,8 @@ A regressão `test_repeated_dependency_expansion_preserves_success_work_item` co
 ## Gate de segregação de contadores por tentativa RPR
 
 `tests/test_optional_reprocess_accounting.py` verifica com SQLite temporário que atualizações incrementais de contadores de duas tentativas `RPR-*` permanecem associadas a seus próprios `reprocess_id`, sem criar outra identidade `AUD-*`. Esta regressão valida contadores operacionais, não a precisão monetária de tokens/preços nem faturamento de provedores. O aceite depende do workflow no SHA final da PR.
+
+
+## Reanálise consultiva de integrações após AUD COMPLETE (candidata v0.9.2)
+
+A evolução #682 é separada do RPR físico acima: opera apenas sobre evidências materializadas e gera pacote consultivo independente, com selo e idempotência. O modo local inicial não executa IA comercial nem Perplexity; novas chamadas necessitam outra autorização e não podem rebaixar a auditoria de origem. Ver [contrato multiquery/reanálise](GEO_AI_MULTIQUERY_AND_REANALYSIS.md).

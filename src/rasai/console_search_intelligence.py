@@ -75,6 +75,7 @@ class SearchConsoleState(BaseState):
     perplexity_skip_draft_this_aud: bool = False
     perplexity_draft_modified_in_session: bool = False
     geo_ai_requested: bool = False
+    geo_multiquery_approval: str = ""
     perplexity_last_status: str = "NOT_REQUESTED"
     perplexity_last_detail: str = ""
     perplexity_last_duration_seconds: float | None = None
@@ -615,6 +616,14 @@ def execute_perplexity_for_audit(
             search_kwargs["search_options"] = resolve_request_options(
                 explicit_brazil=brazil_scope,
                 search_type=search_kwargs["search_type"],
+            )
+        if bool(getattr(state, "geo_ai_requested", False)) and len(queries) > 1:
+            # Query-attributed GEO requires one physical Search response per
+            # query. An exact request-scoped economic approval is enforced
+            # before the first potentially billable call.
+            from rasai.geo_multiquery_runtime import execute_geo_multiquery_for_audit
+            return execute_geo_multiquery_for_audit(
+                state, effective_runner, workspace_path, audit_id, search_kwargs,
             )
         result = effective_runner(AuditWorkspace.open(workspace_path), **search_kwargs)
         summary = humanized_perplexity_summary(result)
