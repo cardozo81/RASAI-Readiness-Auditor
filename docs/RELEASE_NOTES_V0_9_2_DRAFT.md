@@ -1,4 +1,4 @@
-# Registro histórico de planejamento — RASAi v0.9.2 (rascunho arquivado)
+# Registro histórico de planejamento  -  RASAi v0.9.2 (rascunho arquivado)
 
 **Escopo:** issues #681 e #682, única branch `feat/geo-multiquery-ai-only-rpr`.
 **Documento histórico de planejamento, não representa pendências técnicas atuais.** O código das issues #681/#682 foi integrado pela PR #683 em 30/10/2026; a homologação offline e o CI pós-merge estão aprovados. As caixas abaixo preservam os critérios inicialmente propostos, alguns deliberadamente fora do gate de publicação (serviços pagos, adapters futuros). Para o estado publicável consulte [notas finais propostas](RELEASE_NOTES_V0_9_2.md).

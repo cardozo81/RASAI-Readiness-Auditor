@@ -1,4 +1,4 @@
-# RASAi v0.9.2 — notas de distribuição (preparação; ainda não publicada)
+# RASAi v0.9.2  -  notas de distribuição (preparação; ainda não publicada)
 
 **Natureza:** incremento compatível da linha 0.9, com funcionalidades opcionais GEO e reanálise consultiva pós-AUD, sem alterar contratos de pontuação. **Status:** candidata de publicação; não representa tag nem GitHub Release existente. Última release pública confirmada: [v0.9.1](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.1), publicada em 29/10/2026.
 
@@ -8,7 +8,7 @@
 - Versões metodológicas `SARI-001`, `SCORE-GEO-005` (vigente) e `SCORE-GEO-004` (histórica) permanecem preservadas.
 
 ## Recursos
-- **GEO multiquery por IA (opt-in):** 2–5 consultas Search independentes para atribuir fontes a cada termo, com consentimento econômico explícito, lote idempotente, observação individual e modelo de interpretação canônico. Sem síntese GEO solicitada, o agrupamento econômico anterior é preservado.
+- **GEO multiquery por IA (opt-in):** 2 - 5 consultas Search independentes para atribuir fontes a cada termo, com consentimento econômico explícito, lote idempotente, observação individual e modelo de interpretação canônico. Sem síntese GEO solicitada, o agrupamento econômico anterior é preservado.
 - **GEO HTML:** fontes e denominadores por query, recomendações e confiança percentual quando mensuradas. Comparação SERP só quando houver equivalência física demonstrada; ausência de dados é N/D, sem atribuição inventada.
 - **Reanálise consultiva pós-AUD:** `rasai ai-reanalysis AUD_DIR` faz pré-voo somente leitura; `--write-local-replay` emite sidecar local versionado com manifesto/hash sem alterar `audit.db` nem o catálogo. Abrange `COMPLETE` e `COMPLETE_WITH_LIMITATIONS`; sem chamadas a provedores.
 - **Reaproveitamento de evidências:** ledger GEO #304, fontes Search e interpretação já persistida, com IDs de evidência, modelo/prompt e confiança quando disponíveis. Critérios temporais e estados ambíguos falham de modo conservador.
@@ -26,7 +26,7 @@
 - Homologação local na AUD `AUD-91D408722667425E8A83F3ADBD1A8F99`: replay `PUBLISHED`, `PreviewCalls=0`, `ReplayCalls=0`, hashes SHA-256 de `audit.db` e manifesto original preservados. Evidência registrada na PR #683.
 - **Bump de versão e documentação mudam o SHA:** requerem no novo HEAD da candidata os gates de versão, documentação, instalação isolada Windows/Linux e regressão aplicável. Os números acima não certificam o novo SHA.
 
-## Distribuição — somente após aprovação específica
+## Distribuição  -  somente após aprovação específica
 1. Preparar PR única `release/prepare-v0.9.2`, manter `main` íntegra, validar CI no HEAD, revisar diff/versionamento e solicitar aceite para merge.
 2. Após merge autorizado, certificar novamente os checks relevantes em `main` e registrar o SHA exato do commit de preparação integrado.
 3. Confirmar proteção **Immutable Releases** habilitada, tag `v0.9.2` inexistente e criar tag anotada/release inicialmente em **draft** no SHA de `main` aprovado.
