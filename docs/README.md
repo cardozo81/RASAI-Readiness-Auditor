@@ -183,4 +183,4 @@ A release pública estável é [`v0.9.0`](https://github.com/cardozo81/RASAI-Rea
 As [notas preparatórias](RELEASE_NOTES_DRAFT.md), a [matriz de gates](RELEASE_GATE_MATRIX.md), o [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md) e o [checklist de publicação](RELEASE_PUBLICATION_CHECKLIST.md) são **registros históricos anteriores à publicação**. Não substituem a [página oficial da release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) nem alteram evidências históricas.
 
 
-- [GEO multiquery e reanálise de integrações (candidata v0.9.2)](GEO_AI_MULTIQUERY_AND_REANALYSIS.md) — atribuição física por consulta, governança econômica, replay offline sem coleta e limites ainda não homologados.
+- [GEO multiquery e reanálise de integrações (candidata v0.9.2)](GEO_AI_MULTIQUERY_AND_REANALYSIS.md) - atribuição física por consulta, governança econômica, replay offline sem coleta e limites ainda não homologados.
