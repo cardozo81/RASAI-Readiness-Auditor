@@ -106,7 +106,7 @@ def _persisted_perplexity_summary(state: object) -> dict[str, object] | None:
             ).fetchall()
             if not rows or len(rows) > 5000:
                 return None
-            # Source count is independent from query count. A legacy or
+            # Source count is independent from query count. An earlier or
             # incompatible source table must be reported as N/D, not zero.
             try:
                 has_sources = db.execute(
