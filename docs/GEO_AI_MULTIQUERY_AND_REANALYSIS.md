@@ -20,12 +20,12 @@ proveniência.
 Quando GEO IA NÃO estiver solicitada, a Search API mantém o comportamento
 histórico de agrupamento econômico. Quando houver 2-5 termos com GEO IA
 solicitada, CAT-05 solicita **autorização adicional** de exatamente N requests
-individuais, com estimativa **somente Search**: WEB USD 0.005 por request,
-FAST USD 0.001 por request. **IA generativa tem custo adicional variável**,
+individuais, com estimativa **somente Search** pelo pricing canônico vigente.
+Sem regra aplicável, o custo é N/D, jamais presumido como zero. **IA generativa tem custo adicional variável**,
 que não deve ser representado como US$ 0.
 
-A aprovação é vinculada por SHA-256 à sequência exata de queries e ao modo
-WEB/FAST. Mudar qualquer um dos dois invalida o aceite anterior. Uma
+A aprovação é vinculada por SHA-256 à sequência de queries, modo
+WEB/FAST, filtros efetivos e alvo. Mudar qualquer um dos dois invalida o aceite anterior. Uma
 aprovação ausente ou desatualizada interrompe o fluxo antes da rede.
 
 O módulo `geo_multiquery_batch` reserva um grupo de consultas no `audit.db`
@@ -48,7 +48,7 @@ para gerar a visão transversal, nem alteração de SARI/SCORE-GEO.
 ## 3. AUD COMPLETE: reanálise de integrações sem coleta física
 
 O comando experimental e conservador `ai-reanalysis` verifica o selo de
-AUD `COMPLETE`, integridade da base, manifesto e freshness do catálogo
+AUD `COMPLETE` ou `COMPLETE_WITH_LIMITATIONS` encerrada, integridade da base, manifesto e freshness do catálogo
 pela rotina canônica `_sealed_audit`. Não instala o runtime de providers,
 não ativa secrets, não executa busca, IA, browser, SERP, PSI/CrUX, Apdex
 nem RPR físico.
@@ -74,6 +74,10 @@ O SHA-256 do `audit.db` e do manifesto de relatório são
 conferidos antes e depois da derivação.
 
 A matriz distingue:
+- **GEO_PER_QUERY_LEDGER_LOCAL:** inventário offline canônico #304 a partir de
+  SERP e Perplexity persistidas. A ausência de atribuição física resulta em N/D,
+  sem forçar comparação. O console oferece `CAT-05 > Perplexity > A` para
+  prévia e pacote local independente, sem provedor remoto;
 - **GEO_LOCAL_EVIDENCE_REPLAY:** consulta única com fontes externas
   realmente persistidas, usando somente projeção local;
 - **NEW_CANONICAL_AI_INFERENCE:** requer autorização financeira específica.
