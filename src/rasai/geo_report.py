@@ -20,6 +20,7 @@ from urllib.parse import urlsplit
 
 from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
 from rasai.geo_query_ledger_report import geo_query_advisory_html
+from rasai.geo_multiquery_report import geo_multiquery_html
 from rasai.report_presentation import fractional_confidence_percentage
 
 
@@ -982,6 +983,9 @@ def geo_body(database: Path, audit_id: str) -> str:
         summary += "<p>Inferências não comprovam causalidade, preferência de buscadores "
         summary += "ou avaliação do conteúdo integral dos concorrentes.</p>"
     summary += "</section>"
+    # Show all physically attributed GEO queries in the current opt-in batch;
+    # the existing single-run view remains intact for historical AUDs.
+    summary += geo_multiquery_html(database, audit_id)
     ai = _prior_competitive_ai(
         database, audit_id, comparison.get("serp_observation_id") if comparison else None
     )
