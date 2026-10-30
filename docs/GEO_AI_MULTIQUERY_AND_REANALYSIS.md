@@ -15,10 +15,10 @@ pré-existente já admite atributo `query` por fonte quando fisicamente disponí
 e consistente; a síntese GEO canônica usa uma query por execução para garantir
 proveniência.
 
-## 2. AUD inicial: GEO IA por 2–5 consultas
+## 2. AUD inicial: GEO IA por 2-5 consultas
 
 Quando GEO IA NÃO estiver solicitada, a Search API mantém o comportamento
-histórico de agrupamento econômico. Quando houver 2–5 termos com GEO IA
+histórico de agrupamento econômico. Quando houver 2-5 termos com GEO IA
 solicitada, CAT-05 solicita **autorização adicional** de exatamente N requests
 individuais, com estimativa **somente Search**: WEB USD 0.005 por request,
 FAST USD 0.001 por request. **IA generativa tem custo adicional variável**,
