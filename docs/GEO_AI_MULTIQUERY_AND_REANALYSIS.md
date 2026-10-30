@@ -19,7 +19,7 @@ pré-existente já admite atributo `query` por fonte quando fisicamente disponí
 e consistente; a síntese GEO canônica usa uma query por execução para garantir
 proveniência.
 
-A interpretação GEO por IA ocorre **após** a coleta central e possui finalidade distinta de Perplexity Search API. Tentativas efetivas do LLM competitivo devem ser persistidas pelo ledger M18 em `ai_provider_attempts` (operação `COMPETITIVE_INTELLIGENCE`) e no `ai_exchange_log` sanitizado, independentemente da sessão de IA central. Custo Search e custo de inferência generativa não são intercambiáveis. Falha na telemetria GEO não autoriza nova chamada faturável nem promoção de resultado a `AVAILABLE`.
+A interpretação GEO por IA ocorre **após** a coleta central e possui finalidade distinta de Perplexity Search API. Tentativas efetivas do LLM competitivo devem ser persistidas pelo registro canônico de consumo em `ai_provider_attempts` (operação `COMPETITIVE_INTELLIGENCE`) e no `ai_exchange_log` sanitizado, independentemente da sessão de IA central. Custo Search e custo de inferência generativa não são intercambiáveis. Falha ou ausência de tentativas na telemetria de um consumidor LLM que reportou sucesso GEO não autoriza nova chamada faturável nem promoção de resultado a `AVAILABLE`.
 
 ## 2. AUD inicial: GEO IA por 2-5 consultas
 
@@ -41,7 +41,10 @@ canônico sobre a evidência individual correspondente, sem novo cliente,
 provider registry, fallback ou motor de pricing.
 
 O lote tem `batch_id`, `request_fingerprint`, ordem, query, `run_id`,
-estados por query e motivos de limitação. Cada sucesso persiste
+estados por query e motivos de limitação. O console de consumo deve agregar
+os runs Search persistidos da AUD; apresentar apenas a última consulta
+é uma projeção incompleta. Estados parciais, quantidades de consultas e
+fontes por AUD devem permanecer distinguíveis de execução LLM. Cada sucesso persiste
 independentemente. Após timeout/crash, resultado ambíguo fica
 `PENDING_UNCERTAIN` e o mesmo fingerprint não é enviado automaticamente
 outra vez. Nova observação exige intenção nova, separadamente autorizada,

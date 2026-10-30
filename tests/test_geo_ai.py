@@ -735,3 +735,30 @@ def test_geo_ai_ledger_failure_abstains_and_never_reissues_billed_call(
         ).fetchone() == (
             "UNAVAILABLE", "GEO_AI_TELEMETRY_PERSISTENCE_FAILED", None,
         )
+
+
+def test_geo_available_without_canonical_attempts_is_not_published(tmp_path):
+    """A successful assessment without its owned call ledger is not verifiable."""
+    from rasai.geo_ai import execute_geo_ai
+
+    class LostAttemptsConsumer(FakeCanonicalConsumer):
+        def consume_attempts(self):
+            return ()
+
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    consumer = LostAttemptsConsumer()
+    factory = lambda _: consumer
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto", provider_factory=factory,
+    ) == "UNAVAILABLE"
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto", provider_factory=factory,
+    ) == "UNAVAILABLE"
+    assert consumer.calls == 1
+    with sqlite3.connect(db) as con:
+        assert con.execute(
+            "SELECT state,summary,error_reason FROM geo_ai_interpretations"
+        ).fetchone() == (
+            "UNAVAILABLE", None, "GEO_AI_TELEMETRY_PERSISTENCE_FAILED",
+        )

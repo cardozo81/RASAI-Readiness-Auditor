@@ -121,7 +121,9 @@ def _prepare(con: sqlite3.Connection, audit_id: str, *,
 
 
 
-def _persist_geo_ai_attempts(database: Path, audit_id: str, provider: Any) -> None:
+def _persist_geo_ai_attempts(
+    database: Path, audit_id: str, provider: Any, *, available: bool = False,
+) -> None:
     """Persist the post-core competitive LLM calls in the canonical M18 ledger.
 
     The core M18 flush has already run, and competitive attempts have no page
@@ -133,6 +135,11 @@ def _persist_geo_ai_attempts(database: Path, audit_id: str, provider: Any) -> No
         return  # Injected deterministic consumers do not own billable attempts.
     attempts = tuple(consume())
     if not attempts:
+        # A canonical provider cannot publish an AVAILABLE inference while
+        # silently dropping its required per-attempt economic provenance.
+        # Providers that did not execute (NOT_CONFIGURED) may have no attempts.
+        if available:
+            raise ValueError("GEO_AI_CANONICAL_ATTEMPTS_MISSING")
         return
 
     from rasai.domain import new_id
@@ -296,7 +303,9 @@ def execute_geo_ai(
         # ledger for every observable billable attempt. A failed ledger write
         # must not trigger another request on replay (reservation is retained).
         try:
-            _persist_geo_ai_attempts(database, audit_id, provider)
+            _persist_geo_ai_attempts(
+                database, audit_id, provider, available=(state == "AVAILABLE"),
+            )
         except Exception:
             assessment = None
             state = "UNAVAILABLE"
