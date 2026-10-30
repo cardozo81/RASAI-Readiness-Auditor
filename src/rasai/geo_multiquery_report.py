@@ -52,7 +52,11 @@ def geo_multiquery_html(database: Path, audit_id: str) -> str:
                                 "SELECT COUNT(*) FROM perplexity_search_sources WHERE run_id=?",
                                 (rid,),
                             ).fetchone()[0]
-                            source_totals[rid] = int(count)
+                            sample = [str(row[0])[:512] for row in con.execute(
+                                "SELECT url FROM perplexity_search_sources WHERE run_id=? "
+                                "ORDER BY rowid LIMIT 8", (rid,),
+                            ).fetchall()]
+                            source_totals[rid] = (int(count), sample)
             has_ai = con.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' "
                 "AND name='geo_ai_interpretations'"
@@ -90,18 +94,50 @@ def geo_multiquery_html(database: Path, audit_id: str) -> str:
         summary = ""
         if saved and saved[1] and geo_state == "AVAILABLE":
             summary = str(saved[1])[:2500]
-        if saved and saved[2] and geo_state == "AVAILABLE":
+        proposal_details = ""
+        if saved and saved[2] and geo_state == "AVAILABLE" and saved[0] == "AVAILABLE":
             try:
                 proposals = json.loads(saved[2])
                 if isinstance(proposals, list):
-                    opportunities += len(proposals)
+                    for proposed in proposals[:12]:
+                        if not isinstance(proposed, dict):
+                            continue
+                        refs = proposed.get("evidence_ids")
+                        if (not isinstance(refs, list) or not refs
+                                or not all(isinstance(ref, str) for ref in refs)):
+                            continue
+                        opportunities += 1
+                        confidence = proposed.get("confidence")
+                        confidence_label = (
+                            f"{confidence * 100:.1f}%"
+                            if (isinstance(confidence, (int, float))
+                                and not isinstance(confidence, bool)
+                                and 0 <= confidence <= 1)
+                            else "N/D"
+                        )
+                        proposal_details += (
+                            "<p>Recomendação: "
+                            + escape(str(proposed.get("recommendation") or "N/D")[:700])
+                            + "; confiança: " + confidence_label
+                            + "; evidências: " + escape(", ".join(refs[:12]))
+                            + ".</p>"
+                        )
             except (ValueError, TypeError):
                 pass
         reason = str(item.get("reason") or "")
         detail = ("<p>" + escape(summary) + "</p>") if summary else ""
+        source_evidence = source_totals.get(run_id)
         detail += "<p>Fontes do run: " + (
-            str(source_totals[run_id]) if run_id in source_totals else "N/D"
+            str(source_evidence[0]) if source_evidence is not None else "N/D"
         ) + ".</p>"
+        if source_evidence is not None and source_evidence[1]:
+            detail += (
+                "<p>URLs de origem (até 8): "
+                + escape("; ".join(source_evidence[1])) + "</p>"
+            )
+        detail += proposal_details
+        detail += "<p>Comparabilidade SERP: N/D sem equivalência temporal e de escopo "
+        detail += "comprovada; consultar o ledger GEO por consulta (#304).</p>"
         if reason:
             detail += "<p>Limitação: " + escape(reason) + "</p>"
         rows.append(

@@ -57,11 +57,29 @@ class GeoMultiqueryTests(unittest.TestCase):
                     "INSERT INTO perplexity_search_runs VALUES "
                     "('px-2','AUD-1','2026-10-29T22:00:02+00:00')"
                 )
+            with closing(sqlite3.connect(db)) as con, con:
+                con.execute("CREATE TABLE perplexity_search_sources(run_id TEXT,url TEXT)")
+                con.execute("INSERT INTO perplexity_search_sources VALUES "
+                            "('px-1','https://source.example/')")
+                con.execute("CREATE TABLE geo_ai_interpretations("
+                            "audit_id TEXT,perplexity_run_id TEXT,created_at TEXT,"
+                            "state TEXT,summary TEXT,opportunities_json TEXT)")
+                con.execute(
+                    "INSERT INTO geo_ai_interpretations VALUES (?,?,?,?,?,?)",
+                    ("AUD-1", "px-1", "2026-10-29T22:30:00+00:00",
+                     "AVAILABLE", "Análise persistida",
+                     '[{"recommendation":"Corrigir snippet","confidence":0.875,'
+                     '"evidence_ids":["PX:px-1:0:abc"]}]'),
+                )
             before = db.read_bytes()
             html = geo_multiquery_html(db, "AUD-1")
             self.assertIn("consultoria de ti", html)
             self.assertIn("TIMEOUT", html)
-            self.assertIn("Fontes do run: N/D", html)
+            self.assertIn("Fontes do run: 1", html)
+            self.assertIn("https://source.example/", html)
+            self.assertIn("confiança: 87.5%", html)
+            self.assertIn("PX:px-1:0:abc", html)
+            self.assertIn("Comparabilidade SERP: N/D", html)
             self.assertIn("1/2", html)
             self.assertEqual(before, db.read_bytes())
 
