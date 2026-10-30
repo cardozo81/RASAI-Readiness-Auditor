@@ -94,8 +94,17 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
                 else "NOT_PROVEN_MULTIQUERY"
             ),
         })
+    from rasai.geo_multiquery_batch import latest_batch
+    batch = latest_batch(db, audit_id) if "geo_search_batches" in tables else None
+    if batch:
+        selected = {x.get("run_id") for x in batch["items"]
+                    if x.get("search_state") == "SUCCESS" and x.get("run_id")}
+        current_rows = [x for x in per_query if x["run_id"] in selected]
+    else:
+        # The latest failed Search is never replaced by a historical success.
+        current_rows = per_query[-1:]
     eligible = sum(
-        1 for row in per_query
+        1 for row in current_rows
         if row["search_status"] == "SUCCESS"
         and row["source_count"] > 0
         and row["source_attribution"] == "PHYSICAL_SINGLE_QUERY"
@@ -280,8 +289,10 @@ def execute_authorized_geo_ai(aud_dir: Path, *, provider: str,
                 if item.get("run_id") and item.get("search_state") == "SUCCESS"
             }
             eligible = [row for row in eligible if row["run_id"] in identities]
-        elif eligible:
+        elif eligible and eligible[-1]["run_id"] == report["saved_external_observations"][-1]["run_id"]:
             eligible = [eligible[-1]]
+        else:
+            eligible = []
     if not 1 <= len(eligible) <= 5:
         raise ValueError("no bounded, physically attributed saved GEO query")
     run_ids = [row["run_id"] for row in eligible]

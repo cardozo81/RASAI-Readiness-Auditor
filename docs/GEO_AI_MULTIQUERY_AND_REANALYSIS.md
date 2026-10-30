@@ -42,7 +42,7 @@ outra vez. Nova observação exige intenção nova, separadamente autorizada,
 preferencialmente via AUD nova ou suplemento explícito.
 
 O `geo.html` apresenta seção consultiva read-only do lote, resultados por
-query e síntese de cobertura **determinística**. Não há chamada LLM extra
+query, contagem física de fontes e síntese de cobertura **determinística**. Não há chamada LLM extra
 para gerar a visão transversal, nem alteração de SARI/SCORE-GEO.
 
 ## 3. AUD COMPLETE: reanálise de integrações sem coleta física

@@ -38,6 +38,21 @@ def geo_multiquery_html(database: Path, audit_id: str) -> str:
                         >= batch_time.astimezone(timezone.utc)):
                     return ""
             ai_rows = {}
+            source_totals = {}
+            if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                           "AND name='perplexity_search_sources'").fetchone():
+                cols = {column[1] for column in con.execute(
+                    "PRAGMA table_info(perplexity_search_sources)"
+                )}
+                if {"run_id", "url"} <= cols:
+                    for item in entries:
+                        rid = item.get("run_id")
+                        if rid:
+                            count = con.execute(
+                                "SELECT COUNT(*) FROM perplexity_search_sources WHERE run_id=?",
+                                (rid,),
+                            ).fetchone()[0]
+                            source_totals[rid] = int(count)
             has_ai = con.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' "
                 "AND name='geo_ai_interpretations'"
@@ -84,6 +99,9 @@ def geo_multiquery_html(database: Path, audit_id: str) -> str:
                 pass
         reason = str(item.get("reason") or "")
         detail = ("<p>" + escape(summary) + "</p>") if summary else ""
+        detail += "<p>Fontes do run: " + (
+            str(source_totals[run_id]) if run_id in source_totals else "N/D"
+        ) + ".</p>"
         if reason:
             detail += "<p>Limitação: " + escape(reason) + "</p>"
         rows.append(

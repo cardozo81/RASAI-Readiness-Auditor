@@ -61,6 +61,7 @@ class GeoMultiqueryTests(unittest.TestCase):
             html = geo_multiquery_html(db, "AUD-1")
             self.assertIn("consultoria de ti", html)
             self.assertIn("TIMEOUT", html)
+            self.assertIn("Fontes do run: N/D", html)
             self.assertIn("1/2", html)
             self.assertEqual(before, db.read_bytes())
 
