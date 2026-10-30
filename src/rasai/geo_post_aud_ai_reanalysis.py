@@ -100,6 +100,11 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
         and row["source_count"] > 0
         and row["source_attribution"] == "PHYSICAL_SINGLE_QUERY"
     )
+    # Strict replay-safe adapter allowlist; no generic provider or collector.
+    local_ledger_present = all(name in tables for name in (
+        "serp_observations", "serp_results",
+        "perplexity_search_runs", "perplexity_search_sources",
+    ))
     return {
         "contract": CONTRACT,
         "audit_id": audit_id,
@@ -109,6 +114,10 @@ def inspect_completed_audit(aud_dir: Path) -> dict:
         "original_audit_mutated": False,
         "provider_calls": 0,
         "operations": [
+            {"operation": "GEO_PER_QUERY_LEDGER_LOCAL", "state":
+             "ELIGIBLE_FOR_READ_ONLY_CHECK" if local_ledger_present else "NOT_ELIGIBLE",
+             "execution": "LOCAL_DERIVED_ONLY", "new_external_requests": 0,
+             "reason": "STRUCTURAL_INPUTS_ONLY_FINAL_ELIGIBILITY_CHECKED_ON_REPLAY"},
             {"operation": "GEO_LOCAL_EVIDENCE_REPLAY", "state":
              "ELIGIBLE" if eligible else "NOT_ELIGIBLE",
              "eligible_query_count": eligible,
@@ -140,6 +149,13 @@ def _report_html(report: dict) -> str:
         + escape(str(row["geo_ai_state"])) + "</td></tr>"
         for row in report["saved_external_observations"]
     )
+    ledger = report.get("geo_per_query_ledger")
+    ledger_html = (
+        "<p>Inventário SERP x Search por consulta (somente leitura): "
+        + escape(str(ledger.get("status", "N/D")))
+        + "; limite: " + escape(str(ledger.get("reason") or "N/D")) + ".</p>"
+        if isinstance(ledger, dict) else ""
+    )
     return (
         "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
         "<title>RASAi — Reanálise consultiva de integrações</title></head><body>"
@@ -148,7 +164,8 @@ def _report_html(report: dict) -> str:
         "</p><p>Esta é uma projeção offline do histórico, não uma nova observação "
         "nem uma nova inferência generativa.</p><table><thead><tr><th>Run</th>"
         "<th>Consulta</th><th>Search</th><th>Fontes</th><th>GEO IA</th>"
-        "</tr></thead><tbody>" + lines + "</tbody></table></body></html>"
+        "</tr></thead><tbody>" + lines + "</tbody></table>"
+        + ledger_html + "</body></html>"
     )
 
 
@@ -156,6 +173,24 @@ def publish_local_reanalysis(aud_dir: Path) -> dict:
     """Write only a new, deterministic sidecar after verifying source seals."""
     report = inspect_completed_audit(aud_dir)
     root = Path(aud_dir)
+    # #304 canonical offline ledger can abstain if provenance is incomplete.
+    if any(op["operation"] == "GEO_PER_QUERY_LEDGER_LOCAL"
+           and op["state"] == "ELIGIBLE_FOR_READ_ONLY_CHECK"
+           for op in report["operations"]):
+        try:
+            from rasai.geo_query_ledger import inspect_geo_per_query
+            ledger = inspect_geo_per_query(root)
+            report["geo_per_query_ledger"] = {
+                "status": ledger.get("status", "NOT_COMPARABLE"),
+                "reason": ledger.get("reason"),
+                "contract_version": ledger.get("contract_version"),
+                "queries": ledger.get("queries", []),
+            }
+        except (OSError, ValueError, sqlite3.Error) as exc:
+            report["geo_per_query_ledger"] = {
+                "status": "NOT_COMPARABLE",
+                "reason": "READ_ONLY_LEDGER_" + type(exc).__name__,
+            }
     target_root = root.parent / ".rasai-ai-reanalyses"
     audit_root = target_root / root.name
     if target_root.is_symlink() or audit_root.is_symlink():
@@ -266,6 +301,38 @@ def execute_authorized_geo_ai(aud_dir: Path, *, provider: str,
     if package.exists():
         if package.is_symlink() or not package.is_dir():
             raise ValueError("unsafe existing AI inference intent")
+        # Verify reservation identity; corrupted state must never trigger retry.
+        reservation_file = package / "intent.json"
+        if reservation_file.is_symlink() or not reservation_file.is_file():
+            raise ValueError("incomplete existing AI reservation; no retry")
+        try:
+            saved = json.loads(reservation_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ValueError("invalid existing AI reservation; no retry") from exc
+        expected = {
+            "contract": CONTRACT, "audit_id": report["audit_id"],
+            "source_sha256": report["source_sha256"],
+            "catalog_manifest_sha256": report["catalog_manifest_sha256"],
+            "provider": provider, "run_ids": run_ids,
+        }
+        if any(saved.get(key) != val for key, val in expected.items()):
+            raise ValueError("AI reservation identity mismatch; no retry")
+        manifest_file = package / "manifest.json"
+        if manifest_file.exists():
+            if manifest_file.is_symlink():
+                raise ValueError("unsafe AI inference manifest")
+            try:
+                manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+                if manifest.get("source_sha256") != report["source_sha256"]:
+                    raise ValueError("AI inference source mismatch")
+                for name, digest in manifest["files"].items():
+                    if name not in {"intent.json", "derived-audit.db", "results.json"}:
+                        raise ValueError("invalid AI manifest filename")
+                    artifact = package / name
+                    if artifact.is_symlink() or not artifact.is_file() or _hash_file(artifact) != digest:
+                        raise ValueError("AI inference sidecar integrity mismatch")
+            except (OSError, ValueError, TypeError, KeyError) as exc:
+                raise ValueError("AI inference manifest not verifiable; no retry") from exc
         # Even a fully successful prior inference is reused by the SAME intent.
         # Incomplete reservations must never trigger automatic paid retries.
         return {
