@@ -5,8 +5,8 @@
 **Descritor:** Search & AI Readiness Auditor  
 **Framework:** RASAi Framework  
 **Versão pública:** `001`  
-**Pacote Python (release estável):** [ver a última publicação verificada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases) · **marco histórico anterior:** [`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0)  
-**Pacote Python (versão no código-fonte):** `0.9.1` ([notas de distribuição](docs/RELEASE_NOTES_V0_9_1.md))  
+**Pacote Python (release estável publicada):** [`v0.9.1`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.1) · **próxima candidata, ainda não publicada:** `v0.9.2`  
+**Pacote Python (versão no código-fonte):** `0.9.2` ([notas de distribuição propostas](docs/RELEASE_NOTES_V0_9_2.md))  
 **Índice público:** **Search & AI Readiness Index - Índice de Prontidão Search & IA** · ID técnico `SARI-001`  
 **Método de pontuação:** **Método de Pontuação de Prontidão** · versão pública `001` · contrato técnico vigente para novas auditorias `SCORE-GEO-005` (replay histórico `SCORE-GEO-004`)
 
@@ -391,7 +391,7 @@ RASAi fornece auditoria técnica/semântica, evidência, heurísticas proprietá
 <!-- rasai-doc-index-20260908 -->
 ## Contrato da documentação
 
-A documentação está organizada em [`docs/README.md`](docs/README.md). A última release pública estável é [`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0), publicada em 29/10/2026 como GitHub Release imutável sobre o commit `5da8e6247094c20dcdbe770474ac31e7f93383b2`. A `v0.8.0` permanece como marco histórico. O **Método de Pontuação de Prontidão** segue na versão pública **001**, com contrato `SCORE-GEO-005` vigente para novas auditorias e `SCORE-GEO-004` preservado para replay histórico.
+A documentação está organizada em [`docs/README.md`](docs/README.md). A última release pública estável verificada é [`v0.9.1`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.1), publicada em 29/10/2026; `v0.9.0` e `v0.8.0` permanecem marcos históricos. O código-fonte desta branch prepara a versão `0.9.2`, ainda sem tag nem publicação. O **Método de Pontuação de Prontidão** segue na versão pública **001**, com contrato `SCORE-GEO-005` vigente para novas auditorias e `SCORE-GEO-004` preservado para replay histórico.
 
 
 ### Network Intelligence consultiva
