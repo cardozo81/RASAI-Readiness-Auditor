@@ -209,17 +209,158 @@ def publish_local_reanalysis(aud_dir: Path) -> dict:
             "provider_calls": 0, "original_audit_mutated": False}
 
 
+
+def execute_authorized_geo_ai(aud_dir: Path, *, provider: str,
+                              source_run_id: str | None = None) -> dict:
+    """Opt-in NEW canonical inference on a separate physical SQLite clone.
+
+    This function is NEVER called by a preview, local replay, report, RPR or
+    console navigation. The CLI requires an explicit paid authorization flag.
+    Reserve the exact intent BEFORE any potentially billable model request.
+    """
+    from rasai.geo_ai import execute_geo_ai
+    from rasai.geo_multiquery_batch import latest_batch
+
+    report = inspect_completed_audit(aud_dir)
+    root = Path(aud_dir)
+    provider = str(provider).strip().casefold()
+    if provider in {"", "none", "fixture"}:
+        raise ValueError("a canonical AI provider must be selected explicitly")
+    eligible = [
+        row for row in report["saved_external_observations"]
+        if row["search_status"] == "SUCCESS"
+        and row["source_count"] > 0
+        and row["source_attribution"] == "PHYSICAL_SINGLE_QUERY"
+    ]
+    if source_run_id is not None:
+        eligible = [row for row in eligible if row["run_id"] == source_run_id]
+    else:
+        # Keep re-analysis bounded to the CURRENT physically attributed batch,
+        # or the most recent eligible single query on an older AUD.
+        batch = latest_batch(root / "audit.db", report["audit_id"])
+        if batch:
+            identities = {
+                item.get("run_id") for item in batch["items"]
+                if item.get("run_id") and item.get("search_state") == "SUCCESS"
+            }
+            eligible = [row for row in eligible if row["run_id"] in identities]
+        elif eligible:
+            eligible = [eligible[-1]]
+    if not 1 <= len(eligible) <= 5:
+        raise ValueError("no bounded, physically attributed saved GEO query")
+    run_ids = [row["run_id"] for row in eligible]
+    fingerprint = sha256(_json({
+        "contract": CONTRACT, "audit_id": report["audit_id"],
+        "source_sha256": report["source_sha256"],
+        "catalog_sha256": report["catalog_manifest_sha256"],
+        "provider": provider, "run_ids": run_ids,
+    }).encode("utf-8")).hexdigest()[:32].upper()
+
+    parent = root.parent / ".rasai-ai-reanalyses"
+    scope = parent / root.name
+    if parent.is_symlink() or scope.is_symlink():
+        raise ValueError("unsafe reanalysis output directory")
+    scope.mkdir(parents=True, exist_ok=True)
+    package = scope / ("AI-INFERENCE-" + fingerprint)
+    if package.exists():
+        if package.is_symlink() or not package.is_dir():
+            raise ValueError("unsafe existing AI inference intent")
+        # Even a fully successful prior inference is reused by the SAME intent.
+        # Incomplete reservations must never trigger automatic paid retries.
+        return {
+            "state": "ALREADY_RESERVED_OR_RECORDED", "package": str(package),
+            "provider_calls": 0, "paid_request_repeated": False,
+        }
+    package.mkdir()
+    intent = {
+        "contract": CONTRACT, "audit_id": report["audit_id"],
+        "source_sha256": report["source_sha256"],
+        "catalog_manifest_sha256": report["catalog_manifest_sha256"],
+        "provider": provider, "run_ids": run_ids,
+        "state": "PENDING_UNCERTAIN",
+        "billing_warning": "Remote AI inference may be charged; estimated cost N/D",
+    }
+    (package / "intent.json").write_text(_json(intent) + "\n", encoding="utf-8")
+    derived = package / "derived-audit.db"
+    # A consistent SQLite backup copies persisted evidence without modifying
+    # the source database or sharing original rows for mutation.
+    with sqlite3.connect((root / "audit.db").resolve().as_uri() + "?mode=ro",
+                         uri=True) as source:
+        with sqlite3.connect(derived) as destination:
+            source.backup(destination)
+    if _hash_file(root / "audit.db") != report["source_sha256"]:
+        raise ValueError("source AUD changed before inference; do not send")
+    outcomes = []
+    for row in eligible:
+        if _hash_file(root / "audit.db") != report["source_sha256"]:
+            break
+        try:
+            status = execute_geo_ai(
+                derived, report["audit_id"], provider_selection=provider,
+                source_run_id=row["run_id"],
+            )
+        except Exception as exc:
+            status = "UNAVAILABLE_" + type(exc).__name__
+        outcomes.append({
+            "run_id": row["run_id"], "queries": row["queries"],
+            "geo_ai_state": status,
+        })
+        # Persist each outcome independently; interrupted requests are never
+        # replayed automatically on another invocation of the same intent.
+        (package / "results.json").write_text(
+            _json({"runs": outcomes, "provider": provider}) + "\n",
+            encoding="utf-8",
+        )
+    if (_hash_file(root / "audit.db") != report["source_sha256"]
+            or inspect_completed_audit(root)["catalog_manifest_sha256"]
+            != report["catalog_manifest_sha256"]):
+        raise ValueError("source AUD changed during inference; no retries")
+    status = ("COMPLETE" if len(outcomes) == len(eligible)
+              and all(x["geo_ai_state"] == "AVAILABLE" for x in outcomes)
+              else "COMPLETE_WITH_LIMITATIONS")
+    manifest = {
+        "contract": CONTRACT, "state": status,
+        "audit_id": report["audit_id"], "provider": provider,
+        "source_sha256": report["source_sha256"],
+        "catalog_manifest_sha256": report["catalog_manifest_sha256"],
+        "files": {
+            filename: _hash_file(package / filename)
+            for filename in ("intent.json", "derived-audit.db", "results.json")
+            if (package / filename).is_file()
+        },
+    }
+    (package / "manifest.json").write_text(_json(manifest) + "\n", encoding="utf-8")
+    return {
+        "state": status, "package": str(package), "outcomes": outcomes,
+        "authorized_attempt_count": len(outcomes),
+        "estimated_ai_cost_usd": None, "original_audit_mutated": False,
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Read-only post-AUD integrations preflight and local replay; no API calls")
     parser.add_argument("audit_dir", type=Path)
     parser.add_argument("--write-local-replay", action="store_true",
                         help="publish a separate offline consultative replay package")
+    parser.add_argument("--authorize-paid-geo-ai", action="store_true",
+                        help="authorize a potentially paid canonical AI inference on saved sources")
+    parser.add_argument("--provider", default="none",
+                        help="canonical AI provider/selection; no provider is called by default")
+    parser.add_argument("--run-id", default=None,
+                        help="optional exact persisted Perplexity run ID to re-analyse")
     args = parser.parse_args(argv)
+    if args.authorize_paid_geo_ai and args.write_local_replay:
+        parser.error("select either paid inference or free local replay")
     try:
-        result = (publish_local_reanalysis(args.audit_dir)
-                  if args.write_local_replay
-                  else inspect_completed_audit(args.audit_dir))
+        if args.authorize_paid_geo_ai:
+            result = execute_authorized_geo_ai(
+                args.audit_dir, provider=args.provider, source_run_id=args.run_id,
+            )
+        else:
+            result = (publish_local_reanalysis(args.audit_dir)
+                      if args.write_local_replay
+                      else inspect_completed_audit(args.audit_dir))
         print(_json(result))
         return 0
     except (OSError, ValueError, sqlite3.Error, KeyError) as exc:
