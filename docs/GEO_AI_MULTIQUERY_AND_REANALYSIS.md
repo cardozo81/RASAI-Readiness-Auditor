@@ -143,7 +143,7 @@ especializados: reaproveitar os checks existentes quando relevantes.
 Uma auditoria Windows real e a autorização de eventual custo de
 proveedores **não** são implicadas pela execução automática de testes.
 
-## 5. Prontidão para integração — PR #686
+## 5. Prontidão para integração - PR #686
 
 Critérios verificados no cenário físico `AUD-1502D2E9714F45878915D452633BE9B3`:
 

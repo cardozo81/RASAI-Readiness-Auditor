@@ -822,7 +822,7 @@ URLs retornadas pela Search API não são reparadas por `strip()` ou `str()` ant
 O decodificador de resposta de sucesso rejeita chaves JSON repetidas em qualquer objeto (inclusive no item de URL individual e seus metadados) e constantes numéricas não conformes como NaN/Infinity. Não escolhe silenciosamente o último `url` ou `results` e não persiste citação inventada por um parser last-key-wins. Resposta HTTP 200 inválida continua classificada `INVALID_RESPONSE` com tentativa potencialmente faturada; nenhum índice ou AUD histórica é regravado.
 
 
-## Aceite físico controlado — Perplexity-only FAST (02/11/2026)
+## Aceite físico controlado - Perplexity-only FAST (02/11/2026)
 
 A AUD `AUD-1502D2E9714F45878915D452633BE9B3` (MOBILE, `https://ecosistemasti.com.br/`) comprovou o cenário de uma consulta `consultoria de ti` em FAST, sem solicitação SERP/GSC, sem CAT-08 e sem IA generativa:
 
