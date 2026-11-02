@@ -59,8 +59,9 @@ def test_nytimes_geo_renders_materialized_current_run_and_safe_source_details(tm
     before = db.read_bytes()
     html = geo_body(db, "AUD-NYT")
     assert "Perplexity Search API realizada com sucesso" in html
-    assert "10 fonte(s) observada(s) e materializada(s)" in html
+    assert "10 fontes observadas e materializadas" in html
     assert html.count("Abrir fonte</a>") == 9
+    assert "min-width:140px" in html  # mobile: prevent five-column squeeze
     assert "href=\"https://example.org/policy-0?region=pt&amp;country=br\"" in html
     assert 'href="javascript:' not in html
     assert "2026-10-01" in html and "2026-10-23" in html
@@ -71,8 +72,8 @@ def test_nytimes_geo_renders_materialized_current_run_and_safe_source_details(tm
 def test_nytimes_latest_failed_request_cannot_show_old_success_as_current(tmp_path):
     db = _db(tmp_path, second_failed=True)
     html = geo_body(db, "AUD-NYT")
-    assert "2 execução(ões) persistida(s)" in html
-    assert "0 fonte(s) materializada(s) da execução atual" in html
+    assert "2 execuções persistidas" in html
+    assert "0 fontes materializadas da execução atual" in html
     assert "Execução atual sem sucesso comprovado" in html
     assert "Abrir fonte</a>" not in html
     assert "10 em todas as execuções da AUD" in html

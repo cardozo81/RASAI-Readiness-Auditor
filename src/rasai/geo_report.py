@@ -710,7 +710,15 @@ def geo_body(database: Path, audit_id: str) -> str:
     @media(max-width:650px){
       .geo-view{gap:12px}
       .geo-view>section{padding:16px 14px}
-      .geo-view section th,.geo-view section td{padding:8px;font-size:.83rem}
+      .geo-view section th,.geo-view section td{
+        padding:8px;font-size:.83rem;min-width:140px;
+        overflow-wrap:break-word;word-break:normal
+      }
+      .geo-view section th:first-child,.geo-view section td:first-child{
+        overflow-wrap:anywhere
+      }
+      /* Keep the table within its card; scroll columns rather than
+         squeezing five evidence fields into unreadable narrow text. */
     }
     @media print{
       .geo-view > section{
