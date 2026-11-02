@@ -365,9 +365,52 @@ def _serp_baseline(database: Path, audit_id: str) -> tuple[dict, list[dict]] | N
     return dict(observation), results
 
 
+def _serp_not_requested(database: Path, audit_id: str) -> bool:
+    """Recognize an explicit no-SERP plan only from this AUD's saved configuration.
+
+    Absence of observed SERP alone is not evidence that no request was made.
+    Legacy or ambiguous snapshots remain inconclusive.
+    """
+    try:
+        with closing(sqlite3.connect(
+            f"file:{database.resolve().as_posix()}?mode=ro", uri=True
+        )) as con:
+            columns = {
+                row[1] for row in con.execute(
+                    "PRAGMA table_info(audit_execution_configurations)"
+                )
+            }
+            if not {"audit_id", "configuration_kind", "configuration_json"} <= columns:
+                return False
+            rows = con.execute(
+                "SELECT configuration_json FROM audit_execution_configurations "
+                "WHERE audit_id=? AND configuration_kind='CONSOLE' LIMIT 2",
+                (audit_id,),
+            ).fetchall()
+    except (sqlite3.Error, OSError):
+        return False
+    if len(rows) != 1:
+        return False
+    try:
+        snapshot = json.loads(rows[0][0])
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(snapshot, dict):
+        return False
+    search = snapshot.get("search_intelligence")
+    return (
+        isinstance(search, dict)
+        and search.get("enabled") is False
+        and search.get("queries") == []
+    )
+
+
 def _baseline_serp_section(database: Path, audit_id: str) -> str:
     baseline = _serp_baseline(database, audit_id)
-    result = "<section><h2>Panorama SERP existente — sem consulta Perplexity</h2>"
+    result = "<section><h2>" + (
+        "Panorama SERP existente" if baseline is not None
+        else "Disponibilidade de dados SERP"
+    ) + "</h2>"
     if baseline is None:
         return result + (
             "<p>Não há observação SERP live elegível com origem e escopo "
@@ -696,6 +739,12 @@ def geo_body(database: Path, audit_id: str) -> str:
         ) + _baseline_serp_section(database, audit_id) + _baseline_findings_section(database, audit_id) + _extraction_quality_section(database) + "</div>"
     current_id = _current_run_id(database, audit_id)
     current = next((r for r in runs if r.get("run_id") == current_id), None)
+    # "Not requested" requires an explicit saved plan and no observed live SERP.
+    # Never infer it from an absent SERP result alone.
+    serp_not_requested = (
+        _serp_not_requested(database, audit_id)
+        and _serp_baseline(database, audit_id) is None
+    )
     # Preserve all runs in audit.db. Present only sources from the verifiable
     # latest run, never promote a previous success after a newer failed request.
     historical_source_count = len(sources)
@@ -703,8 +752,8 @@ def geo_body(database: Path, audit_id: str) -> str:
     counts = Counter(_host(x["url"]) for x in sources if _host(x["url"]))
     summary = "<section><h2>Observações recuperadas</h2>"
     summary += (
-        f"<p>{len(runs)} execução(ões) persistida(s); "
-        f"{len(sources)} fonte(s) materializada(s) da execução atual "
+        f"<p>{len(runs)} {'execução persistida' if len(runs) == 1 else 'execuções persistidas'}; "
+        f"{len(sources)} {'fonte materializada' if len(sources) == 1 else 'fontes materializadas'} da execução atual "
         f"({historical_source_count} em todas as execuções da AUD).</p>"
     )
     if current is None:
@@ -712,13 +761,21 @@ def geo_body(database: Path, audit_id: str) -> str:
     elif str(current.get("status") or "").upper() == "SUCCESS":
         summary += (
             "<p><strong>Perplexity Search API realizada com sucesso.</strong> "
-            f"{len(sources)} fonte(s) observada(s) e materializada(s) no audit.db; "
+            f"{len(sources)} {'fonte observada e materializada' if len(sources) == 1 else 'fontes observadas e materializadas'} no audit.db; "
             "resultados de busca externa, não respostas nem citações generativas.</p>"
         )
     else:
         summary += "<p>Execução atual sem sucesso comprovado; fontes de execuções anteriores não representam o resultado atual.</p>"
-    summary += "<p>O denominador refere-se a resultados externos, não a respostas generativas. "
-    summary += "Consultas agrupadas em um request não autorizam atribuir cada fonte a uma query individual.</p>"
+    summary += "<p>O denominador refere-se a resultados externos, não a respostas generativas.</p>"
+    try:
+        current_queries = json.loads(str(current.get("query_json") or "[]")) if current else []
+    except (TypeError, ValueError):
+        current_queries = []
+    if isinstance(current_queries, list) and len(current_queries) > 1:
+        summary += (
+            "<p>Consultas agrupadas em um request não autorizam atribuir "
+            "cada fonte a uma query individual sem vínculo físico verificável.</p>"
+        )
     summary += "<table><thead><tr><th>Run</th><th>Consultas</th><th>Status</th><th>Modo</th></tr></thead><tbody>"
     for run in runs:
         try:
@@ -774,6 +831,18 @@ def geo_body(database: Path, audit_id: str) -> str:
             "foi solicitada, executada ou falhou; consulte o registro da AUD. "
             "Nenhuma taxa de sobreposição pode ser inferida.</p>"
         )
+    elif comparison.get("serp_observation_id") is None and serp_not_requested:
+        summary += (
+            "<p>Comparação: não aplicável — SERP não solicitada nesta AUD. "
+            "A Perplexity Search API foi solicitada independentemente; sem SERP "
+            "observada, não existem denominadores para comparar URLs.</p>"
+        )
+        overlap = comparison.get("descriptive_overlap")
+        if isinstance(overlap, dict) and isinstance(overlap.get("reason"), str):
+            summary += (
+                "<p>Motivo técnico persistido: <code>"
+                + escape(overlap["reason"][:100]) + "</code>.</p>"
+            )
     elif comparison.get("serp_observation_id") is None:
         rates = comparison.get("descriptive_overlap")
         reason = rates.get("reason") if isinstance(rates, dict) else None
@@ -910,7 +979,8 @@ def geo_body(database: Path, audit_id: str) -> str:
     # #304: publish a bounded, sealed, query-attributed *observational* readout.
     # The standalone ledger owns provenance and abstention; this report never
     # makes a provider request or promotes overlap to market/intent equivalence.
-    summary += geo_query_advisory_html(database, audit_id)
+    if not serp_not_requested:
+        summary += geo_query_advisory_html(database, audit_id)
     if comparison:
         target = comparison.get("target_observation") or {}
         status = str(target.get("status") or "UNAVAILABLE")
@@ -1002,38 +1072,42 @@ def geo_body(database: Path, audit_id: str) -> str:
     ai = _prior_competitive_ai(
         database, audit_id, comparison.get("serp_observation_id") if comparison else None
     )
-    summary += "<section><h2>Síntese competitiva de IA disponível</h2>"
-    if ai is None:
-        summary += "<p>Não há síntese competitiva canônica compatível persistida para a "
-        summary += "observação SERP correlacionada. Nenhuma chamada adicional de IA é "
-        summary += "executada para materializar este relatório.</p>"
-    else:
-        summary += "<p>Origem: análise competitiva por IA já persistida no CAT-05, "
-        summary += "não uma avaliação nova da Perplexity. "
-        summary += "Provider: " + escape(str(ai.get("provider") or "-"))
-        summary += "; modelo: " + escape(str(ai.get("model") or "-"))
-        summary += "; contrato: " + escape(str(ai.get("contract_version") or "-"))
-        summary += "; prompt: " + escape(str(ai.get("prompt_id") or "-"))
-        summary += " / " + escape(str(ai.get("prompt_version") or "-")) + ".</p>"
-        if ai.get("summary"):
-            summary += "<p>" + escape(str(ai["summary"])) + "</p>"
-        if ai["opportunities"]:
-            summary += "<ol>"
-            for opportunity in ai["opportunities"][:12]:
-                summary += "<li><strong>" + escape(str(opportunity.get("title") or "-"))
-                summary += "</strong> — " + escape(str(opportunity.get("recommendation") or "-"))
-                summary += " (evidências: "
-                summary += ", ".join(escape(x) for x in opportunity["evidence_ids"])
-                summary += ")</li>"
-            summary += "</ol>"
+    if not serp_not_requested:
+        summary += "<section><h2>" + (
+            "Síntese competitiva por IA já persistida" if ai is not None
+            else "Síntese competitiva por IA — não disponível"
+        ) + "</h2>"
+        if ai is None:
+            summary += "<p>Não há síntese competitiva canônica compatível persistida para a "
+            summary += "observação SERP correlacionada. Nenhuma chamada adicional de IA é "
+            summary += "executada para materializar este relatório.</p>"
         else:
-            summary += "<p>Não há oportunidades com referência de evidência auditável.</p>"
-        summary += "<p>A análise é uma hipótese assistida; confirme cada remediação "
-        summary += "nas evidências correspondentes antes de priorizar.</p>"
-    summary += "</section>"
+            summary += "<p>Origem: análise competitiva por IA já persistida no CAT-05, "
+            summary += "não uma avaliação nova da Perplexity. "
+            summary += "Provider: " + escape(str(ai.get("provider") or "-"))
+            summary += "; modelo: " + escape(str(ai.get("model") or "-"))
+            summary += "; contrato: " + escape(str(ai.get("contract_version") or "-"))
+            summary += "; prompt: " + escape(str(ai.get("prompt_id") or "-"))
+            summary += " / " + escape(str(ai.get("prompt_version") or "-")) + ".</p>"
+            if ai.get("summary"):
+                summary += "<p>" + escape(str(ai["summary"])) + "</p>"
+            if ai["opportunities"]:
+                summary += "<ol>"
+                for opportunity in ai["opportunities"][:12]:
+                    summary += "<li><strong>" + escape(str(opportunity.get("title") or "-"))
+                    summary += "</strong> — " + escape(str(opportunity.get("recommendation") or "-"))
+                    summary += " (evidências: "
+                    summary += ", ".join(escape(x) for x in opportunity["evidence_ids"])
+                    summary += ")</li>"
+                summary += "</ol>"
+            else:
+                summary += "<p>Não há oportunidades com referência de evidência auditável.</p>"
+            summary += "<p>A análise é uma hipótese assistida; confirme cada remediação "
+            summary += "nas evidências correspondentes antes de priorizar.</p>"
+        summary += "</section>"
     summary += "<section><h2>Domínios das fontes observadas</h2><ul>"
     for host, n in counts.most_common(20):
-        summary += f"<li>{escape(host)}: {n} fonte(s)</li>"
+        summary += f"<li>{escape(host)}: {n} {'fonte' if n == 1 else 'fontes'}</li>"
     summary += "</ul><p>Recorrência de fontes não mede participação de mercado nem preferência "
     summary += "dos modelos de IA. É necessário verificar consultas, conteúdo e contexto.</p></section>"
     summary += "<section><h2>Evidências externas para análise competitiva</h2>"
@@ -1101,7 +1175,8 @@ def geo_body(database: Path, audit_id: str) -> str:
     summary += "</section>"
 
     summary += _extraction_quality_section(database)
-    summary += _baseline_serp_section(database, audit_id)
+    if not serp_not_requested:
+        summary += _baseline_serp_section(database, audit_id)
     summary += _baseline_findings_section(database, audit_id)
     summary += "<section><h2>Próximas ações de análise</h2><p>"
     summary += "Confronte as consultas com as evidências de descoberta e indexabilidade "

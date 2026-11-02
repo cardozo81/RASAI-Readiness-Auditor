@@ -469,7 +469,9 @@ def inspect_geo_per_query(
             ).fetchall()
             if (len(metadata) != 1 or metadata[0]["audit_id"] != root.name
                     or str(metadata[0]["status"]).upper() != "COMPLETED"
-                    or str(metadata[0]["completion_status"]).upper() != "COMPLETE"):
+                    or str(metadata[0]["completion_status"]).upper() not in {
+                        "COMPLETE", "COMPLETE_WITH_LIMITATIONS"
+                    }):
                 return abstain("AUD_NOT_COMPLETE_OR_FOREIGN")
             if not {"run_id", "audit_id", "query_json", "search_type",
                     "status", "started_at"} <= _columns(con, "perplexity_search_runs"):

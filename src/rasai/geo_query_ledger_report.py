@@ -33,7 +33,7 @@ def _advisory_unavailable(reason: str) -> str:
     return (
         '<section id="geo-per-query-304" data-contract="GEO-PER-QUERY-304">'
         "<h2>SERP × Search API por consulta — observação</h2>"
-        "<p>N/D — comparação individual indisponível: " + _e(reason) + ".</p>"
+        "<p>N/D — comparação individual indisponível: " + _reason_html(reason) + ".</p>"
         "<p>A ausência de atribuição, escopo ou amostra verificável "
         "não equivale a zero resultados.</p></section>"
     )
@@ -41,6 +41,11 @@ def _advisory_unavailable(reason: str) -> str:
 
 
 _GEO_REASON_LABELS = {
+    "PHYSICAL_AUD_SCOPE_NOT_VERIFIED": "Escopo físico da auditoria não verificado",
+    "PHYSICAL_SOURCE_UNAVAILABLE": "Banco da auditoria indisponível para leitura",
+    "SOURCE_INTEGRITY_OR_CONTRACT_UNVERIFIED": "Integridade ou contrato da fonte local não verificados",
+    "QUERY_PROVENANCE_UNVERIFIABLE": "Proveniência das consultas não verificável",
+    "QUERY_ROW_UNVERIFIABLE": "Registro de consulta sem integridade comprovada",
     "PER_QUERY_SOURCE_ATTRIBUTION_UNPROVEN": "Fonte externa não atribuível individualmente a esta consulta",
     "NO_COMPARABLE_OBSERVED_SERP_SCOPE_WITHIN_24H": "Nenhuma SERP live elegível da mesma consulta na janela de 24 horas",
     "NO_VALID_EXTERNAL_URL_DENOMINATOR": "Sem URLs externas válidas para a consulta",
