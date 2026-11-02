@@ -188,3 +188,63 @@ def test_523_explicit_nonempty_overrides_still_win_and_unset_defaults_remain(tmp
     monkeypatch.delenv("RASAI_SERP_MAX_REQUESTS")
     second = console_settings._persisted_environment_values(state)
     assert second["RASAI_SERP_MAX_REQUESTS"] != ""
+
+
+
+def test_all_perplexity_nonsecret_overrides_roundtrip_with_inert_draft(tmp_path, monkeypatch):
+    """Every registered Search option persists; no paid consent/secret survives."""
+    from rasai.search_intelligence.perplexity_request_policy import (
+        OPTION_FIELDS, PREFIX,
+    )
+    ui._install_search_persistence()
+    install_complete_persistence()
+    options = {
+        "RASAI_PERPLEXITY_ENABLED": "true",
+        "RASAI_PERPLEXITY_MAX_RESULTS": "5",
+        "RASAI_PERPLEXITY_COUNTRY": "BR",
+        "RASAI_PERPLEXITY_SEARCH_LANGUAGE_FILTER": "pt,en",
+        "RASAI_PERPLEXITY_SEARCH_DOMAIN_FILTER": "example.org,example.com",
+        "RASAI_PERPLEXITY_SEARCH_RECENCY_FILTER": "month",
+        "RASAI_PERPLEXITY_SEARCH_AFTER_DATE": "01/01/2025",
+        "RASAI_PERPLEXITY_SEARCH_BEFORE_DATE": "10/29/2026",
+        "RASAI_PERPLEXITY_LAST_UPDATED_AFTER": "01/01/2025",
+        "RASAI_PERPLEXITY_LAST_UPDATED_BEFORE": "10/29/2026",
+        "RASAI_PERPLEXITY_MAX_CONTENT_UNITS": "1000",
+        "RASAI_PERPLEXITY_MAX_CONTENT_UNITS_PER_PAGE": "500",
+    }
+    assert set(options) == {"RASAI_PERPLEXITY_ENABLED"} | {
+        PREFIX + item for item in OPTION_FIELDS
+    }
+    for name, value in options.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "private-never-persist")
+    state = SearchConsoleState()
+    state.perplexity_queries = ("consultoria de ti",)
+    state.perplexity_search_type = "fast"
+    state.geo_ai_requested = True
+    ini = tmp_path / "rasai-console.ini"
+    console_settings.save_console_config(state, ini)
+    parser = ConfigParser(interpolation=None)
+    parser.optionxform = str
+    parser.read(ini, encoding="utf-8")
+    for name, value in options.items():
+        assert parser.get("environment", name) == value
+    assert parser.get("perplexity_draft", "queries") == "consultoria de ti"
+    assert parser.get("perplexity_draft", "search_type") == "fast"
+    assert not parser.has_option("environment", "PERPLEXITY_API_KEY")
+    serialized = ini.read_text(encoding="utf-8")
+    assert "private-never-persist" not in serialized
+    assert "geo_ai_requested" not in serialized
+
+    for name in options:
+        monkeypatch.delenv(name)
+    monkeypatch.delenv("PERPLEXITY_API_KEY")
+    restored = SearchConsoleState()
+    result = console_settings.load_console_config(restored, ini)
+    assert not result.warnings
+    for name, value in options.items():
+        assert os.environ[name] == value
+    assert restored.perplexity_draft_queries == ("consultoria de ti",)
+    assert restored.perplexity_draft_search_type == "fast"
+    assert restored.perplexity_queries == ()
+    assert restored.geo_ai_requested is False

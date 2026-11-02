@@ -554,3 +554,58 @@ def test_aud125_post_run_perplexity_uses_physical_run_not_reset_draft(tmp_path):
     assert summary["mode"] == "FAST"
     assert summary["queries"] == 1
     assert state.perplexity_queries == ()
+
+
+
+def test_perplexity_persisted_multiquery_summary_does_not_hide_earlier_success(tmp_path):
+    import sqlite3
+    from rasai.console_search_intelligence import _persisted_perplexity_summary
+
+    aud = "AUD-12516653C86743ACA32FA177B26AE19D"
+    directory = tmp_path / aud
+    directory.mkdir()
+    with sqlite3.connect(directory / "audit.db") as con:
+        con.executescript("""
+            CREATE TABLE perplexity_search_runs(
+                run_id TEXT,audit_id TEXT,search_type TEXT,query_json TEXT,
+                status TEXT,started_at TEXT);
+            CREATE TABLE perplexity_search_sources(
+                run_id TEXT,position INTEGER,url TEXT);
+        """)
+        con.executemany(
+            "INSERT INTO perplexity_search_runs VALUES (?,?,?,?,?,?)",
+            [
+                ("PX-1", aud, "WEB", '["primeira query"]',
+                 "SUCCESS", "2026-10-30T13:00:00Z"),
+                ("PX-2", aud, "WEB", '["segunda query"]',
+                 "SUCCESS", "2026-10-30T13:01:00Z"),
+                ("PX-3", "AUD-OUTRA", "WEB", '["terceira query"]',
+                 "SUCCESS", "2026-10-30T13:02:00Z"),
+            ],
+        )
+        con.executemany(
+            "INSERT INTO perplexity_search_sources VALUES (?,?,?)",
+            [("PX-1", 1, "https://a.example/"), ("PX-2", 1, "https://b.example/"),
+             ("PX-3", 1, "https://irrelevant.example/")],
+        )
+    state = SearchConsoleState()
+    state.audit_id = aud
+    state.audits_root = tmp_path
+    state.perplexity_queries = ()
+    summary = _persisted_perplexity_summary(state)
+    assert summary is not None
+    assert summary["status"] == "SUCCESS"
+    assert summary["runs"] == 2
+    assert summary["successful_runs"] == 2
+    assert summary["queries"] == 2
+    assert summary["sources"] == 2
+    assert summary["mode"] == "WEB"
+
+    with sqlite3.connect(directory / "audit.db") as con:
+        con.execute("UPDATE perplexity_search_runs SET status='TIMEOUT_ERROR' WHERE run_id='PX-2'")
+    partial = _persisted_perplexity_summary(state)
+    assert partial is not None
+    assert partial["status"] == "PARTIAL"
+    assert partial["successful_runs"] == 1
+    assert partial["statuses"] == "SUCCESS=1, TIMEOUT_ERROR=1"
+    assert state.perplexity_queries == ()

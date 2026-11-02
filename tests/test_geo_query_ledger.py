@@ -2004,3 +2004,20 @@ def test_304_hostname_roster_abstains_when_multisearch_source_query_unknown(tmp_
     page = render_geo_query_ledger_html(projection)
     assert "Hosts observados por consulta: N/D" in page
 
+
+
+
+def test_complete_with_limitations_is_sealed_and_readable_without_new_requests(tmp_path):
+    """Completed AUDs with nonblocking external limitations remain valid inputs."""
+    folder = _audit(tmp_path, multi=False)
+    db = folder / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "UPDATE audits SET completion_status='COMPLETE_WITH_LIMITATIONS'"
+        )
+    original = db.read_bytes()
+    result = inspect_geo_per_query(folder)
+    assert result["status"] == "DESCRIPTIVE_ONLY"
+    assert result["source_audit_db_integrity_guard"] == "DOUBLE_SHA256_MATCH"
+    assert result["provider_requests"] == result["audit_writes"] == 0
+    assert db.read_bytes() == original

@@ -19,6 +19,8 @@ pré-existente já admite atributo `query` por fonte quando fisicamente disponí
 e consistente; a síntese GEO canônica usa uma query por execução para garantir
 proveniência.
 
+A interpretação GEO por IA ocorre **após** a coleta central e possui finalidade distinta de Perplexity Search API. Tentativas efetivas do LLM competitivo devem ser persistidas pelo registro canônico de consumo em `ai_provider_attempts` (operação `COMPETITIVE_INTELLIGENCE`) e no `ai_exchange_log` sanitizado, independentemente da sessão de IA central. Custo Search e custo de inferência generativa não são intercambiáveis. Falha ou ausência de tentativas na telemetria de um consumidor LLM que reportou sucesso GEO não autoriza nova chamada faturável nem promoção de resultado a `AVAILABLE`.
+
 ## 2. AUD inicial: GEO IA por 2-5 consultas
 
 Quando GEO IA NÃO estiver solicitada, a Search API mantém o comportamento
@@ -39,7 +41,10 @@ canônico sobre a evidência individual correspondente, sem novo cliente,
 provider registry, fallback ou motor de pricing.
 
 O lote tem `batch_id`, `request_fingerprint`, ordem, query, `run_id`,
-estados por query e motivos de limitação. Cada sucesso persiste
+estados por query e motivos de limitação. O console de consumo deve agregar
+os runs Search persistidos da AUD; apresentar apenas a última consulta
+é uma projeção incompleta. Estados parciais, quantidades de consultas e
+fontes por AUD devem permanecer distinguíveis de execução LLM. Cada sucesso persiste
 independentemente. Após timeout/crash, resultado ambíguo fica
 `PENDING_UNCERTAIN` e o mesmo fingerprint não é enviado automaticamente
 outra vez. Nova observação exige intenção nova, separadamente autorizada,
@@ -138,7 +143,19 @@ especializados: reaproveitar os checks existentes quando relevantes.
 Uma auditoria Windows real e a autorização de eventual custo de
 proveedores **não** são implicadas pela execução automática de testes.
 
-## 5. Publicação e segurança
+## 5. Prontidão para integração - PR #686
+
+Critérios verificados no cenário físico `AUD-1502D2E9714F45878915D452633BE9B3`:
+
+- CAT-05 pode ficar `APTO` somente com **Perplexity explicitamente solicitada**, sem obrigar SERP ou GSC. Uma chave configurada ou um rascunho INI não constitui solicitação comercial.
+- Pesquisa FAST teve **1 request**, **1 query**, **10 fontes** e HTTP 200, persistidos com identidade, modo e uso nativo específicos da Search API. A IA generativa executou **0 tentativas** no cenário, e a Search não foi reclassificada como LLM.
+- O HTML GEO demonstra a causa `SERP não solicitada`, quando confirmada pelo snapshot persistido; caso contrário preserva N/D e o motivo técnico original. Não produz duas comparações sem denominadores ou falsa falha da Perplexity.
+- `COMPLETE_WITH_LIMITATIONS` pode ser analisado offline como encerrado, **sem dispensar verificação de integridade**, sem escrever na AUD histórica e sem novo request comercial.
+- O cenário físico é **Perplexity-only**; o ledger da inferência GEO paga pós-core foi validado com provider fake, idempotência e falha de telemetria, mas não com uma nova chamada generativa real. A SERP histórica `SERP_REQUESTED_DEPTH_INCOMPLETE` permanece independente e sem relaxamento de contrato, pois faltam as respostas `raw.json` de origem.
+
+Regras de entrega: mesma branch `fix/serp-fulfillment-perplexity-ai-v092`, mesma PR #686; nenhum workflow adicional, nenhuma tag/release e nenhuma alteração direta em `main`. **Merge apenas após CI verde do HEAD final e aprovação humana expressa.** A issue #685 fica rastreada na PR até a integração.
+
+## 6. Publicação e segurança
 
 Nenhuma alteração funcional nos motores de coleta, SARI, SCORE-GEO,
 CONS ou RPR físico. Não migrar ou reinterpretar retroativamente
