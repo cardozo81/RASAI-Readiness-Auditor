@@ -364,6 +364,28 @@ def catalog_menu(console_module: ModuleType, state: Any, catalog: AuditCatalog) 
         state.error = "opção inválida neste catálogo"
 
 
+def _cat08_preparation_readiness(state: Any, status: str) -> tuple[str, str] | None:
+    """Presentation only: show technical eligibility separately from paid consent.
+
+    The canonical catalog/plan readiness and closure semantics remain unchanged.
+    """
+    if status != "APTO COM LIMITAÇÕES":
+        return None
+    from rasai.console_catalog_plan import ai_execution_enabled, ai_provider_readiness
+
+    if ai_execution_enabled(state):
+        return None
+    ready, _detail = ai_provider_readiness(state)
+    if not ready:
+        return None
+    return (
+        "APTO TECNICAMENTE — ACEITE DE IA PENDENTE",
+        "IA principal configurada e apta; o aceite financeiro será solicitado em R. "
+        "Sem aceite, a AUD executa a parte determinística, mas CAT-08 fica pendente "
+        "de fechamento. Não houve execução de IA.",
+    )
+
+
 def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any = None) -> str:
     del detailed
     bulk_notice = ""
@@ -388,8 +410,15 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
             mapping[str(index)] = catalog
             status, detail = catalog_status(state, catalog)
             marker = "X" if is_selected(state, catalog.id) else " "
-            print(f"{index:2d}. [{marker}] {catalog.id} {catalog.label:<43} {badge(status)}")
-            if marker == "X" and status in {"BLOQUEADO", "APTO COM LIMITAÇÕES"}:
+            readiness = (
+                _cat08_preparation_readiness(state, status)
+                if marker == "X" and catalog.id == "CAT-08" else None
+            )
+            visible_status = readiness[0] if readiness else status
+            print(f"{index:2d}. [{marker}] {catalog.id} {catalog.label:<43} {badge(visible_status) if not readiness else visible_status}")
+            if readiness:
+                print(paint(f"     {readiness[1]}", DIM))
+            elif marker == "X" and status in {"BLOQUEADO", "APTO COM LIMITAÇÕES"}:
                 print(paint(f"     {detail}", RED if status == "BLOQUEADO" else YELLOW))
         selected = tuple(item for item in CATALOGS if is_selected(state, item.id))
         plan_state, plan_detail = execution_ready(console_module, state)
@@ -412,6 +441,17 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         section("PLANO DA PRÓXIMA AUDITORIA")
         print(f"Catálogos selecionados     : {len(selected)}")
         print(f"Estado                     : {badge(plan_state)} | {plan_detail}")
+        if any(
+            item.id == "CAT-08" and _cat08_preparation_readiness(
+                state, catalog_status(state, item)[0]
+            ) is not None
+            for item in selected
+        ):
+            print(paint(
+                "  CAT-08: limitação do PLANO refere-se à autorização de IA para fechamento, "
+                "não à configuração técnica; R permite confirmar o consumo.",
+                DIM,
+            ))
         print(f"IA                         : {ai_state}")
         for line in ai_lines:
             print(paint(f"  {line}", DIM))
