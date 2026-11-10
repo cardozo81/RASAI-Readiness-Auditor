@@ -2,6 +2,22 @@
 
 ## Objetivo
 
+### Referências documentais passivas
+
+O contrato `contextual-documents-v1` usa `DEVICE_SNAPSHOT` e preserva AUD,
+página, snapshot, dispositivo, captura, URLs solicitada/final observada,
+artefato e SHA-256 original. Seleção explícita: `RENDERED_DOM`,
+`RAW_HTML_FALLBACK` ou `NOT_CAPTURED`. Fallback não demonstra ausência de
+documentos tardios em SPA. Anchors incluem href literal decodificado pelo
+parser HTML, texto e contexto adjacente limitado; menções são observações,
+não cadastro de produto. Markup capturado não prova visibilidade computada.
+Ocorrências repetidas têm identidades distintas; URL candidata compartilhada
+não comprova identidade dos bytes ou versão. Limites: 2 MB, 500 ocorrências,
+400 caracteres de contexto; excedentes ficam explícitos como parciais/N/D.
+Nenhuma referência implica GET, HEAD, resolução DNS ou autorização de egress.
+Aquisição (`REFERENCED_ONLY`, `DOCUMENT_COLLECTED`, `NOT_ACCESSIBLE`,
+`NOT_VERIFIED`) é separada de aplicabilidade (`INSUFFICIENT_EVIDENCE` inicial).
+
 O RASAi separa evidências pelo menor contexto em que o valor pode efetivamente mudar. O objetivo é evitar três classes de erro arquitetural:
 
 1. repetir requisições globais sem necessidade;
