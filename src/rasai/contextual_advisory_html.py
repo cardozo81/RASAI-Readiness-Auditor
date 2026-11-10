@@ -179,10 +179,25 @@ def _content_review_panel(report, *, private):
     body += "<dt>Respostas presentes no DOM da captura</dt><dd>" + _e(counts.get("answer_present")) + "</dd>"
     body += "<dt>Painéis não observados (N/D)</dt><dd>" + _e(counts.get("not_observed_nd")) + "</dd>"
     body += "<dt>Controles ambíguos / indeterminados</dt><dd>" + _e(counts.get("ambiguous")) + "</dd>"
+    structure = report.get("content_structure_v3") or {}
+    structure_counts = structure.get("counts") or {}
+    body += "<dt>Heading H1–H6 observados</dt><dd>" + _e(structure_counts.get("headings")) + "</dd>"
+    body += "<dt>Title observados</dt><dd>" + _e(structure_counts.get("title_elements")) + "</dd>"
     body += "<dt>IA contextual</dt><dd>" + _e(ai.get("state", "UNAVAILABLE")) + " · " + _e(ai.get("provider_calls", 0)) + " chamadas</dd></dl>"
     body += "<p>Painel recolhido não prova ausência de resposta no site. Conteúdo em DOM não prova visibilidade computada, acesso de bots ou indexação. Dados de Search persistidos sem equivalência de mercado, idioma, dispositivo e intenção não fundamentam comparação positiva.</p>"
     body += "</section><section class='panel' id='content-map'><h2>Conteúdo, intenção e limites</h2>"
     body += "<p>Title, H1–H6, corpo principal, ofertas, CTAs, referências documentais e links podem indicar contexto, mas a intenção comercial e a suficiência de suporte material exigem revisão humana. A classificação v1 e a disposição v2 permanecem consultáveis nas páginas de detalhe.</p>"
+    categories = structure_counts.get("evidence_categories") or {}
+    body += "<p>Trechos de conteúdo principal selecionados: " + _e(categories.get("MAIN_CONTENT", 0)) + ". Alegações comerciais candidatas: " + _e(categories.get("COMMERCIAL_CANDIDATE", 0)) + ". Links documentais candidatos: " + _e(categories.get("DOCUMENT_REFERENCE", 0)) + ". CTAs: " + _e(categories.get("CTA", 0)) + ". As contagens refletem a seleção v1 e seus limites, não a totalidade do site.</p>"
+    if private:
+        for snapshot in structure.get("captures", ()):
+            body += "<details><summary>Estrutura observada · " + _e(snapshot["device"]) + "</summary><div class='detail-body'>"
+            body += "<p>Title: " + _t((snapshot.get("title") or {}).get("text")) + "</p>"
+            for heading in snapshot["headings"]:
+                body += "<p><strong>" + _e(heading["tag"].upper()) + "</strong> [" + _e(heading["scope"]) + "] " + _t(heading["text"]) + " · SHA-256 " + _e(heading["source_sha256"]) + " · posição " + _e(heading["text_range"]) + "</p>"
+            body += _reasons(snapshot["limitations"]) + "</div></details>"
+    else:
+        body += "<p>Title e headings literais ficam disponíveis somente no companheiro privado com proveniência. Divergências de intenção devem ser verificadas por editor responsável.</p>"
     body += "<p><a href='cat-03.html#contextual-qualification'>Conteúdo e semântica</a> · <a href='capture-context.html#contextual-qualification'>Proveniência</a> · <a href='geo.html#contextual-qualification'>Evidências GEO</a> · <a href='cat-09.html#contextual-qualification'>Remediação</a></p></section>"
     body += "<section class='panel' id='faq-aria-review'><h2>FAQ ARIA: acesso ao conteúdo capturado</h2>"
     if counts.get("controls") is None:

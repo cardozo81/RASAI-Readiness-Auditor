@@ -41,6 +41,11 @@ def main():
         result["faq_aria_overlay_v3"] = qualify_aria(result, parsed[0] if parsed else None)
     except (ValueError, TypeError, KeyError, IndexError, AttributeError):
         result["faq_aria_overlay_v3"] = qualify_aria(result)
+    from rasai.contextual_page_structure import qualify_capture as qualify_structure
+    try:
+        result["page_structure_overlay_v3"] = qualify_structure(result, parsed[0] if parsed else None)
+    except (ValueError, TypeError, KeyError, IndexError, AttributeError):
+        result["page_structure_overlay_v3"] = qualify_structure(result)
     combined = json.dumps(result, ensure_ascii=True).encode("ascii")
     # An optional overlay must never displace a v1 packet within its existing
     # output budget. Missing v2 trace degrades to N/D in the parent consumer.
