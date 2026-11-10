@@ -507,3 +507,52 @@ def test_perplexity_geo_ai_n_only_removes_inference_intent(monkeypatch) -> None:
     assert "Configuração         : APTA PARA SOLICITAÇÃO" in rendered
     assert "Síntese GEO por IA    : NÃO SOLICITADA" in rendered
     assert "test-secret-never-print" not in rendered
+
+
+def test_perplexity_explicit_e_reuses_ini_draft_without_search_or_serp_side_effects(monkeypatch) -> None:
+    """The new direct opt-in only records intent in this AUD; no provider IO."""
+    from rasai.console_search_parameter_menu import _configure_perplexity
+
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "opaque-test-secret")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    state = SearchConsoleState(
+        target="https://example.test/",
+        search_queries=("termo serp",),
+        perplexity_draft_queries=("consultoria de ti",),
+        perplexity_draft_search_type="fast",
+    )
+    responses = iter(("E", "N", "E", "S", "V"))
+    output = StringIO()
+    with patch("builtins.input", side_effect=lambda *_: next(responses)), redirect_stdout(output):
+        _configure_perplexity(search, state)
+
+    rendered = output.getvalue()
+    assert "PERPLEXITY = Search API independente" in rendered
+    assert "SERP = Google/Bing por SerpApi" in rendered
+    assert "E. SOLICITAR PERPLEXITY NESTA AUD" in rendered
+    assert "RASCUNHO = só parâmetros" in rendered
+    assert state.perplexity_queries == ("consultoria de ti",)
+    assert state.perplexity_search_type == "fast"
+    assert state.perplexity_last_status == "PENDING"
+    assert state.search_queries == ("termo serp",)
+    assert "opaque-test-secret" not in rendered
+
+
+def test_direct_perplexity_e_with_no_draft_never_creates_paid_intent(monkeypatch) -> None:
+    from rasai.console_search_parameter_menu import _request_saved_perplexity
+
+    state = SearchConsoleState(perplexity_queries=(), perplexity_draft_queries=())
+    with patch("builtins.input", side_effect=AssertionError("Must not prompt when no draft")):
+        output = StringIO()
+        with redirect_stdout(output):
+            _request_saved_perplexity(search, state)
+    assert state.perplexity_queries == ()
+    assert "Sem rascunho válido" in output.getvalue()
+
+
+def test_serp_menu_names_provider_and_distinguishes_perplexity(monkeypatch) -> None:
+    state = SearchConsoleState()
+    rendered = _run(state, ["V"])
+    assert "SerpApi é um fornecedor SERP, NÃO é Perplexity" in rendered
+    assert "exclusivamente SERP" in rendered
+    assert "Perplexity Search API" in rendered
