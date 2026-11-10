@@ -127,6 +127,7 @@ jobs:
         run: >-
           pytest -q
           tests/test_contextual_content.py
+          tests/test_contextual_faq_aria.py
           tests/test_contextual_search.py
           tests/test_contextual_advisory.py
           tests/test_contextual_report_integration.py

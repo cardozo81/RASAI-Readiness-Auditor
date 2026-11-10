@@ -94,3 +94,17 @@ def test_v2_additive_materialization_preserves_all_original_blocks_scores_and_na
     assert digest(workspace.database.read_bytes()) == database_hash
     with sqlite3.connect(workspace.database) as con:
         assert con.execute("SELECT * FROM scores").fetchall() == scores
+
+def test_reverse_review_is_21st_page_with_no_private_literal(tmp_path):
+    from rasai.catalog_report_contract import CATALOG_REPORT_PAGES
+    assert len(CATALOG_REPORT_PAGES) == 21
+    assert len({p.filename for p in CATALOG_REPORT_PAGES}) == 21
+    workspace = _captured_workspace(tmp_path)
+    report_dir = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    review = (report_dir / "geo-content-review.html").read_text(encoding="utf-8")
+    assert "id='faq-aria-review'" in review
+    assert "id='editorial-ideas'" in review
+    assert "Regulamento privado" not in review
+    index = (report_dir / "index.html").read_text(encoding="utf-8")
+    assert "href='geo-content-review.html'" in index
+    assert "id='contextual-content'" in (report_dir / "geo.html").read_text(encoding="utf-8")

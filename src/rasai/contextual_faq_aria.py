@@ -12,7 +12,7 @@ from rasai.contextual_documents import stable_id
 
 CONTRACT = "contextual-faq-aria-overlay-v3"
 MAX_ARIA_CONTROLS = 64
-_ID = re.compile(r"^[^\\s\\x00-\\x1f]{1,128}$")
+_ID = re.compile(r"^[^\s\x00-\x1f]{1,128}$")
 _NAV_TAGS = {"nav", "header", "footer", "menu"}
 _NAV_ROLES = {"navigation", "menu", "menubar", "contentinfo"}
 _MENU_LABELS = {"menu", "produtos", "serviços", "servicos", "navegação", "navegacao"}
@@ -53,7 +53,7 @@ def qualify_capture(capture, parser=None):
         target = target.strip() if isinstance(target, str) else ""
         nav = any(_is_navigation(n) for n in chain)
         main = any(n["tag"] in {"main", "article"} or n["attrs"].get("role") == "main" for n in chain)
-        faq = any(re.search(r"(?:^|[\\s_-])faq(?:$|[\\s_-])|perguntas[-_ ]frequentes",
+        faq = any(re.search(r"(?:^|[\s_-])faq(?:$|[\s_-])|perguntas[-_ ]frequentes",
                             str(n["attrs"].get(key) or ""), flags=re.I)
                   for n in chain for key in ("id", "class"))
         status, basis, answer, panel_ref = "UNDETERMINED_ND", "EDITORIAL_INTENT_UNPROVEN", None, None

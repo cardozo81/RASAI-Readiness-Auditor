@@ -15,7 +15,8 @@ LABELS = dict(MAIN_CONTENT="Conteúdo principal", FAQ_QUESTION="FAQ — pergunta
     FRAGMENT_ACTION="Fragmento / ação", TEXT_MENTION="Menção textual", UNKNOWN="Indeterminado")
 PAGES = {"index.html": "Síntese consultiva", "capture-context.html": "Captura e contexto",
          "cat-03.html": "Conteúdo e FAQ", "cat-05.html": "Observações Search",
-         "geo.html": "Evidências GEO", "cat-08.html": "Oportunidades consultivas",
+         "geo.html": "Evidências GEO", "geo-content-review.html": "Análise reversa de conteúdo",
+         "cat-08.html": "Oportunidades consultivas",
          "cat-09.html": "Remediações editoriais"}
 
 
@@ -162,16 +163,70 @@ def _v2_panel(report, page, *, private):
     return body + "</section>"
 
 
+
+def _content_review_panel(report, *, private):
+    """Decision-facing projection: public summaries, private physical excerpts."""
+    overlay = report.get("faq_aria_v3") or {}
+    counts = overlay.get("counts") or {}
+    v2 = report.get("semantic_v2") or {}
+    semantic = v2.get("counts") or {}
+    ai = report.get("ai") or {}
+    body = "<section class='panel' id='contextual-content'><h2>O que a captura permite concluir?</h2>"
+    body += "<p>Esta análise inverte a leitura de uma auditoria: primeiro identifica trechos e relações observados; depois expõe hipóteses e como validá-las. Não mede ranking, indexação, citações generativas nem validade jurídica de benefícios comerciais.</p>"
+    body += "<dl class='kv'><dt>Capturas examinadas</dt><dd>" + _e(len(report.get("captures", ()))) + "</dd>"
+    body += "<dt>Contextos v2 qualificados</dt><dd>" + _e(semantic.get("qualified")) + "</dd>"
+    body += "<dt>Controles ARIA examinados (v3)</dt><dd>" + _e(counts.get("controls")) + "</dd>"
+    body += "<dt>Respostas presentes no DOM da captura</dt><dd>" + _e(counts.get("answer_present")) + "</dd>"
+    body += "<dt>Painéis não observados (N/D)</dt><dd>" + _e(counts.get("not_observed_nd")) + "</dd>"
+    body += "<dt>Controles ambíguos / indeterminados</dt><dd>" + _e(counts.get("ambiguous")) + "</dd>"
+    body += "<dt>IA contextual</dt><dd>" + _e(ai.get("state", "UNAVAILABLE")) + " · " + _e(ai.get("provider_calls", 0)) + " chamadas</dd></dl>"
+    body += "<p>Painel recolhido não prova ausência de resposta no site. Conteúdo em DOM não prova visibilidade computada, acesso de bots ou indexação. Dados de Search persistidos sem equivalência de mercado, idioma, dispositivo e intenção não fundamentam comparação positiva.</p>"
+    body += "</section><section class='panel' id='content-map'><h2>Conteúdo, intenção e limites</h2>"
+    body += "<p>Title, H1–H6, corpo principal, ofertas, CTAs, referências documentais e links podem indicar contexto, mas a intenção comercial e a suficiência de suporte material exigem revisão humana. A classificação v1 e a disposição v2 permanecem consultáveis nas páginas de detalhe.</p>"
+    body += "<p><a href='cat-03.html#contextual-qualification'>Conteúdo e semântica</a> · <a href='capture-context.html#contextual-qualification'>Proveniência</a> · <a href='geo.html#contextual-qualification'>Evidências GEO</a> · <a href='cat-09.html#contextual-qualification'>Remediação</a></p></section>"
+    body += "<section class='panel' id='faq-aria-review'><h2>FAQ ARIA: acesso ao conteúdo capturado</h2>"
+    if counts.get("controls") is None:
+        body += "<p>N/D — markup estrutural insuficiente para qualificar controles ARIA nesta captura.</p>"
+    elif not counts["controls"]:
+        body += "<p>Nenhum controle elegível observado na captura; não implica ausência de FAQ no site.</p>"
+    elif not private:
+        body += "<p>Ocorrências e textos literais permanecem restritos ao companheiro privado. Contagens não são recomendações e não determinam falha de indexação.</p>"
+    else:
+        for row in overlay.get("controls", ()):
+            body += "<details><summary>" + _t(row["question"] or "Controle sem rótulo observado") + "</summary>"
+            body += "<div class='detail-body'><p>Estado: " + _e(row["status"]) + ". Base: " + _e(row["basis"]) + ".</p>"
+            body += "<p>aria-controls: <code>" + _e(row["aria_controls"]) + "</code>; aria-expanded: <code>" + _e(row["aria_expanded"]) + "</code>. Origem: " + _t(row["source_ref"]) + " · SHA-256 " + _e(row["source_sha256"]) + ".</p>"
+            if row.get("answer") is not None:
+                body += "<p>Resposta observada nesta captura: " + _t(row["answer"]) + "</p>"
+            if row.get("occurrence_id"):
+                body += "<p><a href='capture-context.html#" + _e(row["occurrence_id"]) + "'>Registro v1 e localização física</a></p>"
+            body += _reasons(row["limitations"]) + "</div></details>"
+    body += "</section><section class='panel' id='editorial-ideas'><h2>Interpretação editorial e validação</h2>"
+    body += "<p>As hipóteses existentes são contextuais e não atestam erro. Nenhuma reescrita comercial deve ser publicada sem revisar regulamentos, condições e suporte probatório. IA opcional requer consentimento específico; renderizar HTML nunca a executa.</p>"
+    if not report.get("recommendations"):
+        body += "<p>N/D — nenhuma hipótese determinística sustentada nesta captura.</p>"
+    elif private:
+        for row in report["recommendations"]:
+            body += "<details><summary>" + _e(row["problem"]) + "</summary><div class='detail-body'>"
+            body += "<p>Trecho: " + _t(row["observed_text"]) + "</p><p>Possível ajuste sob revisão: " + _e(row["suggested_change"]) + "</p>"
+            body += "<p>Validação: " + _e(row["expected_validation"]) + "</p></div></details>"
+    else:
+        body += "<p>" + _quantity(len(report["recommendations"]), "hipótese v1 preservada", "hipóteses v1 preservadas") + ". Texto e referências físicas disponíveis apenas no companheiro privado. Não apresentar como recomendações comprovadas.</p>"
+    return body + "</section>"
+
 def contextual_panel(report, page, *, private=False):
     if page not in PAGES:
         return ""
+    if page == "geo-content-review.html":
+        return _content_review_panel(report, private=private)
     # Existing engine/catalog bodies live outside this additive panel and are
     # never filtered. v1 facts/hypotheses stay in JSON and compatibility HTML.
     v1 = _v1_panel(report, page, private=private)
     v2 = _v2_panel(report, page, private=private)
+    review_link = "<p><a href='geo-content-review.html#contextual-content'>Abrir análise reversa de conteúdo — SEO/GEO</a></p>"
     if page in {"cat-05.html", "geo.html"}:
-        return v2 + v1  # Search retains its existing presentation and N/D reasons.
-    return ("<section class='panel' id='contextual-qualification'>" + v2
+        return review_link + v2 + v1  # Search retains its existing presentation and N/D reasons.
+    return (review_link + "<section class='panel' id='contextual-qualification'>" + v2
         + "<details id='contextual-v1-history'><summary>Histórico técnico v1 e compatibilidade - hipóteses estruturais, não diagnóstico editorial validado</summary>"
         + "<div class='detail-body'>" + v1 + "</div></details></section>")
 

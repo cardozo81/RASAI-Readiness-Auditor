@@ -738,6 +738,8 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             "ai-integrations.html":_ai_integrations_body(database,data),
             "directed-analysis.html":directed_analysis_body(database,data),
             "geo.html":geo_body(database,audit_id),
+            "geo-content-review.html":_audit_hero(data, "Análise reversa de conteúdo — SEO/GEO",
+                "Observações do conteúdo capturado, hipóteses editoriais e validação; sem novos scores ou provedores."),
             "methodology.html":_methodology_body(data),
             "metrics.html":_metrics_body(database,data),
         }
