@@ -217,11 +217,25 @@ def _content_review_panel(report, *, private):
     categories = structure_counts.get("evidence_categories") or {}
     body += "<p>Trechos de conteúdo principal selecionados: " + _e(categories.get("MAIN_CONTENT", 0)) + ". Alegações comerciais candidatas: " + _e(categories.get("COMMERCIAL_CANDIDATE", 0)) + ". Links documentais candidatos: " + _e(categories.get("DOCUMENT_REFERENCE", 0)) + ". CTAs: " + _e(categories.get("CTA", 0)) + ". As contagens refletem a seleção v1 e seus limites, não a totalidade do site.</p>"
     if private:
+        by_snapshot = {c["snapshot_id"]: c for c in report.get("captures", ())}
         for snapshot in structure.get("captures", ()):
             body += "<details><summary>Estrutura observada · " + _e(snapshot["device"]) + "</summary><div class='detail-body'>"
-            body += "<p>Title: " + _t((snapshot.get("title") or {}).get("text")) + "</p>"
-            for heading in snapshot["headings"]:
-                body += "<p><strong>" + _e(heading["tag"].upper()) + "</strong> [" + _e(heading["scope"]) + "] " + _t(heading["text"]) + " · SHA-256 " + _e(heading["source_sha256"]) + " · posição " + _e(heading["text_range"]) + "</p>"
+            origin = by_snapshot.get(snapshot["snapshot_id"], {})
+            body += "<p>Captura: " + _e(origin.get("captured_at")) + " · superfície: " + _e(origin.get("surface")) + ".</p>"
+            body += "<p>Fonte: <code>" + _e(snapshot["source_ref"]) + "</code> · SHA-256 <code>" + _e(snapshot["source_sha256"]) + "</code>.</p>"
+            body += "<p><strong>Title:</strong> " + _t((snapshot.get("title") or {}).get("text")) + "</p>"
+            for scope, label in (("MAIN_OR_ARTICLE", "Área principal"),
+                                 ("BODY_OR_UNDETERMINED", "Corpo com escopo N/D"),
+                                 ("NAVIGATION_OR_TEMPLATE", "Navegação e template")):
+                headings = [h for h in snapshot["headings"] if h["scope"] == scope]
+                if not headings:
+                    continue
+                body += "<details><summary>" + _e(label) + " · " + str(len(headings)) + " headings</summary><ol>"
+                for heading in headings:
+                    span = heading["text_range"]
+                    body += "<li><strong>" + _e(heading["tag"].upper()) + "</strong> " + _t(heading["text"])
+                    body += " · posição " + _e(span["start"]) + "-" + _e(span["end"]) + " no HTML decodificado</li>"
+                body += "</ol></details>"
             body += _reasons(snapshot["limitations"]) + "</div></details>"
     else:
         body += "<p>Title e headings literais ficam disponíveis somente no companheiro privado com proveniência. Divergências de intenção devem ser verificadas por editor responsável.</p>"
