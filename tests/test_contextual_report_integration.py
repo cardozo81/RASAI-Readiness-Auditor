@@ -136,7 +136,16 @@ def test_each_of_21_html_pages_uses_historical_persisted_timezone(tmp_path, monk
         assert "Europe/Berlin" in html, page.filename
         assert "configuração persistida da auditoria" in html, page.filename
         assert "Asia/Tokyo" not in html, page.filename
-    assert "15/09/2026 22:00:00 (Europe/Berlin)" in (
-        report / "index.html").read_text(encoding="utf-8")
+    # The synthetic index does not expose audit.created_at as a visible field.
+    # Verify actual timestamp conversion at the exact common shell entrypoint.
+    from rasai.catalog_report_contract import page_by_filename
+    from rasai.catalog_report_presentation import _shell
+    rendered = _shell(page_by_filename("index.html"), AUDIT_ID,
+        "<p>Evento 2026-09-15T20:00:00Z</p>"
+        "<code>2026-09-15T20:00:00Z</code>",
+        timezone_name="Europe/Berlin",
+        timezone_source="settings.presentation.timezone")
+    assert "15/09/2026 22:00:00 (Europe/Berlin)" in rendered
+    assert "<code>2026-09-15T20:00:00Z</code>" in rendered
     assert catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace, report_dir=report)
 
