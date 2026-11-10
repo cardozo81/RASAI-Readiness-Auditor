@@ -295,10 +295,12 @@ python -m pytest -q -rs tests/test_contextual_content.py tests/test_contextual_a
   baseline integral; a paridade externa ao painel é provada pelo teste específico
   acima, não por alegação de paridade de todo texto visível do smoke.
 - Companheiro privado: 14 combinações página/viewport, JavaScript desativado,
-  sem overflow, sem requests remotos e com hashes preservados. Deep link legado
+  sem overflow, sem requests remotos e com hashes preservados. Deep link v1
   de ocorrência continua revelando o histórico sem JavaScript.
 - Gate público, parser PowerShell e `git diff --check` aprovados. Nenhuma execução
   manual da regressão integral; o CI existente executa os gates do novo HEAD.
+- Gates documentais finais, incluindo o contrato do launcher:
+  `python -m pytest -q tests/test_console_launcher_contract.py tests/test_documentation_contract.py tests/test_prepublication_documentation_contract.py tests/test_documentation_public_naming.py tests/test_rasai_namespace_contract.py tests/test_user_facing_language_contract.py`: **41 passed em 7,19 s**.
 
 Logs e capturas sintéticos ficam em diretório privado externo ao checkout.
 Homologação única da correção na AUD real e autorização de merge permanecem
