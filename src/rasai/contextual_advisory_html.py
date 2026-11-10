@@ -244,17 +244,31 @@ def _content_review_panel(report, *, private):
                 body += "<p><a href='capture-context.html#" + _e(row["occurrence_id"]) + "'>Registro v1 e localização física</a></p>"
             body += _reasons(row["limitations"]) + "</div></details>"
     body += "</section>" + _review_task_panel(report, private=private)
-    body += "<section class='panel' id='editorial-ideas'><h2>Interpretação editorial e validação</h2>"
-    body += "<p>As hipóteses existentes são contextuais e não atestam erro. Nenhuma reescrita comercial deve ser publicada sem revisar regulamentos, condições e suporte probatório. IA opcional requer consentimento específico; renderizar HTML nunca a executa.</p>"
-    if not report.get("recommendations"):
-        body += "<p>N/D — nenhuma hipótese determinística sustentada nesta captura.</p>"
-    elif private:
-        for row in report["recommendations"]:
+    body += "<section class='panel' id='editorial-ideas'><h2>Decisão editorial e histórico técnico v1</h2>"
+    semantic = report.get("semantic_v2") or {}
+    totals = semantic.get("recommendation_counts") or {}
+    body += "<p>Ações editoriais comprovadas na qualificação v2: " + _e(totals.get("qualified", "N/D")) + ". Histórico técnico v1 não é lista de erros nem orienta publicação automática.</p>"
+    body += "<p>" + _quantity(totals.get("not_actionable", 0), "hipótese não acionável", "hipóteses não acionáveis") + " e " + _quantity(totals.get("nd", 0), "hipótese ainda indeterminada", "hipóteses ainda indeterminadas") + ".</p>"
+    dispositions = {h["v1_recommendation_id"]: h for h in semantic.get("recommendation_history", ())}
+    for title, inactive in (("Contexto histórico a validar", False),
+                            ("Controles e fragmentos não acionáveis", True)):
+        items = [item for item in report.get("recommendations", ())
+                 if bool(dispositions.get(item["recommendation_id"], {}).get("not_actionable")) == inactive]
+        if not items:
+            continue
+        body += "<details><summary>" + _e(title) + " · " + str(len(items)) + "</summary><div class='detail-body'>"
+        for row in items:
             body += "<details><summary>" + _e(row["problem"]) + "</summary><div class='detail-body'>"
-            body += "<p>Trecho: " + _t(row["observed_text"]) + "</p><p>Possível ajuste sob revisão: " + _e(row["suggested_change"]) + "</p>"
-            body += "<p>Validação: " + _e(row["expected_validation"]) + "</p></div></details>"
-    else:
-        body += "<p>" + _quantity(len(report["recommendations"]), "hipótese v1 preservada", "hipóteses v1 preservadas") + ". Texto e referências físicas disponíveis apenas no companheiro privado. Não apresentar como recomendações comprovadas.</p>"
+            if private:
+                body += "<p>Trecho v1: " + _t(row["observed_text"]) + "</p>"
+                body += "<p>Hipótese original: " + _e(row["suggested_change"]) + "</p>"
+                body += "<p>Validação proposta: " + _e(row["expected_validation"]) + "</p>"
+                for ref in row["evidence_refs"]:
+                    body += "<p><a href='capture-context.html#" + _e(ref["occurrence_id"]) + "'>Referência original da captura</a> · SHA-256 <code>" + _e(ref["source_sha256"]) + "</code></p>"
+            else:
+                body += "<p>Provas e trechos literais restritos ao companheiro privado.</p>"
+            body += "</div></details>"
+        body += "</div></details>"
     return body + "</section>"
 
 def contextual_panel(report, page, *, private=False):
