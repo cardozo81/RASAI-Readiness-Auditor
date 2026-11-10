@@ -59,6 +59,24 @@ def test_html_hostility_and_limits():
     assert extract_document(raw, media_type="text/html", limits=DocumentLimits(max_chars=2))["status"] == "NOT_VERIFIED"
 
 
+def test_pdf_page_stream_limits_and_timeout(monkeypatch):
+    raw = synthetic_pdf()
+    assert extract_document(raw, media_type=None, limits=DocumentLimits(max_stream_bytes=10))["status"] == "NOT_VERIFIED"
+    from rasai import document_text
+    import subprocess
+    def timeout(*a, **kw):
+        raise subprocess.TimeoutExpired("synthetic parser", 1)
+    monkeypatch.setattr(document_text.subprocess, "run", timeout)
+    assert extract_document(raw, media_type=None)["reason"] == "EXTRACTION_TIMEOUT_ND"
+
+
+def test_excerpt_hash_tampering_fails():
+    doc = extract_document(b"<body>Product Alpha</body>", media_type="text/html")
+    doc["text"] = "Product Other"
+    with pytest.raises(ValueError):
+        evidence_span(doc, page=1, start=0, end=13, quote=doc["text"])
+
+
 @pytest.mark.parametrize("state", sorted(APPLICABILITY))
 def test_many_to_many_states_never_promote_claim(state):
     doc = extract_document(b"<main>Product Alpha version 2 effective 2026</main>", media_type="text/html")

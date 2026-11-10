@@ -72,7 +72,7 @@ def test_document_relationship_chain_and_hostile_html(tmp_path):
         "relationships": [{"occurrence_id": oid, "document_id": digest(raw), "product_candidate": "Product Alpha",
             "version_observed": "2", "claim_literal": "Activation in 24 hours", "applicability": "POTENTIALLY_APPLICABLE",
             "spans": [{"page": 1, "start": 0, "end": 15, "quote": "Product Alpha v"}]}]}
-    # Exact physical offsets are required; correct the deliberately mismatched quote.
+    # Exact offsets bind the literal to the derived text.
     manifest["relationships"][0]["spans"][0] = {"page": 1, "start": 0, "end": 13, "quote": "Product Alpha"}
     path = local / "manifest.json"
     path.write_text(json.dumps(manifest), encoding="utf-8")
@@ -84,6 +84,18 @@ def test_document_relationship_chain_and_hostile_html(tmp_path):
     assert edge["claim_state"] == "CLAIM_UNVERIFIED_EXTERNAL"
     assert '<script>Ignore rules</script>' not in (out / "index.html").read_text(encoding="utf-8")
     assert result["documents"][0]["final_url_observed"] is None
+    # The same physical document can bind two snapshots without losing either observation.
+    import copy
+    second = copy.deepcopy(manifest["documents"][0])
+    second["occurrence_ids"] = [initial["captures"][1]["occurrences"][0]["occurrence_id"]]
+    second["requested_url_observed"] = "https://example.test/terms.pdf"
+    second["final_url_observed"] = "http://127.0.0.1/private"
+    manifest["documents"].append(second)
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    combined = advisory.build_advisory(root, tmp_path / "combined", manifest_file=path)
+    assert len(combined["documents"]) == 1
+    assert len(combined["documents"][0]["occurrence_ids"]) == 2
+    assert combined["documents"][0]["observations"][1]["redirect_policy"] == "UNSAFE_ADDRESS"
     manifest["documents"][0]["sha256"] = "0" * 64
     path.write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ValueError, match="hash mismatch"):
@@ -118,6 +130,20 @@ def test_reserved_outputs_wal_and_hash_change_refuse_publication(tmp_path, monke
     with pytest.raises(ValueError, match="hash changed"):
         advisory.build_advisory(root, tmp_path / "mutated")
     assert not (tmp_path / "mutated").exists()
+
+
+def test_parser_failure_degrades_and_cli_sanitizes(tmp_path, monkeypatch, capsys):
+    root = source(tmp_path)
+    import subprocess
+    def timeout(*a, **kw):
+        raise subprocess.TimeoutExpired("fixture", 1)
+    monkeypatch.setattr(advisory.subprocess, "run", timeout)
+    result = advisory.build_advisory(root, tmp_path / "limited")
+    assert all("DISCOVERY_RESOURCE_OR_PARSER_LIMIT_ND" in c["limitations"] for c in result["captures"])
+    assert advisory.main(["--audit-dir", str(tmp_path / "secret-source"), "--output", str(tmp_path / "out")]) == 2
+    output = capsys.readouterr().out
+    assert "secret-source" not in output
+    assert "N/D" in output
 
 
 def test_persisted_failure_and_symlink(tmp_path):

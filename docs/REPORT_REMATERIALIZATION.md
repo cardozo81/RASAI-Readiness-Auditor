@@ -45,7 +45,7 @@ Os estados consultivos constam de `CLAIM_VERIFICATION.md`. Ausência de relaçõ
 `reference_observations` opcional vincula uma falha **já persistida** por
 `occurrence_id`, `artifact_ref` dentro de artifacts e `sha256`. O artefato JSON
 deve registrar `requested_url` exata, `observed_at` com timezone e `http_status`
-400–599 ou `error` igual a `TLS_ERROR`, `TIMEOUT`, `NOT_ACCESSIBLE`. Só então a
+400-599 ou `error` igual a `TLS_ERROR`, `TIMEOUT`, `NOT_ACCESSIBLE`. Só então a
 referência é `NOT_ACCESSIBLE`; link sem visita continua `REFERENCED_ONLY`.
 Esses registros não demonstram nova visita nem autenticidade independente.
 

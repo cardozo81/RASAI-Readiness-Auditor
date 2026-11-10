@@ -17,7 +17,7 @@ import sys
 import tempfile
 import time
 
-from rasai.contextual_documents import CONTRACT, digest, discover_references
+from rasai.contextual_documents import CONTRACT, digest, discover_references, reference_url
 from rasai.document_relationships import evidence_span, relate
 from rasai.document_text import extract_document
 from rasai.domain import DeviceContext, PageSnapshot
@@ -221,6 +221,7 @@ def build_advisory(audit_dir: Path, output: Path, *, manifest_file: Path | None 
         occurrence["reference_state"] = "NOT_ACCESSIBLE"
         occurrence["failure_observation"] = observation | {"basis": "PERSISTED_RECORD_NOT_INDEPENDENTLY_AUTHENTICATED"}
     documents = []
+    documents_by_hash = {}
     originals = {}
     document_seals = {}
     for entry in manifest["documents"]:
@@ -245,9 +246,26 @@ def build_advisory(audit_dir: Path, output: Path, *, manifest_file: Path | None 
                                              "requested_url_observed", "final_url_observed", "occurrence_ids")})
         # URL labels are retained as operator assertions, never redirect verification.
         doc["origin_verification"] = "OPERATOR_ASSERTED_NOT_INDEPENDENTLY_VERIFIED"
+        requested = entry.get("requested_url_observed")
+        final = entry.get("final_url_observed")
+        doc["redirect_policy"] = (reference_url(requested, final)[1]
+                                  if isinstance(requested, str) and isinstance(final, str)
+                                  else "REDIRECT_NOT_VERIFIED")
         doc["original_ref"] = "originals/" + doc["document_id"] + ".bin"
         originals[doc["original_ref"]] = raw
-        documents.append(doc)
+        observation = {key: doc[key] for key in ("observed_at", "acquisition_basis", "authorization_ref",
+                                                  "requested_url_observed", "final_url_observed", "origin_verification", "redirect_policy")}
+        if doc["document_id"] in documents_by_hash:
+            existing = documents_by_hash[doc["document_id"]]
+            if existing["declared_media_type"] != doc["declared_media_type"]:
+                raise ValueError("same original document has conflicting declared media types")
+            existing["occurrence_ids"] = list(dict.fromkeys(existing["occurrence_ids"] + doc["occurrence_ids"]))
+            existing["observations"].append(observation)
+        else:
+            doc["observations"] = [observation]
+            doc["occurrence_ids"] = list(doc["occurrence_ids"])
+            documents.append(doc)
+            documents_by_hash[doc["document_id"]] = doc
         for oid in entry["occurrence_ids"]:
             occurrences[oid][1]["reference_state"] = doc["status"]
     by_id = {d["document_id"]: d for d in documents}
@@ -270,7 +288,9 @@ def build_advisory(audit_dir: Path, output: Path, *, manifest_file: Path | None 
             claim_bytes = _read(claim_file, 2_000_000)
             if claim not in claim_bytes.decode("utf-8"):
                 raise ValueError("claim literal absent from captured page text")
-            claim_ref = {"artifact_ref": snap.main_content_ref, "sha256": digest(claim_bytes)}
+            claim_text = claim_bytes.decode("utf-8")
+            claim_ref = {"artifact_ref": snap.main_content_ref, "sha256": digest(claim_bytes),
+                         "start": claim_text.index(claim), "end": claim_text.index(claim) + len(claim)}
         allowed = {k: edge.get(k) for k in ("product_candidate", "version_observed", "effective_observed", "claim_literal")}
         relation = relate(occurrence_id=edge["occurrence_id"], page_id=capture["page_id"], document=doc,
                           spans=spans, applicability=edge.get("applicability", "INSUFFICIENT_EVIDENCE"),

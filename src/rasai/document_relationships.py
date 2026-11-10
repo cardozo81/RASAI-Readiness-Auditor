@@ -4,7 +4,7 @@ No equivalence to claim_source_verification.product_scope and no signed outcomes
 """
 from __future__ import annotations
 
-from rasai.contextual_documents import stable_id
+from rasai.contextual_documents import digest, stable_id
 
 APPLICABILITY = frozenset({"POTENTIALLY_APPLICABLE", "INSUFFICIENT_EVIDENCE",
                           "SCOPE_DEMONSTRATED", "PRODUCT_INCOMPATIBLE",
@@ -13,6 +13,7 @@ APPLICABILITY = frozenset({"POTENTIALLY_APPLICABLE", "INSUFFICIENT_EVIDENCE",
 
 def evidence_span(document: dict, *, page: int, start: int, end: int, quote: str) -> dict:
     if (document["status"] != "DOCUMENT_COLLECTED" or not quote
+            or digest(document["text"].encode()) != document["text_sha256"]
             or type(start) is not int or type(end) is not int
             or not 0 <= start < end <= len(document["text"])
             or document["text"][start:end] != quote

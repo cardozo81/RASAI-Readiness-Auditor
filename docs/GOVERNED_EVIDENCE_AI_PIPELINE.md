@@ -23,6 +23,16 @@ A regra vale para execução local, console interativo e job `AUDIT` do SaaS. N�
 
 ## Princípios obrigatórios
 
+O companheiro documental passivo é consumidor externo da evidência persistida,
+sem nova coleta e sem mudança de fase da AUD. Usa `ContentExtractor`, contratos
+de snapshot/URL e Design System existentes; o contexto adjacente suplementa
+anchors sem alterar o produtor canônico. Seu inventário versionado mantém
+identidade de ocorrência distinta de documento/versão. HTML/PDF local e relações
+consultivas nunca substituem a revisão independente da #603. Interface,
+segurança, limites e manifesto: [companheiro documental](REPORT_REMATERIALIZATION.md#companheiro-documental-offline).
+Não há perfil de necessidade/consentimento documental habilitado para IA; a
+solicitação degrada sem chamadas. Nenhum motor de scoring recebe essas hipóteses.
+
 1. **IA não é coletor.** Nenhum provider substitui HTTP, browser, GSC, PageSpeed/CrUX, Clarity, SERP ou outro coletor configurado.
 2. **Coleta requerida termina antes da IA.** Um coletor não precisa terminar em `SUCCESS`, mas precisa chegar a um estado terminal explicitamente classificado.
 3. **Contexto de IA é versionado.** A IA referencia uma versão imutável da evidência da AUD.
