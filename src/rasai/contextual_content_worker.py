@@ -36,6 +36,11 @@ def main():
     except (ValueError, TypeError, KeyError, IndexError, AttributeError):
         overlay = qualify_capture(result)
     result["semantic_overlay_v2"] = overlay
+    from rasai.contextual_faq_aria import qualify_capture as qualify_aria
+    try:
+        result["faq_aria_overlay_v3"] = qualify_aria(result, parsed[0] if parsed else None)
+    except (ValueError, TypeError, KeyError, IndexError, AttributeError):
+        result["faq_aria_overlay_v3"] = qualify_aria(result)
     combined = json.dumps(result, ensure_ascii=True).encode("ascii")
     # An optional overlay must never displace a v1 packet within its existing
     # output budget. Missing v2 trace degrades to N/D in the parent consumer.
