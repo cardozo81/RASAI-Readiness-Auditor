@@ -221,6 +221,28 @@ def _search_status(state: Any) -> tuple[str, str]:
             "APTO COM LIMITAÇÕES",
             "GSC solicitado ainda não está apto; a auditoria continuará: " + gsc_detail,
         )
+    # Perplexity is an independent, opt-in CAT-05 advisory source. An explicit
+    # request may make CAT-05 executable without requiring paid SERP or GSC.
+    # Configuration alone never creates a billable request.
+    from rasai.console_perplexity_readiness import inspect_perplexity_readiness
+    px = inspect_perplexity_readiness(state)
+    if bool(px["queries_requested"]):
+        if bool(px["executable_request_pending"]):
+            return (
+                "APTO",
+                f"Perplexity externa apta ({px['query_count']} query(s), "
+                f"{px['mode']}); SERP não solicitada; GSC não obrigatório",
+            )
+        return (
+            "APTO COM LIMITAÇÕES",
+            f"Perplexity solicitada, mas não apta: {px['status']}",
+        )
+    if bool(px["draft_awaits_run_confirmation"]):
+        return (
+            "APTO COM LIMITAÇÕES",
+            "Rascunho Perplexity pronto; solicitação comercial depende de "
+            "confirmação explícita nesta AUD",
+        )
     return "BLOQUEADO", "configure termos SERP ou uma fonte GSC aplicável para produzir Search Intelligence"
 
 

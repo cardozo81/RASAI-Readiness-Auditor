@@ -259,7 +259,7 @@ No CAT-05, a ação **P. Perplexity externa** abre o pedido da próxima execuç�
 - visualizar readiness e estado da credencial;
 - abrir o editor canônico de `PERPLEXITY_API_KEY`.
 
-Queries e `WEB/FAST` são inputs da próxima execução. Eles não são convertidos em variáveis de ambiente e não são gravados como secrets/configuração reutilizável no `rasai-console.ini`.
+Queries e `WEB/FAST` são inputs da próxima execução, distintos de credenciais e filtros de ambiente. Ao usar `S. Salvar configuração`, o console grava `[perplexity_draft]` com `queries`, `source_target` e `search_type` (WEB/FAST) no `rasai-console.ini`, **apenas como rascunho inerte**. Esse arquivo não contém autorização de execução comercial: na próxima AUD, o operador precisa solicitar explicitamente Perplexity e passar pelas confirmações aplicáveis. A `PERPLEXITY_API_KEY` nunca é gravada no INI; `geo_ai_requested` e o consentimento de lote multiquery também não são persistidos.
 
 `PERPLEXITY_API_KEY` é a única **credencial secreta** consumida pelo runtime Perplexity. Flag de ativação e filtros opcionais são configurações não secretas. O editor é o mesmo usado pelo catálogo global: entrada mascarada, sessão e persistência/remoção explícita em Windows/User; o valor nunca entra no INI.
 
@@ -822,6 +822,20 @@ URLs retornadas pela Search API não são reparadas por `strip()` ou `str()` ant
 O decodificador de resposta de sucesso rejeita chaves JSON repetidas em qualquer objeto (inclusive no item de URL individual e seus metadados) e constantes numéricas não conformes como NaN/Infinity. Não escolhe silenciosamente o último `url` ou `results` e não persiste citação inventada por um parser last-key-wins. Resposta HTTP 200 inválida continua classificada `INVALID_RESPONSE` com tentativa potencialmente faturada; nenhum índice ou AUD histórica é regravado.
 
 
-## Evolução candidata v0.9.2 - #681 e #682
+## Aceite físico controlado - Perplexity-only FAST (02/11/2026)
+
+A AUD `AUD-1502D2E9714F45878915D452633BE9B3` (MOBILE, `https://ecosistemasti.com.br/`) comprovou o cenário de uma consulta `consultoria de ti` em FAST, sem solicitação SERP/GSC, sem CAT-08 e sem IA generativa:
+
+- `perplexity_search_runs`: 1 execução `SUCCESS`, HTTP 200, `search_type=FAST`, resposta identificável e uma consulta persistida;
+- `perplexity_search_sources`: 10 fontes relacionadas ao run, visíveis em `geo.html`, `cat-05.html` e na telemetria;
+- `ai_provider_attempts`: tentativa `SEARCH_API`, **não** inferência LLM; estimativa pós-uso USD 0.001000, sem preço faturado informado pelo provider;
+- `geo_observation_runs`: alvo ausente **somente da amostra das dez URLs retornadas**. Não há prova sobre citação em respostas generativas. Comparação SERP × Perplexity **não aplicável**, pois SERP não foi solicitada;
+- status final `COMPLETED / COMPLETE_WITH_LIMITATIONS`, com limitações independentes de Common Crawl e Apdex, sem reclassificar o sucesso Perplexity.
+
+A projeção GEO usa evidência **explícita** do snapshot da própria AUD para informar `SERP não solicitada`; ausência de linha SERP por si só continua sendo **inconclusiva**. O relatório evita uma segunda seção de comparação e uma síntese competitiva vazia nesse caso, preservando links, fontes, códigos e IDs de origem. A leitura offline `GEO-PER-QUERY-304` aceita uma AUD `COMPLETE_WITH_LIMITATIONS` já encerrada, sujeita às mesmas verificações físicas de identidade, integridade e não alteração do SQLite.
+
+O teste físico comprova Search API no cenário Perplexity-only; **não** é homologação de inferência GEO paga multiquery, equivalência de mercados entre provedores ou cobertura de todas as consultas comerciais. Não repetir pesquisas faturáveis para validar apenas apresentação: uma prévia HTML pode ser regenerada **somente em memória/arquivo separado**, sem sobrescrever a AUD selada. Correções da PR #686 são posteriores à tag publicada `v0.9.2`; o pacote histórico não muda retroativamente.
+
+## Evolução v0.9.2 - #681 e #682
 
 O detalhamento normativo da execução multiquery GEO por consulta, da autorização econômica específica, dos estados de proveniência e da reanálise consultiva de AUD concluída está em [GEO_AI_MULTIQUERY_AND_REANALYSIS.md](GEO_AI_MULTIQUERY_AND_REANALYSIS.md). Esta implementação é **candidata**, não homologa chamadas comerciais nem altera retroativamente a interpretação das pesquisas multiquery antigas.

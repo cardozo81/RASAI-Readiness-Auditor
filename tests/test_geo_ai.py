@@ -632,3 +632,133 @@ def test_geo_ai_takes_first_twelve_valid_sources_after_filtering(tmp_path):
     ) == "AVAILABLE"
     assert consumer.calls == 1
     assert len(consumer.last_ids) == 12
+
+
+def test_geo_ai_post_core_attempt_ledger_is_durable_and_replay_is_free(tmp_path):
+    """The GEO consumer's native token usage must not disappear after core M18."""
+    from datetime import datetime, timezone
+    from rasai.m18_ai import AttemptStatus, ProviderAttempt, ProviderUsage
+
+    class RecordingConsumer(FakeCanonicalConsumer):
+        def __init__(self):
+            self._pending = ()
+
+        def analyze(self, evidence_input):
+            output = super().analyze(evidence_input)
+            now = datetime.now(timezone.utc)
+            self._pending = (
+                ProviderAttempt(
+                    provider="OPENAI",
+                    model="gpt-fixture",
+                    reasoning_profile="HIGH",
+                    provider_rank=1,
+                    attempt_index=1,
+                    snapshot_id="",
+                    url="",
+                    started_at=now,
+                    finished_at=now,
+                    duration_ms=1,
+                    status=AttemptStatus.SUCCESS,
+                    usage=ProviderUsage(
+                        input_tokens=120, output_tokens=60, total_tokens=180,
+                    ),
+                    estimated_cost=0.002,
+                    cost_currency="USD",
+                    semantic_contract_version="COMPETITIVE-AI-001",
+                    attempt_id="AIA-GEO-TEST-1",
+                ),
+            )
+            return output
+
+        def consume_attempts(self):
+            pending, self._pending = self._pending, ()
+            return pending
+
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    # The fixture's minimal SQLite schema must declare M18's nullable FKs.
+    with sqlite3.connect(db) as con:
+        con.execute("CREATE TABLE pages (page_id TEXT PRIMARY KEY)")
+        con.execute("CREATE TABLE page_snapshots (snapshot_id TEXT PRIMARY KEY)")
+    consumer = RecordingConsumer()
+    factory = lambda _: consumer
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto", provider_factory=factory,
+    ) == "AVAILABLE"
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto", provider_factory=factory,
+    ) == "AVAILABLE"
+    assert consumer.calls == 1
+    with sqlite3.connect(db) as con:
+        row = con.execute(
+            "SELECT attempt_id,provider,operation,input_tokens,output_tokens,"
+            "total_tokens,estimated_cost FROM ai_provider_attempts"
+        ).fetchone()
+        assert row == (
+            "AIA-GEO-TEST-1", "OPENAI", "COMPETITIVE_INTELLIGENCE",
+            120, 60, 180, 0.002,
+        )
+        assert con.execute(
+            "SELECT count(*) FROM ai_provider_attempts",
+        ).fetchone()[0] == 1
+        # GEO must never overwrite or manufacture the central AI session.
+        assert con.execute(
+            "SELECT count(*) FROM ai_audit_sessions",
+        ).fetchone()[0] == 0
+        assert con.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+
+
+def test_geo_ai_ledger_failure_abstains_and_never_reissues_billed_call(
+    tmp_path, monkeypatch,
+):
+    from rasai import geo_ai
+
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    consumer = FakeCanonicalConsumer()
+
+    def broken_ledger(*_args):
+        raise sqlite3.OperationalError("simulated post-core ledger failure")
+
+    monkeypatch.setattr(geo_ai, "_persist_geo_ai_attempts", broken_ledger)
+    factory = lambda _: consumer
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto", provider_factory=factory,
+    ) == "UNAVAILABLE"
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto", provider_factory=factory,
+    ) == "UNAVAILABLE"
+    assert consumer.calls == 1
+    with sqlite3.connect(db) as con:
+        assert con.execute(
+            "SELECT state,error_reason,summary FROM geo_ai_interpretations"
+        ).fetchone() == (
+            "UNAVAILABLE", "GEO_AI_TELEMETRY_PERSISTENCE_FAILED", None,
+        )
+
+
+def test_geo_available_without_canonical_attempts_is_not_published(tmp_path):
+    """A successful assessment without its owned call ledger is not verifiable."""
+    from rasai.geo_ai import execute_geo_ai
+
+    class LostAttemptsConsumer(FakeCanonicalConsumer):
+        def consume_attempts(self):
+            return ()
+
+    db = tmp_path / "audit.db"
+    GeoAiConsumerTests()._db(db)
+    consumer = LostAttemptsConsumer()
+    factory = lambda _: consumer
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto", provider_factory=factory,
+    ) == "UNAVAILABLE"
+    assert execute_geo_ai(
+        db, "AUD-1", provider_selection="auto", provider_factory=factory,
+    ) == "UNAVAILABLE"
+    assert consumer.calls == 1
+    with sqlite3.connect(db) as con:
+        assert con.execute(
+            "SELECT state,summary,error_reason FROM geo_ai_interpretations"
+        ).fetchone() == (
+            "UNAVAILABLE", None, "GEO_AI_TELEMETRY_PERSISTENCE_FAILED",
+        )

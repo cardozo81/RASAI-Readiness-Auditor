@@ -158,3 +158,76 @@ def test_geo_global_abstention_is_causal_and_read_only(monkeypatch, tmp_path):
     assert "<code>SERP_SCOPE_SCHEMA_UNVERIFIABLE</code>" in html
     assert "Condição técnica não catalogada" not in html
     assert db.read_bytes() == before
+
+
+
+def test_completed_with_limitations_perplexity_only_has_one_clear_geo_message(tmp_path):
+    """Reproduce the physical FAST/one-query/no-SERP case without provider calls."""
+    from rasai.report_presentation import humanize_report_html
+
+    db = _physical(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.executescript("""
+            UPDATE audits SET completion_status='COMPLETE_WITH_LIMITATIONS';
+            UPDATE perplexity_search_runs
+              SET query_json='["seguro <vida>"]', search_type='fast';
+            DELETE FROM perplexity_search_sources WHERE query='seguro casa';
+            DELETE FROM serp_results;
+            DELETE FROM serp_observations;
+            CREATE TABLE audit_execution_configurations (
+                audit_id TEXT, configuration_kind TEXT, configuration_json TEXT
+            );
+            INSERT INTO audit_execution_configurations VALUES (
+                'AUD-REPORT304', 'CONSOLE',
+                '{"search_intelligence":{"enabled":false,"queries":[]}}'
+            );
+            CREATE TABLE geo_observation_runs (
+                analysis_id TEXT, audit_id TEXT, projection_json TEXT,
+                created_at TEXT
+            );
+            INSERT INTO geo_observation_runs VALUES (
+                'GEO-1', 'AUD-REPORT304',
+                '{"perplexity_run_id":"PX-1","serp_observation_id":null,'
+                || '"descriptive_overlap":{"status":"NOT_COMPARABLE",'
+                || '"reason":"NO_EQUIVALENT_OBSERVED_SERP_QUERY"}}',
+                '2026-10-10T12:10:00Z'
+            );
+        """)
+    before = sha256(db.read_bytes()).hexdigest()
+    html = humanize_report_html(geo_body(db, "AUD-REPORT304"), page_name="geo.html")
+    assert "Perplexity Search API realizada com sucesso" in html
+    assert "1 execução persistida" in html
+    assert "2 fontes materializadas" in html
+    assert "Comparação: não aplicável" in html
+    assert "SERP não solicitada nesta AUD" in html
+    assert "NO_EQUIVALENT_OBSERVED_SERP_QUERY" in html
+    assert 'data-contract="GEO-PER-QUERY-304"' not in html
+    assert "Condição técnica não catalogada" not in html
+    assert "sem consulta Perplexity" not in html
+    assert "Síntese competitiva por IA" not in html
+    assert "Consultas agrupadas em um request" not in html
+    assert sha256(db.read_bytes()).hexdigest() == before
+
+
+def test_no_serp_claim_requires_unambiguous_explicit_config(tmp_path):
+    """No SERP observation alone must never be rewritten as no SERP request."""
+    db = _physical(tmp_path)
+    with sqlite3.connect(db) as con:
+        con.execute("DELETE FROM serp_results")
+        con.execute("DELETE FROM serp_observations")
+    html = geo_body(db, "AUD-REPORT304")
+    assert "SERP não solicitada nesta AUD" not in html
+    assert "Comparação: N/D" in html
+
+
+def test_geo_unknown_physical_reason_retains_explanation_and_machine_code(tmp_path):
+    """No generic 'uncatalogued condition' after report humanization."""
+    from rasai.report_presentation import humanize_report_html
+
+    db = _physical(tmp_path)
+    rendered = humanize_report_html(
+        geo_query_advisory_html(db, "AUD-OTHER"), page_name="geo.html"
+    )
+    assert "Escopo físico da auditoria não verificado" in rendered
+    assert "PHYSICAL_AUD_SCOPE_NOT_VERIFIED" in rendered
+    assert "Condição técnica não catalogada" not in rendered

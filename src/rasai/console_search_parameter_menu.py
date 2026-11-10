@@ -276,6 +276,13 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
     if len(queries) > maximum:
         print(f"  Valor inválido: use de 1 a {maximum} queries.")
         return
+    # A saved/edited draft mode is the operator's prepared choice when a
+    # request is first activated. Otherwise a fresh query silently falls back
+    # to the session default WEB despite a FAST draft shown on screen.
+    if not tuple(getattr(state, "perplexity_queries", ()) or ()):
+        draft_type = str(getattr(state, "perplexity_draft_search_type", "web") or "web").strip().lower()
+        if draft_type in {"web", "fast"}:
+            state.perplexity_search_type = draft_type
     state.perplexity_queries = queries
     from rasai.target_scope_reconciliation import bind
     bind(state, "PERPLEXITY")
@@ -676,6 +683,8 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print("9. Reutilizar/limpar rascunho Perplexity salvo (solicitação explícita)")
         print("A. Reanalisar integrações de AUD concluída (somente dados locais)")
         print(f"  Síntese GEO por IA    : {'SOLICITADA' if bool(getattr(state, 'geo_ai_requested', False)) else 'NÃO SOLICITADA'}")
+        print("  Opção 5 (N) cancela apenas IA GEO; chave/integração continuam configuradas.")
+        print("  Salvar no INI: retorne ao plano e use S; queries/modo viram rascunho.")
         print("D. Não solicitar Perplexity nesta execução")
         print("V. Voltar ao CAT-05")
         raw = input("Opção Perplexity: ").strip().upper()
