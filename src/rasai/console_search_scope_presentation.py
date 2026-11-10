@@ -45,7 +45,9 @@ def render_search_scope(state: Any) -> None:
     info("Device da auditoria", _friendly_device(getattr(state, "device", "mobile")))
 
     print()
-    print(paint("O QUE PESQUISAR", CYAN, bold=True))
+    print(paint("SERP — PESQUISA TRADICIONAL (Google/Bing por SerpApi ou fornecedor selecionado)", CYAN, bold=True))
+    print("  SERP é a fonte de resultados de busca. SerpApi é apenas um fornecedor SERP.")
+    print("  As consultas SERP são independentes da Perplexity e podem ser reutilizadas mediante pedido específico.")
     info("Termos de busca", "; ".join(queries) if queries else "<não configurados>")
     info("Quantidade de termos", len(queries))
     info("Localidade", region or "<usa apenas país/mercado da auditoria>")
@@ -82,7 +84,7 @@ def render_search_scope(state: Any) -> None:
     )
 
     print()
-    print(paint("GOOGLE SEARCH CONSOLE", CYAN, bold=True))
+    print(paint("GOOGLE SEARCH CONSOLE — DADOS DA PROPRIEDADE VERIFICADA", CYAN, bold=True))
     status, detail = raw_capability_status(state, "google-search-console")
     import os
     info("Propriedade GSC", os.environ.get("RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL", "").strip() or "<não configurada>")
@@ -97,7 +99,8 @@ def render_search_scope(state: Any) -> None:
     )
 
     print()
-    print(paint("PERPLEXITY SEARCH INTELLIGENCE", CYAN, bold=True))
+    print(paint("PERPLEXITY SEARCH API — PESQUISA EXTERNA INDEPENDENTE", CYAN, bold=True))
+    print("  Não é SerpApi, nem Google Search Console, nem síntese GEO por IA generativa.")
     from rasai.console_search_intelligence import validate_perplexity_readiness
     from rasai.search_intelligence.perplexity import perplexity_configuration_status
 
@@ -109,8 +112,8 @@ def render_search_scope(state: Any) -> None:
     ready, detail = validate_perplexity_readiness(state)
     from rasai.console_perplexity_readiness import inspect_perplexity_readiness
     px = inspect_perplexity_readiness(state)
-    info("Solicitação", px["status"] if not perplexity_queries else "SOLICITADA")
-    info("Quantidade de queries", len(perplexity_queries))
+    info("Pedido nesta AUD", px["status"] if not perplexity_queries else "SOLICITADA (execução ainda pendente)")
+    info("Consultas solicitadas", len(perplexity_queries))
     from rasai.geo_search_alignment import geo_query_alignment
     active_or_draft = perplexity_queries or tuple(getattr(state, "perplexity_draft_queries", ()) or ())
     matching = geo_query_alignment(queries, active_or_draft)
@@ -144,15 +147,15 @@ def render_search_scope(state: Any) -> None:
             "dependem de comprovação. Search API não equivale a resposta generativa.",
             DIM,
         ))
-    info("Tipo", perplexity_type)
+    info("Modo da solicitação", perplexity_type)
     # Saved inputs remain inert; at launch they may be explicitly approved.
     draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
-    info("Persistência de queries e modo", "RASCUNHO INI - SEM COBRANÇA NO LOAD")
-    info("Rascunho disponível", f"{len(draft)} query(s) | não autorizado")
+    info("Persistência no INI", "CONSULTAS/MODO COMO RASCUNHO; NÃO SALVA AUTORIZAÇÃO")
+    info("Rascunho disponível", f"{len(draft)} consulta(s) | não autorizado")
     info(
         "Nova sessão / nova AUD",
-        "CONFIRMAR PERPLEXITY AO EXECUTAR" if px["draft_awaits_run_confirmation"]
-        else "CAT-05 > P > 9: reutilizar manualmente, se desejado",
+        "R do plano solicita aceite; CAT-05 > P > E permite solicitar antes" if px["draft_awaits_run_confirmation"]
+        else "CAT-05 > P > E: solicitar rascunho manualmente, se desejado",
     )
     info(
         "Credencial",
@@ -163,7 +166,7 @@ def render_search_scope(state: Any) -> None:
         print(paint(f"  {detail}", DIM))
     print(
         paint(
-            "Pesquisa externa advisory com provenance própria: não substitui SERP observada, "
+            "Fonte consultiva independente, com provenance própria: não substitui SERP observada, "
             "não entra no scoring e não se torna evidência determinística.",
             DIM,
         )
