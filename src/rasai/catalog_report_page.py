@@ -253,7 +253,9 @@ def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) ->
     base=_table(("Indicador","Valor","Tipo"),display_metrics,empty="Nenhum índice ou métrica principal foi materializado neste contexto.")
     if catalog_id=="CAT-01":
         from rasai.architecture_audit_facts import architecture_audit_facts_html
-        return base+architecture_audit_facts_html(database,data.audit_id)+"<div class='subsection'><h3>Arquivos e descoberta</h3>"+_discovery_html(database,data)+"</div><div class='subsection'><h3>Padrões e compatibilidade web</h3>"+_standards_summary(database,data)+"</div><div class='subsection'><h3>Runtime compartilhado</h3><p class='section-lead'>A captura de navegador/runtime é evidência transversal. Diagnóstico de segurança, third-party, mixed content e correlação de falhas de runtime pertencem ao <a href='cat-10.html'>CAT-10 · Segurança passiva</a>; a telemetria bruta permanece disponível em Governança.</p></div>"
+        from rasai.time_contract import presentation_timezone_for_audit
+        frozen_zone, _ = presentation_timezone_for_audit(data.configuration)
+        return base+architecture_audit_facts_html(database,data.audit_id,timezone_name=frozen_zone)+"<div class='subsection'><h3>Arquivos e descoberta</h3>"+_discovery_html(database,data)+"</div><div class='subsection'><h3>Padrões e compatibilidade web</h3>"+_standards_summary(database,data)+"</div><div class='subsection'><h3>Runtime compartilhado</h3><p class='section-lead'>A captura de navegador/runtime é evidência transversal. Diagnóstico de segurança, third-party, mixed content e correlação de falhas de runtime pertencem ao <a href='cat-10.html'>CAT-10 · Segurança passiva</a>; a telemetria bruta permanece disponível em Governança.</p></div>"
     if catalog_id=="CAT-02":
         return base+"<div class='subsection'><h3>Verificações automatizadas</h3>"+_lighthouse_accessibility_html(database,data)+"</div>"
     if catalog_id=="CAT-03":

@@ -59,12 +59,16 @@ assert all(digest((out / name).read_bytes()) == seal for name, seal in manifest[
 if os.environ.get('RASAI_CONTEXTUAL_REQUIRE_REVERSE') == '1':
     from rasai.contextual_faq_aria import CONTRACT as aria_contract
     from rasai.contextual_page_structure import CONTRACT as structure_contract
+    from rasai.contextual_reverse_review import CONTRACT as reverse_contract
     assert report['faq_aria_v3']['contract'] == aria_contract
     assert report['content_structure_v3']['contract'] == structure_contract
     assert report['network_requests'] == report['audit_writes'] == report['ai']['provider_calls'] == 0
     assert (out / 'geo-content-review.html').is_file()
     assert manifest['faq_aria_contract'] == aria_contract
     assert manifest['page_structure_contract'] == structure_contract
+    assert report['reverse_review']['contract'] == reverse_contract
+    assert manifest['reverse_review_contract'] == reverse_contract
+    assert all(task['validation'] and task['evidence_refs'] for task in report['reverse_review']['tasks'])
 print(json.dumps(dict(source_files=len(before), **summary_counts(report))))
 '@
 if ($LASTEXITCODE -ne 0) { throw 'Homologação offline recusada; examinar apenas saída privada.' }
