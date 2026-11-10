@@ -59,3 +59,21 @@ def test_duplicate_id_invalid_state_and_markup_unavailable_abstain():
 def test_details_summary_v1_not_promoted_to_aria():
     html = '<main><details><summary>Como funciona?</summary><p>Resposta.</p></details></main>'
     assert qualify_capture(observed(html), _trace(html))["counts"]["controls"] == 0
+
+def test_link_only_menu_inside_main_is_not_faq_even_without_menu_label():
+    html = ('<main><div><a role="button" aria-controls="items" aria-expanded="false">'
+            'Nossos serviços</a><div id="items"><a href="/a">Linha A</a>'
+            '<a href="/b">Linha B</a></div></div></main>')
+    overlay = qualify_capture(observed(html), _trace(html))
+    assert overlay["counts"]["answer_present"] == 0
+    assert overlay["counts"]["excluded"] == 1
+    assert overlay["controls"][0]["basis"] == "LINK_ONLY_DISCLOSURE_WITHOUT_PROSE"
+
+
+def test_real_answer_with_link_and_prose_remains_observed():
+    html = ('<main><div id="faq"><a role="button" aria-controls="a" aria-expanded="false">'
+            'Qual proteção?</a><div id="a"><p>Veja as condições de <a href="/doc">uso</a>.</p>'
+            '</div></div></main>')
+    overlay = qualify_capture(observed(html), _trace(html))
+    assert overlay["counts"]["answer_present"] == 1
+

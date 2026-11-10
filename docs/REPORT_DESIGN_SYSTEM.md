@@ -4,7 +4,7 @@
 
 ## Escopo imutável
 
-Fonte de verdade: `CATALOG_REPORT_PAGES` / `CATALOG_REPORT_FILENAMES` em `catalog_report_contract.py`. As 19 páginas existentes são: `index.html`, `sari.html`, `cat-01.html` a `cat-10.html`, `geo.html`, `directed-analysis.html`, `capture-context.html`, `execution-evidence.html`, `ai-integrations.html`, `methodology.html`, `metrics.html`.
+Fonte de verdade: `CATALOG_REPORT_PAGES` / `CATALOG_REPORT_FILENAMES` em `catalog_report_contract.py`. O contrato atual possui **21 páginas**: `index.html`, `sari.html`, `cat-01.html` a `cat-10.html`, `network.html`, `geo.html`, `geo-content-review.html`, `directed-analysis.html`, `capture-context.html`, `execution-evidence.html`, `ai-integrations.html`, `methodology.html` e `metrics.html`. A nova página da #690 é projeção consultiva sem score ou motor próprio.
 
 A primeira etapa altera apenas **apresentação** nos helpers compartilhados: `_shell`, CSS e JavaScript da camada `report-catalog`, mais fixtures e esta documentação. Mantém as tabelas, métricas, evidências, ações, estados, seções e deep-links existentes. O gerador continua `materialize_catalog_report_site`, com CSS local no pacote e JS mínimo inline. Nenhuma nova rota ou página HTML, nenhum relatório paralelo, nenhum `fetch` de dados.
 
@@ -118,3 +118,19 @@ conteúdo, Search e GEO, oportunidades e remediações nas sete rotas existentes
 Usa CSS e details/summary existentes, sem nova CAT ou CSS paralelo. Literais de
 captura só aparecem no companheiro privado; os painéis canônicos são conservadores.
 Veja [contrato e limitações](CONTEXTUAL_GEO_SEO.md).
+
+## Análise reversa de conteúdo e timezone (#690 / #692, 10/11/2026)
+
+`geo-content-review.html` integra o menu compartilhado como uma rota estratégica
+independente, sem CAT-11 e sem duplicar os motores GEO/Search. O painel público
+exibe contagens e estados de suficiência; fontes, trechos e respostas ARIA ficam
+restritos ao companheiro privado. A base v1 e a disposição semântica v2
+permanecem consultáveis nas páginas anteriores. Heading/title e FAQ ARIA
+formam overlays v3 estritamente aditivos da captura existente.
+
+A projeção de instantes ISO 8601 conscientes de fuso usa a preferência IANA
+congelada no snapshot de configuração da AUD. Dados técnicos, sem instante
+comprovado ou sem timezone continuam legíveis no formato de origem.
+O preenchimento N/D evita inferir que ausência na captura seja problema do site.
+Testes sintéticos não substituem aceite físico de AUD real nem autorização
+de execução de IA contextual paga.

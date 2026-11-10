@@ -305,3 +305,30 @@ python -m pytest -q -rs tests/test_contextual_content.py tests/test_contextual_a
 Logs e capturas sintéticos ficam em diretório privado externo ao checkout.
 Homologação única da correção na AUD real e autorização de merge permanecem
 reservadas ao responsável. Não fechar #690 nem remover a branch automaticamente.
+
+## Evolução em branch #690: análise reversa com overlays v3
+
+A rota `geo-content-review.html` é a 21ª página do catálogo canônico e
+apresenta o caminho observação - cobertura - hipótese - validação. Links
+retornam ao inventário de `capture-context.html`, evidências GEO e CAT-03/CAT-09.
+A versão pública mostra apenas projeções agregadas/sanitizadas; textos, URL
+e referências físicas literais continuam no companheiro privado.
+
+O overlay `contextual-faq-aria-overlay-v3` vincula controles ARIA
+`role=button`, `aria-controls`, `aria-expanded` a painéis de mesmo DOM
+capturado, respeitando IDs não ambíguos, limites e ancestralidade. Painel não
+capturado é **NOT_OBSERVED_ND**, nunca erro comprovado do website. Painel
+recolhido mas presente no DOM não prova visibilidade de crawler ou indexação.
+Menus compostos por links são excluídos, mesmo em `main`.
+
+O overlay `contextual-page-structure-v3` expõe títulos e H1-H6, posição,
+escopo, hashes e categorias v1 somente quando o próprio markup foi observado;
+sem dupla aquisição. Title, headings, claims, CTAs e documentos não são
+autenticados por mera presença. A análise profunda por IA continua
+**NOT_AUTHORIZED** sem consentimento de tarefa próprio: nenhuma chamada
+faturável, comparação Search positiva nem conclusão YMYL foi implementada.
+
+Essas projeções não alteram as ocorrências v1, a disposição v2, CATs,
+escores, banco selado ou contratos de fornecedores. O novo contrato é
+passível de testes sintéticos offline; homologação física Windows da AUD
+real permanece condicionante para merge.

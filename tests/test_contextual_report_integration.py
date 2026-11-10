@@ -112,3 +112,31 @@ def test_reverse_review_is_21st_page_with_no_private_literal(tmp_path):
     index = (report_dir / "index.html").read_text(encoding="utf-8")
     assert "href='geo-content-review.html'" in index
     assert "id='contextual-content'" in (report_dir / "geo.html").read_text(encoding="utf-8")
+
+def test_each_of_21_html_pages_uses_historical_persisted_timezone(tmp_path, monkeypatch):
+    import json
+    from rasai.audit_configuration_reuse import configuration_hash
+    from rasai.catalog_report_contract import CATALOG_REPORT_PAGES
+
+    workspace = _captured_workspace(tmp_path)
+    with sqlite3.connect(workspace.database) as connection:
+        original = json.loads(connection.execute(
+            "SELECT configuration_json FROM audit_execution_configurations WHERE audit_id=?",
+            (AUDIT_ID,)).fetchone()[0])
+        original["settings"]["presentation"] = {"timezone": "Europe/Berlin"}
+        original["settings"]["environment"]["RASAI_PRESENTATION_TIMEZONE"] = "Europe/Berlin"
+        connection.execute(
+            "UPDATE audit_execution_configurations SET configuration_json=?, configuration_hash=? WHERE audit_id=?",
+            (json.dumps(original, ensure_ascii=False), configuration_hash(original), AUDIT_ID))
+    monkeypatch.setenv("RASAI_PRESENTATION_TIMEZONE", "Asia/Tokyo")
+    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    assert len(CATALOG_REPORT_PAGES) == 21
+    for page in CATALOG_REPORT_PAGES:
+        html = (report / page.filename).read_text(encoding="utf-8")
+        assert "Europe/Berlin" in html, page.filename
+        assert "configuração persistida da auditoria" in html, page.filename
+        assert "Asia/Tokyo" not in html, page.filename
+    assert "15/09/2026 22:00:00 (Europe/Berlin)" in (
+        report / "index.html").read_text(encoding="utf-8")
+    assert catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace, report_dir=report)
+

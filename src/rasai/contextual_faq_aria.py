@@ -75,8 +75,17 @@ def qualify_capture(capture, parser=None):
             if panel["end"] is None or any(_is_navigation(n) for n in parser.ancestors(panel)):
                 status, basis = "INVALID_OR_AMBIGUOUS_ND", "PANEL_MALFORMED_OR_NAVIGATION"
             else:
+                # An expandable list of links can be a menu even inside <main>.
+                # It is not an answer merely because its target ID and text exist.
+                descendants = [n for n in parser.nodes[panel_ordinal + 1:]
+                               if n["start"] >= panel["start"] and
+                               n["end"] is not None and n["end"] <= panel["end"]]
+                links = sum(n["tag"] == "a" for n in descendants)
+                prose = sum(n["tag"] in {"p", "dd", "blockquote"} for n in descendants)
                 panel_text = parser.text(panel)
-                if panel_text:
+                if links >= 2 and prose == 0:
+                    status, basis = "EXCLUDED_NAVIGATION", "LINK_ONLY_DISCLOSURE_WITHOUT_PROSE"
+                elif panel_text:
                     status, basis = "ANSWER_PRESENT_IN_DOM", "SAME_CAPTURE_ARIA_TARGET_WITH_TEXT"
                     answer = panel_text[:600]
                 else:
