@@ -119,6 +119,7 @@ def _render_provider_context(search_module: ModuleType, config: SerpRuntimeConfi
     registration = _provider_registration(search_module, config)
     engine = registration.engine if registration is not None else "unknown"
     print("\n[ PROVIDER / LIMITES APLICADOS ]")
+    print("  SERP = resultados de buscadores tradicionais; SerpApi é um fornecedor SERP, NÃO é Perplexity.")
     print(f"Modo                 : {configuration_value_info('RASAI_SERP_MODE', config.mode)}")
     print(f"Provider             : {_provider_name(search_module, config)} ({config.provider})")
     print(f"Engine               : {engine}")
@@ -148,6 +149,8 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
         print(f"\n[ INFO ] {feedback}")
 
     print("\n[ O QUE PESQUISAR - PRÓXIMA EXECUÇÃO ]")
+    print("  Esta seção é exclusivamente SERP (Google/Bing via fornecedor configurado).")
+    print("  Consultas equivalentes podem ser copiadas para Perplexity, mas cada fonte exige pedido próprio.")
     from rasai.target_scope_reconciliation import scope_display_rows
     for label, value in scope_display_rows(state, "SERP"):
         print(f"   {label:<26}: {value}")
@@ -195,7 +198,8 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
     px_credential = "credencial configurada" if px_status["configured"] else "credencial não configurada"
     from rasai.console_search_intelligence import perplexity_enabled
     px_activation = "ATIVA" if perplexity_enabled() else "DESATIVADA"
-    print(f"\nP. Perplexity externa      : {px_activation} | {px_request} | {px_credential}")
+    print(f"\nP. Perplexity Search API    : {px_activation} | {px_request} | {px_credential}")
+    print("   Fonte separada: pesquisa web da Perplexity, NÃO é SerpApi nem resposta de IA generativa.")
     for label, value in scope_display_rows(state, "PERPLEXITY"):
         print(f"   {label:<26}: {value}")
     print(
@@ -251,7 +255,9 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
     current = tuple(getattr(state, "perplexity_queries", ()) or ()) or tuple(
         getattr(state, "perplexity_draft_queries", ()) or ()
     )
-    print("\nQUERIES PERPLEXITY")
+    print("\nCONSULTAS PERPLEXITY — PEDIDO NESTA AUD")
+    print("  A opção 1 registra solicitação na sessão; nenhuma chamada é feita neste editor.")
+    print("  Para editar apenas rascunho reutilizável, use o INI/Salvamento; S não autoriza custos.")
     print(
         "  Informe de 1 a "
         f"{maximum} queries separadas por ';'. Duplicados são removidos preservando a ordem."
@@ -290,6 +296,37 @@ def _edit_perplexity_queries(search_module: ModuleType, state: Any) -> None:
     _mark_perplexity_pending(search_module, state)
 
 
+def _request_saved_perplexity(search_module: ModuleType, state: Any) -> None:
+    """Offer one explicit, session-scoped request; never perform paid IO here."""
+    if tuple(getattr(state, "perplexity_queries", ()) or ()):
+        print("  Perplexity já SOLICITADA nesta AUD. Consulte as queries no quadro acima.")
+        return
+    draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
+    mode = str(getattr(state, "perplexity_draft_search_type", "web") or "web").lower()
+    maximum = int(search_module.PERPLEXITY_MAX_QUERIES)
+    if not 1 <= len(draft) <= maximum or mode not in {"web", "fast"}:
+        print("  Sem rascunho válido. Use 1 para definir consultas Perplexity nesta AUD.")
+        return
+    print(f"  PESQUISA PERPLEXITY: {len(draft)} consulta(s) | modo {mode.upper()}")
+    for index, query in enumerate(draft, 1):
+        print(f"    {index}. {query}")
+    print("  Independente de SERP/SerpApi/GSC e da síntese GEO por IA.")
+    print("  A solicitação pode gerar custo; nenhuma chamada ocorre neste menu.")
+    confirm = input(
+        "  SOLICITAR Perplexity para esta AUD, sujeita ao gate financeiro [S/N]: "
+    ).strip().upper()
+    if confirm != "S":
+        print("  Não solicitada. Rascunho preservado sem autorização.")
+        return
+    state.perplexity_queries = draft
+    from rasai.target_scope_reconciliation import bind
+    bind(state, "PERPLEXITY")
+    state.perplexity_search_type = mode
+    state.perplexity_skip_draft_this_aud = False
+    _mark_perplexity_pending(search_module, state)
+    _set_feedback(state, "Perplexity SOLICITADA nesta AUD; execução e custo dependem do gate final.")
+
+
 def _manage_perplexity_draft(search_module: ModuleType, state: Any) -> None:
     """Explicitly reuse or clear inert saved inputs, never hydrate paid consent."""
     draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
@@ -298,23 +335,12 @@ def _manage_perplexity_draft(search_module: ModuleType, state: Any) -> None:
         print("  Nenhum rascunho Perplexity salvo. Defina queries na opção 1 e salve.")
         return
     print(f"  Rascunho local: {len(draft)} query(s), {mode.upper()}.")
-    print("  R. Solicitar as queries salvas nesta AUD (requer autorização financeira posterior)")
+    print("  R. Solicitar consultas salvas nesta AUD (requer confirmação e gate financeiro)")
     print("  C. Apagar o rascunho (salve a configuração para persistir a remoção)")
     print("  V. Voltar sem modificar")
     operation = input("Escolha [R/C/V]: ").strip().upper()
     if operation == "R":
-        confirm = input(
-            "Solicitar explicitamente a pesquisa Perplexity nesta AUD [S/N]: "
-        ).strip().upper()
-        if confirm != "S":
-            print("  Rascunho não ativado. Nenhuma pesquisa foi solicitada.")
-            return
-        state.perplexity_queries = draft
-        from rasai.target_scope_reconciliation import bind
-        bind(state, "PERPLEXITY")
-        state.perplexity_search_type = mode
-        state.perplexity_skip_draft_this_aud = False
-        _mark_perplexity_pending(search_module, state)
+        _request_saved_perplexity(search_module, state)
     elif operation == "C":
         confirm = input("Limpar rascunho salvo e solicitação atual [S/N]: ").strip().upper()
         if confirm == "S":
@@ -589,6 +615,9 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         ready, detail = search_module.validate_perplexity_readiness(state)
 
         print("\n[ PERPLEXITY SEARCH INTELLIGENCE — PESQUISA EXTERNA ]")
+        print("  PERPLEXITY = Search API independente. SERP = Google/Bing por SerpApi/outro fornecedor.")
+        print("  GSC = dados da propriedade Google verificada; IA GEO = síntese opcional, não pesquisa.")
+        print("  Termos podem coincidir, mas cada integração possui pedido, credencial e custo próprios.")
         from rasai.target_scope_reconciliation import scope_display_rows
         for label, value in scope_display_rows(state, "PERPLEXITY"):
             print(f"  {label:<24}: {value}")
@@ -636,12 +665,17 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         print(f"  Efetiva nesta AUD     : {'SIM' if effective else 'NÃO'}")
         print(f"  Readiness             : {'APTA' if ready else 'CONFIGURAR'}")
         print(f"  Execução próxima AUD  : {px['status']}")
+        print("  ESTADO: RASCUNHO = só parâmetros; SOLICITADA = pedido nesta sessão;")
+        print("          EXECUTADA = somente após retorno e evidência da AUD, nunca por salvar INI.")
+        print("  MEMÓRIA: alterações ficam na sessão; S no plano grava consultas/modo como")
+        print("          rascunho INI, sem restaurar aceite comercial. Filtros públicos")
+        print("          podem ir ao INI; segredos e autorização nunca são gravados nele.")
         if not px["queries_requested"]:
             if px["draft_awaits_run_confirmation"]:
                 print("  PARA EXECUTAR: use R no plano; será solicitado aceite Perplexity.")
-                print("  A opção 9 continua disponível para ativação antecipada, se preferir.")
+                print("  Use E aqui para solicitar antecipadamente; 9 gerencia o rascunho salvo.")
             elif px["saved_draft_available"]:
-                print("  Solicitação ignorada nesta AUD; use 9 para reativar manualmente.")
+                print("  Pesquisa omitida nesta AUD; E permite solicitar novamente com confirmação.")
             else:
                 print("  PARA CONFIGURAR: definir queries (1) ou copiar SERP com autorização (6).")
         from rasai.geo_search_alignment import geo_configuration_view
@@ -672,19 +706,20 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
         except ValueError as exc:
             print(f"  Escopo potencial      : INVÁLIDO — {exc}")
         print("  Ajuste de filtros    : menu 5 ou 6 > Perplexity Search Intelligence")
-        print("\n1. Definir/alterar queries")
+        print("\n1. Definir/alterar consultas Perplexity (registra pedido nesta AUD)")
         print("2. Escolher WEB/FAST")
         print("3. Gerenciar credencial Perplexity")
         print("4. Ativar/desativar integração")
         print("5. Habilitar/desabilitar síntese GEO por IA canônica nesta AUD")
-        print("6. Copiar termos SERP para pesquisa Perplexity (confirmação faturável)")
+        print("6. Copiar consultas SERP para Perplexity (pedido próprio, confirmação faturável)")
         print("7. Complemento GEO externo em AUD COMPLETE existente (não altera AUD)")
         print("8. Consultar complementos GEO existentes (somente leitura, sem cobrança)")
-        print("9. Reutilizar/limpar rascunho Perplexity salvo (solicitação explícita)")
+        print("9. Gerenciar rascunho INI Perplexity (reutilizar/limpar)")
+        print("E. SOLICITAR PERPLEXITY NESTA AUD com consultas do rascunho (confirmação)")
         print("A. Reanalisar integrações de AUD concluída (somente dados locais)")
         print(f"  Síntese GEO por IA    : {'SOLICITADA' if bool(getattr(state, 'geo_ai_requested', False)) else 'NÃO SOLICITADA'}")
         print("  Opção 5 (N) cancela apenas IA GEO; chave/integração continuam configuradas.")
-        print("  Salvar no INI: retorne ao plano e use S; queries/modo viram rascunho.")
+        print("  S no plano: salva consultas/modo como rascunho INI; NÃO salva autorização.")
         print("D. Não solicitar Perplexity nesta execução")
         print("V. Voltar ao CAT-05")
         raw = input("Opção Perplexity: ").strip().upper()
@@ -712,6 +747,8 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             _review_external_geo_supplements()
         elif raw == "9":
             _manage_perplexity_draft(search_module, state)
+        elif raw == "E":
+            _request_saved_perplexity(search_module, state)
         elif raw == "A":
             _review_post_aud_ai_reanalysis()
         elif raw == "5":
@@ -759,7 +796,7 @@ def _configure_perplexity(search_module: ModuleType, state: Any) -> None:
             else:
                 print("  Escolha S ou N.")
         else:
-            print("  Opção inválida: use 1 a 9, A, D ou V.")
+            print("  Opção inválida: use 1 a 9, E, A, D ou V.")
 
 
 def _edit_terms(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:
