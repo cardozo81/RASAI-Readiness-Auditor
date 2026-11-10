@@ -204,3 +204,9 @@ Se a publicação da segunda cópia também for negada, o comando permanece
 reprovado (exit code 2), não publica pasta parcial e orienta verificar
 permissões, antivírus ou sincronizadores de arquivos. Não reduz o rigor da
 integridade nem modifica os gates.
+## Companheiro contextual GEO/SEO offline
+
+Para a #690, `python -m rasai.contextual_advisory --audit-dir ... --output ... --ai none`
+gera navegação privada externa nas páginas existentes, evidência JSON e manifesto
+de hashes de origem/saída. Não regrava banco ou relatório histórico. Veja o
+[contrato, limites e homologação Windows](CONTEXTUAL_GEO_SEO.md).

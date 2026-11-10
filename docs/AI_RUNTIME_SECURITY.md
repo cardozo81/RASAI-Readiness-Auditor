@@ -36,3 +36,11 @@ Originais e texto derivado no companheiro são potencialmente privados e seguem
 as mesmas restrições de acesso/retenção da AUD; não publicar em relatórios abertos.
 
 A retenção do log acompanha a retenção do workspace da auditoria. Em implantação SaaS, acesso ao exchange log deve obedecer ao mesmo tenant/workspace/project/property e RBAC aplicados aos demais artefatos de auditoria; ele não deve ser exposto entre organizações ou workspaces.
+## Gate contextual GEO/SEO
+
+O consumidor contextual determinístico não instancia runtime/provider. `AI=none`
+é DISABLED e solicitação explícita permanece NOT_AUTHORIZED, sem fallback. Os
+workers recusam sockets/DNS e subprocessos; HTML e snippets são dados. Integração
+ativa depende de GO e perfil/consentimento canônicos específicos ainda pendentes.
+O [companheiro privado](CONTEXTUAL_GEO_SEO.md) conserva texto potencialmente sensível;
+os painéis canônicos omitem literais e URLs arbitrários capturados.

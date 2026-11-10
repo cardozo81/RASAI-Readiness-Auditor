@@ -560,3 +560,9 @@ Amostras não atribuídas, sem selo SHA duplo ou de origem ambígua dão N/D
 sem promover resultados. Hostnames externos não comprovam concorrência
 comercial, ranking, share de mercado ou presença em respostas generativas.
 Sem nova coleta, alteração de SQLite/AUD, API, SARI/SCORE ou workflows.
+## Consumidor de contexto editorial
+
+`contextual_search` reutiliza este ledger sem alterar cálculos ou identidade de
+URL. Conjuntos descritivos e `QUERY_MATCH` não comprovam equivalência contextual.
+Mercado/idioma/dispositivo externos não comprovados produzem N/D; nunca inferem
+citação generativa. Veja [Contexto consultivo GEO/SEO](CONTEXTUAL_GEO_SEO.md).

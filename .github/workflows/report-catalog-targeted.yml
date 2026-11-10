@@ -126,6 +126,10 @@ jobs:
       - name: Run only tests affected by this report/YMYL patch
         run: >-
           pytest -q
+          tests/test_contextual_content.py
+          tests/test_contextual_search.py
+          tests/test_contextual_advisory.py
+          tests/test_contextual_report_integration.py
           tests/test_report_catalog_public_labels.py
           tests/test_catalog_source_dependencies.py
           tests/test_recommendation_governance.py

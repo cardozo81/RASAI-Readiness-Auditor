@@ -272,3 +272,10 @@ O contexto mudou materialmente?
 ```
 
 A economia de tokens nunca justifica misturar evidências de dispositivos diferentes quando isso reduz rastreabilidade ou muda a semântica da avaliação.
+## Projeção contextual consultiva
+
+A camada [contextual GEO/SEO offline](CONTEXTUAL_GEO_SEO.md) suplementa os
+snapshots existentes com categorias estruturais e proveniência de ocorrência.
+Não provoca captura, navegação ou interpretação paga. Raw fallback e SPA tardia
+mantêm limites explícitos; mobile/desktop não são fundidos. A AUD selada usa
+companheiro externo com paridade completa de hashes.
