@@ -9,14 +9,15 @@ import pytest
 
 from rasai import document_advisory as advisory
 from rasai.contextual_documents import digest
-from rasai.domain import Audit, DeviceContext, Page, PageSnapshot
+from rasai.domain import Audit, AuditStatus, CompletionStatus, DeviceContext, Page, PageSnapshot
 from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
 def source(tmp_path):
     workspace = AuditWorkspace.create(tmp_path / "sources", "AUD-SYNTHETIC")
     with AuditPersistence(workspace) as store:
-        store.audits.add(Audit(audit_id=workspace.root.name, project_name="Synthetic offline"))
+        store.audits.add(Audit(audit_id=workspace.root.name, project_name="Synthetic offline",
+                              status=AuditStatus.COMPLETED, completion_status=CompletionStatus.COMPLETE))
         store.pages.add(Page(page_id="PGE-one", audit_id=workspace.root.name,
                              normalized_url="https://example.test/a", discovered_url="https://example.test/a"))
         for device in DeviceContext:
@@ -50,12 +51,59 @@ def test_companion_immutable_useful_without_ai(tmp_path, ai):
     assert before == advisory._inventory(root) == result["source_inventory"]
     assert result["source_unchanged"] is True
     assert result["network_requests"] == result["audit_writes"] == result["ai"]["provider_calls"] == 0
+    assert result["ai"]["state"] == ("DISABLED" if ai == "none" else "UNAVAILABLE")
+    assert result["ai"]["reason"] == (None if ai == "none" else "NO_DOCUMENT_CONSENT_PROFILE")
     assert len(result["captures"]) == 2
     assert all(c["surface"] == "RAW_HTML_FALLBACK" for c in result["captures"])
     assert (out / "inventory.json").is_file()
     assert "N/D" in (out / "index.html").read_text(encoding="utf-8")
     with pytest.raises(ValueError):
         advisory.build_advisory(root, out)
+
+
+@pytest.mark.parametrize("status,completion,accepted", [
+    ("CREATED", None, False), ("ANALYZING", "COMPLETE", False),
+    ("COMPLETED", None, False), ("COMPLETED", "UNKNOWN", False),
+    ("COMPLETED", "COMPLETE", True), ("COMPLETED", "COMPLETE_WITH_LIMITATIONS", True),
+])
+def test_terminal_audit_gate_preserves_source_and_output(tmp_path, status, completion, accepted):
+    root = source(tmp_path)
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute("UPDATE audits SET status=?,completion_status=?", (status, completion))
+    before = advisory._inventory(root)
+    out = tmp_path / "private-companion"
+    if accepted:
+        result = advisory.build_advisory(root, out)
+        assert result["source_unchanged"] is True
+        assert (out / "index.html").is_file()
+        assert result["captures"][0]["occurrences"][0]["reference_state"] == "REFERENCED_ONLY"
+        assert result["captures"][0]["occurrences"][0]["applicability"] == "INSUFFICIENT_EVIDENCE"
+    else:
+        with pytest.raises(ValueError, match="AUD must be COMPLETED"):
+            advisory.build_advisory(root, out)
+        assert not out.exists()
+        assert not list(tmp_path.glob(".document-advisory-*"))
+    assert advisory._inventory(root) == before
+
+
+def test_report_preserves_late_document_after_large_menu(tmp_path):
+    root = source(tmp_path)
+    menu = ''.join(f'<a href="/menu/{i}">Entrar</a>' for i in range(520))
+    (root / "artifacts/raw.html").write_text('<html><body>' + menu +
+        '<a href="/contratos/condicoes-gerais">Condições Gerais</a></body></html>', encoding="utf-8")
+    before = advisory._inventory(root)
+    out = tmp_path / "companion"
+    report = advisory.build_advisory(root, out)
+    for capture in report["captures"]:
+        link = next(o for o in capture["occurrences"] if o["href_literal"] == "/contratos/condicoes-gerais")
+        assert link["ordinal"] == 520
+        assert link["reference_state"] == "REFERENCED_ONLY"
+        assert link["applicability"] == "INSUFFICIENT_EVIDENCE"
+        assert link["document_final_url_observed"] is None
+    html = (out / "index.html").read_text(encoding="utf-8")
+    assert "Condições Gerais" in html
+    assert "CLAIM_CORROBORATED" not in html
+    assert advisory._inventory(root) == before
 
 
 def test_document_relationship_chain_and_hostile_html(tmp_path):

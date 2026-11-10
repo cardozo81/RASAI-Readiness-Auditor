@@ -96,7 +96,8 @@ def discover_references(*, audit_id: str, snapshot: PageSnapshot, original: byte
                         limits: DiscoveryLimits = DiscoveryLimits()) -> dict:
     """Explicit source selection; repeated anchors retain separate occurrence IDs.
 
-    Anchor context uses the canonical extractor's nearest captured text block.
+    Documentary signals prioritize anchors and mentions before the output cap.
+    Ordinals and identity use the original candidate index, never rank position.
     It is advisory proximity, never product applicability or rendered visibility.
     """
     if surface not in {"RENDERED_DOM", "RAW_HTML_FALLBACK", "NOT_CAPTURED"}:
@@ -106,7 +107,8 @@ def discover_references(*, audit_id: str, snapshot: PageSnapshot, original: byte
               "captured_at": snapshot.captured_at.isoformat(), "requested_url": snapshot.requested_url,
               "final_url_observed": snapshot.final_url, "surface": surface,
               "artifact_ref": artifact_ref, "source_sha256": digest(original) if original is not None else None,
-              "occurrences": [], "limitations": [], "limits": asdict(limits)}
+              "occurrences": [], "limitations": [], "limits": asdict(limits),
+              "documentary_occurrences_total": None, "documentary_occurrences_omitted": None}
     if surface != "RENDERED_DOM":
         result["limitations"].append("LATE_SPA_REFERENCES_NOT_CAPTURED_ND")
     if original is None or surface == "NOT_CAPTURED":
@@ -124,20 +126,32 @@ def discover_references(*, audit_id: str, snapshot: PageSnapshot, original: byte
     base = snapshot.final_url or snapshot.requested_url
     candidates = []
     for href, start, end in context_parser.links:
-        # All anchors are observable candidates; no PDF format assertion by suffix.
+        # Relevance is observable vocabulary, never document format/authenticity.
         text = " ".join(context_parser.parts[start:end])
         context = " ".join(context_parser.parts[max(0, start - 1):end + 1])
-        candidates.append(("ANCHOR", href, text, context))
+        signals = [name for name, value in (("href", href), ("anchor_text", text),
+                                            ("adjacent_text", context))
+                   if value and _DOCUMENT.search(value)]
+        priority = 0 if any(name in signals for name in ("href", "anchor_text")) else (1 if signals else 2)
+        candidates.append((priority, "ANCHOR", href, text, context, signals))
     for block in page.text_blocks:
         if _DOCUMENT.search(block):
-            candidates.append(("TEXT_MENTION", None, block, block))
-    for index, (kind, href, text, context) in enumerate(candidates[:limits.max_occurrences]):
+            candidates.append((1, "TEXT_MENTION", None, block, block, ["captured_text"]))
+    # Assign indices before ranking. Return the selected occurrences in source
+    # inventory order, preserving duplicate anchors and existing occurrence IDs.
+    selected = sorted(sorted(enumerate(candidates), key=lambda item: (item[1][0], item[0]))
+                      [:limits.max_occurrences], key=lambda item: item[0])
+    documentary_total = sum(candidate[0] < 2 for candidate in candidates)
+    result["documentary_occurrences_total"] = documentary_total
+    result["documentary_occurrences_omitted"] = documentary_total - sum(candidate[0] < 2 for _, candidate in selected)
+    for index, (_, kind, href, text, context, signals) in selected:
         url, policy = reference_url(base, href) if href is not None else (None, "TEXT_ONLY")
         result["occurrences"].append({
             "occurrence_id": stable_id(audit_id, snapshot.snapshot_id, snapshot.device.value,
                                        result["source_sha256"], kind, index),
             "document_candidate_id": stable_id(url) if url else None,
             "ordinal": index, "kind": kind, "href_literal": href,
+            "documentary_signals": signals,
             "resolved_url": url, "url_policy": policy,
             "text": text[:limits.context_chars], "context": context[:limits.context_chars],
             "text_truncated": len(text) > limits.context_chars,

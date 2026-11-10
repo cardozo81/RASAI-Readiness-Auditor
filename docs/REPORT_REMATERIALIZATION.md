@@ -21,9 +21,17 @@ SHM/journal, identidade divergente, symlink/junction e traversal são recusados.
 Hashes de todos os arquivos da origem, incluindo banco e relatórios antigos,
 são comparados antes/depois e antes da publicação por rename do staging.
 Mudança externa impede publicação; isso não constitui atestado independente.
-Fonte deve estar quiescente. Limites adicionais: 200 snapshots, 20 documentos,
+Fonte deve estar quiescente e canonicamente concluída: `audits.status=COMPLETED`
+e `completion_status=COMPLETE` ou `COMPLETE_WITH_LIMITATIONS`. Identidade e
+estado terminal são consultados em modo somente leitura antes da descoberta;
+`CREATED`, `ANALYZING`, conclusão ausente/desconhecida ou outra combinação
+recusam publicação sem criar saída. Isso afeta somente o comando documental.
+Limites adicionais: 200 snapshots, 20 documentos,
 500 relações, manifesto 200 KB, inventário 20 mil arquivos/2 GB. Discovery
 executa isolada com timeout de 5 s/256 MiB por snapshot; falha resulta em N/D.
+Referências documentais são priorizadas antes do teto de 500, mantendo índices
+originais e duplicatas; excesso pertinente é parcial explícito. Classificação
+e contadores seguem [contexto de captura](CAPTURE_CONTEXT_MODEL.md#referências-documentais-passivas).
 
 `--manifest` permite documentos locais explicitamente fornecidos ou coletados
 sob autorização anterior documentada. O arquivo JSON tem `documents` e

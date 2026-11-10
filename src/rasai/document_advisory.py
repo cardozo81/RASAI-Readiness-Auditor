@@ -20,7 +20,7 @@ import time
 from rasai.contextual_documents import CONTRACT, digest, discover_references, reference_url, stable_id
 from rasai.document_relationships import evidence_span, relate
 from rasai.document_text import extract_document
-from rasai.domain import DeviceContext, PageSnapshot
+from rasai.domain import AuditStatus, CompletionStatus, DeviceContext, PageSnapshot
 
 
 def _discover(*, audit_id, snapshot, original, artifact_ref, surface):
@@ -118,9 +118,12 @@ def _snapshots(root: Path) -> list[PageSnapshot]:
         con.execute("PRAGMA query_only=ON")
         deadline = time.monotonic() + 5
         con.set_progress_handler(lambda: int(time.monotonic() > deadline), 1000)
-        identities = con.execute("SELECT audit_id FROM audits LIMIT 2").fetchall()
-        if identities != [(root.name,)]:
+        identities = con.execute("SELECT audit_id,status,completion_status FROM audits LIMIT 2").fetchall()
+        if len(identities) != 1 or identities[0][0] != root.name:
             raise ValueError("physical AUD identity mismatch")
+        if (identities[0][1] != AuditStatus.COMPLETED
+                or identities[0][2] not in {CompletionStatus.COMPLETE, CompletionStatus.COMPLETE_WITH_LIMITATIONS}):
+            raise ValueError("AUD must be COMPLETED with an accepted terminal completion status")
         con.row_factory = sqlite3.Row
         rows = con.execute(
             "SELECT s.* FROM page_snapshots s JOIN pages p ON p.page_id=s.page_id "
