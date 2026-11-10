@@ -14,6 +14,42 @@ A observação SERP desta superfície é evidence-bound e não altera `SARI-001`
 
 Google Search Console não faz parte desse domínio operacional. Embora ambos estejam relacionados a Search, GSC possui autenticação OAuth, property, política e readiness próprios e aparece como capacidade separada em `Preparar auditoria`.
 
+## Fontes independentes e persistência
+
+No CAT-05, **SERP** significa resultados de mecanismos tradicionais de busca
+(Google/Bing) obtidos por um fornecedor selecionado, como **SerpApi**. SerpApi
+não é Perplexity. **Google Search Console (GSC)** consulta dados de uma
+propriedade Google autenticada e tem sua própria configuração. **Perplexity
+Search API** é pesquisa web externa consultiva; **síntese GEO por IA** é outra
+operação, opcional, e não equivale a pesquisa Perplexity.
+
+O operador pode usar **os mesmos termos** em SERP e Perplexity, copiando-os
+pelo editor CAT-05 > P > 6. A cópia exige confirmação e não vincula os dois
+pedidos: cada fonte continua com elegibilidade, credencial, limite e custo
+próprios.
+
+Na tela Perplexity, a ação **E** solicita explicitamente as consultas do
+rascunho para a **AUD corrente**, com confirmação. A opção **1** define novas
+consultas e registra pedido na sessão; **9** permite administrar o rascunho.
+Nenhuma dessas ações consulta o provedor na tela de configuração. A execução
+ocorre somente ao iniciar a AUD, após os gates financeiros aplicáveis. O estado
+**SOLICITADA** não significa **EXECUTADA**; apenas evidências persistidas na
+AUD demonstram o que de fato ocorreu.
+
+| Origem ou escolha | Escopo | Destino se salvar com S | Após nova sessão |
+| --- | --- | --- | --- |
+| Consultas SERP, região, profundidade, dispositivo e opções de comparação | Estado da sessão | Seção `[search_intelligence]` | Restaurados sob política do CAT-05 e gates da AUD |
+| Consultas Perplexity, WEB/FAST | Pedido transitório na sessão | Seção `[perplexity_draft]` | **Rascunho inerte**; aceite financeiro não restaurado |
+| Configurações públicas de SERP, Perplexity e GSC, incluindo limites e filtros | Ambiente da sessão / catálogo canônico | Seção `[environment]` | Restauradas conforme precedência do ambiente e INI |
+| Chaves API, tokens OAuth e demais segredos | Ambiente/secret store | **Nunca** em INI | Dependem do mecanismo seguro |
+| Autorização comercial Perplexity e análise generativa por AUD | Somente AUD corrente | **Nunca** em INI | Exigem novo aceite |
+
+O contrato da matriz de persistência e os testes de round-trip ficam em
+`docs/CONSOLE_CONFIG_PERSISTENCE.md` e
+`tests/test_console_complete_persistence.py`.
+A presença do parâmetro no INI demonstra persistência, **não** comprova
+consumo pelo provedor externo nem a execução de consulta paga.
+
 ## Acesso
 
 Na preparação da auditoria, selecione a capacidade:
