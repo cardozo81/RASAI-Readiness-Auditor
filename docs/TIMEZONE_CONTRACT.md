@@ -75,7 +75,7 @@ A preferência de timezone permanece uma propriedade da camada de apresentação
 
 Alterar a preferência de exibição não deve reescrever timestamps históricos, modificar evidências imutáveis nem mudar o instante real de jobs já resolvidos.
 
-## Projeção de relatório por AUD — evolução #692
+## Projeção de relatório por AUD - evolução #692
 
 Na materialização de `report-catalog`, a origem preferida do timezone é
 `audit_execution_configurations.configuration_json.settings.presentation.timezone`.

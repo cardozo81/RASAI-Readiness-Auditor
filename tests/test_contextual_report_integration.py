@@ -83,6 +83,10 @@ def test_v2_additive_materialization_preserves_all_original_blocks_scores_and_na
         baseline = {p.filename: (baseline_dir / p.filename).read_text(encoding="utf-8") for p in CATALOG_REPORT_PAGES}
     candidate_dir = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
     for page in CATALOG_REPORT_PAGES:
+        if page.filename == "geo-content-review.html":
+            # This route has no legacy counterpart; only existing 20 pages
+            # are subject to the byte/DOM-preservation contract.
+            continue
         previous, candidate = OutsideContext(), OutsideContext()
         previous.feed(baseline[page.filename])
         current = (candidate_dir / page.filename).read_text(encoding="utf-8")

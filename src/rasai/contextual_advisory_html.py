@@ -224,9 +224,13 @@ def contextual_panel(report, page, *, private=False):
     v1 = _v1_panel(report, page, private=private)
     v2 = _v2_panel(report, page, private=private)
     review_link = "<p><a href='geo-content-review.html#contextual-content'>Abrir análise reversa de conteúdo — SEO/GEO</a></p>"
+    # Keep navigation links *inside* the additive v2 panel. The prior
+    # report shell and all unrelated sections stay byte-equivalent.
+    v2 = v2.replace("<h2>Qualificação semântica v2</h2>",
+                    "<h2>Qualificação semântica v2</h2>" + review_link, 1)
     if page in {"cat-05.html", "geo.html"}:
-        return review_link + v2 + v1  # Search retains its existing presentation and N/D reasons.
-    return (review_link + "<section class='panel' id='contextual-qualification'>" + v2
+        return v2 + v1  # Search retains its existing presentation and N/D reasons.
+    return ("<section class='panel' id='contextual-qualification'>" + v2
         + "<details id='contextual-v1-history'><summary>Histórico técnico v1 e compatibilidade - hipóteses estruturais, não diagnóstico editorial validado</summary>"
         + "<div class='detail-body'>" + v1 + "</div></details></section>")
 

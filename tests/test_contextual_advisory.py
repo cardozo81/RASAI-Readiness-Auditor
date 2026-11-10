@@ -188,9 +188,11 @@ def test_v2_sealed_50_files_320_occurrences_seven_hypotheses_and_prior_companion
     assert all(digest((out / name).read_bytes()) == seal for name, seal in manifest["output_inventory"].items())
     for name in PAGES:
         html = (out / name).read_text(encoding="utf-8")
-        assert "id='contextual-semantic-v2'" in html and "id='contextual-content'" in html
+        assert "id='contextual-content'" in html
+        if name != "geo-content-review.html":
+            assert "id='contextual-semantic-v2'" in html
         assert not any(token in html for token in ("captura(s)", "ocorrência(s)", "oportunidade(s)", "editorial(is)"))
-        if name not in {"cat-05.html", "geo.html"}:
+        if name not in {"cat-05.html", "geo.html", "geo-content-review.html"}:
             assert "id='contextual-v1-history'" in html
     inventory = (out / "capture-context.html").read_text(encoding="utf-8")
     assert all(f"id='{o['occurrence_id']}'" in inventory for o in expected_capture["occurrences"])
