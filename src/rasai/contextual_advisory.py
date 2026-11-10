@@ -59,6 +59,7 @@ def _frozen_companion_timezone(root: Path) -> dict:
     database = _member(root, "audit.db")
     with closing(sqlite3.connect(database.as_uri() + "?mode=ro&immutable=1", uri=True, timeout=2)) as con:
         con.execute("PRAGMA query_only=ON")
+        con.row_factory = sqlite3.Row
         configuration, _, _ = _load_configuration(con, root.name)
     name, provenance = presentation_timezone_for_audit(configuration)
     return dict(timezone=name, source=provenance)

@@ -354,7 +354,7 @@ v3, sem provider e sem escrita na AUD. A revisão editorial e visual dos
 21 HTMLs e o GO de merge continuam humanos.
 
 
-## Projeção reversa com verificação editorial condicionada — evolução #690
+## Projeção reversa com verificação editorial condicionada - evolução #690
 
 A camada `contextual-reverse-editorial-projection-v1` usa exclusivamente
 capturas e overlays existentes, com tarefas condicionais `TITLE_H1_INTENT`,

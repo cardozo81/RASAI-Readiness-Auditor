@@ -17,8 +17,8 @@ from rasai.time_contract import _AWARE_ISO_TIMESTAMP_RE
 CONTRACT = "report-temporal-presentation-inventory-v1"
 _LOCAL = re.compile(r"\b\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2}\s*\([^)]{1,80}\)")
 _RFC = re.compile(r"\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s+\d{2}\s+[A-Z][a-z]{2}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT\b")
-_NAIVE = re.compile(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?![\dZ+-])")
-_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+_NAIVE = re.compile(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?![\d.Z+-])")
+_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b(?![T ]\d{2}:\d{2})")
 
 
 class _Census(HTMLParser):
