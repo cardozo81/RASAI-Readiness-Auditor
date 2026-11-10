@@ -33,7 +33,7 @@ def test_reverse_review_infers_only_conditional_tasks_with_traceable_evidence(tm
         assert task["evidence_refs"]
         assert all(ref["source_sha256"] for ref in task["evidence_refs"])
     documents = [t for t in review["tasks"] if t["kind"] == "DOCUMENT_CONTEXT"][0]
-    assert len(documents["evidence_refs"]) == 2  # grouped as one task, raw occurrences intact
+    assert len(documents["evidence_refs"]) == 4  # one grouped task; two links per device remain intact
     public = contextual_panel(result, "geo-content-review.html", private=False)
     private = (tmp_path / "private" / "geo-content-review.html").read_text(encoding="utf-8")
     assert "id='editorial-verification'" in public
