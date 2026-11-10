@@ -216,6 +216,15 @@ def format_presentation_http_date(value: str, *, timezone_name: str | None = Non
         instant = parsedate_to_datetime(value)
     except (ValueError, TypeError, IndexError) as exc:
         raise ValueError("HTTP-date inválido") from exc
+    # RFC 7231 accepts IMF-fixdate, RFC850 (obsolete) and asctime (obsolete).
+    # A generic timezone +0000 email date is NOT evidence of an HTTP Date.
+    imf = re.fullmatch(r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [0-3][0-9] [A-Z][a-z]{2} [0-9]{4} [0-2][0-9]:[0-5][0-9]:[0-5][0-9] GMT", value)
+    rfc850 = re.fullmatch(r"(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), [0-3][0-9]-[A-Z][a-z]{2}-[0-9]{2} [0-2][0-9]:[0-5][0-9]:[0-5][0-9] GMT", value)
+    asctime = re.fullmatch(r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) [A-Z][a-z]{2} [ 0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9] [0-9]{4}", value)
+    if not (imf or rfc850 or asctime):
+        raise ValueError("formato HTTP-date não reconhecido")
+    if asctime and instant.tzinfo is None:
+        instant = instant.replace(tzinfo=UTC)  # RFC 7231 asctime is GMT.
     if instant.tzinfo is None or instant.utcoffset() != UTC.utcoffset(None):
         raise ValueError("HTTP-date sem prova UTC/GMT")
     return format_presentation_timestamp(instant, timezone_name=timezone_name)

@@ -320,8 +320,10 @@ def companion_pages(report):
     zone = (report.get("presentation") or {}).get("timezone", "America/Sao_Paulo")
     source = (report.get("presentation") or {}).get("source", "HISTORICAL_TIMEZONE_NOT_PERSISTED_ND_DEFAULT_USED")
     provenance = ("configuração persistida da auditoria" if source.startswith("settings.")
+                  else "campos persistidos divergentes; prevalece apresentação"
+                  if source == "PERSISTED_TIMEZONE_CONFLICT_PREFERRED_PRESENTATION"
                   else "fuso histórico N/D; padrão explícito do produto")
-    time_banner = ("<p class='notice' role='note'>Instantes observados exibidos no fuso <strong>"
+    time_banner = ("<p class='notice' role='note'>Instantes ISO 8601 com offset observado exibidos no fuso <strong>"
                    + _e(zone) + "</strong> (" + _e(provenance)
                    + "). Valores técnicos em code/pre e evidências JSON permanecem na origem.</p>")
     pages = {"css/site.css": _CSS}

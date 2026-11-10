@@ -119,3 +119,5 @@ tipo; não se aplica substituição global a strings externas.
 temporal renderizado e testes/homologação física do conjunto completo de 21
 páginas da AUD real, inclusive provas RFC/epoch quando disponíveis. O resultado
 sintético não certifica essa cobertura.
+
+A leitura HTTP-date tipada aceita as três variantes do RFC 7231 (IMF-fixdate, RFC850 e asctime), incluindo GMT implícito apenas no asctime do contrato HTTP. Datas genéricas de e-mail ou sem tipo não recebem conversão automática.

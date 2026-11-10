@@ -156,5 +156,16 @@ def test_typed_temporal_inputs_refuse_ambiguous_values():
         format_presentation_unix_epoch(True, unit="seconds")
 
 
+def test_rfc7231_accepts_three_http_date_variants_and_refuses_generic_email_date():
+    import pytest
+    from rasai.time_contract import format_presentation_http_date
+    for raw in ("Sun, 06 Nov 1994 08:49:37 GMT",
+                "Sunday, 06-Nov-94 08:49:37 GMT",
+                "Sun Nov  6 08:49:37 1994"):
+        assert format_presentation_http_date(raw, timezone_name="UTC") == "06/11/1994 08:49:37 (UTC)"
+    with pytest.raises(ValueError):
+        format_presentation_http_date("Fri, 11 Sep 2026 00:00:00 +0000", timezone_name="UTC")
+
+
 if __name__ == "__main__":
     unittest.main()
