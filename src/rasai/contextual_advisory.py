@@ -51,6 +51,19 @@ def _observe(audit_id, snapshot, original, ref, surface):
     return result
 
 
+def _frozen_companion_timezone(root: Path) -> dict:
+    """Read the same execution configuration as the canonical catalog, read-only."""
+    from contextlib import closing
+    from rasai.catalog_report_model import _load_configuration
+    from rasai.time_contract import presentation_timezone_for_audit
+    database = _member(root, "audit.db")
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro&immutable=1", uri=True, timeout=2)) as con:
+        con.execute("PRAGMA query_only=ON")
+        configuration, _, _ = _load_configuration(con, root.name)
+    name, provenance = presentation_timezone_for_audit(configuration)
+    return dict(timezone=name, source=provenance)
+
+
 def load_projection(audit_dir: Path, *, ai="none") -> dict:
     root = _plain(audit_dir)
     if _member(root, "audit.db").stat().st_size > 256 * 1024 * 1024:
@@ -60,6 +73,7 @@ def load_projection(audit_dir: Path, *, ai="none") -> dict:
                   limitations=["CONSULTATIVE_ONLY", "NO_ENTITY_OR_PRODUCT_AUTHENTICATION",
                                "PRIVATE_COMPANION_CONTAINS_CAPTURED_TEXT_DO_NOT_PUBLISH"])
     snapshots = _snapshots(root)
+    result["presentation"] = _frozen_companion_timezone(root)
     total, emitted, deadline = 0, 0, time.monotonic() + 30
     for snapshot in snapshots:
         if any(value is not None and (not isinstance(value, str) or len(value) > 4096)
