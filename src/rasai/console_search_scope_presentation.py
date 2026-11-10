@@ -112,8 +112,9 @@ def render_search_scope(state: Any) -> None:
     ready, detail = validate_perplexity_readiness(state)
     from rasai.console_perplexity_readiness import inspect_perplexity_readiness
     px = inspect_perplexity_readiness(state)
-    info("Pedido nesta AUD", px["status"] if not perplexity_queries else "SOLICITADA (execução ainda pendente)")
-    info("Consultas solicitadas", len(perplexity_queries))
+    info("Solicitação", px["status"] if not perplexity_queries else "SOLICITADA")
+    print("  SOLICITADA = pedido nesta sessão; EXECUTADA = evidência observada na AUD.")
+    info("Quantidade de queries", len(perplexity_queries))
     from rasai.geo_search_alignment import geo_query_alignment
     active_or_draft = perplexity_queries or tuple(getattr(state, "perplexity_draft_queries", ()) or ())
     matching = geo_query_alignment(queries, active_or_draft)
@@ -147,15 +148,16 @@ def render_search_scope(state: Any) -> None:
             "dependem de comprovação. Search API não equivale a resposta generativa.",
             DIM,
         ))
-    info("Modo da solicitação", perplexity_type)
+    info("Tipo", perplexity_type)
     # Saved inputs remain inert; at launch they may be explicitly approved.
     draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
-    info("Persistência no INI", "RASCUNHO INI - SEM COBRANÇA NO LOAD (consultas/modo; sem autorização)")
+    info("Persistência de queries e modo", "RASCUNHO INI - SEM COBRANÇA NO LOAD (sem autorização)")
     info("Rascunho disponível", f"{len(draft)} consulta(s) | não autorizado")
+    print("  CAT-05 > P > E: solicitar rascunho antecipadamente; 9 gerencia rascunho.")
     info(
         "Nova sessão / nova AUD",
-        "R do plano solicita aceite; CAT-05 > P > E permite solicitar antes" if px["draft_awaits_run_confirmation"]
-        else "CAT-05 > P > E: solicitar rascunho manualmente, se desejado",
+        "CONFIRMAR PERPLEXITY AO EXECUTAR" if px["draft_awaits_run_confirmation"]
+        else "CAT-05 > P > 9: reutilizar manualmente, se desejado",
     )
     info(
         "Credencial",
