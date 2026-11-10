@@ -1258,17 +1258,27 @@ def _improvement_html(database: Path, data: _ReportData) -> str:
         severity_display=_severity_text(f.get("severity"))
         priority_display=_priority_text(rec.get("priority")) if rec else "-"
         target_label=_technical_target_label(f)
-        rows.append((f.get("title") or "Problema identificado",target_label,severity_display,priority_display,reference,_modal_button(mid,"Ver análise")))
+        confidence_label = (
+            _confidence_label(rec.get("confidence"))
+            if rec and rec.get("confidence") is not None
+            else "N/D (não declarada)"
+        )
+        rows.append((f.get("title") or "Problema identificado",target_label,severity_display,priority_display,confidence_label,reference,_modal_button(mid,"Ver análise")))
         body=_kv((("Problema",f.get("observation") or f.get("title") or "-"),("Alvo técnico",target_label),("Domínio",_domain_label(f.get("domain"))),("Severidade",severity_display),("Fonte",f.get("source") or "-"),("Catálogo de origem",source_cat or "-")))
         if rec:
             body+="<h3>Melhoria recomendada</h3><p>"+escape(str(rec.get("recommendation") or rec.get("title") or "-"))+"</p>"
+            body+="<p><strong>Confiança declarada pela IA:</strong> "+escape(confidence_label)+"</p>"
             body+="<p><a href='cat-09.html'>Ver remediação e detalhes de implementação no CAT-09</a></p>"
         modals.append(_modal(mid,f.get("title") or "Análise",f"Análise profunda · {source_cat or 'evidência transversal'}",body))
     intro=f"<div class='metric-grid'>{_metric('Problemas correlacionados',len(findings))}{_metric('Melhorias recomendadas',len(recs))}{_metric('Estado',_status_label(run.get('status')))}{_metric('Idioma da análise',run.get('analysis_language') or run.get('language') or '-')}</div>"
     summary=run.get("ai_summary") or run.get("summary")
     if summary:
         intro+=f"<div class='notice'><strong>Síntese da análise:</strong> {escape(str(summary))}</div>"
-    return intro+_table(("Problema","Alvo técnico","Severidade","Prioridade","Referência","Detalhe"),rows,empty="A análise foi concluída sem materializar problemas correlacionados.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
+    intro+=("<p class='muted'>Confiança declarada pela IA não é probabilidade calibrada nem validação independente. "
+            "Quando ausente, o relatório mostra N/D, sem estimar valores.</p>"
+            "<p class='muted'>Esta página correlaciona problemas e prioridades; a implementação detalhada "
+            "e o plano governado pertencem ao <a href='cat-09.html'>CAT-09</a>.</p>")
+    return intro+_table(("Problema","Alvo técnico","Severidade","Prioridade","Confiança IA","Referência","Detalhe"),rows,empty="A análise foi concluída sem materializar problemas correlacionados.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
 
 
 def _rationale_parts(value: Any) -> dict[str,str]:
