@@ -1274,6 +1274,34 @@ def _improvement_html(database: Path, data: _ReportData) -> str:
     summary=run.get("ai_summary") or run.get("summary")
     if summary:
         intro+=f"<div class='notice'><strong>Síntese da análise:</strong> {escape(str(summary))}</div>"
+    # A bounded reading guide from persisted recommendations, not a new ranking or score.
+    # The complete finding table and modals below preserve the original granularity.
+    priority_order = {"P1": 0, "CRITICAL": 0, "HIGH": 1, "P2": 2, "MEDIUM": 2, "P3": 3, "LOW": 4, "P4": 5}
+    ranked = sorted(
+        enumerate(recs),
+        key=lambda indexed: (
+            priority_order.get(_norm(indexed[1].get("priority")), 9),
+            indexed[0],
+        ),
+    )
+    if ranked:
+        highlights = [
+            (
+                r.get("title") or r.get("recommendation") or "Melhoria registrada",
+                _priority_text(r.get("priority")) if r.get("priority") else "Sem prioridade registrada",
+                _confidence_label(r.get("confidence")) if r.get("confidence") is not None
+                else "N/D (não declarada)",
+            )
+            for _index, r in ranked[:5]
+        ]
+        intro += (
+            "<div class='subsection'><h3>Leitura rápida: até cinco melhorias registradas</h3>"
+            "<p class='muted'>Ordenadas exclusivamente pela prioridade já persistida "
+            "(empate preserva a ordem original). Não constitui nova classificação, "
+            "nota, nem substitui a lista completa abaixo e o plano governado do CAT-09.</p>"
+            + _table(("Melhoria", "Prioridade registrada", "Confiança IA"), highlights)
+            + "</div>"
+        )
     intro+=("<p class='muted'>Confiança declarada pela IA não é probabilidade calibrada nem validação independente. "
             "Quando ausente, o relatório mostra N/D, sem estimar valores.</p>"
             "<p class='muted'>Esta página correlaciona problemas e prioridades; a implementação detalhada "
