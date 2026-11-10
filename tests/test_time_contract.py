@@ -90,5 +90,45 @@ class TimeContractTests(unittest.TestCase):
         self.assertIn("<code>2026-09-10T22:02:15+00:00</code>", rendered)
 
 
+
+    def test_frozen_audit_timezone_overrides_host_environment(self) -> None:
+        from rasai.catalog_report_contract import page_by_filename
+        from rasai.catalog_report_presentation import _shell as catalog_shell
+        from rasai.time_contract import presentation_timezone_for_audit
+        config = {"settings": {"presentation": {"timezone": "UTC"},
+                               "environment": {"RASAI_PRESENTATION_TIMEZONE": "UTC"}}}
+        name, origin = presentation_timezone_for_audit(config)
+        self.assertEqual((name, origin), ("UTC", "settings.presentation.timezone"))
+        with patch.dict(os.environ, {PRESENTATION_TIMEZONE_ENV: "Asia/Tokyo"}):
+            html = catalog_shell(page_by_filename("cat-01.html"), "AUD-SYNTHETIC",
+                "<p>Captura 2026-09-11T00:00:00Z</p><code>2026-09-11T00:00:00Z</code>",
+                timezone_name=name, timezone_source=origin)
+        self.assertIn("11/09/2026 00:00:00 (UTC)", html)
+        self.assertNotIn("12/09/2026 09:00:00", html)
+        self.assertIn("<code>2026-09-11T00:00:00Z</code>", html)
+        self.assertIn("configuração persistida da auditoria", html)
+
+    def test_absent_or_invalid_historical_zone_has_explicit_default_and_nd(self) -> None:
+        from rasai.time_contract import presentation_timezone_for_audit
+        self.assertEqual(presentation_timezone_for_audit({}), (
+            "America/Sao_Paulo", "HISTORICAL_TIMEZONE_NOT_PERSISTED_ND_DEFAULT_USED"))
+        self.assertEqual(presentation_timezone_for_audit(
+            {"settings": {"presentation": {"timezone": "not/a-zone"}}}), (
+            "America/Sao_Paulo", "INVALID_PERSISTED_TIMEZONE_ND_DEFAULT_USED"))
+        self.assertEqual(presentation_timezone_for_audit(
+            {"settings": {"environment": {"RASAI_PRESENTATION_TIMEZONE": "Europe/Berlin"}}}), (
+            "Europe/Berlin", "settings.environment.RASAI_PRESENTATION_TIMEZONE"))
+
+    def test_day_boundary_dst_and_date_without_instant(self) -> None:
+        from rasai.time_contract import presentation_timezone_for_audit
+        self.assertEqual(format_presentation_timestamp(
+            "2026-09-11T00:00:00Z", timezone_name="America/Sao_Paulo"),
+            "10/09/2026 21:00:00 (America/Sao_Paulo)")
+        self.assertEqual(format_presentation_timestamp(
+            "2026-03-29T01:30:00Z", timezone_name="Europe/Berlin"),
+            "29/03/2026 03:30:00 (Europe/Berlin)")
+        self.assertEqual(localize_visible_timestamps("Fonte: 2026-09-11", timezone_name="UTC"),
+                         "Fonte: 2026-09-11")
+
 if __name__ == "__main__":
     unittest.main()

@@ -98,6 +98,34 @@ def configured_presentation_timezone(env: Mapping[str, str] | None = None) -> st
     return validate_presentation_timezone(raw or DEFAULT_PRESENTATION_TIMEZONE)
 
 
+
+def presentation_timezone_for_audit(configuration: Mapping[str, Any] | None) -> tuple[str, str]:
+    """Use only the audit's persisted configuration, never the current host/env.
+
+    Explicit product default is a documented fallback, *not* evidence that the
+    historic operator selected this zone. The second value is provenance.
+    """
+    settings = configuration.get("settings", {}) if isinstance(configuration, Mapping) else {}
+    settings = settings if isinstance(settings, Mapping) else {}
+    presentation = settings.get("presentation", {})
+    presentation = presentation if isinstance(presentation, Mapping) else {}
+    environment = settings.get("environment", {})
+    environment = environment if isinstance(environment, Mapping) else {}
+    direct = presentation.get("timezone")
+    env = environment.get(PRESENTATION_TIMEZONE_ENV)
+    raw = direct if direct is not None else env
+    if not isinstance(raw, str) or not raw.strip():
+        return DEFAULT_PRESENTATION_TIMEZONE, "HISTORICAL_TIMEZONE_NOT_PERSISTED_ND_DEFAULT_USED"
+    try:
+        zone = validate_presentation_timezone(raw)
+    except ValueError:
+        return DEFAULT_PRESENTATION_TIMEZONE, "INVALID_PERSISTED_TIMEZONE_ND_DEFAULT_USED"
+    if isinstance(direct, str) and isinstance(env, str) and direct.strip() != env.strip():
+        return zone, "PERSISTED_TIMEZONE_CONFLICT_PREFERRED_PRESENTATION"
+    return zone, ("settings.presentation.timezone" if direct is not None
+                  else "settings.environment." + PRESENTATION_TIMEZONE_ENV)
+
+
 def timezone_offset_label(
     timezone_name: str,
     *,

@@ -729,6 +729,8 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
         css_dir=staging/"css"
         css_dir.mkdir(parents=True,exist_ok=False)
         data=_load_data(audit_id,database)
+        from rasai.time_contract import presentation_timezone_for_audit
+        frozen_timezone, timezone_source = presentation_timezone_for_audit(data.configuration)
         (css_dir/"site.css").write_text(_CSS.strip()+"\n",encoding="utf-8",newline="\n")
         bodies={
             "index.html":_overview_body(database,data),
@@ -822,7 +824,10 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             body=bodies.get(page.filename)
             if body is None:
                 body=_audit_hero(data,page.label,"Superfície sem projeção específica disponível.")
-            (staging/page.filename).write_text(_shell(page,audit_id,body),encoding="utf-8",newline="\n")
+            (staging/page.filename).write_text(
+                _shell(page, audit_id, body, timezone_name=frozen_timezone,
+                       timezone_source=timezone_source),
+                encoding="utf-8", newline="\n")
 
         assurance_path=staging/"integrity"/"catalog-assurance.json"
         assurance_path.write_text(
