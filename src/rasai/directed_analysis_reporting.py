@@ -1077,8 +1077,13 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         ))
     body+=_section(
         "traceability","Rastreabilidade CAT → seção → assunto",
-        "<p class='section-lead'>Cada ação usa somente referências criadas e validadas pelo sistema. Alterações de título/idioma não são usadas para compor o destino do link.</p>"
-        +_table(("Ação","Alvo / ocorrência","Origem","Evidência","Correção técnica"),trace_rows,empty="Nenhuma cadeia de rastreabilidade materializada."),
+        "<p class='section-lead'>As evidências permanecem integralmente disponíveis abaixo. "
+        "A síntese e as ações estratégicas estão acima; esta matriz é consulta técnica, "
+        "sem duplicação de prescrição e sem novos vínculos causais.</p>"
+        "<details><summary>Consultar matriz completa de origens, evidências e correções "
+        "("+str(len(trace_rows))+" ação(ões))</summary><div class='detail-body'>"
+        +_table(("Ação","Alvo / ocorrência","Origem","Evidência","Correção técnica"),trace_rows,empty="Nenhuma cadeia de rastreabilidade materializada.")
+        +"</div></details>",
     )
 
     limitation_rows=[]
