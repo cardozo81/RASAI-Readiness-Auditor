@@ -22,6 +22,7 @@ from rasai.contextual_editorial import ai_availability, recommendations
 from rasai.contextual_semantics import CONTRACT as SEMANTIC_CONTRACT, report_overlay
 from rasai.contextual_faq_aria import CONTRACT as FAQ_ARIA_CONTRACT, report_overlay as faq_aria_report_overlay
 from rasai.contextual_page_structure import CONTRACT as PAGE_STRUCTURE_CONTRACT, report_overlay as page_structure_report_overlay
+from rasai.contextual_reverse_review import CONTRACT as REVERSE_REVIEW_CONTRACT, review_projection
 from rasai.document_advisory import _inventory, _member, _plain, _read, _snapshots
 
 
@@ -110,6 +111,7 @@ def load_projection(audit_dir: Path, *, ai="none") -> dict:
     result["semantic_v2"] = report_overlay(result["captures"], result["recommendations"])
     result["faq_aria_v3"] = faq_aria_report_overlay(result["captures"])
     result["content_structure_v3"] = page_structure_report_overlay(result["captures"])
+    result["reverse_review"] = review_projection(result)
     for capture in result["captures"]:
         capture.pop("semantic_overlay_v2", None)  # publish v1 captures verbatim
         capture.pop("faq_aria_overlay_v3", None)
@@ -144,7 +146,8 @@ def build_companion(audit_dir: Path, output: Path, *, ai="none") -> dict:
         (stage / "evidence.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         manifest = dict(contract="contextual-companion-manifest-v1", source_inventory=before,
             source_unchanged=True, output_inventory=_inventory(stage), network_requests=0,
-            provider_calls=0, audit_writes=0, semantic_overlay_contract=SEMANTIC_CONTRACT, faq_aria_contract=FAQ_ARIA_CONTRACT, page_structure_contract=PAGE_STRUCTURE_CONTRACT)
+            provider_calls=0, audit_writes=0, semantic_overlay_contract=SEMANTIC_CONTRACT, faq_aria_contract=FAQ_ARIA_CONTRACT, page_structure_contract=PAGE_STRUCTURE_CONTRACT,
+            reverse_review_contract=REVERSE_REVIEW_CONTRACT)
         (stage / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         _plain(destination)
         if destination.exists() or _inventory(root) != before:
@@ -161,6 +164,7 @@ def summary_counts(report):
         faq_aria_v3_counts=report["faq_aria_v3"]["counts"],
         content_structure_v3_counts=report["content_structure_v3"]["counts"],
         recommendation_v2_counts=report["semantic_v2"]["recommendation_counts"],
+        reverse_review_counts=report["reverse_review"]["counts"],
         search_reason=report["search"]["reason"], source_unchanged=report["source_unchanged"],
         network_requests=0, provider_calls=0)
 
