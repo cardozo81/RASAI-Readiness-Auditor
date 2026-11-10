@@ -241,6 +241,9 @@ def _content_review_panel(report, *, private):
         body += "<p>Title e headings literais ficam disponíveis somente no companheiro privado com proveniência. Divergências de intenção devem ser verificadas por editor responsável.</p>"
     body += "<p><a href='cat-03.html#contextual-qualification'>Conteúdo e semântica</a> · <a href='capture-context.html#contextual-qualification'>Proveniência</a> · <a href='geo.html#contextual-semantic-v2'>Evidências GEO</a> · <a href='cat-09.html#contextual-qualification'>Remediação</a></p></section>"
     body += "<section class='panel' id='faq-aria-review'><h2>FAQ ARIA: acesso ao conteúdo capturado</h2>"
+    body += "<p>O classificador v2 exige pergunta e resposta em prosa na mesma captura. O ARIA v3 inspeciona identificadores dos controles, inclusive quando fechados. Os dois contadores possuem critérios diferentes.</p>"
+    if counts.get("not_observed_nd"):
+        body += "<p><strong>Verificação condicional:</strong> " + _quantity(counts["not_observed_nd"], "painel FAQ não observado", "painéis FAQ não observados") + " no DOM capturado. Testar interação autorizada antes de concluir ausência, bloqueio de crawler ou falha de indexação.</p>"
     if counts.get("controls") is None:
         body += "<p>N/D — markup estrutural insuficiente para qualificar controles ARIA nesta captura.</p>"
     elif not counts["controls"]:
@@ -250,7 +253,12 @@ def _content_review_panel(report, *, private):
     else:
         for row in overlay.get("controls", ()):
             body += "<details><summary>" + _t(row["question"] or "Controle sem rótulo observado") + "</summary>"
-            body += "<div class='detail-body'><p>Estado: " + _e(row["status"]) + ". Base: " + _e(row["basis"]) + ".</p>"
+            human_status = ("Resposta presente no DOM da captura" if row["status"] == "ANSWER_PRESENT_IN_DOM"
+                            else "Resposta não observada na captura - N/D" if row["status"] == "NOT_OBSERVED_ND"
+                            else "Vínculo incerto - N/D")
+            body += "<div class='detail-body'><p><strong>Leitura:</strong> " + _e(human_status) + "; estado técnico: <code>" + _e(row["status"]) + "</code>; base: <code>" + _e(row["basis"]) + "</code>.</p>"
+            if row["status"] == "NOT_OBSERVED_ND":
+                body += "<p>Validação: abrir o controle em execução autorizada e comparar DOM após interação. A ausência nesta captura não comprova defeito do site.</p>"
             body += "<p>aria-controls: <code>" + _e(row["aria_controls"]) + "</code>; aria-expanded: <code>" + _e(row["aria_expanded"]) + "</code>. Origem: " + _t(row["source_ref"]) + " · SHA-256 " + _e(row["source_sha256"]) + ".</p>"
             if row.get("answer") is not None:
                 body += "<p>Resposta observada nesta captura: " + _t(row["answer"]) + "</p>"
