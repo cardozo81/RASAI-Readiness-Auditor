@@ -332,3 +332,23 @@ Essas projeções não alteram as ocorrências v1, a disposição v2, CATs,
 escores, banco selado ou contratos de fornecedores. O novo contrato é
 passível de testes sintéticos offline; homologação física Windows da AUD
 real permanece condicionante para merge.
+
+### Gate físico Windows opcional desta branch (pendente)
+
+O script existente mantém o comportamento padrão v2 e aceita branch explícita.
+No checkout limpo já posicionado na branch de entrega, usar uma saída privada
+nova e nunca publicar HTML ou JSON das evidências.
+
+```powershell
+.\scripts\verify_contextual_companion.ps1 `
+  -Branch 'feature/geo-reverse-content-timezone-690-692' `
+  -RequireReverse `
+  -ExpectedSha '<HEAD_FINAL_DE_40_CARACTERES>' `
+  -AuditDir 'C:\caminho\privado\AUD-EXEMPLO' `
+  -OutputDir 'C:\caminho\novo-privado\companheiro'
+```
+
+O gate exige hashes originais íntegros, saída privada externa nova,
+rota estratégica disponível no companheiro, contratos de FAQ ARIA e hierarquia
+v3, sem provider e sem escrita na AUD. A revisão editorial e visual dos
+21 HTMLs e o GO de merge continuam humanos.
