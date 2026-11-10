@@ -757,7 +757,12 @@ def _improvement_html(database: Any, data: Any) -> str:
         target=_persisted_target(finding.get("details_json"))
         target_label=_target_label(target)
         public_title_cell = a._translated_text(public_title, original_title) if public_title != original_title else public_title
-        filter_rows.append(((public_title_cell, a._domain_label(domain), severity_display, coverage_label, reference, a._modal_button(modal_id, "Ver análise")), {"domain": a._domain_label(domain), "severity": severity, "remediation": "com" if labels else "sem"}))
+        confidence_label = (
+            a._confidence_label(rec.get("confidence"))
+            if rec and rec.get("confidence") is not None
+            else "N/D (não declarada)"
+        )
+        filter_rows.append(((public_title_cell, a._domain_label(domain), severity_display, confidence_label, coverage_label, reference, a._modal_button(modal_id, "Ver análise")), {"domain": a._domain_label(domain), "severity": severity, "remediation": "com" if labels else "sem"}))
         body = a._kv((("Problema", public_title), ("Alvo técnico",target_label), ("Referência do alvo",target.get("ref") or "-"), ("Domínio", a._domain_label(domain)), ("Severidade", severity_display), ("Fonte", finding.get("source") or "-"), ("Catálogo de origem", source_cat or "-"), ("Seletor / path", finding.get("selector") or "Não se aplica / não identificado"), ("Cobertura de remediação", coverage_label)))
         if public_title != original_problem:
             body += "<h3>Texto original da fonte</h3><div class='pre rich-text'>" + str(a._rich_text(original_problem)) + "</div>"
@@ -768,6 +773,7 @@ def _improvement_html(database: Any, data: Any) -> str:
             body += "<h3>Evidências vinculadas</h3><p>" + escape(" · ".join(str(v) for v in evidence)) + "</p>"
         if rec:
             body += "<h3>Melhoria recomendada</h3><p>" + str(a._rich_text(rec.get("recommendation") or rec.get("title") or "-")) + "</p>"
+            body += "<p><strong>Confiança declarada pela IA:</strong> " + escape(confidence_label) + "</p>"
             if rec.get("rationale"):
                 body += "<h3>Por que esta correção é recomendada</h3><p>" + str(a._rich_text(rec.get("rationale"))) + "</p>"
             if rec.get("suggested_html"):
@@ -792,7 +798,37 @@ def _improvement_html(database: Any, data: Any) -> str:
     summary = run.get("ai_summary") or run.get("summary")
     if summary:
         intro += f"<div class='notice'><strong>Síntese da análise:</strong> {escape(str(summary))}</div>"
-    return intro + _filterable_findings_table(("Problema", "Domínio", "Severidade", "Cobertura de remediação", "Referência", "Detalhe"), filter_rows, table_id="cat08-findings") + "".join(modals)
+    # This is a bounded projection of already-persisted priorities; no new
+    # inference, recommendation, score or execution state is introduced.
+    priority_order = {"P1": 0, "CRITICAL": 0, "HIGH": 1, "P2": 2, "MEDIUM": 2, "P3": 3, "LOW": 4, "P4": 5}
+    ranked = sorted(
+        enumerate(recs),
+        key=lambda pair: (priority_order.get(a._norm(pair[1].get("priority")), 9), pair[0]),
+    )
+    if ranked:
+        highlights = [
+            (
+                rec.get("title") or rec.get("recommendation") or "Melhoria registrada",
+                a._priority_text(rec.get("priority")) if rec.get("priority") else "Sem prioridade registrada",
+                a._confidence_label(rec.get("confidence"))
+                if rec.get("confidence") is not None else "N/D (não declarada)",
+            )
+            for _position, rec in ranked[:5]
+        ]
+        intro += (
+            "<div class='subsection'><h3>Leitura rápida: até cinco melhorias registradas</h3>"
+            "<p class='muted'>Prioridades exclusivamente persistidas; empates preservam a ordem original. "
+            "Não constitui novo score nem substitui o inventário abaixo e as remediações governadas do CAT-09.</p>"
+            + a._table(("Melhoria", "Prioridade registrada", "Confiança IA"), highlights)
+            + "</div>"
+        )
+    intro += (
+        "<p class='muted'>Confiança declarada pela IA não é probabilidade estatística calibrada "
+        "nem validação independente. Valores ausentes permanecem N/D. "
+        "CAT-08 correlaciona problemas; detalhes de implementação e plano governado pertencem "
+        "ao <a href='cat-09.html'>CAT-09</a>.</p>"
+    )
+    return intro + _filterable_findings_table(("Problema", "Domínio", "Severidade", "Confiança IA", "Cobertura de remediação", "Referência", "Detalhe"), filter_rows, table_id="cat08-findings") + "".join(modals)
 
 
 def _group_findings(group: Mapping[str, Any] | None) -> list[str]:
