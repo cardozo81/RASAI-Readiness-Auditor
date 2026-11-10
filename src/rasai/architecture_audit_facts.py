@@ -23,11 +23,31 @@ from rasai.architecture_hypothesis import suggest_architecture_from_raw
 from rasai.architecture_m6_evidence import _safe_artifact_reference
 from rasai.architecture_resource_budget import MAX_ROOT_BYTES
 from collections import Counter
+from datetime import datetime, timezone
+from rasai.time_contract import configured_presentation_timezone, format_presentation_timestamp
 from urllib.parse import urlsplit
 import ipaddress
 
 VERSION = "architecture-audit-facts-v1"
 MAX_SNAPSHOTS = 100
+
+
+def _tls_validity_presentation(value: Any) -> tuple[str, str]:
+    """Show observed Unix seconds as UTC and configured local time without altering evidence."""
+    if isinstance(value, bool) or value is None:
+        return "N/D", "N/D"
+    try:
+        raw = str(value).strip()
+        if not raw or not raw.isascii() or not raw.isdigit():
+            return "N/D", "N/D"
+        instant = datetime.fromtimestamp(int(raw), tz=timezone.utc)
+        utc_label = instant.strftime("%d/%m/%Y %H:%M:%S UTC")
+        local_label = format_presentation_timestamp(
+            instant, timezone_name=configured_presentation_timezone()
+        )
+        return utc_label, local_label
+    except (ValueError, OverflowError, OSError):
+        return "N/D", "N/D"
 _SAFE_CODE = re.compile(r"^[A-Z0-9_]{1,72}$")
 _ARCH = frozenset({"CSR_SPA", "HYDRATED", "MIXED", "STATIC_OR_SSR", "UNKNOWN"})
 
@@ -652,8 +672,12 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str) -> str:
             + display("Versão TLS informada", sec.get("tls_protocol"))
             + display("Emissor do certificado informado", sec.get("tls_issuer"))
             + display("Sujeito do certificado informado", sec.get("tls_subject"))
-            + display("Validade inicial do certificado (Unix UTC)", sec.get("tls_valid_from"))
-            + display("Validade final do certificado (Unix UTC)", sec.get("tls_valid_to"))
+            + display("Validade inicial do certificado (UTC)", _tls_validity_presentation(sec.get("tls_valid_from"))[0])
+            + display("Validade inicial do certificado (fuso da apresentação)", _tls_validity_presentation(sec.get("tls_valid_from"))[1])
+            + display("Validade inicial do certificado (Unix UTC, segundos)", sec.get("tls_valid_from"))
+            + display("Validade final do certificado (UTC)", _tls_validity_presentation(sec.get("tls_valid_to"))[0])
+            + display("Validade final do certificado (fuso da apresentação)", _tls_validity_presentation(sec.get("tls_valid_to"))[1])
+            + display("Validade final do certificado (Unix UTC, segundos)", sec.get("tls_valid_to"))
             + display("IP público do par remoto (não é origem/backend)",
                       sec.get("remote_public_peer_ip"))
             + "</dl></section></div>"

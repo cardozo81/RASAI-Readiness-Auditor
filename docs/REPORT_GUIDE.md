@@ -395,3 +395,39 @@ Em `metrics.html`, quando existem registros, a tabela adicional de cronologia de
 No console, a cronologia e apresentada como observacao independente apos a AUD. Sua ausencia nao indica zero custo quando os registros estao incompletos. Chamadas Search API externas e analises direcionadas podem ser posteriores a conclusao inicial e devem ter temporalidade propria.
 
 O estudo [APDEX_CONTENT_READINESS_INVESTIGATION.md](APDEX_CONTENT_READINESS_INVESTIGATION.md) demonstra a diferenca entre evento `load`, tarefa de experiencia sintetica e materializacao de conteudo primario em uma SPA. Uma leitura de arquitetura `CSR_SPA`, `HYDRATED` ou `MIXED` **nao** modifica Apdex, pontuacao ou qualquer serie historica. Existe classificador advisory experimental `APP_PRIMARY_CONTENT_READINESS` com checkpoints monotônicos da **mesma amostra e contexto**, censura, opt-in e exclusoes explicitas. A sonda de navegador ainda nao esta integrada aos gateways homologados, portanto o relatorio **nao** atribui duracao ficticia de prontidao a amostras existentes.
+
+
+## Clareza de datas, confiança, cobertura e leitura executiva
+
+- **CAT-01 / TLS:** a validade observada pelo Chromium é apresentada em UTC,
+  no timezone IANA de apresentação (`RASAI_PRESENTATION_TIMEZONE`) e em segundos
+  Unix originais para rastreabilidade. São duas representações do mesmo instante,
+  não validação independente da cadeia TLS. Datas inválidas permanecem N/D.
+- **CAT-08 / IA:** a tabela apresenta confiança declarada por recomendação quando
+  persistida, em percentual pelo contrato de apresentação. N/D não é zero.
+  A confiança declarada não constitui probabilidade estatística calibrada nem
+  certificação independente. A leitura rápida mostra até cinco recomendações,
+  ordenadas por prioridade **já persistida**, sem recomputar prioridade, score
+  ou materializar novas recomendações. O diagnóstico integral continua disponível.
+- **CAT-09 / remediações:** é a referência para a implementação e o plano
+  governado. CAT-08 referencia esse catálogo em vez de recriar prescrições.
+- **Visão geral e assurance:** `maturidade estrutural = 100%` representa
+  cobertura dos controles do relatório, não conclusão funcional. Catálogo
+  PARCIAL com integridade estrutural total continua PARCIAL. Contratos e
+  métricas persistidos permanecem inalterados.
+- **Análise direcionada:** a síntese estratégica e as ações são exibidas
+  antes da matriz técnica de rastreabilidade; a matriz completa permanece
+  disponível em `details` para consulta ou impressão. Nenhuma evidência
+  é descartada.
+
+### Homologação sem custos
+
+Após atualizar a branch, executar apenas o recorte offline:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q tests/test_report_evidence_ux.py tests/test_catalog_report_assurance.py tests/test_directed_analysis.py tests/test_catalog_report_site.py
+```
+
+Os relatórios de AUD histórica não são alterados automaticamente: para
+inspecionar a nova apresentação, materializar em uma **cópia** da AUD ou em
+ambiente de teste. Não usar execução física nem APIs pagas para validar UX.
