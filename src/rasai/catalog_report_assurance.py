@@ -1004,6 +1004,10 @@ def catalog_assurance_html(row: Mapping[str, Any]) -> str:
         )
     return (
         "<section class='section' id='assurance'><h2>Confiabilidade e governança estrutural</h2>"
+        "<div class='notice'><strong>Separação obrigatória:</strong> os percentuais indicam "
+        "integridade/cobertura dos controles do relatório, não conclusão funcional do catálogo. "
+        "Um catálogo PARCIAL pode ter maturidade estrutural de 100% quando suas limitações "
+        "foram corretamente registradas. Consulte o estado funcional na seção Resultado do catálogo.</div>"
         "<p class='muted'>Percentuais abaixo medem cobertura de controles verificáveis da auditoria e da projeção; "
         "não representam probabilidade estatística de uma observação externa estar correta.</p>"
         "<div class='metric-grid'>"
@@ -1107,6 +1111,11 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         "quando são persistidas, classificadas e expostas corretamente. Este encerramento é estrutural: "
         "não equivale ao fechamento diagnóstico integral, que permanece pendente enquanto houver requisito "
         "funcional obrigatório não concluído.</p>"
+        "<div class='notice'><strong>Não confundir 100% com auditoria concluída:</strong> "
+        "o estado funcional (CONCLUÍDO, PARCIAL, FALHA ou SEM RESULTADO) vem da execução "
+        "persistida; a maturidade estrutural mede exclusivamente os controles do relatório. "
+        "Um CAT PARCIAL pode registrar 100% de cobertura estrutural sem que sua coleta "
+        "ou análise esteja completa. O gate estrutural não promove o CAT a CONCLUÍDO.</div>"
         "<div class='notice'><strong>Como ler os eixos:</strong> "
         "<strong>CAT</strong> identifica o catálogo avaliado; "
         "<strong>Estado funcional</strong> mostra o resultado real da execução e permanece independente do assurance estrutural; "
