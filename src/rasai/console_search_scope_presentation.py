@@ -45,7 +45,7 @@ def render_search_scope(state: Any) -> None:
     info("Device da auditoria", _friendly_device(getattr(state, "device", "mobile")))
 
     print()
-    print(paint("SERP — PESQUISA TRADICIONAL (Google/Bing por SerpApi ou fornecedor selecionado)", CYAN, bold=True))
+    print(paint("O QUE PESQUISAR — SERP (Google/Bing via SerpApi ou fornecedor selecionado)", CYAN, bold=True))
     print("  SERP é a fonte de resultados de busca. SerpApi é apenas um fornecedor SERP.")
     print("  As consultas SERP são independentes da Perplexity e podem ser reutilizadas mediante pedido específico.")
     info("Termos de busca", "; ".join(queries) if queries else "<não configurados>")
@@ -99,7 +99,7 @@ def render_search_scope(state: Any) -> None:
     )
 
     print()
-    print(paint("PERPLEXITY SEARCH API — PESQUISA EXTERNA INDEPENDENTE", CYAN, bold=True))
+    print(paint("PERPLEXITY SEARCH INTELLIGENCE — SEARCH API INDEPENDENTE", CYAN, bold=True))
     print("  Não é SerpApi, nem Google Search Console, nem síntese GEO por IA generativa.")
     from rasai.console_search_intelligence import validate_perplexity_readiness
     from rasai.search_intelligence.perplexity import perplexity_configuration_status
@@ -150,7 +150,7 @@ def render_search_scope(state: Any) -> None:
     info("Modo da solicitação", perplexity_type)
     # Saved inputs remain inert; at launch they may be explicitly approved.
     draft = tuple(getattr(state, "perplexity_draft_queries", ()) or ())
-    info("Persistência no INI", "CONSULTAS/MODO COMO RASCUNHO; NÃO SALVA AUTORIZAÇÃO")
+    info("Persistência no INI", "RASCUNHO INI - SEM COBRANÇA NO LOAD (consultas/modo; sem autorização)")
     info("Rascunho disponível", f"{len(draft)} consulta(s) | não autorizado")
     info(
         "Nova sessão / nova AUD",
