@@ -25,10 +25,21 @@ def main():
     snapshot = PageSnapshot(snapshot_id=payload["snapshot_id"], page_id=payload["page_id"],
         device=DeviceContext(payload["device"]), requested_url=payload["requested_url"],
         final_url=payload["final_url"], captured_at=datetime.fromisoformat(payload["captured_at"]))
+    parsed = []
     result = observe_content(audit_id=payload["audit_id"], snapshot=snapshot,
         original=base64.b64decode(payload["original"], validate=True),
-        source_ref=payload["source_ref"], surface=payload["surface"])
-    sys.stdout.buffer.write(json.dumps(result, ensure_ascii=True).encode("ascii"))
+        source_ref=payload["source_ref"], surface=payload["surface"], _parsed=parsed)
+    raw_v1 = json.dumps(result, ensure_ascii=True).encode("ascii")
+    from rasai.contextual_semantics import qualify_capture
+    try:
+        overlay = qualify_capture(result, parsed[0] if parsed else None)
+    except (ValueError, TypeError, KeyError, IndexError, AttributeError):
+        overlay = qualify_capture(result)
+    result["semantic_overlay_v2"] = overlay
+    combined = json.dumps(result, ensure_ascii=True).encode("ascii")
+    # An optional overlay must never displace a v1 packet within its existing
+    # output budget. Missing v2 trace degrades to N/D in the parent consumer.
+    sys.stdout.buffer.write(combined if len(combined) <= 5_000_000 else raw_v1)
     return job
 
 

@@ -19,6 +19,7 @@ from rasai.catalog_source_dependencies import record_source_dependency
 from rasai.contextual_content import CONTRACT, MAX_BYTES, observe_content
 from rasai.contextual_documents import digest
 from rasai.contextual_editorial import ai_availability, recommendations
+from rasai.contextual_semantics import CONTRACT as SEMANTIC_CONTRACT, report_overlay
 from rasai.document_advisory import _inventory, _member, _plain, _read, _snapshots
 
 
@@ -104,6 +105,9 @@ def load_projection(audit_dir: Path, *, ai="none") -> dict:
     except (OSError, ValueError, subprocess.TimeoutExpired):
         result["search"] = dict(status="NOT_COMPARABLE", reason="SEARCH_RESOURCE_OR_SCHEMA_LIMIT_ND",
                                  observations=[], limitations=[], provider_calls=0)
+    result["semantic_v2"] = report_overlay(result["captures"], result["recommendations"])
+    for capture in result["captures"]:
+        capture.pop("semantic_overlay_v2", None)  # publish v1 captures verbatim
     return result
 
 
@@ -134,13 +138,23 @@ def build_companion(audit_dir: Path, output: Path, *, ai="none") -> dict:
         (stage / "evidence.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         manifest = dict(contract="contextual-companion-manifest-v1", source_inventory=before,
             source_unchanged=True, output_inventory=_inventory(stage), network_requests=0,
-            provider_calls=0, audit_writes=0)
+            provider_calls=0, audit_writes=0, semantic_overlay_contract=SEMANTIC_CONTRACT)
         (stage / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         _plain(destination)
         if destination.exists() or _inventory(root) != before:
             raise ValueError("output collision or AUD changed")
         stage.rename(destination)
     return report
+
+
+def summary_counts(report):
+    """Console-safe homologation summary: counts and N/D reason, no literals."""
+    return dict(captures=len(report["captures"]), recommendations=len(report["recommendations"]),
+        raw_v1_occurrences=sum(len(c["occurrences"]) for c in report["captures"]),
+        semantic_v2_counts=report["semantic_v2"]["counts"],
+        recommendation_v2_counts=report["semantic_v2"]["recommendation_counts"],
+        search_reason=report["search"]["reason"], source_unchanged=report["source_unchanged"],
+        network_requests=0, provider_calls=0)
 
 
 def main(argv=None):
@@ -154,9 +168,7 @@ def main(argv=None):
     except (OSError, ValueError, TypeError, KeyError, sqlite3.Error):
         print("N/D: entrada, integridade ou limites recusados. Nenhum provedor chamado.")
         return 2
-    print(json.dumps(dict(captures=len(report["captures"]), recommendations=len(report["recommendations"]),
-        search_reason=report["search"]["reason"], source_unchanged=report["source_unchanged"],
-        network_requests=0, provider_calls=0)))
+    print(json.dumps(summary_counts(report)))
     return 0
 
 

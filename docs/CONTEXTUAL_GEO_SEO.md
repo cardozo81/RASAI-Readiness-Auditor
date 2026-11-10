@@ -171,3 +171,135 @@ Gates finais de nomenclatura pública e traduções: **28 passed**, com
 Esses gates também integram o workflow focal de catálogo existente. Não foram
 alterados seus asserts ou exclusões. Artefatos sintéticos locais ficam fora do
 checkout para preservar a distinção entre fonte versionada e evidência gerada.
+
+## Correção aditiva pós-homologação: v1 + v2
+
+O operador informou homologação física Windows do HEAD `58e8c6c` com 50/50
+arquivos históricos preservados, 1 snapshot, 320 ocorrências e 7 hipóteses v1,
+IA desativada, zero chamadas e comparabilidade externa N/D. Esses números são
+evidência fornecida pelo operador; a correção não reabre nem modifica essa AUD
+ou o companheiro já homologado. Os resultados anteriores acima são históricos.
+
+### Compatibilidade e contratos
+
+`contextual-content-v1` e `contextual-editorial-v1` permanecem íntegros: IDs,
+ordinais, categorias estruturais, texto/href/URL, contexto, offsets, hashes,
+limitações e as hipóteses originais não são renumerados, filtrados ou regravados.
+O consumidor usa um trace efêmero do mesmo parser, sem segunda captura ou
+segundo parsing. Esse trace não é publicado dentro dos registros v1.
+
+O campo adicional `semantic_v2`, contrato `contextual-semantic-overlay-v2`,
+contém diagnósticos ligados a `occurrence_id`, `v1_category`,
+`display_category_v2`, `semantic_disposition_v2`, `basis`, `evidence_refs` e
+`limitations`. Não substitui `captures` ou `recommendations`. A extensão do
+manifesto declara a versão do overlay e conserva inventários/hashes completos
+de origem e saída. Se o overlay exceder o orçamento de saída do worker, o pacote
+v1 é preservado e somente a qualificação v2 fica N/D. Os limites v1 anteriores
+continuam explícitos: o overlay não extrapola ocorrências omitidas.
+
+| Informação homologada | Tratamento aditivo |
+|---|---|
+| Inventário v1 completo e IDs físicos | Conservado integralmente no JSON e no inventário técnico privado |
+| Categorias FAQ v1 derivadas de details/summary | Conservadas como hipóteses estruturais no histórico; v2 informa a disposição editorial separadamente |
+| Hipóteses/recomendações v1 | Todas mantidas; histórico v2 referencia seu ID, evidencia `not_actionable` ou `contextual_only`, e liga `superseded_by` aos diagnósticos que qualificam a hipótese |
+| Blocos de outros motores, métricas, scores, trust, Search, custo, IA e navegação | Mantidos fora do painel contextual; comparação estrutural contra a projeção anterior cobre todas as páginas canônicas |
+| Observações Search e razões de N/D | Sem alteração, inclusive `EXTERNAL_CONTEXT_EQUIVALENCE_UNPROVEN`; nenhuma citação generativa inferida |
+| AUD e companheiro já homologados | Somente leitura; gerar outra saída externa privada nova |
+
+### Qualificação conservadora de FAQ e controles
+
+- Ancestrais/roles de navegação ou template têm precedência. Mesmo dentro de
+  main, summary Menu/Produtos combinado com corpo composto por links é
+  `NAVIGATION_DISCLOSURE`, sem FAQ editorial. A qualificação se propaga aos
+  registros daquele disclosure, preservando o vínculo estrutural v1.
+- FAQ editorial exige condições conjuntas: pergunta contextual interrogativa,
+  escopo main/article ou FAQ explícito, details/summary fechado e resposta em
+  prosa fisicamente vinculada. Ponto de interrogação, nome/classe FAQ ou summary
+  isolados não bastam. Prosa direta só é admitida com escopo FAQ explícito;
+  caso contrário exige bloco textual em prosa. Esse é um critério conservador
+  de projeção, sem confiança percentual, autenticação de intenção ou mudança de
+  motor. Outras estruturas/idiomas ficam N/D quando não sustentados.
+- Pergunta sem resposta observável permanece `POTENTIAL_FAQ_QUESTION`, N/D.
+  Ausência na captura não comprova resposta ausente no site e não gera ação.
+- Fragmentos/ações são `OBSERVED_CONTROL` ou `POTENTIAL_FAQ_ANCHOR`.
+  Voltar ao topo e links interrogativos não demonstram falha no painel ou
+  lacuna de conteúdo. Suas hipóteses v1 ficam `not_actionable` em v2.
+- Referência a regulamento/PDF continua candidata documental, sem autenticação,
+  conteúdo inferido ou nova coleta. A hipótese de revisão v1 permanece
+  `contextual_only`; isso não comprova problema editorial.
+
+As contagens de observações v2 são `raw`, `qualified`, `not_actionable` e `nd`:
+raw é o número de registros v1 disponíveis e é a soma das três disposições.
+`qualified` significa contexto observável classificado, não oportunidade ou
+melhoria. `observed_v1` conserva o total original pré-limite quando conhecido;
+se indisponível, a limitação é N/D. Contagens de recomendações têm denominador
+próprio: hipóteses v1 preservadas, ações v2 sustentadas, não acionáveis e somente
+contextuais/N/D. Não são score nem somáveis às contagens de observações.
+
+Este lote não inventa um novo gerador de remediações: os casos acima não
+comprovam falha editorial adicional. `actionable_recommendations` fica vazio,
+com razão explícita de N/D para melhoria; não é prova de ausência de melhorias.
+Na fixture sintética de 320 registros e 7 hipóteses: os 320 e os 7 permanecem
+íntegros, nenhuma FAQ de Menu/Produtos é promovida, seis hipóteses de controles
+ficam não acionáveis e uma referência documental permanece contextual/N/D.
+Isso não antecipa as contagens v2 da próxima homologação real.
+
+### Projeções e nova homologação única
+
+As sete superfícies existentes recebem uma seção v2 claramente delimitada.
+O inventário e as hipóteses v1 continuam no histórico de compatibilidade,
+incluindo texto/local/ajuste/validação e razões originais; cada hipótese ganha
+uma explicação v2 separada. As observações Search mantêm sua apresentação e
+seu estado N/D. Singular/plural natural aplica-se apenas à composição contextual.
+Nenhuma rota, CSS, catálogo, workflow ou bloco de outro motor foi substituído.
+Painéis canônicos omitem literais/URLs privados; detalhes permanecem no
+companheiro privado com escaping/CSP e vínculos locais. IA solicitada continua
+`NOT_AUTHORIZED`, sem providers, HTTP, PDFs ou OCR.
+
+Após CI verde do novo SHA, executar **uma** homologação pelo script existente,
+na mesma AUD terminal escolhida pelo operador e com outra saída privada nova:
+
+```powershell
+.\scripts\verify_contextual_companion.ps1 -ExpectedSha '<HEAD_FINAL_DE_40_CARACTERES>' -AuditDir 'C:\caminho\AUD-exemplo' -OutputDir 'C:\privado\validacao-v2-nova\companheiro'
+```
+
+O script exige diretório pai privado novo, faz atualização por fast-forward e
+confere o SHA, valida a AUD terminal, verifica todos os hashes de origem antes
+e depois, confere o manifesto de saída e imprime somente contagens v1/v2 e a
+razão de N/D externo. Fetch Git administrativo é separado da solução offline.
+Não reutilizar a saída anterior. Revisar FAQ qualificada, controles e histórico
+v1, confirmar a paridade completa e decidir sobre merge posteriormente.
+
+### Evidência focal da correção v2
+
+Windows/Python 3.13: **154 passed em 61,17 s**, sem novos skips, com:
+
+```text
+python -m pytest -q -rs tests/test_contextual_content.py tests/test_contextual_advisory.py tests/test_contextual_search.py tests/test_contextual_report_integration.py tests/test_catalog_report_site.py tests/test_catalog_report_package_integrity.py tests/test_catalog_source_dependencies.py tests/test_catalog_source_inventory.py tests/test_report_section_readability.py tests/test_report_confidence_kpm_labels.py tests/test_documentation_contract.py tests/test_prepublication_documentation_contract.py tests/test_documentation_public_naming.py tests/test_rasai_namespace_contract.py tests/test_user_facing_language_contract.py --tb=short
+```
+
+- Fixture v1 de 320 ocorrências congelada contra o produtor `58e8c6c`: igualdade
+  integral e SHA-256 JSON canônico
+  `69643315f6ebacd5aa2de58ddf85e781e05999be4b9c5091c187bfb000015efb`.
+- Fixture de AUD selada com 50 arquivos e companheiro anterior: todos os hashes
+  preservados; 320 registros e 7 hipóteses v1 íntegros; seis hipóteses de controle
+  não acionáveis e uma documental somente contextual/N/D; zero ações novas sem
+  prova de lacuna. Isso é teste sintético, não nova homologação da AUD real.
+- Comparação baseline/candidato do materializador: tokens estruturais, conteúdo
+  e navegação fora do painel contextual idênticos nas 20 páginas; bytes do banco
+  e linhas de scores preservados. Mudanças de concordância e qualificação dentro
+  do próprio painel são deliberadas e não representam perda de dados v1.
+- Smoke preexistente executado sobre relatório sintético com 320 ocorrências:
+  20 páginas, 60 screenshots desktop/mobile/tablet, manifesto verificado, origem
+  intacta e zero requests de coletores/provedores. A ferramenta visual não recebeu
+  baseline integral; a paridade externa ao painel é provada pelo teste específico
+  acima, não por alegação de paridade de todo texto visível do smoke.
+- Companheiro privado: 14 combinações página/viewport, JavaScript desativado,
+  sem overflow, sem requests remotos e com hashes preservados. Deep link legado
+  de ocorrência continua revelando o histórico sem JavaScript.
+- Gate público, parser PowerShell e `git diff --check` aprovados. Nenhuma execução
+  manual da regressão integral; o CI existente executa os gates do novo HEAD.
+
+Logs e capturas sintéticos ficam em diretório privado externo ao checkout.
+Homologação única da correção na AUD real e autorização de merge permanecem
+reservadas ao responsável. Não fechar #690 nem remover a branch automaticamente.

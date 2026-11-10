@@ -145,3 +145,74 @@ def test_one_aud_product_faq_document_and_persisted_search_end_to_end(tmp_path):
     assert result["search"]["status"] == "NOT_COMPARABLE"
     assert any(o["category"] == "FAQ_ANSWER" for o in result["captures"][0]["occurrences"])
     assert advisory._inventory(root) == before
+
+
+def test_v2_sealed_50_files_320_occurrences_seven_hypotheses_and_prior_companion_preserved(tmp_path):
+    from tests.test_contextual_content import homologation_synthetic_html
+    from rasai.contextual_content import observe_content
+    from rasai.contextual_search import correlate_persisted
+    root = source(tmp_path)
+    with sqlite3.connect(root / "audit.db") as con:
+        con.execute("DELETE FROM page_snapshots WHERE device != 'DESKTOP'")
+    raw = homologation_synthetic_html().encode()
+    (root / "artifacts/raw.html").write_bytes(raw)
+    for i in range(50 - len(advisory._inventory(root))):
+        (root / f"artifacts/preserved-{i}.txt").write_text(f"Synthetic historical artifact {i}")
+    snapshot = advisory._snapshots(root)[0]
+    expected_capture = observe_content(audit_id=root.name, snapshot=snapshot, original=raw,
+        source_ref="artifacts/raw.html", surface="RAW_HTML_FALLBACK")
+    expected_capture["limitations"].append("RENDERED_DOM_MISSING_OR_BYTE_LIMIT_ND")
+    expected_recommendations = recommendations([expected_capture])
+    prior = tmp_path / "prior-companion"
+    prior.mkdir()
+    (prior / "evidence.json").write_text(json.dumps(dict(captures=[expected_capture], recommendations=expected_recommendations)))
+    (prior / "index.html").write_text("Prior homologated companion remains byte-identical")
+    prior_hashes = advisory._inventory(prior)
+    source_hashes = advisory._inventory(root)
+    assert len(source_hashes) == 50
+    expected_search = correlate_persisted(root, [expected_capture])
+    out = tmp_path / "new-private-companion"
+    result = advisory.build_companion(root, out)
+    assert result["captures"] == [expected_capture]
+    assert result["recommendations"] == expected_recommendations and len(expected_recommendations) == 7
+    assert result["search"] == expected_search
+    assert result["semantic_v2"]["counts"]["raw"] == 320
+    assert result["semantic_v2"]["counts"]["faq_questions"] == 0
+    assert result["semantic_v2"]["recommendation_counts"] == dict(raw=7, qualified=0, not_actionable=6, nd=1)
+    assert result["semantic_v2"]["actionable_recommendations"] == []
+    assert source_hashes == advisory._inventory(root) == result["source_inventory"]
+    assert prior_hashes == advisory._inventory(prior)
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["semantic_overlay_contract"] == "contextual-semantic-overlay-v2"
+    assert manifest["source_inventory"] == source_hashes
+    assert all(digest((out / name).read_bytes()) == seal for name, seal in manifest["output_inventory"].items())
+    for name in PAGES:
+        html = (out / name).read_text(encoding="utf-8")
+        assert "id='contextual-semantic-v2'" in html and "id='contextual-content'" in html
+        assert not any(token in html for token in ("captura(s)", "ocorrência(s)", "oportunidade(s)", "editorial(is)"))
+        if name not in {"cat-05.html", "geo.html"}:
+            assert "id='contextual-v1-history'" in html
+    inventory = (out / "capture-context.html").read_text(encoding="utf-8")
+    assert all(f"id='{o['occurrence_id']}'" in inventory for o in expected_capture["occurrences"])
+    remediation = (out / "cat-09.html").read_text(encoding="utf-8")
+    assert "não acionável" in remediation and "somente contextual" in remediation
+    assert "1 captura" in (out / "index.html").read_text(encoding="utf-8")
+    counts = advisory.summary_counts(result)
+    assert counts["raw_v1_occurrences"] == 320 and counts["recommendations"] == 7
+    assert counts["network_requests"] == counts["provider_calls"] == result["ai"]["provider_calls"] == 0
+    assert result["ai"]["state"] == "DISABLED"
+
+
+def test_v2_output_budget_falls_back_to_complete_v1_packet_without_losing_records():
+    from datetime import datetime, timezone
+    from rasai.domain import DeviceContext, PageSnapshot
+    from rasai.contextual_semantics import report_overlay
+    html = '<main>' + ''.join('<a href="/' + ('界' * 2000) + f'/{i}">Link</a>' for i in range(192)) + '</main>'
+    snapshot = PageSnapshot(snapshot_id="SNP-DESKTOP", page_id="PGE-one", device=DeviceContext.DESKTOP,
+        requested_url="https://example.test/a", final_url="https://example.test/product",
+        captured_at=datetime(2026, 11, 10, tzinfo=timezone.utc))
+    expected = observed(html)
+    actual = advisory._observe("AUD-SYNTHETIC", snapshot, html.encode(), "artifacts/page.html", "RENDERED_DOM")
+    assert actual == expected  # raw packet remains under 5 MB; optional overlay exceeds it
+    assert len(actual["occurrences"]) == 192
+    assert report_overlay([actual], [])["counts"]["nd"] == 192

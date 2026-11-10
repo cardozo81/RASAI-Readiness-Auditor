@@ -43,7 +43,7 @@ if ($LASTEXITCODE -ne 0) { throw 'ACL privada não aplicada.' }
 & $python -c @'
 import json, os
 from pathlib import Path
-from rasai.contextual_advisory import build_companion
+from rasai.contextual_advisory import build_companion, summary_counts
 from rasai.document_advisory import _inventory
 from rasai.contextual_documents import digest
 root, out = Path(os.environ['RASAI_CONTEXTUAL_AUD']), Path(os.environ['RASAI_CONTEXTUAL_OUTPUT'])
@@ -52,8 +52,6 @@ report = build_companion(root, out, ai='none')
 assert before == _inventory(root) == report['source_inventory']
 manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
 assert all(digest((out / name).read_bytes()) == seal for name, seal in manifest['output_inventory'].items())
-print(json.dumps(dict(source_files=len(before), captures=len(report['captures']),
-    recommendations=len(report['recommendations']), source_unchanged=True,
-    search_reason=report['search']['reason'], network_requests=0, provider_calls=0)))
+print(json.dumps(dict(source_files=len(before), **summary_counts(report))))
 '@
 if ($LASTEXITCODE -ne 0) { throw 'Homologação offline recusada; examinar apenas saída privada.' }

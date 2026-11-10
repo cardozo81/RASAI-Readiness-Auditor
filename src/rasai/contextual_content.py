@@ -97,7 +97,7 @@ class _Markup(HTMLParser):
 
 
 def observe_content(*, audit_id: str, snapshot: PageSnapshot, original: bytes | None,
-                    source_ref: str | None, surface: str) -> dict:
+                    source_ref: str | None, surface: str, _parsed: list | None = None) -> dict:
     if surface not in {"RENDERED_DOM", "RAW_HTML_FALLBACK", "NOT_CAPTURED"}:
         raise ValueError("unknown captured surface")
     result = dict(contract=CONTRACT, audit_id=audit_id, page_id=snapshot.page_id,
@@ -238,4 +238,8 @@ def observe_content(*, audit_id: str, snapshot: PageSnapshot, original: bytes | 
     result["occurrences"] = [o for _, o in sorted(selected)]
     if result["counts"]["omitted"]:
         result["limitations"].append("OCCURRENCE_LIMIT_PARTIAL")
+    # Internal, ephemeral trace for the additive consumer. The v1 payload,
+    # selection, IDs, categories, ranges and limitations are unchanged.
+    if _parsed is not None:
+        _parsed.append(parser)
     return result
