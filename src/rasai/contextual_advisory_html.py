@@ -164,6 +164,33 @@ def _v2_panel(report, page, *, private):
 
 
 
+def _review_task_panel(report, *, private):
+    """Conditional editorial tasks with explicit evidence and validation."""
+    projection = report.get("reverse_review") or {}
+    tasks = projection.get("tasks") or []
+    count = (projection.get("counts") or {}).get("actionable_v2", "N/D")
+    body = "<section class='panel' id='editorial-verification'><h2>Verificações editoriais orientadas por evidências</h2>"
+    body += "<p>Estas tarefas são hipóteses condicionais, não erros SEO/GEO comprovados. Não alteram pontuação ou ranking. Alegações comerciais exigem revisão da fonte responsável.</p>"
+    body += "<p>" + _quantity(len(tasks), "verificação pendente", "verificações pendentes") + " · " + _e(count) + " ações v2 qualificadas.</p>"
+    if not tasks:
+        body += "<p>N/D — nenhum sinal adicional sustentado por esta captura; isso não prova ausência de oportunidades.</p>"
+    for task in tasks:
+        body += "<details><summary>" + _e(task["title"]) + " · validação necessária</summary><div class='detail-body'>"
+        body += "<p><strong>Base:</strong> " + _e(task["rationale"]) + "</p>"
+        body += "<p><strong>Como validar:</strong> " + _e(task["validation"]) + "</p>"
+        body += "<p>Suficiência da evidência: " + _e(task["evidence_sufficiency"]) + ".</p>"
+        if private:
+            for evidence in task["evidence_refs"]:
+                body += "<p><strong>" + _e(evidence.get("label") or "Trecho") + ":</strong> " + _t(evidence.get("text")) + "</p>"
+                if evidence.get("occurrence_id"):
+                    body += "<p><a href='capture-context.html#" + _e(evidence["occurrence_id"]) + "'>Ver ocorrência v1</a></p>"
+                body += "<p>Origem: <code>" + _e(evidence.get("source_ref")) + "</code> · SHA-256 <code>" + _e(evidence.get("source_sha256")) + "</code>.</p>"
+        else:
+            body += "<p>Textos, URLs e provas literais ficam restritos ao companheiro privado.</p>"
+        body += "</div></details>"
+    return body + "</section>"
+
+
 def _content_review_panel(report, *, private):
     """Decision-facing projection: public summaries, private physical excerpts."""
     overlay = report.get("faq_aria_v3") or {}
@@ -198,7 +225,7 @@ def _content_review_panel(report, *, private):
             body += _reasons(snapshot["limitations"]) + "</div></details>"
     else:
         body += "<p>Title e headings literais ficam disponíveis somente no companheiro privado com proveniência. Divergências de intenção devem ser verificadas por editor responsável.</p>"
-    body += "<p><a href='cat-03.html#contextual-qualification'>Conteúdo e semântica</a> · <a href='capture-context.html#contextual-qualification'>Proveniência</a> · <a href='geo.html#contextual-qualification'>Evidências GEO</a> · <a href='cat-09.html#contextual-qualification'>Remediação</a></p></section>"
+    body += "<p><a href='cat-03.html#contextual-qualification'>Conteúdo e semântica</a> · <a href='capture-context.html#contextual-qualification'>Proveniência</a> · <a href='geo.html#contextual-semantic-v2'>Evidências GEO</a> · <a href='cat-09.html#contextual-qualification'>Remediação</a></p></section>"
     body += "<section class='panel' id='faq-aria-review'><h2>FAQ ARIA: acesso ao conteúdo capturado</h2>"
     if counts.get("controls") is None:
         body += "<p>N/D — markup estrutural insuficiente para qualificar controles ARIA nesta captura.</p>"
@@ -216,7 +243,8 @@ def _content_review_panel(report, *, private):
             if row.get("occurrence_id"):
                 body += "<p><a href='capture-context.html#" + _e(row["occurrence_id"]) + "'>Registro v1 e localização física</a></p>"
             body += _reasons(row["limitations"]) + "</div></details>"
-    body += "</section><section class='panel' id='editorial-ideas'><h2>Interpretação editorial e validação</h2>"
+    body += "</section>" + _review_task_panel(report, private=private)
+    body += "<section class='panel' id='editorial-ideas'><h2>Interpretação editorial e validação</h2>"
     body += "<p>As hipóteses existentes são contextuais e não atestam erro. Nenhuma reescrita comercial deve ser publicada sem revisar regulamentos, condições e suporte probatório. IA opcional requer consentimento específico; renderizar HTML nunca a executa.</p>"
     if not report.get("recommendations"):
         body += "<p>N/D — nenhuma hipótese determinística sustentada nesta captura.</p>"
