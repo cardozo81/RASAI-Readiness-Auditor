@@ -352,3 +352,24 @@ O gate exige hashes originais íntegros, saída privada externa nova,
 rota estratégica disponível no companheiro, contratos de FAQ ARIA e hierarquia
 v3, sem provider e sem escrita na AUD. A revisão editorial e visual dos
 21 HTMLs e o GO de merge continuam humanos.
+
+
+## Projeção reversa com verificação editorial condicionada — evolução #690
+
+A camada `contextual-reverse-editorial-projection-v1` usa exclusivamente
+capturas e overlays existentes, com tarefas condicionais `TITLE_H1_INTENT`,
+`H1_HIERARCHY`, `COMMERCIAL_CLAIM_SUPPORT`, `FAQ_RECAPTURE` e
+`DOCUMENT_CONTEXT`. Cada tarefa possui origem física, hash e validação;
+não alega erro SEO, ranking, indexação ou falsidade comercial. Links documentais
+são consolidados apenas na projeção, mantendo ocorrências e hashes v1.
+
+O relatório novo apresenta a fila de revisão separada do histórico v1 de
+controles não acionáveis, agrupa títulos por superfície e explica a diferença
+entre os critérios FAQ v2/v3. O link interno GEO aponta para
+`geo.html#contextual-semantic-v2`, âncora produzida pelo renderer existente.
+A projeção pública não expõe literais privados; o companheiro restringe
+trechos e URLs por CSP/escaping. O script Windows verifica o contrato da
+projeção e o manifesto de saída em modo offline.
+
+A nova projeção não supre a exigência de GO para IA contextual ativa nem prova
+comparabilidade positiva de dados externos; essas pendências continuam na #690.

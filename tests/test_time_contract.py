@@ -130,5 +130,31 @@ class TimeContractTests(unittest.TestCase):
         self.assertEqual(localize_visible_timestamps("Fonte: 2026-09-11", timezone_name="UTC"),
                          "Fonte: 2026-09-11")
 
+def test_typed_rfc7231_and_epoch_at_day_boundary_without_ambient_timezone(monkeypatch):
+    from datetime import datetime, timezone
+    from rasai.time_contract import format_presentation_http_date, format_presentation_unix_epoch
+    monkeypatch.setenv("RASAI_PRESENTATION_TIMEZONE", "Asia/Tokyo")
+    raw = "Fri, 11 Sep 2026 00:00:00 GMT"
+    expected = "10/09/2026 21:00:00 (America/Sao_Paulo)"
+    assert format_presentation_http_date(raw, timezone_name="America/Sao_Paulo") == expected
+    epoch = datetime(2026, 9, 11, tzinfo=timezone.utc).timestamp()
+    assert format_presentation_unix_epoch(epoch, unit="seconds", timezone_name="America/Sao_Paulo") == expected
+    assert format_presentation_unix_epoch(epoch * 1000, unit="milliseconds", timezone_name="America/Sao_Paulo") == expected
+    assert raw == "Fri, 11 Sep 2026 00:00:00 GMT"
+
+
+def test_typed_temporal_inputs_refuse_ambiguous_values():
+    import pytest
+    from rasai.time_contract import format_presentation_http_date, format_presentation_unix_epoch
+    with pytest.raises(ValueError):
+        format_presentation_http_date("2026-09-11T00:00:00")
+    with pytest.raises(ValueError):
+        format_presentation_unix_epoch(1500, unit="duration_ms")
+    with pytest.raises(ValueError):
+        format_presentation_unix_epoch(float("nan"), unit="seconds")
+    with pytest.raises(ValueError):
+        format_presentation_unix_epoch(True, unit="seconds")
+
+
 if __name__ == "__main__":
     unittest.main()

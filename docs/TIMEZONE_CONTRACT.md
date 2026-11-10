@@ -94,3 +94,28 @@ O literal sem fuso e a data-only não sofrem deslocamento inferido; `code`,
 banco da AUD mantêm seus valores e hashes. A apresentação de datas de fontes
 em formatos adicionais, como cabeçalhos RFC 7231 e epoch, deve ser resolvida
 pelo renderer de cada campo tipado, nunca por substituição cega de texto.
+
+
+## Correções verificáveis posteriores na branch #692
+
+A exibição de validade TLS no CAT-01 utilizava `configured_presentation_timezone()`
+(host atual) mesmo quando a configuração histórica da AUD definia outro IANA.
+O materializador passa a configuração congelada da AUD para
+`architecture_audit_facts_html`, preservando os valores Unix UTC e os campos
+UTC como evidências. Teste focal usa 11/09/2026 00:00:00 UTC =
+10/09/2026 21:00:00 America/Sao_Paulo com o host configurado em Asia/Tokyo.
+
+O companheiro privado contextual agora lê o mesmo campo persistido por SQLite
+somente leitura (`immutable=1`), exibe o fuso aplicado e preserva o literal no
+`evidence.json`. Sem configuração histórica, o fallback é explícito com N/D.
+
+As funções tipadas `format_presentation_http_date` e
+`format_presentation_unix_epoch` permitem representar cabeçalhos HTTP GMT e
+epoch em segundos/milissegundos sem presumir unidade para números avulsos,
+alterar duração, ou converter data-only. Aplicação por campo exige prova de
+tipo; não se aplica substituição global a strings externas.
+
+**#692 ainda não pode ser encerrada:** falta inventário exaustivo por campo
+temporal renderizado e testes/homologação física do conjunto completo de 21
+páginas da AUD real, inclusive provas RFC/epoch quando disponíveis. O resultado
+sintético não certifica essa cobertura.

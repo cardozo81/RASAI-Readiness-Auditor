@@ -7,6 +7,8 @@ conversion never mutates persisted source evidence.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from math import isfinite
 import os
 import re
 from typing import Any, Mapping
@@ -204,3 +206,31 @@ def localize_html_timestamps(
             continue
         output.append(localize_visible_timestamps(part, timezone_name=resolved))
     return "".join(output)
+
+
+def format_presentation_http_date(value: str, *, timezone_name: str | None = None) -> str:
+    """Format a typed RFC 7231 HTTP Date; preserve the raw header in its caller."""
+    if not isinstance(value, str) or not 10 <= len(value) <= 80:
+        raise ValueError("HTTP-date ausente ou fora da política")
+    try:
+        instant = parsedate_to_datetime(value)
+    except (ValueError, TypeError, IndexError) as exc:
+        raise ValueError("HTTP-date inválido") from exc
+    if instant.tzinfo is None or instant.utcoffset() != UTC.utcoffset(None):
+        raise ValueError("HTTP-date sem prova UTC/GMT")
+    return format_presentation_timestamp(instant, timezone_name=timezone_name)
+
+
+def format_presentation_unix_epoch(
+    value: int | float, *, unit: str, timezone_name: str | None = None
+) -> str:
+    """Render a typed Unix timestamp with mandatory seconds/milliseconds unit."""
+    if type(value) not in (int, float) or not isfinite(value):
+        raise ValueError("epoch inválido")
+    if unit not in {"seconds", "milliseconds"}:
+        raise ValueError("unidade epoch deve ser seconds ou milliseconds")
+    try:
+        instant = datetime.fromtimestamp(value if unit == "seconds" else value / 1000, tz=UTC)
+    except (ValueError, OverflowError, OSError) as exc:
+        raise ValueError("epoch fora do intervalo") from exc
+    return format_presentation_timestamp(instant, timezone_name=timezone_name)
