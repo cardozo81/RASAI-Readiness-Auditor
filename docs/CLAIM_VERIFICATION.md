@@ -245,6 +245,33 @@ nova auditoria ocorre; a prova externa de fonte vigente ainda precisa
 ser obtida e homologada sob autorizacao separada.
 
 
+## Descoberta e extração documental consultiva
+
+`contextual_documents`, `document_text` e `document_relationships` produzem
+candidatos e relações N:M, sem promover estados da #603 nem emitir HMAC.
+O extra `.[documents]` instala `pypdf>=7,<8` (Python puro; sem OCR/Chromium).
+HTML exige tipo declarado e markup; PDF exige assinatura física e parsing,
+nunca extensão. Bytes originais e texto derivado possuem hashes distintos;
+páginas/offsets/excertos apontam para o texto derivado e seu hash. Hash não
+autentica documento. Dados privados permanecem em diretório local protegido,
+fora do GitHub e de relatórios abertos.
+
+Extração ocorre em subprocesso com timeout de 10 s, teto de memória de 256 MiB
+(Job Object Windows / RLIMIT_AS Linux), 4 MB originais, 100 páginas, 200 mil
+caracteres e 1 MB por stream. Falha de isolamento, parser ausente, PDF
+criptografado/corrompido/sem texto ou limite excedido resulta em N/D sem texto
+parcial utilizável. A ordem/layout de PDF é limitação do texto extraído.
+
+Relações explícitas distinguem `POTENTIALLY_APPLICABLE`,
+`INSUFFICIENT_EVIDENCE`, `SCOPE_DEMONSTRATED`, `PRODUCT_INCOMPATIBLE`,
+`VERSION_OR_EFFECTIVITY_INCOMPATIBLE` e `POSSIBLE_CONTRADICTION`.
+São interpretações consultivas: cada estado além de insuficiência exige
+excerto físico validado; escopo demonstrado exige literais declarados no
+excerto. Isso não prova aplicabilidade jurídica. Produto/modalidade candidato
+não equivale ao `product_scope` autenticado da #603. Nenhuma relação por marca,
+domínio ou semelhança lexical é promovida automaticamente. Revisão independente
+continua usando os contratos de manifesto/documento/recibo existentes.
+
 ## Encaminhamento estruturado ao responsavel independente
 
 O modelo operacional a encaminhar esta em

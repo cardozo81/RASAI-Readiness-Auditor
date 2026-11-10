@@ -24,4 +24,15 @@ A saída `content_context_interpretation` usada para explicar campos editoriais 
 
 ## Governança
 
+O [companheiro documental offline](REPORT_REMATERIALIZATION.md#companheiro-documental-offline)
+trata HTML/PDF como dados hostis: parsing em subprocesso limitado, texto
+escapado e CSP sem rede/scripts. Prompt injection não executa instruções.
+Nenhuma ativação de provider/callback existe nesta entrega; `AI=none` mantém
+inventário e relações úteis. Um futuro consumidor de IA deverá usar o
+orquestrador, perfil de necessidade, custos e consentimento canônicos; sugestões
+serão hipóteses ligadas a excertos físicos e não produzirão recibos ou estados
+assinados. Metadados de modelo/provedor/uso/custo não disponíveis ficam N/D.
+Originais e texto derivado no companheiro são potencialmente privados e seguem
+as mesmas restrições de acesso/retenção da AUD; não publicar em relatórios abertos.
+
 A retenção do log acompanha a retenção do workspace da auditoria. Em implantação SaaS, acesso ao exchange log deve obedecer ao mesmo tenant/workspace/project/property e RBAC aplicados aos demais artefatos de auditoria; ele não deve ser exposto entre organizações ou workspaces.

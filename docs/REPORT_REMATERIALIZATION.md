@@ -2,6 +2,80 @@
 
 ## Contrato e limite de uso
 
+### Companheiro documental offline
+
+O inventário da #656 é uma saída separada, sem rematerializar o HTML canônico:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e '.[documents]'
+.\.venv\Scripts\python.exe -m rasai.document_advisory --audit-dir 'C:\caminho\AUD-ID' --output 'C:\caminho-protegido\documentos-consultivos' --ai none
+```
+
+O destino deve ser novo e externo a qualquer pacote `AUD-*`, `RPR-*`, `CONS-*`.
+São emitidos `index.html`, `inventory.json` e, quando fornecidos, bytes originais
+em `originals/<sha256>.bin`. O JSON é a cadeia completa; HTML apresenta somente
+contexto, excertos, insuficiência e links internos. Não cria CAT nem duplica
+CAT-03/CAT-08/resumo. O comando não abre o runtime mutável de auditoria.
+SQLite usa `mode=ro&immutable=1`, `query_only=ON` e prazo de consulta; WAL,
+SHM/journal, identidade divergente, symlink/junction e traversal são recusados.
+Hashes de todos os arquivos da origem, incluindo banco e relatórios antigos,
+são comparados antes/depois e antes da publicação por rename do staging.
+Mudança externa impede publicação; isso não constitui atestado independente.
+Fonte deve estar quiescente e canonicamente concluída: `audits.status=COMPLETED`
+e `completion_status=COMPLETE` ou `COMPLETE_WITH_LIMITATIONS`. Identidade e
+estado terminal são consultados em modo somente leitura antes da descoberta;
+`CREATED`, `ANALYZING`, conclusão ausente/desconhecida ou outra combinação
+recusam publicação sem criar saída. Isso afeta somente o comando documental.
+Limites adicionais: 200 snapshots, 20 documentos,
+500 relações, manifesto 200 KB, inventário 20 mil arquivos/2 GB. Discovery
+executa isolada com timeout de 5 s/256 MiB por snapshot; falha resulta em N/D.
+Referências documentais são priorizadas antes do teto de 500, mantendo índices
+originais e duplicatas; excesso pertinente é parcial explícito. Classificação
+e contadores seguem [contexto de captura](CAPTURE_CONTEXT_MODEL.md#referências-documentais-passivas).
+
+`--manifest` permite documentos locais explicitamente fornecidos ou coletados
+sob autorização anterior documentada. O arquivo JSON tem `documents` e
+`relationships` (listas). Cada documento exige `file` relativo ao manifesto,
+`sha256`, `media_type`, `observed_at` com timezone, `acquisition_basis`
+(`LOCAL_OPERATOR_SUPPLIED` ou `PREVIOUSLY_AUTHORIZED`), `authorization_ref` e
+`occurrence_ids` obtidos do inventário passivo. URLs solicitada/final opcionais
+são rótulos observados declarados pelo operador, não redirects autenticados.
+O manifesto não autoriza coleta. Documentos são lidos com teto de 4 MB.
+Documento local ausente/ilegível/acima do limite degrada individualmente para
+N/D, sem interromper o inventário; hash informado permanece apenas declaração
+do operador, sem hash original físico ou cópia de bytes. Relações desse
+documento ficam em insuficiência. PDF sem extração também não sustenta vínculos.
+Divergência de hash de bytes efetivamente lidos ou caminho inseguro recusa a
+publicação por integridade, em vez de aceitar a evidência divergente.
+
+Uma relação exige `occurrence_id`, `document_id` (hash original),
+`product_candidate`, `spans` (`page`, `start`, `end`, `quote` com offsets no
+texto derivado); opcionais: `version_observed`, `effective_observed`,
+`claim_literal`, `applicability`, `basis`. Alegação literal deve existir no
+`main_content_ref` do snapshot; a relação guarda artefato/hash dessa base.
+Os estados consultivos constam de `CLAIM_VERIFICATION.md`. Ausência de relações
+é insuficiência explícita, sem mapeamento por marca/domínio.
+
+`reference_observations` opcional vincula uma falha **já persistida** por
+`occurrence_id`, `artifact_ref` dentro de artifacts e `sha256`. O artefato JSON
+deve registrar `requested_url` exata, `observed_at` com timezone e `http_status`
+400-599 ou `error` igual a `TLS_ERROR`, `TIMEOUT`, `NOT_ACCESSIBLE`. Só então a
+referência é `NOT_ACCESSIBLE`; link sem visita continua `REFERENCED_ONLY`.
+Esses registros não demonstram nova visita nem autenticidade independente.
+
+`--ai requested` degrada para `UNAVAILABLE/NO_DOCUMENT_CONSENT_PROFILE`, sem
+callbacks, rede, provider ou cobrança. A ativação de IA documental não foi
+autorizada: exige perfil de necessidade, orquestrador canônico, consentimento,
+privacidade e orçamento em ciclo separado. Falha/recusa/indisponibilidade não
+podem impedir o inventário determinístico. Não existe interface de coleta
+ativa neste comando, nem OCR ou assinatura em nome de revisor.
+
+Trate a saída como privada e potencialmente sensível, com as mesmas restrições
+de acesso/retenção da AUD. Não publique bytes, transcrições ou HTML em GitHub,
+logs ou hosting aberto. Documentos/HTML são dados não confiáveis; conteúdo de
+prompt injection permanece literal escapado, jamais instrução. O HTML não
+contém scripts, recursos remotos ou links ativos para URLs documentais.
+
 Uma AUD é evidência persistida. A geração do relatório é sua **projeção** e
 não pode retroativamente mudar aquisições, tentativas, custos, estado de
 fulfillment, observações sidecar, hash das evidências ou a decisão de IA.

@@ -6,6 +6,13 @@ O RASAi trata cada `AUD-*` como **uma única observação lógica**. Uma auditor
 
 ## Contrato de conclusão
 
+A descoberta documental consultiva usa somente arquivos persistidos em uma
+saída companheira externa e não constitui `RPR-*` ou nova versão da AUD.
+Não altera SQLite, artefatos, scores ou HTML históricos. Operação e prova de
+não mutação: [companheiro documental offline](REPORT_REMATERIALIZATION.md#companheiro-documental-offline).
+Referências novas não são seguidas. Coleta complementar, documento privado,
+OCR ou IA paga exigem autorização própria antes de qualquer ativação.
+
 A configuração original da auditoria define o universo obrigatório daquela execução. O estado final só é `FINAL` quando todos os requisitos obrigatórios e aplicáveis dessa configuração possuem um resultado efetivo de sucesso e continuam metodologicamente válidos.
 
 Enquanto existir requisito pendente, recuperável, bloqueado ou fora da validade temporal:

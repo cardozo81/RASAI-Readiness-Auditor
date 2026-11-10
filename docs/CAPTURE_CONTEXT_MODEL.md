@@ -2,6 +2,33 @@
 
 ## Objetivo
 
+### Referências documentais passivas
+
+O contrato `contextual-documents-v1` usa `DEVICE_SNAPSHOT` e preserva AUD,
+página, snapshot, dispositivo, captura, URLs solicitada/final observada,
+artefato e SHA-256 original. Seleção explícita: `RENDERED_DOM`,
+`RAW_HTML_FALLBACK` ou `NOT_CAPTURED`. Fallback não demonstra ausência de
+documentos tardios em SPA. Anchors incluem href literal decodificado pelo
+parser HTML, texto e contexto adjacente limitado; menções são observações,
+não cadastro de produto. Markup capturado não prova visibilidade computada.
+Ocorrências repetidas têm identidades distintas; URL candidata compartilhada
+não comprova identidade dos bytes ou versão. Limites: 2 MB, 500 ocorrências,
+400 caracteres de contexto; excedentes ficam explícitos como parciais/N/D.
+O teto é aplicado após priorização determinística: sinais documentais no href
+ou texto do anchor, depois sinais no contexto adjacente/menções pertinentes,
+depois anchors genéricos na capacidade restante. Vocabulário é sinal observado,
+não prova de formato, produto ou autenticidade; `documentary_signals` explicita
+a base (`href`, `anchor_text`, `adjacent_text`, `captured_text`). Menus/login
+sem esses sinais não podem expulsar referências documentais posteriores.
+O `ordinal` e o ID usam o índice original anterior à classificação, preservando
+duplicatas; a saída selecionada mantém essa ordem de inventário. Contadores
+`documentary_occurrences_total` e `documentary_occurrences_omitted` explicitam
+excesso documental com `OCCURRENCE_LIMIT_PARTIAL`; fontes N/D têm contadores
+indeterminados. Truncamento jamais demonstra ausência das demais referências.
+Nenhuma referência implica GET, HEAD, resolução DNS ou autorização de egress.
+Aquisição (`REFERENCED_ONLY`, `DOCUMENT_COLLECTED`, `NOT_ACCESSIBLE`,
+`NOT_VERIFIED`) é separada de aplicabilidade (`INSUFFICIENT_EVIDENCE` inicial).
+
 O RASAi separa evidências pelo menor contexto em que o valor pode efetivamente mudar. O objetivo é evitar três classes de erro arquitetural:
 
 1. repetir requisições globais sem necessidade;

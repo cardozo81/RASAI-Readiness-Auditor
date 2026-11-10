@@ -13,6 +13,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+documents = [
+    "pypdf>=7,<8",
+]
 postgresql = [
     "psycopg[binary]>=3.2,<4",
 ]
