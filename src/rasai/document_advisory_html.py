@@ -1,5 +1,6 @@
 """Escaped, script-free companion projection. No new CAT or historical HTML edits."""
 from html import escape
+from rasai.catalog_report_public_labels import public_label
 
 _LABELS = {
     "DISABLED": "Desabilitada", "UNAVAILABLE": "Indisponível",
@@ -28,7 +29,7 @@ def render_advisory(report: dict) -> str:
         return escape(str(value) if value is not None else "N/D", quote=True)
 
     def label(value):
-        return e(_LABELS.get(value, value))
+        return e(public_label(value) or _LABELS.get(value, value))
 
     sections = []
     for capture in report["captures"]:
@@ -54,7 +55,7 @@ def render_advisory(report: dict) -> str:
     for doc in report["documents"]:
         sections.append(
             f'<section class="card" id="d-{e(doc["document_id"])}"><h2>Documento candidato</h2>'
-            f'<p>Estado: {label(doc["status"])} · limitação: {e(doc["reason"])}</p>'
+            f'<p>Estado: {label(doc["status"])} · limitação: {label(doc["reason"])}</p>'
             f'<p>SHA-256 original: {e(doc["original_sha256"])}<br>SHA-256 derivado: {e(doc["text_sha256"])}</p>'
             f'<p>Tipo verificado: {e(doc["verified_media_type"])} · observado em {e(doc["observed_at"])}</p>'
             f'<p>Origem: {e(doc["acquisition_basis"])} · {e(doc["origin_verification"])}</p>'

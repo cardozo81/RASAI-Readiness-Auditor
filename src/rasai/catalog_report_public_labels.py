@@ -6,6 +6,8 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    "DOCUMENT_COLLECTED": "Documento disponível para análise, sem autenticação independente",
+    "LOCAL_DOCUMENT_UNAVAILABLE_OR_BYTE_LIMIT_ND": "Documento local indisponível ou acima do limite; evidência insuficiente",
     "PROVIDER_OUTCOME_NOT_YET_PERSISTED": "Resultado do provedor ainda não persistido; não repetir a solicitação",
     "STRUCTURAL_INPUTS_ONLY_FINAL_ELIGIBILITY_CHECKED_ON_REPLAY": "Entradas estruturais presentes; elegibilidade final depende de inspeção das evidências",
     # Read-only acceptance/status literals: translate without certifying a gate.
