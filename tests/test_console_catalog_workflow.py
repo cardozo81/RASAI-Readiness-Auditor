@@ -574,3 +574,31 @@ def test_cat05_serp_failure_not_hidden_by_perplexity(monkeypatch) -> None:
     )
     assert status == "APTO COM LIMITAÇÕES"
     assert "SERP" in detail
+
+
+def test_cat08_preparation_distinguishes_technical_readiness_from_paid_consent(monkeypatch) -> None:
+    from rasai import console_catalog_ui as catalog_ui
+
+    state = _state(improvement_enabled=True, ai_provider="auto")
+    workflow.set_selected_catalog_ids(state, ["CAT-01", "CAT-08"])
+    workflow.set_ai_execution_enabled(state, False)
+    monkeypatch.setattr(plan_module, "ai_provider_readiness", lambda current: (True, "apta"))
+
+    canonical_status, _detail = workflow.catalog_status(
+        state, audit_catalog.CATALOG_BY_ID["CAT-08"]
+    )
+    assert canonical_status == "APTO COM LIMITAÇÕES"
+    presentation = catalog_ui._cat08_preparation_readiness(state, canonical_status)
+    assert presentation is not None
+    assert "APTO TECNICAMENTE" in presentation[0]
+    assert "ACEITE DE IA PENDENTE" in presentation[0]
+    assert "financeiro" in presentation[1]
+    assert workflow.ai_execution_enabled(state) is False
+    assert workflow.plan_status(state)[0] == "APTO COM LIMITAÇÕES"
+
+    monkeypatch.setattr(plan_module, "ai_provider_readiness", lambda current: (False, "sem chave"))
+    assert catalog_ui._cat08_preparation_readiness(state, canonical_status) is None
+
+    monkeypatch.setattr(plan_module, "ai_provider_readiness", lambda current: (True, "apta"))
+    workflow.set_ai_execution_enabled(state, True)
+    assert catalog_ui._cat08_preparation_readiness(state, canonical_status) is None
