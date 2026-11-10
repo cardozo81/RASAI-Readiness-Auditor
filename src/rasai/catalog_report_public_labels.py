@@ -6,6 +6,7 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    "VALIDACAO_NECESSARIA": "Validação necessária antes de recomendar correção",
     "SEARCH_RESOURCE_OR_SCHEMA_LIMIT_ND": "Pesquisa persistida indisponível por limite de recursos ou incompatibilidade do formato",
     "CONTEXTUAL_TASK_CONSENT_PROFILE_NOT_AUTHORIZED": "Interpretação contextual por IA sem perfil e consentimento específicos autorizados",
     "EXTERNAL_CONTEXT_EQUIVALENCE_UNPROVEN": "Equivalência de contexto entre fontes externas não comprovada",
