@@ -6,6 +6,10 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    "SEARCH_RESOURCE_OR_SCHEMA_LIMIT_ND": "Pesquisa persistida indisponível por limite de recursos ou incompatibilidade do formato",
+    "CONTEXTUAL_TASK_CONSENT_PROFILE_NOT_AUTHORIZED": "Interpretação contextual por IA sem perfil e consentimento específicos autorizados",
+    "EXTERNAL_CONTEXT_EQUIVALENCE_UNPROVEN": "Equivalência de contexto entre fontes externas não comprovada",
+    "SOURCE_CHANGED_DURING_CONTEXTUAL_READ_ND": "Origem alterada durante a leitura contextual; comparação recusada",
     "DOCUMENT_COLLECTED": "Documento disponível para análise, sem autenticação independente",
     "LOCAL_DOCUMENT_UNAVAILABLE_OR_BYTE_LIMIT_ND": "Documento local indisponível ou acima do limite; evidência insuficiente",
     "PROVIDER_OUTCOME_NOT_YET_PERSISTED": "Resultado do provedor ainda não persistido; não repetir a solicitação",

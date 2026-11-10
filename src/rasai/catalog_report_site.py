@@ -761,6 +761,22 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             ("ai-integrations.html", "ai-integrations"),
         ):
             bodies[geo_page] += geo_surface_context(database, audit_id, scope)
+        # New materializations only. Historical sealed packages are projected
+        # through the external contextual_advisory companion command instead.
+        from rasai.contextual_advisory import load_projection
+        from rasai.contextual_advisory_html import PAGES, contextual_panel
+        try:
+            contextual = load_projection(root)
+        except (OSError, ValueError, TypeError, KeyError, sqlite3.Error):
+            contextual = None
+        for contextual_page in PAGES:
+            if contextual is not None:
+                bodies[contextual_page] += contextual_panel(contextual, contextual_page)
+            else:
+                bodies[contextual_page] += (
+                    "<section class='panel' id='contextual-content'><h2>Contexto GEO/SEO</h2>"
+                    "<p>N/D — captura terminal elegível indisponível; nenhuma análise contextual executada.</p></section>"
+                )
         # Include network projection before the sealed package file inventory.
         from rasai.network_reporting import network_catalog_sections
         bodies["network.html"] = network_catalog_sections(root, audit_id)

@@ -111,3 +111,10 @@ A inspeção humana aprovou a **estrutura de dados**, mas identificou excesso de
 - **Análise Direcionada**: referências de evidência e origem deixam de parecer botões preenchidos idênticos às ações; seguem como links legíveis, sem ocultação ou remoção. Estados persistidos continuam textualmente identificáveis.
 
 **Regressões automatizadas pertinentes:** apresentação dos 19 HTMLs sintéticos no smoke visual #633; asserts de CSS design tokens e tipografia, mais teste da escala Lighthouse persistida. Nenhum workflow de motor/IA/banco deverá ser reexecutado manualmente. Isso não constitui aceite humano final.
+## Painéis contextuais GEO/SEO
+
+O renderizador compartilhado `contextual_advisory_html` projeta síntese, captura,
+conteúdo, Search e GEO, oportunidades e remediações nas sete rotas existentes.
+Usa CSS e details/summary existentes, sem nova CAT ou CSS paralelo. Literais de
+captura só aparecem no companheiro privado; os painéis canônicos são conservadores.
+Veja [contrato e limitações](CONTEXTUAL_GEO_SEO.md).
