@@ -146,6 +146,29 @@ def test_parser_failure_degrades_and_cli_sanitizes(tmp_path, monkeypatch, capsys
     assert "N/D" in output
 
 
+@pytest.mark.parametrize("unavailable", ["missing", "oversized"])
+def test_unavailable_document_does_not_block_inventory(tmp_path, unavailable):
+    root = source(tmp_path)
+    initial = advisory.build_advisory(root, tmp_path / "initial")
+    oid = initial["captures"][0]["occurrences"][0]["occurrence_id"]
+    if unavailable == "oversized":
+        with (tmp_path / "document.pdf").open("wb") as stream:
+            stream.truncate(4_000_001)
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps({"documents": [{"file": "document.pdf", "sha256": "0" * 64,
+        "media_type": "application/pdf", "observed_at": "2026-11-10T12:00:00+00:00",
+        "acquisition_basis": "LOCAL_OPERATOR_SUPPLIED", "authorization_ref": "offline-fixture",
+        "occurrence_ids": [oid]}], "relationships": [{"document_id": "0" * 64,
+        "occurrence_id": oid, "product_candidate": "Alpha", "applicability": "SCOPE_DEMONSTRATED"}]}))
+    report = advisory.build_advisory(root, tmp_path / "degraded", manifest_file=path)
+    assert len(report["captures"]) == 2
+    doc = report["documents"][0]
+    assert doc["status"] == "NOT_VERIFIED"
+    assert doc["original_sha256"] is None and doc["original_ref"] is None
+    assert report["relationships"][0]["applicability"] == "INSUFFICIENT_EVIDENCE"
+    assert report["source_unchanged"] is True
+
+
 def test_persisted_failure_and_symlink(tmp_path):
     root = source(tmp_path)
     first = advisory.build_advisory(root, tmp_path / "first")

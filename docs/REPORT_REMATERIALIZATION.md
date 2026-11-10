@@ -33,6 +33,12 @@ sob autorização anterior documentada. O arquivo JSON tem `documents` e
 `occurrence_ids` obtidos do inventário passivo. URLs solicitada/final opcionais
 são rótulos observados declarados pelo operador, não redirects autenticados.
 O manifesto não autoriza coleta. Documentos são lidos com teto de 4 MB.
+Documento local ausente/ilegível/acima do limite degrada individualmente para
+N/D, sem interromper o inventário; hash informado permanece apenas declaração
+do operador, sem hash original físico ou cópia de bytes. Relações desse
+documento ficam em insuficiência. PDF sem extração também não sustenta vínculos.
+Divergência de hash de bytes efetivamente lidos ou caminho inseguro recusa a
+publicação por integridade, em vez de aceitar a evidência divergente.
 
 Uma relação exige `occurrence_id`, `document_id` (hash original),
 `product_candidate`, `spans` (`page`, `start`, `end`, `quote` com offsets no

@@ -17,7 +17,7 @@ import sys
 import tempfile
 import time
 
-from rasai.contextual_documents import CONTRACT, digest, discover_references, reference_url
+from rasai.contextual_documents import CONTRACT, digest, discover_references, reference_url, stable_id
 from rasai.document_relationships import evidence_span, relate
 from rasai.document_text import extract_document
 from rasai.domain import DeviceContext, PageSnapshot
@@ -200,8 +200,8 @@ def build_advisory(audit_dir: Path, output: Path, *, manifest_file: Path | None 
                 continue
             try:
                 source = _read(path, 2_000_000)
-            except ValueError:
-                limitations.append(name + "_BYTE_LIMIT_ND")
+            except (OSError, ValueError):
+                limitations.append(name + "_UNREADABLE_OR_BYTE_LIMIT_ND")
                 continue
             artifact, surface = ref, name
             break
@@ -250,11 +250,23 @@ def build_advisory(audit_dir: Path, output: Path, *, manifest_file: Path | None 
         if observed.tzinfo is None:
             raise ValueError("document observation requires timezone")
         file = _member(manifest_path.parent, entry["file"])
-        raw = _read(file, 4_000_000)
-        if digest(raw) != entry["sha256"]:
-            raise ValueError("supplied document hash mismatch")
-        document_seals[file] = digest(raw)
-        doc = extract_document(raw, media_type=entry["media_type"])
+        try:
+            raw = _read(file, 4_000_000)
+        except (OSError, ValueError):
+            raw = None
+        if raw is None:
+            # Missing/oversized local input is not evidence of remote HTTP failure.
+            # No unverified manifest hash may impersonate physical document bytes.
+            doc = extract_document(b"", media_type=entry["media_type"])
+            doc.update(document_id=stable_id("UNAVAILABLE_LOCAL_INPUT", entry["file"], entry["sha256"]),
+                       original_sha256=None, original_bytes=None, original_ref=None,
+                       reason="LOCAL_DOCUMENT_UNAVAILABLE_OR_BYTE_LIMIT_ND",
+                       original_hash_operator_asserted=entry["sha256"])
+        else:
+            if digest(raw) != entry["sha256"]:
+                raise ValueError("supplied document hash mismatch")
+            document_seals[file] = digest(raw)
+            doc = extract_document(raw, media_type=entry["media_type"])
         doc.update({k: entry.get(k) for k in ("observed_at", "acquisition_basis", "authorization_ref",
                                              "requested_url_observed", "final_url_observed", "occurrence_ids")})
         # URL labels are retained as operator assertions, never redirect verification.
@@ -264,8 +276,9 @@ def build_advisory(audit_dir: Path, output: Path, *, manifest_file: Path | None 
         doc["redirect_policy"] = (reference_url(requested, final)[1]
                                   if isinstance(requested, str) and isinstance(final, str)
                                   else "REDIRECT_NOT_VERIFIED")
-        doc["original_ref"] = "originals/" + doc["document_id"] + ".bin"
-        originals[doc["original_ref"]] = raw
+        if raw is not None:
+            doc["original_ref"] = "originals/" + doc["document_id"] + ".bin"
+            originals[doc["original_ref"]] = raw
         observation = {key: doc[key] for key in ("observed_at", "acquisition_basis", "authorization_ref",
                                                   "requested_url_observed", "final_url_observed", "origin_verification", "redirect_policy")}
         if doc["document_id"] in documents_by_hash:
@@ -288,8 +301,20 @@ def build_advisory(audit_dir: Path, output: Path, *, manifest_file: Path | None 
             raise ValueError("relationship occurrence not observed")
         capture, occurrence = occurrences[edge["occurrence_id"]]
         doc = by_id.get(edge.get("document_id"))
+        if doc is None:
+            # A requested unavailable local document cannot support an edge.
+            doc = next((d for d in documents if d.get("original_hash_operator_asserted") == edge.get("document_id")
+                        and edge["occurrence_id"] in d["occurrence_ids"]), None)
         if doc is None or edge["occurrence_id"] not in doc["occurrence_ids"]:
             raise ValueError("relationship document not bound to occurrence")
+        if doc["status"] != "DOCUMENT_COLLECTED":
+            relation = relate(occurrence_id=edge["occurrence_id"], page_id=capture["page_id"],
+                             product_candidate=edge.get("product_candidate"), document=doc, spans=[],
+                             applicability="INSUFFICIENT_EVIDENCE")
+            relation["limitation"] = "DOCUMENT_NOT_EXTRACTED_ND"
+            relation["claim_source"] = None
+            relationships.append(relation)
+            continue
         spans = [evidence_span(doc, **span) for span in edge.get("spans", [])]
         claim = edge.get("claim_literal")
         claim_ref = None
