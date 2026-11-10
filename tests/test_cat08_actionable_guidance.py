@@ -76,3 +76,10 @@ def test_cat08_problem_modal_exposes_ai_example_and_verification(tmp_path) -> No
     assert "Reexecutar Lighthouse" in html
     assert "Google Lighthouse" in html
     assert "Condição técnica não catalogada" not in html
+    # Runtime renderer, not the unused fallback in catalog_report_analysis.
+    assert "Leitura rápida: até cinco melhorias registradas" in html
+    assert "Confiança IA" in html
+    assert "92%" in html
+    assert "Confiança declarada pela IA:" in html
+    assert "Ver implementação no CAT-09" in html
+
