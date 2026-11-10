@@ -316,6 +316,14 @@ def contextual_panel(report, page, *, private=False):
 
 def companion_pages(report):
     from rasai.catalog_report_style import _CSS
+    from rasai.time_contract import localize_html_timestamps
+    zone = (report.get("presentation") or {}).get("timezone", "America/Sao_Paulo")
+    source = (report.get("presentation") or {}).get("source", "HISTORICAL_TIMEZONE_NOT_PERSISTED_ND_DEFAULT_USED")
+    provenance = ("configuração persistida da auditoria" if source.startswith("settings.")
+                  else "fuso histórico N/D; padrão explícito do produto")
+    time_banner = ("<p class='notice' role='note'>Instantes observados exibidos no fuso <strong>"
+                   + _e(zone) + "</strong> (" + _e(provenance)
+                   + "). Valores técnicos em code/pre e evidências JSON permanecem na origem.</p>")
     pages = {"css/site.css": _CSS}
     nav = "<aside class='app-nav'><div class='brand'>Companheiro privado</div><nav aria-label='Relatório companheiro'>" + "".join(
         "<a href='" + name + "'>" + label + "</a>" for name, label in PAGES.items()) + "</nav></aside>"
@@ -325,5 +333,6 @@ def companion_pages(report):
             "<meta http-equiv='Content-Security-Policy' content=\"default-src 'none'; style-src 'self'; img-src 'none'; base-uri 'none'; form-action 'none'\">"
             "<link rel='stylesheet' href='css/site.css'><title>Companheiro privado · " + _e(label) + "</title></head><body>"
             + nav + "<main class='app-main'><h1>Companheiro privado — " + _e(label) + "</h1><p>Derivado externo; relatório histórico preservado. Não publicar: contém texto capturado não confiável.</p>"
-            + contextual_panel(report, name, private=True) + "</main></body></html>")
+            + time_banner + contextual_panel(report, name, private=True) + "</main></body></html>")
+        pages[name] = localize_html_timestamps(pages[name], timezone_name=zone)
     return pages
