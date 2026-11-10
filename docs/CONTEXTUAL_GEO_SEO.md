@@ -9,7 +9,7 @@ de rede, download documental, OCR ou fornecedor é oferecida por esta camada.
 | Produtor / consumidor existente | Uso e lacuna física |
 |---|---|
 | `PageSnapshot`, acquisition, device_context_capture, persistence | Identidade, dispositivo, instante e referências raw/DOM já capturadas; sem nova captura |
-| extraction, m3/m4, m3_faq_capture_provenance | Links e blocos canônicos não retêm ancestrais, atributos e offsets necessários à classificação de ocorrências; o suplemento `contextual_content` observa apenas esses campos no mesmo HTML |
+| extraction e captura canônica de FAQ | Links e blocos canônicos não retêm ancestrais, atributos e offsets necessários à classificação de ocorrências; o suplemento `contextual_content` observa apenas esses campos no mesmo HTML |
 | contextual_documents, document_advisory | Reuso de hash, URL de referência, leitura limitada, proteção de paths/junctions, gate terminal e inventário completo; contrato passivo não modificado |
 | document_relationships, document_text, document_advisory_html | Continuam responsáveis por documentos fornecidos e relações; este ciclo não abre documentos nem autentica referências |
 | content_context, context_scope, context_reporting, context_interpretation_persistence/runtime, editorial_risk_context | Contexto editorial e escopo já existentes não são reclassificados nem persistidos por esta projeção |
@@ -161,7 +161,13 @@ origem preservados, 0 requisições de coletores/provedores e 0 recálculo de sc
 Baseline comparativo não fornecido; aceite visual humano PENDING. Verificação
 adicional do companheiro sintético: 14 combinações página/viewport, details
 abertos, JavaScript desligado, sem overflow horizontal ou requisições remotas.
-Logs e screenshots locais privados em `.rasai-runtime/issue690-validation/`;
+Logs e screenshots locais privados em diretório de validação externo ao checkout;
 não fazem parte da PR e não contêm AUD real. Nenhuma homologação em AUD real foi
 executada. A solução observou 0 HTTP/IA/SerpAPI/Perplexity e custo incremental 0;
 operações administrativas Git/GitHub deste desenvolvimento usam rede separadamente.
+
+Gates finais de nomenclatura pública e traduções: **28 passed**, com
+`python -m pytest -q tests/test_documentation_public_naming.py tests/test_rasai_namespace_contract.py tests/test_user_facing_language_contract.py`.
+Esses gates também integram o workflow focal de catálogo existente. Não foram
+alterados seus asserts ou exclusões. Artefatos sintéticos locais ficam fora do
+checkout para preservar a distinção entre fonte versionada e evidência gerada.

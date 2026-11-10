@@ -114,7 +114,7 @@ A inspeção humana aprovou a **estrutura de dados**, mas identificou excesso de
 ## Painéis contextuais GEO/SEO
 
 O renderizador compartilhado `contextual_advisory_html` projeta síntese, captura,
-conteúdo, Search/GEO, oportunidades e remediações nas sete rotas existentes.
+conteúdo, Search e GEO, oportunidades e remediações nas sete rotas existentes.
 Usa CSS e details/summary existentes, sem nova CAT ou CSS paralelo. Literais de
 captura só aparecem no companheiro privado; os painéis canônicos são conservadores.
 Veja [contrato e limitações](CONTEXTUAL_GEO_SEO.md).
