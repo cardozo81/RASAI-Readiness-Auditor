@@ -81,19 +81,32 @@ def _inventory(root: Path) -> dict:
     # Protect every file, including original reports. No silent symlink omission.
     entries = {}
     total = 0
-    for file in sorted(root.rglob("*")):
-        _plain(file)
-        if not file.is_file():
-            continue
-        total += file.stat().st_size
-        if len(entries) >= 20_000 or total > 2_000_000_000:
+    count = 0
+    def walk_error(error):
+        raise error
+    # Inspect directory entries BEFORE descending, including Windows junctions.
+    # Eager rglob sorting could enumerate an external junction before rejecting it.
+    for directory, directories, files in root.walk(on_error=walk_error, follow_symlinks=False):
+        _plain(directory)
+        count += len(directories) + len(files)
+        if count > 20_000:
             raise ValueError("source inventory exceeds local policy")
-        from hashlib import sha256
-        hasher = sha256()
-        with file.open("rb") as stream:
-            for chunk in iter(lambda: stream.read(1_000_000), b""):
-                hasher.update(chunk)
-        entries[file.relative_to(root).as_posix()] = hasher.hexdigest()
+        for name in directories:
+            _plain(directory / name)
+        directories.sort()
+        for name in sorted(files):
+            file = _plain(directory / name)
+            if not file.is_file():
+                raise ValueError("source contains non-regular input")
+            total += file.stat().st_size
+            if total > 2_000_000_000:
+                raise ValueError("source inventory exceeds local policy")
+            from hashlib import sha256
+            hasher = sha256()
+            with file.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1_000_000), b""):
+                    hasher.update(chunk)
+            entries[file.relative_to(root).as_posix()] = hasher.hexdigest()
     return entries
 
 
