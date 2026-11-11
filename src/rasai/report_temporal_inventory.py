@@ -25,6 +25,15 @@ _DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b(?![T ]\d{2}:\d{2})")
 # Never copy literal timestamps, adjacent text, links, attributes or data-*.
 FIELD_CONTRACT = "report-temporal-field-inventory-v1"
 _MAX_FIELDS_PER_PAGE = 512
+# Tag names are untrusted too: custom elements can contain private identifiers.
+# Only structural HTML vocabulary may be emitted in the literal-free inventory.
+_STRUCTURAL_TAGS = frozenset(
+    "html head body main header footer nav aside section article div span p "
+    "h1 h2 h3 h4 h5 h6 table thead tbody tfoot tr th td caption colgroup "
+    "ul ol li dl dt dd details summary dialog a button strong b em i small "
+    "time label form fieldset legend figure figcaption blockquote pre code "
+    "script style title select option textarea output address abbr sup sub".split()
+)
 _FIELD_PATTERNS = (
     ("LOCAL_PRESENTATION", _LOCAL),
     ("AWARE_ISO_VISIBLE_REVIEW", _AWARE_ISO_TIMESTAMP_RE),
@@ -33,14 +42,14 @@ _FIELD_PATTERNS = (
     ("DATE_ONLY_UNSHIFTED", _DATE),
 )
 _FACTORY_BY_PAGE = {
-    "index.html": "rasai.catalog_report_site._overview_body",
+    "index.html": "rasai.catalog_report_governance._overview_body",
     "sari.html": "rasai.catalog_report_governance._sari_body",
-    "capture-context.html": "rasai.catalog_report_governance._capture_context_body",
+    "capture-context.html": "rasai.catalog_report_final_refinements._capture_context_body",
     "execution-evidence.html": "rasai.catalog_report_governance._execution_evidence_body",
-    "ai-integrations.html": "rasai.catalog_report_integrations._ai_integrations_body",
+    "ai-integrations.html": "rasai.ai_dependency_reporting.install + rasai.catalog_report_final_refinements._ai_integrations_body",
     "directed-analysis.html": "rasai.directed_analysis_reporting.directed_analysis_body",
     "geo.html": "rasai.geo_report.geo_body",
-    "geo-content-review.html": "rasai.contextual_advisory_html.contextual_panel",
+    "geo-content-review.html": "rasai.catalog_report_site.materialize_catalog_report_site + rasai.contextual_advisory_html.contextual_panel",
     "methodology.html": "rasai.catalog_report_site._methodology_body",
     "metrics.html": "rasai.catalog_report_site._metrics_body",
     "network.html": "rasai.network_reporting.network_catalog_sections",
@@ -101,8 +110,8 @@ class _Census(HTMLParser):
                 self.fields.append({
                     "classification": status,
                     "line": self.getpos()[0] + data.count("\n", 0, match.start()),
-                    "tag_path": "/".join(tag for tag in self.stack[-8:]
-                                         if re.fullmatch(r"[a-z][a-z0-9-]{0,31}", tag)) or "N/D",
+                    "tag_path": "/".join(tag if tag in _STRUCTURAL_TAGS else "unknown"
+                                         for tag in self.stack[-8:]) or "N/D",
                     "presentation": "TECHNICAL_PRESERVED" if technical else "RENDERED_TEXT",
                 })
 
@@ -146,6 +155,10 @@ def inventory(report_dir: Path, *, zone: str) -> dict:
                 zone=zone, pages=pages, summary=dict(sorted(summary.items())),
                 limitations=["NO_LITERAL_OR_ATTRIBUTE_DISCLOSURE",
                              "DOM_TEXT_NODE_BOUNDARY_MAY_HIDE_SPLIT_TIMESTAMPS",
+                             "LEGACY_COUNTS_JOIN_TEXT_NODES_FIELDS_SCAN_EACH_NODE",
+                             "HTML_ENTITIES_DECODED_WHITESPACE_NOT_SOURCE_BYTE_OFFSETS",
+                             "FIELDS_CAPPED_AT_512_TOTALS_NOT_TRUNCATED",
+                             "CUSTOM_TAG_NAMES_REDACTED_ATTRIBUTES_NOT_INSPECTED",
                              "VISIBLE_RFC_DATE_REQUIRES_TYPED_RENDERER_REVIEW",
                              "UNTYPED_EPOCH_DURATION_AND_EXTERNAL_TIMES_REMAIN_ND",
                              "GENERATOR_PATH_IS_STATIC_MAPPING_NOT_RUNTIME_PROOF",

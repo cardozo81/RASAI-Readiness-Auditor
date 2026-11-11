@@ -25,7 +25,48 @@ def test_temporal_scanner_refuses_silent_claim_of_rfc_and_naive_conversion():
     assert result["local_presentation"] == 0
 
 
-def test_temporal_inventory_covers_all_21_real_materializer_pages_without_extra_io(tmp_path):
+def test_temporal_inventory_covers_all_21_real_materializer_pages_without_extra_io(tmp_path, monkeypatch):
+    from html.parser import HTMLParser
+    from rasai import catalog_report_presentation as presentation, catalog_report_site as site
+    from rasai.time_contract import _AWARE_ISO_TIMESTAMP_RE
+    from rasai.report_temporal_inventory import _LOCAL
+
+    class NonTemporal(HTMLParser):
+        def __init__(self, html):
+            super().__init__(convert_charrefs=False)
+            self.tokens, self.stack = [], []
+            self.feed(html)
+
+        def handle_starttag(self, tag, attrs):
+            self.tokens.append(self.get_starttag_text())  # attributes stay exact
+            self.stack.append(tag)
+
+        def handle_endtag(self, tag):
+            self.tokens.append(('end', tag))
+            if tag in self.stack:
+                del self.stack[len(self.stack) - 1 - self.stack[::-1].index(tag):]
+
+        def handle_data(self, data):
+            if not any(tag in {'code', 'pre', 'script', 'style'} for tag in self.stack):
+                data = _LOCAL.sub('INSTANT', _AWARE_ISO_TIMESTAMP_RE.sub('INSTANT', data))
+            self.tokens.append(('text', data))
+
+        def handle_entityref(self, name):
+            self.tokens.append(('entity', name))
+
+    original = presentation.localize_html_timestamps
+    compared = []
+    runtime = {}
+
+    def checked(html, **kwargs):
+        result = original(html, **kwargs)
+        assert NonTemporal(html).tokens == NonTemporal(result).tokens
+        compared.append(html)
+        for name in ('_overview_body', '_capture_context_body', '_ai_integrations_body'):
+            runtime[name] = getattr(site, name).__module__
+        return result
+
+    monkeypatch.setattr(presentation, 'localize_html_timestamps', checked)
     workspace = _captured_workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
     actual = inventory(report, zone="America/Sao_Paulo")
@@ -33,6 +74,10 @@ def test_temporal_inventory_covers_all_21_real_materializer_pages_without_extra_
     assert len(actual["pages"]) == 21
     assert all(row["zone_advertised"] for row in actual["pages"].values())
     assert "source_sha256" not in str(actual)
+    assert len(compared) == 21
+    assert runtime['_overview_body'] == 'rasai.catalog_report_governance'
+    assert runtime['_capture_context_body'] == 'rasai.catalog_report_final_refinements'
+    assert runtime['_ai_integrations_body'] == 'rasai.ai_dependency_reporting'
 
 
 def test_field_census_is_line_traceable_without_disclosing_source_literals():
@@ -87,3 +132,23 @@ def test_field_inventory_classification_codes_have_public_pt_br_labels():
         label = public_label(code)
         assert label and label != code
         assert "_" not in label
+
+
+def test_field_inventory_redacts_custom_tag_names_and_attributes():
+    from json import dumps
+    html = ("<client-secret-abc data-private='token-secret'><p>2026-09-11T00:00:00Z</p>"
+            "</client-secret-abc><script>2026-09-11T00:00:00Z</script>")
+    row = inspect_html(html, zone="UTC")
+    assert row["fields"][0]["tag_path"] == "unknown/p"
+    assert row["field_totals"] == {"AWARE_ISO_VISIBLE_REVIEW": 1}
+    assert "secret" not in dumps(row)
+
+
+def test_field_inventory_bounds_records_without_losing_totals_or_raw_evidence():
+    html = "<p>2026-09-11T00:00:00Z</p>" * 520
+    row = inspect_html(html, zone="UTC")
+    assert len(row["fields"]) == 512
+    assert row["fields_omitted"] == 8
+    assert row["field_totals"] == {"AWARE_ISO_VISIBLE_REVIEW": 520}
+    split = inspect_html("<p>2026-09-11T<span>00:00:00Z</span></p>", zone="UTC")
+    assert "AWARE_ISO_VISIBLE_REVIEW" not in split["field_totals"]

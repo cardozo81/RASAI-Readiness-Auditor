@@ -153,3 +153,63 @@ podem especializar a origem efetiva. Mesmo 21/21 páginas inspecionadas
 não representam prova de cobertura exaustiva nem homologação física Windows.
 Fechar a #692 exige reconciliação dos candidatos, documentação por campo,
 testes de paridade não temporal e validação da AUD real sem alteração de hashes.
+
+
+## Reconciliação comprovável das 21 páginas - PR #694
+
+Esta matriz descreve o código inspecionado e a fixture sintética, não a AUD
+real. COBERTO significa contrato focal demonstrado; N/D significa ausência de
+prova por campo na AUD real ou ausência de instante específico na superfície.
+Todas as linhas passam por catalog_report_presentation._shell e pela função
+compartilhada localize_html_timestamps. ISO aware é string com offset/Z; a
+origem é UTC ou offset explícito, nunca o host. A configuração aplicada vem de
+audit_execution_configurations.configuration_json, via
+presentation_timezone_for_audit. Na fonte, audit.db/artefatos e o detalhe
+code/pre permanecem íntegros. Nenhum horário foi corrigido por conjectura.
+
+| Página | Campo / origem persistida / tipo e unidade | Renderer do corpo e leitura primária | Evidência / estado / teste |
+|---|---|---|---|
+| cat-01 | tls_valid_from/to do resumo de segurança, Unix segundos UTC | _catalog_body > architecture_audit_facts_html > _tls_validity_presentation; local e UTC/Unix identificados | COBERTO: test_architecture_audit_facts, test_report_evidence_ux; fonte original preservada |
+| cat-02 | Resultados Lighthouse; nenhum instante dedicado identificado nesta projeção | _catalog_body > _lighthouse_accessibility_html | N/D por campo; shell/paridade em test_report_temporal_inventory |
+| cat-03 | Captura contextual e texto de origem; instante embutido no conteúdo não estabelece tipo | _catalog_body > _semantic_html + contextual_panel | N/D para literais arbitrários; v1/v2/v3 preservados; test_contextual_report_integration |
+| cat-04 | CrUX collectionPeriod.firstDate/lastDate e period_start/end; data civil externa | _catalog_body > _crux_provenance_html; período sem deslocamento | COBERTO no contrato date-only: test_time_contract; outras datas externas N/D |
+| cat-05 | serp_observations.collected_at quando projetado, ISO aware; Search externo preservado | _catalog_body > _search_intelligence_html e contexto GEO; shell converte ISO reconhecido | N/D para cobertura tipada completa; test_contextual_report_integration |
+| cat-06 | Amostras Apdex captured_at ou aquisição física created_at, ISO aware; duração ms separada | _catalog_body > catalog_report_adherence.apdex_samples_html; Medição em ou Persistida em | COBERTO no contrato shell; N/D de aquisição na AUD real; test_report_temporal_inventory |
+| cat-07 | Amostras de experiência captured_at/created_at; ISO aware, duração ms | Mesmo instalador Apdex com experience=True; instante separado da latência | COBERTO no contrato shell; N/D por amostra real; test_report_temporal_inventory |
+| cat-08 | Hipóteses e referências contextuais; sem novo instante editorial inferido | _catalog_body + contextual_panel; evidências mantidas | N/D temporal específico; test_contextual_report_integration |
+| cat-09 | Ações persistidas e contexto; sem novo instante editorial inferido | _catalog_body + contextual_panel; não reprocessa decisões | N/D temporal específico; test_contextual_report_integration |
+| cat-10 | Evidência de segurança/runtime; literais técnicos externos sem tipo universal | _catalog_body, projeção de segurança passiva | N/D para campos externos; shell/paridade em test_report_temporal_inventory |
+| index | _ReportData e painéis contextuais; audit.created_at não aparece necessariamente | catalog_report_governance._overview_body + painéis | COBERTO no shell; não alegar campo criado visível; test_contextual_report_integration |
+| sari | Scores e limitações persistidos; sem instante específico identificado | catalog_report_governance._sari_body | N/D temporal específico; shell/paridade em test_report_temporal_inventory |
+| geo | SERP collected_at, fontes source_date/last_updated; ISO aware ou literal externo | geo_report.geo_body; ISO reconhecido no shell, datas externas permanecem candidatas | N/D para timezone externo/proveniência por campo; test_time_contract e test_report_temporal_inventory |
+| geo-content-review | Estrutura/FAQ/revisão contextual; captured_at ISO aware no companheiro | materialize_catalog_report_site + contextual_panel; companion_pages no privado | COBERTO para timezone do companheiro; N/D de homologação real; test_contextual_reverse_review |
+| capture-context | page_snapshots.captured_at, ISO aware de captura | catalog_report_final_refinements._capture_context_body substitui o original; shell converte | COBERTO em runtime sintético e paridade; test_report_temporal_inventory |
+| execution-evidence | Configuração congelada e etapas; sem instante específico identificado | catalog_report_governance._execution_evidence_body | N/D temporal específico; shell/paridade em test_report_temporal_inventory |
+| ai-integrations | Tentativas started_at/finished_at; evento externo occurred_at; ISO aware quando comprovado | ai_dependency_reporting.install envolve catalog_report_final_refinements._ai_integrations_body | COBERTO: wrapper observado em runtime; campos externos/naive N/D; test_report_temporal_inventory |
+| directed-analysis | Projeção de análise persistida; sem instante universal identificado | directed_analysis_reporting.directed_analysis_body | N/D por campo; shell/paridade em test_report_temporal_inventory |
+| metrics | recorded_at_utc do ledger de timers, ISO aware; intervalos ms separados | catalog_report_site._metrics_body | COBERTO no shell; timers não selados não provam aquisição; test_report_temporal_inventory |
+| methodology | Contratos e versões; sem instante específico identificado | catalog_report_site._methodology_body | N/D temporal específico; shell/paridade em test_report_temporal_inventory |
+| network | network_observation capture_utc, ISO aware apenas se capture_time_state=OBSERVED | network_reporting.network_catalog_sections > network_report_body | COBERTO no shell; fonte externa sem prova N/D; test_report_temporal_inventory |
+
+O teste de integração intercepta a função de localização realmente chamada
+pelo materializador e compara tokens estruturais, atributos e texto não temporal
+nas 21 saídas; code/pre/script/style são comparados integralmente. Também
+observa os módulos efetivos de overview, captura e integrações após instaladores.
+Essa prova é sintética e não cobre todas as combinações de dados nem certifica
+instantes arbitrários no texto de origem. O mapa continua estático: extensões
+posteriores podem mudar a cadeia efetiva. A comparação não substitui inspeção
+humana nem paridade de uma AUD real. Os 20 HTML históricos não são reescritos.
+
+### Limites e correção confirmada do inventário
+
+CORREÇÃO_CONFIRMADA: tags personalizadas podiam transmitir identificadores
+privados pelo tag_path. Agora somente nomes estruturais conhecidos são
+emitidos; outros viram unknown. Testes cobrem atributos privados, script,
+truncamento em 512 com totais integrais e timestamp dividido entre elementos.
+Nenhuma classe/contrato existente foi removido. Os totais legados unem nós com
+espaços; fields examina cada nó separadamente. Esses denominadores podem
+divergir. Entidades HTML são decodificadas, espaços e linhas não representam
+offset em bytes da fonte. Atributos, paginação dinâmica, conteúdo ausente ou
+fragmentado, epoch sem unidade e latências permanecem fora da prova. O limite
+de registros não limita os totais reconhecidos. Datas HTTP só têm helpers
+focais tipados: nenhuma aplicação universal a campos externos foi demonstrada.

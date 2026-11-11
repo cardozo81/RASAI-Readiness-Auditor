@@ -156,3 +156,21 @@ código e provas UTC permanecem distintos do texto gerencial. A origem
 do timezone é a configuração congelada da AUD; o fuso do host não substitui
 a prova histórica. Não se confunde o censo de nós de texto com rastreio
 dinâmico de campos tipados ou homologação completa.
+
+
+## Limites verificáveis do lote contextual e temporal
+
+A matriz das 21 páginas, fontes, tipos, renderizadores e estados está em
+TIMEZONE_CONTRACT.md, seção Reconciliação comprovável das 21 páginas.
+COBERTO no shell/fixture não significa homologação do campo na AUD real.
+O censo não publica nomes personalizados de elementos HTML: usa unknown
+fora do vocabulário estrutural permitido. Atributos e literais continuam
+excluídos. Campos divididos entre elementos e contagens truncadas devem ser
+interpretados com as limitações publicadas, sem inventar cobertura.
+
+Title/H1 mantém letras Unicode na normalização para não suprimir tarefas
+condicionais entre produtos distintos. Provas privadas e ações editoriais
+continuam sujeitas à suficiência e revisão humana; 16 referências visíveis
+não representam perda do ledger. O procedimento Windows e o significado de
+PASS/FAIL/N/D estão em CONTEXTUAL_GEO_SEO.md. Nenhuma AUD histórica é
+rematerializada pelo verificador; o aceite contextual não certifica os 21 HTML.
