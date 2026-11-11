@@ -7,12 +7,36 @@ from __future__ import annotations
 
 from collections import Counter
 import re
+import unicodedata
 
 from rasai.contextual_documents import stable_id
 
 CONTRACT = "contextual-reverse-editorial-projection-v1"
 _CLAIM = re.compile(r"(?i)(?:100\s*%|sem tarifas|marca líder|exclusiv[oa]s?|até\s+\d+)")
 
+
+
+_TITLE_SEPARATOR = re.compile(r"\s+(?:[|·•—–]|--?)\s+")
+
+
+def _plain_topic(value: str) -> str:
+    """Normalize typography, never infer semantic equivalence from synonyms."""
+    folded = unicodedata.normalize("NFKD", str(value).casefold())
+    without_accents = "".join(ch for ch in folded if not unicodedata.combining(ch))
+    return " ".join(re.findall(r"[a-z0-9]+", without_accents))
+
+
+def _title_contains_exact_heading_segment(title: str, heading: str) -> bool:
+    """An exact title segment matching H1 is not evidence of intent divergence.
+
+    Typical title: "Seguro de vida | Nome da marca". Do not suppress cases
+    whose difference requires editorial judgment (product or scope changes).
+    """
+    normalized_heading = _plain_topic(heading)
+    return bool(normalized_heading) and any(
+        _plain_topic(segment) == normalized_heading
+        for segment in _TITLE_SEPARATOR.split(title)
+    )
 
 def review_projection(report: dict) -> dict:
     """Generate conditional *verification tasks*, never findings of an SEO defect."""
@@ -38,9 +62,10 @@ def review_projection(report: dict) -> dict:
         main_h1 = [h for h in headings if h["tag"] == "h1"
                    and h["scope"] == "MAIN_OR_ARTICLE"]
         title = surface.get("title")
-        if title and main_h1 and title["text"].casefold() != main_h1[0]["text"].casefold():
+        if (title and main_h1 and not _title_contains_exact_heading_segment(
+                title["text"], main_h1[0]["text"])):
             add("TITLE_H1_INTENT", "Conferir alinhamento de intenção entre title e H1",
-                "Title e H1 principal não são literalmente iguais; isso não prova erro ou prejuízo SEO.",
+                "Title e H1 principal não apresentam segmento de título literalmente equivalente; possível desalinhamento de intenção ainda exige revisão humana, sem prova de defeito SEO.",
                 "Revisar se os dois títulos descrevem a intenção de busca, o produto e a página capturada.",
                 [dict(snapshot_id=surface["snapshot_id"], source_ref=surface["source_ref"],
                       source_sha256=surface["source_sha256"], text=title["text"],

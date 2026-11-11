@@ -54,3 +54,36 @@ def test_no_html_markup_gives_no_fabricated_editorial_tasks():
     projection = review_projection(report)
     assert projection["counts"]["verification_tasks"] == 0
     assert projection["tasks"] == []
+
+
+def test_brand_suffix_or_prefix_is_not_a_title_h1_issue():
+    from rasai.contextual_reverse_review import review_projection
+
+    def report(title_text, heading_text):
+        return {
+            "content_structure_v3": {"captures": [{
+                "coverage": "CAPTURE_INSPECTED",
+                "snapshot_id": "S-1",
+                "source_ref": "artifacts/rendered.html",
+                "source_sha256": "a" * 64,
+                "title": {"text": title_text, "text_range": [0, 30]},
+                "headings": [{
+                    "tag": "h1", "scope": "MAIN_OR_ARTICLE",
+                    "text": heading_text, "text_range": [35, 45],
+                    "heading_id": "H-1",
+                }],
+            }]},
+            "faq_aria_v3": {"controls": []},
+            "captures": [],
+            "semantic_v2": {"recommendation_counts": {}},
+        }
+
+    for title in ("Seguro de vida | Marca Alpha",
+                  "Marca Alpha — SEGURO DE VIDA",
+                  "Seguro de vida  ·  Marca Alpha"):
+        result = review_projection(report(title, "Seguro de Vida"))
+        assert "TITLE_H1_INTENT" not in result["counts"]["by_kind"]
+
+    divergent = review_projection(report("Seguro de vida | Marca Alpha", "Seguro de carro"))
+    assert divergent["counts"]["by_kind"]["TITLE_H1_INTENT"] == 1
+    assert divergent["tasks"][0]["status"] == "VALIDACAO_NECESSARIA"
