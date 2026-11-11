@@ -265,3 +265,21 @@ O inventário temporal reconhece datas civis ISO e pt-BR sem classificá-las
 como timestamps sujeitos a timezone. A prova física anterior permanece
 no SHA anterior: novas materializações exigem gate Windows no novo SHA,
 sem reescrever a AUD histórica.
+
+
+
+## CAT-01 - equivalência de validade TLS em um único grupo visual
+
+Após revisão humana da apresentação física, as três representações de cada
+validade TLS foram agrupadas numa só entrada ("Validade inicial" e
+"Validade final"). A data/hora principal segue o timezone histórico congelado
+da AUD e o padrão `dd/mm/aaaa hh:mm:ss (fuso)`. A referência UTC usa
+o **mesmo padrão textual**, e o Unix UTC original permanece em
+**segundos numéricos**, identificado como evidência técnica da mesma data.
+
+Um timestamp Unix não é uma data civil formatada; tentar convertê-lo em
+`dd/mm/aaaa hh:mm:ss` no lugar do valor original apagaria proveniência.
+O agrupamento não converte nem reescreve o número: exibe a equivalência
+UTC/local já derivada do mesmo instante tipado, sem duplicar três
+rótulos de campo. Valores inválidos ficam em N/D, sem fabricar data.
+Nenhum outro relatório foi modificado neste ajuste de legibilidade.
