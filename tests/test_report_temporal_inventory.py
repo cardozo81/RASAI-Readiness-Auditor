@@ -63,7 +63,15 @@ def test_temporal_inventory_covers_all_21_real_materializer_pages_without_extra_
         assert NonTemporal(html).tokens == NonTemporal(result).tokens
         compared.append(html)
         for name in ('_overview_body', '_capture_context_body', '_ai_integrations_body'):
-            runtime[name] = getattr(site, name).__module__
+            function = getattr(site, name)
+            chain = []
+            seen = set()
+            while function is not None:
+                assert callable(function) and id(function) not in seen
+                seen.add(id(function))
+                chain.append(function.__module__)
+                function = getattr(function, '_rasai_original', None)
+            runtime[name] = chain
         return result
 
     monkeypatch.setattr(presentation, 'localize_html_timestamps', checked)
@@ -75,9 +83,13 @@ def test_temporal_inventory_covers_all_21_real_materializer_pages_without_extra_
     assert all(row["zone_advertised"] for row in actual["pages"].values())
     assert "source_sha256" not in str(actual)
     assert len(compared) == 21
-    assert runtime['_overview_body'] == 'rasai.catalog_report_governance'
-    assert runtime['_capture_context_body'] == 'rasai.catalog_report_final_refinements'
-    assert runtime['_ai_integrations_body'] == 'rasai.ai_dependency_reporting'
+    assert runtime['_overview_body'][-1] == 'rasai.catalog_report_governance'
+    assert runtime['_capture_context_body'][-1] == 'rasai.catalog_report_final_refinements'
+    assert runtime['_ai_integrations_body'][-1] == 'rasai.catalog_report_final_refinements'
+    assert set(runtime['_ai_integrations_body']) <= {
+        'rasai.catalog_report_final_refinements', 'rasai.ai_dependency_reporting',
+        'rasai.execution_consistency_runtime',
+    }
 
 
 def test_field_census_is_line_traceable_without_disclosing_source_literals():

@@ -185,7 +185,7 @@ code/pre permanecem íntegros. Nenhum horário foi corrigido por conjectura.
 | geo-content-review | Estrutura/FAQ/revisão contextual; captured_at ISO aware no companheiro | materialize_catalog_report_site + contextual_panel; companion_pages no privado | COBERTO para timezone do companheiro; N/D de homologação real; test_contextual_reverse_review |
 | capture-context | page_snapshots.captured_at, ISO aware de captura | catalog_report_final_refinements._capture_context_body substitui o original; shell converte | COBERTO em runtime sintético e paridade; test_report_temporal_inventory |
 | execution-evidence | Configuração congelada e etapas; sem instante específico identificado | catalog_report_governance._execution_evidence_body | N/D temporal específico; shell/paridade em test_report_temporal_inventory |
-| ai-integrations | Tentativas started_at/finished_at; evento externo occurred_at; ISO aware quando comprovado | ai_dependency_reporting.install envolve catalog_report_final_refinements._ai_integrations_body | COBERTO: wrapper observado em runtime; campos externos/naive N/D; test_report_temporal_inventory |
+| ai-integrations | Tentativas started_at/finished_at; evento externo occurred_at; ISO aware quando comprovado | Wrappers opcionais ai_dependency_reporting.install / execution_consistency_runtime._install_ai_cost_projection envolvem catalog_report_final_refinements._ai_integrations_body | COBERTO: wrapper observado em runtime; campos externos/naive N/D; test_report_temporal_inventory |
 | directed-analysis | Projeção de análise persistida; sem instante universal identificado | directed_analysis_reporting.directed_analysis_body | N/D por campo; shell/paridade em test_report_temporal_inventory |
 | metrics | recorded_at_utc do ledger de timers, ISO aware; intervalos ms separados | catalog_report_site._metrics_body | COBERTO no shell; timers não selados não provam aquisição; test_report_temporal_inventory |
 | methodology | Contratos e versões; sem instante específico identificado | catalog_report_site._methodology_body | N/D temporal específico; shell/paridade em test_report_temporal_inventory |
@@ -194,7 +194,11 @@ code/pre permanecem íntegros. Nenhum horário foi corrigido por conjectura.
 O teste de integração intercepta a função de localização realmente chamada
 pelo materializador e compara tokens estruturais, atributos e texto não temporal
 nas 21 saídas; code/pre/script/style são comparados integralmente. Também
-observa os módulos efetivos de overview, captura e integrações após instaladores.
+observa a cadeia _rasai_original de overview, captura e integrações após
+instaladores, até a função base. A regressão integral demonstrou que o wrapper
+externo de integrações varia com a ordem de instalação; exigir um único módulo
+externo seria incorreto. A cadeia deve ser acíclica e terminar no renderer
+de refinamentos conhecido, preservando a verificação de paridade.
 Essa prova é sintética e não cobre todas as combinações de dados nem certifica
 instantes arbitrários no texto de origem. O mapa continua estático: extensões
 posteriores podem mudar a cadeia efetiva. A comparação não substitui inspeção

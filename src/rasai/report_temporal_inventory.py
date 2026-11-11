@@ -46,7 +46,7 @@ _FACTORY_BY_PAGE = {
     "sari.html": "rasai.catalog_report_governance._sari_body",
     "capture-context.html": "rasai.catalog_report_final_refinements._capture_context_body",
     "execution-evidence.html": "rasai.catalog_report_governance._execution_evidence_body",
-    "ai-integrations.html": "rasai.ai_dependency_reporting.install + rasai.catalog_report_final_refinements._ai_integrations_body",
+    "ai-integrations.html": "rasai.ai_dependency_reporting.install / rasai.execution_consistency_runtime._install_ai_cost_projection (optional wrappers) + rasai.catalog_report_final_refinements._ai_integrations_body",
     "directed-analysis.html": "rasai.directed_analysis_reporting.directed_analysis_body",
     "geo.html": "rasai.geo_report.geo_body",
     "geo-content-review.html": "rasai.catalog_report_site.materialize_catalog_report_site + rasai.contextual_advisory_html.contextual_panel",
