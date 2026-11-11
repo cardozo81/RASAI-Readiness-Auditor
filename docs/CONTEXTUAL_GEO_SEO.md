@@ -373,3 +373,15 @@ projeção e o manifesto de saída em modo offline.
 
 A nova projeção não supre a exigência de GO para IA contextual ativa nem prova
 comparabilidade positiva de dados externos; essas pendências continuam na #690.
+
+
+## Redução conservadora de verificações title/H1 — #690
+
+A revisão de intenção não emite tarefa quando o H1 inteiro corresponde a
+um segmento do title, descontando diferenças exclusivamente tipográficas
+(caixa, acentos, pontuação), por exemplo H1 de produto e title com sufixo
+ou prefixo de marca. Isso evita que diferença de marca no title seja
+apresentada como indício de desalinhamento editorial. Outras divergências
+continuam condicionais e requerem revisão humana; não provam defeito SEO.
+A verificação não presume equivalência semântica por sinônimo, não altera
+scoring, e não emite conclusão sobre posição ou indexação.

@@ -121,3 +121,35 @@ páginas da AUD real, inclusive provas RFC/epoch quando disponíveis. O resultad
 sintético não certifica essa cobertura.
 
 A leitura HTTP-date tipada aceita as três variantes do RFC 7231 (IMF-fixdate, RFC850 e asctime), incluindo GMT implícito apenas no asctime do contrato HTTP. Datas genéricas de e-mail ou sem tipo não recebem conversão automática.
+
+
+## Inventário temporal por campo e página — evolução da #692
+
+A leitura offline usa o módulo rasai.report_temporal_inventory. O resumo
+report-temporal-presentation-inventory-v1 foi preservado. A extensão aditiva
+report-temporal-field-inventory-v1 identifica o tipo do dado temporal em
+cada nó de texto do HTML final, linha, caminho das tags e gerador estático
+do corpo até o shell de apresentação. O resultado registra apenas classes,
+posições e totais; não publica timestamps literais, URLs, hashes, atributos
+ou conteúdo comercial adjacente. Há limite de 512 campos por página, com
+contador de registros omitidos e resumo que não é truncado.
+
+Classes de leitura: LOCAL_PRESENTATION (fuso exibido);
+OTHER_DECLARED_TIMEZONE_REVIEW (outro fuso explícito — revisar, não presumir
+erro); AWARE_ISO_VISIBLE_REVIEW (ISO aware ainda apresentado em texto);
+HTTP_DATE_VISIBLE_REVIEW (data GMT cuja conversão depende de campo tipado);
+NAIVE_TIMEZONE_ND (timestamp sem fuso); DATE_ONLY_UNSHIFTED (data civil,
+sem deslocamento); TECHNICAL_ISO_PRESERVED e
+TECHNICAL_HTTP_DATE_PRESERVED (evidência literal em bloco técnico).
+
+Comando, sobre saída derivada — nunca sobre a AUD histórica selada:
+
+    python -m rasai.report_temporal_inventory --report-dir CAMINHO_DO_REPORT --timezone America/Sao_Paulo
+
+**Limitação de aceite:** os campos podem estar divididos entre nós de texto;
+atributos, epoch sem tipo, duração e horários externos não comprovados
+continuam N/D. O mapa de geradores é estático e os wrappers em runtime
+podem especializar a origem efetiva. Mesmo 21/21 páginas inspecionadas
+não representam prova de cobertura exaustiva nem homologação física Windows.
+Fechar a #692 exige reconciliação dos candidatos, documentação por campo,
+testes de paridade não temporal e validação da AUD real sem alteração de hashes.

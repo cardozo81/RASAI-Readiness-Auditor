@@ -34,9 +34,9 @@ _FIELD_PATTERNS = (
 )
 _FACTORY_BY_PAGE = {
     "index.html": "rasai.catalog_report_site._overview_body",
-    "sari.html": "rasai.catalog_report_integrations._sari_body",
-    "capture-context.html": "rasai.catalog_report_integrations._capture_context_body",
-    "execution-evidence.html": "rasai.catalog_report_integrations._execution_evidence_body",
+    "sari.html": "rasai.catalog_report_governance._sari_body",
+    "capture-context.html": "rasai.catalog_report_governance._capture_context_body",
+    "execution-evidence.html": "rasai.catalog_report_governance._execution_evidence_body",
     "ai-integrations.html": "rasai.catalog_report_integrations._ai_integrations_body",
     "directed-analysis.html": "rasai.directed_analysis_reporting.directed_analysis_body",
     "geo.html": "rasai.geo_report.geo_body",
