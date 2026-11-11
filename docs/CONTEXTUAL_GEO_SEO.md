@@ -305,3 +305,71 @@ python -m pytest -q -rs tests/test_contextual_content.py tests/test_contextual_a
 Logs e capturas sintéticos ficam em diretório privado externo ao checkout.
 Homologação única da correção na AUD real e autorização de merge permanecem
 reservadas ao responsável. Não fechar #690 nem remover a branch automaticamente.
+
+## Evolução em branch #690: análise reversa com overlays v3
+
+A rota `geo-content-review.html` é a 21ª página do catálogo canônico e
+apresenta o caminho observação - cobertura - hipótese - validação. Links
+retornam ao inventário de `capture-context.html`, evidências GEO e CAT-03/CAT-09.
+A versão pública mostra apenas projeções agregadas/sanitizadas; textos, URL
+e referências físicas literais continuam no companheiro privado.
+
+O overlay `contextual-faq-aria-overlay-v3` vincula controles ARIA
+`role=button`, `aria-controls`, `aria-expanded` a painéis de mesmo DOM
+capturado, respeitando IDs não ambíguos, limites e ancestralidade. Painel não
+capturado é **NOT_OBSERVED_ND**, nunca erro comprovado do website. Painel
+recolhido mas presente no DOM não prova visibilidade de crawler ou indexação.
+Menus compostos por links são excluídos, mesmo em `main`.
+
+O overlay `contextual-page-structure-v3` expõe títulos e H1-H6, posição,
+escopo, hashes e categorias v1 somente quando o próprio markup foi observado;
+sem dupla aquisição. Title, headings, claims, CTAs e documentos não são
+autenticados por mera presença. A análise profunda por IA continua
+**NOT_AUTHORIZED** sem consentimento de tarefa próprio: nenhuma chamada
+faturável, comparação Search positiva nem conclusão YMYL foi implementada.
+
+Essas projeções não alteram as ocorrências v1, a disposição v2, CATs,
+escores, banco selado ou contratos de fornecedores. O novo contrato é
+passível de testes sintéticos offline; homologação física Windows da AUD
+real permanece condicionante para merge.
+
+### Gate físico Windows opcional desta branch (pendente)
+
+O script existente mantém o comportamento padrão v2 e aceita branch explícita.
+No checkout limpo já posicionado na branch de entrega, usar uma saída privada
+nova e nunca publicar HTML ou JSON das evidências.
+
+```powershell
+.\scripts\verify_contextual_companion.ps1 `
+  -Branch 'feature/geo-reverse-content-timezone-690-692' `
+  -RequireReverse `
+  -ExpectedSha '<HEAD_FINAL_DE_40_CARACTERES>' `
+  -AuditDir 'C:\caminho\privado\AUD-EXEMPLO' `
+  -OutputDir 'C:\caminho\novo-privado\companheiro'
+```
+
+O gate exige hashes originais íntegros, saída privada externa nova,
+rota estratégica disponível no companheiro, contratos de FAQ ARIA e hierarquia
+v3, sem provider e sem escrita na AUD. A revisão editorial e visual dos
+21 HTMLs e o GO de merge continuam humanos.
+
+
+## Projeção reversa com verificação editorial condicionada - evolução #690
+
+A camada `contextual-reverse-editorial-projection-v1` usa exclusivamente
+capturas e overlays existentes, com tarefas condicionais `TITLE_H1_INTENT`,
+`H1_HIERARCHY`, `COMMERCIAL_CLAIM_SUPPORT`, `FAQ_RECAPTURE` e
+`DOCUMENT_CONTEXT`. Cada tarefa possui origem física, hash e validação;
+não alega erro SEO, ranking, indexação ou falsidade comercial. Links documentais
+são consolidados apenas na projeção, mantendo ocorrências e hashes v1.
+
+O relatório novo apresenta a fila de revisão separada do histórico v1 de
+controles não acionáveis, agrupa títulos por superfície e explica a diferença
+entre os critérios FAQ v2/v3. O link interno GEO aponta para
+`geo.html#contextual-semantic-v2`, âncora produzida pelo renderer existente.
+A projeção pública não expõe literais privados; o companheiro restringe
+trechos e URLs por CSP/escaping. O script Windows verifica o contrato da
+projeção e o manifesto de saída em modo offline.
+
+A nova projeção não supre a exigência de GO para IA contextual ativa nem prova
+comparabilidade positiva de dados externos; essas pendências continuam na #690.

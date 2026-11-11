@@ -83,6 +83,10 @@ def test_v2_additive_materialization_preserves_all_original_blocks_scores_and_na
         baseline = {p.filename: (baseline_dir / p.filename).read_text(encoding="utf-8") for p in CATALOG_REPORT_PAGES}
     candidate_dir = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
     for page in CATALOG_REPORT_PAGES:
+        if page.filename == "geo-content-review.html":
+            # This route has no legacy counterpart; only existing 20 pages
+            # are subject to the byte/DOM-preservation contract.
+            continue
         previous, candidate = OutsideContext(), OutsideContext()
         previous.feed(baseline[page.filename])
         current = (candidate_dir / page.filename).read_text(encoding="utf-8")
@@ -94,3 +98,54 @@ def test_v2_additive_materialization_preserves_all_original_blocks_scores_and_na
     assert digest(workspace.database.read_bytes()) == database_hash
     with sqlite3.connect(workspace.database) as con:
         assert con.execute("SELECT * FROM scores").fetchall() == scores
+
+def test_reverse_review_is_21st_page_with_no_private_literal(tmp_path):
+    from rasai.catalog_report_contract import CATALOG_REPORT_PAGES
+    assert len(CATALOG_REPORT_PAGES) == 21
+    assert len({p.filename for p in CATALOG_REPORT_PAGES}) == 21
+    workspace = _captured_workspace(tmp_path)
+    report_dir = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    review = (report_dir / "geo-content-review.html").read_text(encoding="utf-8")
+    assert "id='faq-aria-review'" in review
+    assert "id='editorial-ideas'" in review
+    assert "Regulamento privado" not in review
+    index = (report_dir / "index.html").read_text(encoding="utf-8")
+    assert "href='geo-content-review.html'" in index
+    assert "id='contextual-content'" in (report_dir / "geo.html").read_text(encoding="utf-8")
+
+def test_each_of_21_html_pages_uses_historical_persisted_timezone(tmp_path, monkeypatch):
+    import json
+    from rasai.audit_configuration_reuse import configuration_hash
+    from rasai.catalog_report_contract import CATALOG_REPORT_PAGES
+
+    workspace = _captured_workspace(tmp_path)
+    with sqlite3.connect(workspace.database) as connection:
+        original = json.loads(connection.execute(
+            "SELECT configuration_json FROM audit_execution_configurations WHERE audit_id=?",
+            (AUDIT_ID,)).fetchone()[0])
+        original["settings"]["presentation"] = {"timezone": "Europe/Berlin"}
+        original["settings"]["environment"]["RASAI_PRESENTATION_TIMEZONE"] = "Europe/Berlin"
+        connection.execute(
+            "UPDATE audit_execution_configurations SET configuration_json=?, configuration_hash=? WHERE audit_id=?",
+            (json.dumps(original, ensure_ascii=False), configuration_hash(original), AUDIT_ID))
+    monkeypatch.setenv("RASAI_PRESENTATION_TIMEZONE", "Asia/Tokyo")
+    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+    assert len(CATALOG_REPORT_PAGES) == 21
+    for page in CATALOG_REPORT_PAGES:
+        html = (report / page.filename).read_text(encoding="utf-8")
+        assert "Europe/Berlin" in html, page.filename
+        assert "configuração persistida da auditoria" in html, page.filename
+        assert "Asia/Tokyo" not in html, page.filename
+    # The synthetic index does not expose audit.created_at as a visible field.
+    # Verify actual timestamp conversion at the exact common shell entrypoint.
+    from rasai.catalog_report_contract import page_by_filename
+    from rasai.catalog_report_presentation import _shell
+    rendered = _shell(page_by_filename("index.html"), AUDIT_ID,
+        "<p>Evento 2026-09-15T20:00:00Z</p>"
+        "<code>2026-09-15T20:00:00Z</code>",
+        timezone_name="Europe/Berlin",
+        timezone_source="settings.presentation.timezone")
+    assert "15/09/2026 22:00:00 (Europe/Berlin)" in rendered
+    assert "<code>2026-09-15T20:00:00Z</code>" in rendered
+    assert catalog_report_is_fresh(audit_id=AUDIT_ID, workspace=workspace, report_dir=report)
+

@@ -74,3 +74,50 @@ A preferência de apresentação pode servir como default para novos agendamento
 A preferência de timezone permanece uma propriedade da camada de apresentação. No modo local ela é persistida em `rasai-console.ini`; no SaaS deverá migrar para o perfil do usuário/workspace no control plane.
 
 Alterar a preferência de exibição não deve reescrever timestamps históricos, modificar evidências imutáveis nem mudar o instante real de jobs já resolvidos.
+
+## Projeção de relatório por AUD - evolução #692
+
+Na materialização de `report-catalog`, a origem preferida do timezone é
+`audit_execution_configurations.configuration_json.settings.presentation.timezone`.
+Se ausente, utiliza-se o campo persistido `settings.environment.RASAI_PRESENTATION_TIMEZONE`.
+Não é permitido substituir uma configuração histórica pelo ambiente Windows,
+variáveis do processo atual ou fuso do navegador. Quando não existe valor persistido
+ou ele é inválido, o relatório identifica **fuso histórico N/D** e aplica
+explicitamente o padrão do produto `America/Sao_Paulo`, sem alegar que foi
+escolhido pelo operador. Se os dois campos persistidos divergem, a apresentação
+privilegia `settings.presentation.timezone` e sinaliza conflito.
+
+O shell compartilhado projeta a preferência nas 21 páginas (incluindo
+`geo-content-review.html`) para timestamps ISO 8601 com offset conhecido.
+O literal sem fuso e a data-only não sofrem deslocamento inferido; `code`,
+`pre`, `script` e `style` continuam como prova técnica. O manifesto e o
+banco da AUD mantêm seus valores e hashes. A apresentação de datas de fontes
+em formatos adicionais, como cabeçalhos RFC 7231 e epoch, deve ser resolvida
+pelo renderer de cada campo tipado, nunca por substituição cega de texto.
+
+
+## Correções verificáveis posteriores na branch #692
+
+A exibição de validade TLS no CAT-01 utilizava `configured_presentation_timezone()`
+(host atual) mesmo quando a configuração histórica da AUD definia outro IANA.
+O materializador passa a configuração congelada da AUD para
+`architecture_audit_facts_html`, preservando os valores Unix UTC e os campos
+UTC como evidências. Teste focal usa 11/09/2026 00:00:00 UTC =
+10/09/2026 21:00:00 America/Sao_Paulo com o host configurado em Asia/Tokyo.
+
+O companheiro privado contextual agora lê o mesmo campo persistido por SQLite
+somente leitura (`immutable=1`), exibe o fuso aplicado e preserva o literal no
+`evidence.json`. Sem configuração histórica, o fallback é explícito com N/D.
+
+As funções tipadas `format_presentation_http_date` e
+`format_presentation_unix_epoch` permitem representar cabeçalhos HTTP GMT e
+epoch em segundos/milissegundos sem presumir unidade para números avulsos,
+alterar duração, ou converter data-only. Aplicação por campo exige prova de
+tipo; não se aplica substituição global a strings externas.
+
+**#692 ainda não pode ser encerrada:** falta inventário exaustivo por campo
+temporal renderizado e testes/homologação física do conjunto completo de 21
+páginas da AUD real, inclusive provas RFC/epoch quando disponíveis. O resultado
+sintético não certifica essa cobertura.
+
+A leitura HTTP-date tipada aceita as três variantes do RFC 7231 (IMF-fixdate, RFC850 e asctime), incluindo GMT implícito apenas no asctime do contrato HTTP. Datas genéricas de e-mail ou sem tipo não recebem conversão automática.

@@ -15,7 +15,8 @@ LABELS = dict(MAIN_CONTENT="Conteúdo principal", FAQ_QUESTION="FAQ — pergunta
     FRAGMENT_ACTION="Fragmento / ação", TEXT_MENTION="Menção textual", UNKNOWN="Indeterminado")
 PAGES = {"index.html": "Síntese consultiva", "capture-context.html": "Captura e contexto",
          "cat-03.html": "Conteúdo e FAQ", "cat-05.html": "Observações Search",
-         "geo.html": "Evidências GEO", "cat-08.html": "Oportunidades consultivas",
+         "geo.html": "Evidências GEO", "geo-content-review.html": "Análise reversa de conteúdo",
+         "cat-08.html": "Oportunidades consultivas",
          "cat-09.html": "Remediações editoriais"}
 
 
@@ -162,13 +163,150 @@ def _v2_panel(report, page, *, private):
     return body + "</section>"
 
 
+
+def _review_task_panel(report, *, private):
+    """Conditional editorial tasks with explicit evidence and validation."""
+    projection = report.get("reverse_review") or {}
+    tasks = projection.get("tasks") or []
+    count = (projection.get("counts") or {}).get("actionable_v2", "N/D")
+    body = "<section class='panel' id='editorial-verification'><h2>Verificações editoriais orientadas por evidências</h2>"
+    body += "<p>Estas tarefas são hipóteses condicionais, não erros SEO/GEO comprovados. Não alteram pontuação ou ranking. Alegações comerciais exigem revisão da fonte responsável.</p>"
+    body += "<p>" + _quantity(len(tasks), "verificação pendente", "verificações pendentes") + " · " + _e(count) + " ações v2 qualificadas.</p>"
+    if not tasks:
+        body += "<p>N/D — nenhum sinal adicional sustentado por esta captura; isso não prova ausência de oportunidades.</p>"
+    for task in tasks:
+        body += "<details><summary>" + _e(task["title"]) + " · validação necessária</summary><div class='detail-body'>"
+        body += "<p><strong>Base:</strong> " + _e(task["rationale"]) + "</p>"
+        body += "<p><strong>Como validar:</strong> " + _e(task["validation"]) + "</p>"
+        body += "<p>Suficiência da evidência: " + _e(task["evidence_sufficiency"]) + ".</p>"
+        if private:
+            for evidence in task["evidence_refs"]:
+                body += "<p><strong>" + _e(evidence.get("label") or "Trecho") + ":</strong> " + _t(evidence.get("text")) + "</p>"
+                if evidence.get("occurrence_id"):
+                    body += "<p><a href='capture-context.html#" + _e(evidence["occurrence_id"]) + "'>Ver ocorrência v1</a></p>"
+                body += "<p>Origem: <code>" + _e(evidence.get("source_ref")) + "</code> · SHA-256 <code>" + _e(evidence.get("source_sha256")) + "</code>.</p>"
+        else:
+            body += "<p>Textos, URLs e provas literais ficam restritos ao companheiro privado.</p>"
+        body += "</div></details>"
+    return body + "</section>"
+
+
+def _content_review_panel(report, *, private):
+    """Decision-facing projection: public summaries, private physical excerpts."""
+    overlay = report.get("faq_aria_v3") or {}
+    counts = overlay.get("counts") or {}
+    v2 = report.get("semantic_v2") or {}
+    semantic = v2.get("counts") or {}
+    ai = report.get("ai") or {}
+    body = "<section class='panel' id='contextual-content'><h2>O que a captura permite concluir?</h2>"
+    body += "<p>Esta análise inverte a leitura de uma auditoria: primeiro identifica trechos e relações observados; depois expõe hipóteses e como validá-las. Não mede ranking, indexação, citações generativas nem validade jurídica de benefícios comerciais.</p>"
+    body += "<dl class='kv'><dt>Capturas examinadas</dt><dd>" + _e(len(report.get("captures", ()))) + "</dd>"
+    body += "<dt>Contextos v2 qualificados</dt><dd>" + _e(semantic.get("qualified")) + "</dd>"
+    body += "<dt>Controles ARIA examinados (v3)</dt><dd>" + _e(counts.get("controls")) + "</dd>"
+    body += "<dt>Respostas presentes no DOM da captura</dt><dd>" + _e(counts.get("answer_present")) + "</dd>"
+    body += "<dt>Painéis não observados (N/D)</dt><dd>" + _e(counts.get("not_observed_nd")) + "</dd>"
+    body += "<dt>Controles ambíguos / indeterminados</dt><dd>" + _e(counts.get("ambiguous")) + "</dd>"
+    structure = report.get("content_structure_v3") or {}
+    structure_counts = structure.get("counts") or {}
+    body += "<dt>Heading H1–H6 observados</dt><dd>" + _e(structure_counts.get("headings")) + "</dd>"
+    body += "<dt>Title observados</dt><dd>" + _e(structure_counts.get("title_elements")) + "</dd>"
+    body += "<dt>IA contextual</dt><dd>" + _e(ai.get("state", "UNAVAILABLE")) + " · " + _e(ai.get("provider_calls", 0)) + " chamadas</dd></dl>"
+    body += "<p>Painel recolhido não prova ausência de resposta no site. Conteúdo em DOM não prova visibilidade computada, acesso de bots ou indexação. Dados de Search persistidos sem equivalência de mercado, idioma, dispositivo e intenção não fundamentam comparação positiva.</p>"
+    body += "</section><section class='panel' id='content-map'><h2>Conteúdo, intenção e limites</h2>"
+    body += "<p>Title, H1–H6, corpo principal, ofertas, CTAs, referências documentais e links podem indicar contexto, mas a intenção comercial e a suficiência de suporte material exigem revisão humana. A classificação v1 e a disposição v2 permanecem consultáveis nas páginas de detalhe.</p>"
+    categories = structure_counts.get("evidence_categories") or {}
+    body += "<p>Trechos de conteúdo principal selecionados: " + _e(categories.get("MAIN_CONTENT", 0)) + ". Alegações comerciais candidatas: " + _e(categories.get("COMMERCIAL_CANDIDATE", 0)) + ". Links documentais candidatos: " + _e(categories.get("DOCUMENT_REFERENCE", 0)) + ". CTAs: " + _e(categories.get("CTA", 0)) + ". As contagens refletem a seleção v1 e seus limites, não a totalidade do site.</p>"
+    if private:
+        by_snapshot = {c["snapshot_id"]: c for c in report.get("captures", ())}
+        for snapshot in structure.get("captures", ()):
+            body += "<details><summary>Estrutura observada · " + _e(snapshot["device"]) + "</summary><div class='detail-body'>"
+            origin = by_snapshot.get(snapshot["snapshot_id"], {})
+            body += "<p>Captura: " + _e(origin.get("captured_at")) + " · superfície: " + _e(origin.get("surface")) + ".</p>"
+            body += "<p>Fonte: <code>" + _e(snapshot["source_ref"]) + "</code> · SHA-256 <code>" + _e(snapshot["source_sha256"]) + "</code>.</p>"
+            body += "<p><strong>Title:</strong> " + _t((snapshot.get("title") or {}).get("text")) + "</p>"
+            for scope, label in (("MAIN_OR_ARTICLE", "Área principal"),
+                                 ("BODY_OR_UNDETERMINED", "Corpo com escopo N/D"),
+                                 ("NAVIGATION_OR_TEMPLATE", "Navegação e template")):
+                headings = [h for h in snapshot["headings"] if h["scope"] == scope]
+                if not headings:
+                    continue
+                body += "<details><summary>" + _e(label) + " · " + str(len(headings)) + " headings</summary><ol>"
+                for heading in headings:
+                    span = heading["text_range"]
+                    body += "<li><strong>" + _e(heading["tag"].upper()) + "</strong> " + _t(heading["text"])
+                    body += " · posição " + _e(span["start"]) + "-" + _e(span["end"]) + " no HTML decodificado</li>"
+                body += "</ol></details>"
+            body += _reasons(snapshot["limitations"]) + "</div></details>"
+    else:
+        body += "<p>Title e headings literais ficam disponíveis somente no companheiro privado com proveniência. Divergências de intenção devem ser verificadas por editor responsável.</p>"
+    body += "<p><a href='cat-03.html#contextual-qualification'>Conteúdo e semântica</a> · <a href='capture-context.html#contextual-qualification'>Proveniência</a> · <a href='geo.html#contextual-semantic-v2'>Evidências GEO</a> · <a href='cat-09.html#contextual-qualification'>Remediação</a></p></section>"
+    body += "<section class='panel' id='faq-aria-review'><h2>FAQ ARIA: acesso ao conteúdo capturado</h2>"
+    body += "<p>O classificador v2 exige pergunta e resposta em prosa na mesma captura. O ARIA v3 inspeciona identificadores dos controles, inclusive quando fechados. Os dois contadores possuem critérios diferentes.</p>"
+    if counts.get("not_observed_nd"):
+        body += "<p><strong>Verificação condicional:</strong> " + _quantity(counts["not_observed_nd"], "painel FAQ não observado", "painéis FAQ não observados") + " no DOM capturado. Testar interação autorizada antes de concluir ausência, bloqueio de crawler ou falha de indexação.</p>"
+    if counts.get("controls") is None:
+        body += "<p>N/D — markup estrutural insuficiente para qualificar controles ARIA nesta captura.</p>"
+    elif not counts["controls"]:
+        body += "<p>Nenhum controle elegível observado na captura; não implica ausência de FAQ no site.</p>"
+    elif not private:
+        body += "<p>Ocorrências e textos literais permanecem restritos ao companheiro privado. Contagens não são recomendações e não determinam falha de indexação.</p>"
+    else:
+        for row in overlay.get("controls", ()):
+            body += "<details><summary>" + _t(row["question"] or "Controle sem rótulo observado") + "</summary>"
+            human_status = ("Resposta presente no DOM da captura" if row["status"] == "ANSWER_PRESENT_IN_DOM"
+                            else "Resposta não observada na captura - N/D" if row["status"] == "NOT_OBSERVED_ND"
+                            else "Vínculo incerto - N/D")
+            body += "<div class='detail-body'><p><strong>Leitura:</strong> " + _e(human_status) + "; estado técnico: <code>" + _e(row["status"]) + "</code>; base: <code>" + _e(row["basis"]) + "</code>.</p>"
+            if row["status"] == "NOT_OBSERVED_ND":
+                body += "<p>Validação: abrir o controle em execução autorizada e comparar DOM após interação. A ausência nesta captura não comprova defeito do site.</p>"
+            body += "<p>aria-controls: <code>" + _e(row["aria_controls"]) + "</code>; aria-expanded: <code>" + _e(row["aria_expanded"]) + "</code>. Origem: " + _t(row["source_ref"]) + " · SHA-256 " + _e(row["source_sha256"]) + ".</p>"
+            if row.get("answer") is not None:
+                body += "<p>Resposta observada nesta captura: " + _t(row["answer"]) + "</p>"
+            if row.get("occurrence_id"):
+                body += "<p><a href='capture-context.html#" + _e(row["occurrence_id"]) + "'>Registro v1 e localização física</a></p>"
+            body += _reasons(row["limitations"]) + "</div></details>"
+    body += "</section>" + _review_task_panel(report, private=private)
+    body += "<section class='panel' id='editorial-ideas'><h2>Decisão editorial e histórico técnico v1</h2>"
+    semantic = report.get("semantic_v2") or {}
+    totals = semantic.get("recommendation_counts") or {}
+    body += "<p>Ações editoriais comprovadas na qualificação v2: " + _e(totals.get("qualified", "N/D")) + ". Histórico técnico v1 não é lista de erros nem orienta publicação automática.</p>"
+    body += "<p>" + _quantity(totals.get("not_actionable", 0), "hipótese não acionável", "hipóteses não acionáveis") + " e " + _quantity(totals.get("nd", 0), "hipótese ainda indeterminada", "hipóteses ainda indeterminadas") + ".</p>"
+    dispositions = {h["v1_recommendation_id"]: h for h in semantic.get("recommendation_history", ())}
+    for title, inactive in (("Contexto histórico a validar", False),
+                            ("Controles e fragmentos não acionáveis", True)):
+        items = [item for item in report.get("recommendations", ())
+                 if bool(dispositions.get(item["recommendation_id"], {}).get("not_actionable")) == inactive]
+        if not items:
+            continue
+        body += "<details><summary>" + _e(title) + " · " + str(len(items)) + "</summary><div class='detail-body'>"
+        for row in items:
+            body += "<details><summary>" + _e(row["problem"]) + "</summary><div class='detail-body'>"
+            if private:
+                body += "<p>Trecho v1: " + _t(row["observed_text"]) + "</p>"
+                body += "<p>Hipótese original: " + _e(row["suggested_change"]) + "</p>"
+                body += "<p>Validação proposta: " + _e(row["expected_validation"]) + "</p>"
+                for ref in row["evidence_refs"]:
+                    body += "<p><a href='capture-context.html#" + _e(ref["occurrence_id"]) + "'>Referência original da captura</a> · SHA-256 <code>" + _e(ref["source_sha256"]) + "</code></p>"
+            else:
+                body += "<p>Provas e trechos literais restritos ao companheiro privado.</p>"
+            body += "</div></details>"
+        body += "</div></details>"
+    return body + "</section>"
+
 def contextual_panel(report, page, *, private=False):
     if page not in PAGES:
         return ""
+    if page == "geo-content-review.html":
+        return _content_review_panel(report, private=private)
     # Existing engine/catalog bodies live outside this additive panel and are
     # never filtered. v1 facts/hypotheses stay in JSON and compatibility HTML.
     v1 = _v1_panel(report, page, private=private)
     v2 = _v2_panel(report, page, private=private)
+    review_link = "<p><a href='geo-content-review.html#contextual-content'>Abrir análise reversa de conteúdo — SEO/GEO</a></p>"
+    # Keep navigation links *inside* the additive v2 panel. The prior
+    # report shell and all unrelated sections stay byte-equivalent.
+    v2 = v2.replace("<h2>Qualificação semântica v2</h2>",
+                    "<h2>Qualificação semântica v2</h2>" + review_link, 1)
     if page in {"cat-05.html", "geo.html"}:
         return v2 + v1  # Search retains its existing presentation and N/D reasons.
     return ("<section class='panel' id='contextual-qualification'>" + v2
@@ -178,6 +316,16 @@ def contextual_panel(report, page, *, private=False):
 
 def companion_pages(report):
     from rasai.catalog_report_style import _CSS
+    from rasai.time_contract import localize_html_timestamps
+    zone = (report.get("presentation") or {}).get("timezone", "America/Sao_Paulo")
+    source = (report.get("presentation") or {}).get("source", "HISTORICAL_TIMEZONE_NOT_PERSISTED_ND_DEFAULT_USED")
+    provenance = ("configuração persistida da auditoria" if source.startswith("settings.")
+                  else "campos persistidos divergentes; prevalece apresentação"
+                  if source == "PERSISTED_TIMEZONE_CONFLICT_PREFERRED_PRESENTATION"
+                  else "fuso histórico N/D; padrão explícito do produto")
+    time_banner = ("<p class='notice' role='note'>Instantes ISO 8601 com offset observado exibidos no fuso <strong>"
+                   + _e(zone) + "</strong> (" + _e(provenance)
+                   + "). Valores técnicos em code/pre e evidências JSON permanecem na origem.</p>")
     pages = {"css/site.css": _CSS}
     nav = "<aside class='app-nav'><div class='brand'>Companheiro privado</div><nav aria-label='Relatório companheiro'>" + "".join(
         "<a href='" + name + "'>" + label + "</a>" for name, label in PAGES.items()) + "</nav></aside>"
@@ -187,5 +335,6 @@ def companion_pages(report):
             "<meta http-equiv='Content-Security-Policy' content=\"default-src 'none'; style-src 'self'; img-src 'none'; base-uri 'none'; form-action 'none'\">"
             "<link rel='stylesheet' href='css/site.css'><title>Companheiro privado · " + _e(label) + "</title></head><body>"
             + nav + "<main class='app-main'><h1>Companheiro privado — " + _e(label) + "</h1><p>Derivado externo; relatório histórico preservado. Não publicar: contém texto capturado não confiável.</p>"
-            + contextual_panel(report, name, private=True) + "</main></body></html>")
+            + time_banner + contextual_panel(report, name, private=True) + "</main></body></html>")
+        pages[name] = localize_html_timestamps(pages[name], timezone_name=zone)
     return pages

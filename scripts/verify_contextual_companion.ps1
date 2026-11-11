@@ -1,14 +1,17 @@
 param(
     [Parameter(Mandatory=$true)][ValidatePattern('^[0-9a-f]{40}$')][string]$ExpectedSha,
     [Parameter(Mandatory=$true)][string]$AuditDir,
-    [Parameter(Mandatory=$true)][string]$OutputDir
+    [Parameter(Mandatory=$true)][string]$OutputDir,
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9/_-]{1,100}$')]
+    [string]$Branch = 'feature/contextual-geo-seo-evidence',
+    [switch]$RequireReverse
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $repo
 if ((git status --porcelain)) { throw 'Checkout precisa estar limpo.' }
-if ((git branch --show-current) -ne 'feature/contextual-geo-seo-evidence') { throw 'Branch exclusiva necessária.' }
-git fetch origin refs/heads/feature/contextual-geo-seo-evidence
+if ((git branch --show-current) -ne $Branch) { throw 'Branch exclusiva necessária.' }
+git fetch origin "refs/heads/$Branch"
 if ($LASTEXITCODE -ne 0) { throw 'Fetch falhou.' }
 git merge --ff-only FETCH_HEAD
 if ($LASTEXITCODE -ne 0) { throw 'Fast-forward recusado.' }
@@ -19,6 +22,7 @@ if (Test-Path -LiteralPath $OutputDir) { throw 'Saída deve ser nova.' }
 # Validate every component before creating or ACLing a caller-provided parent.
 $env:RASAI_CONTEXTUAL_AUD = $AuditDir
 $env:RASAI_CONTEXTUAL_OUTPUT = $OutputDir
+$env:RASAI_CONTEXTUAL_REQUIRE_REVERSE = if ($RequireReverse) { '1' } else { '0' }
 & $python -c @'
 import os
 from pathlib import Path
@@ -52,6 +56,19 @@ report = build_companion(root, out, ai='none')
 assert before == _inventory(root) == report['source_inventory']
 manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
 assert all(digest((out / name).read_bytes()) == seal for name, seal in manifest['output_inventory'].items())
+if os.environ.get('RASAI_CONTEXTUAL_REQUIRE_REVERSE') == '1':
+    from rasai.contextual_faq_aria import CONTRACT as aria_contract
+    from rasai.contextual_page_structure import CONTRACT as structure_contract
+    from rasai.contextual_reverse_review import CONTRACT as reverse_contract
+    assert report['faq_aria_v3']['contract'] == aria_contract
+    assert report['content_structure_v3']['contract'] == structure_contract
+    assert report['network_requests'] == report['audit_writes'] == report['ai']['provider_calls'] == 0
+    assert (out / 'geo-content-review.html').is_file()
+    assert manifest['faq_aria_contract'] == aria_contract
+    assert manifest['page_structure_contract'] == structure_contract
+    assert report['reverse_review']['contract'] == reverse_contract
+    assert manifest['reverse_review_contract'] == reverse_contract
+    assert all(task['validation'] and task['evidence_refs'] for task in report['reverse_review']['tasks'])
 print(json.dumps(dict(source_files=len(before), **summary_counts(report))))
 '@
 if ($LASTEXITCODE -ne 0) { throw 'Homologação offline recusada; examinar apenas saída privada.' }

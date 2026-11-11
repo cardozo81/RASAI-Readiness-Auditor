@@ -38,6 +38,8 @@ _CATALOG_PAGES = tuple(
 _STRATEGIC_PAGES = (
     CatalogReportPage("network", "network.html", "Rede e conectividade", "Estratégia"),
     CatalogReportPage("geo", "geo.html", "GEO — Inteligência competitiva", "Estratégia"),
+    CatalogReportPage("geo-content-review", "geo-content-review.html",
+                      "Análise reversa de conteúdo — SEO/GEO", "Estratégia"),
     CatalogReportPage(
         "directed-analysis",
         "directed-analysis.html",

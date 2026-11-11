@@ -131,3 +131,15 @@ def test_ai_task_instructions_distinguish_reference_numbers_from_measured():
     assert "Numeric limits or ideal values" in text
     assert "never turn UNKNOWN into verified SPA/SSR" in text
     assert "never alter historic Apdex" in text.lower().replace("never", "never") or "Never alter historic Apdex" in text
+
+
+
+def test_tls_unix_validity_uses_frozen_timezone_despite_current_host(monkeypatch):
+    from datetime import datetime, timezone
+    from rasai.architecture_audit_facts import _tls_validity_presentation
+    epoch = int(datetime(2026, 9, 11, tzinfo=timezone.utc).timestamp())
+    monkeypatch.setenv("RASAI_PRESENTATION_TIMEZONE", "Asia/Tokyo")
+    utc, local = _tls_validity_presentation(epoch, timezone_name="America/Sao_Paulo")
+    assert utc == "11/09/2026 00:00:00 UTC"
+    assert local == "10/09/2026 21:00:00 (America/Sao_Paulo)"
+    assert _tls_validity_presentation(epoch, timezone_name="UTC")[1] == "11/09/2026 00:00:00 (UTC)"

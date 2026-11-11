@@ -20,6 +20,9 @@ from rasai.contextual_content import CONTRACT, MAX_BYTES, observe_content
 from rasai.contextual_documents import digest
 from rasai.contextual_editorial import ai_availability, recommendations
 from rasai.contextual_semantics import CONTRACT as SEMANTIC_CONTRACT, report_overlay
+from rasai.contextual_faq_aria import CONTRACT as FAQ_ARIA_CONTRACT, report_overlay as faq_aria_report_overlay
+from rasai.contextual_page_structure import CONTRACT as PAGE_STRUCTURE_CONTRACT, report_overlay as page_structure_report_overlay
+from rasai.contextual_reverse_review import CONTRACT as REVERSE_REVIEW_CONTRACT, review_projection
 from rasai.document_advisory import _inventory, _member, _plain, _read, _snapshots
 
 
@@ -48,6 +51,20 @@ def _observe(audit_id, snapshot, original, ref, surface):
     return result
 
 
+def _frozen_companion_timezone(root: Path) -> dict:
+    """Read the same execution configuration as the canonical catalog, read-only."""
+    from contextlib import closing
+    from rasai.catalog_report_model import _load_configuration
+    from rasai.time_contract import presentation_timezone_for_audit
+    database = _member(root, "audit.db")
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro&immutable=1", uri=True, timeout=2)) as con:
+        con.execute("PRAGMA query_only=ON")
+        con.row_factory = sqlite3.Row
+        configuration, _, _ = _load_configuration(con, root.name)
+    name, provenance = presentation_timezone_for_audit(configuration)
+    return dict(timezone=name, source=provenance)
+
+
 def load_projection(audit_dir: Path, *, ai="none") -> dict:
     root = _plain(audit_dir)
     if _member(root, "audit.db").stat().st_size > 256 * 1024 * 1024:
@@ -57,6 +74,7 @@ def load_projection(audit_dir: Path, *, ai="none") -> dict:
                   limitations=["CONSULTATIVE_ONLY", "NO_ENTITY_OR_PRODUCT_AUTHENTICATION",
                                "PRIVATE_COMPANION_CONTAINS_CAPTURED_TEXT_DO_NOT_PUBLISH"])
     snapshots = _snapshots(root)
+    result["presentation"] = _frozen_companion_timezone(root)
     total, emitted, deadline = 0, 0, time.monotonic() + 30
     for snapshot in snapshots:
         if any(value is not None and (not isinstance(value, str) or len(value) > 4096)
@@ -106,8 +124,13 @@ def load_projection(audit_dir: Path, *, ai="none") -> dict:
         result["search"] = dict(status="NOT_COMPARABLE", reason="SEARCH_RESOURCE_OR_SCHEMA_LIMIT_ND",
                                  observations=[], limitations=[], provider_calls=0)
     result["semantic_v2"] = report_overlay(result["captures"], result["recommendations"])
+    result["faq_aria_v3"] = faq_aria_report_overlay(result["captures"])
+    result["content_structure_v3"] = page_structure_report_overlay(result["captures"])
+    result["reverse_review"] = review_projection(result)
     for capture in result["captures"]:
         capture.pop("semantic_overlay_v2", None)  # publish v1 captures verbatim
+        capture.pop("faq_aria_overlay_v3", None)
+        capture.pop("page_structure_overlay_v3", None)
     return result
 
 
@@ -138,7 +161,8 @@ def build_companion(audit_dir: Path, output: Path, *, ai="none") -> dict:
         (stage / "evidence.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         manifest = dict(contract="contextual-companion-manifest-v1", source_inventory=before,
             source_unchanged=True, output_inventory=_inventory(stage), network_requests=0,
-            provider_calls=0, audit_writes=0, semantic_overlay_contract=SEMANTIC_CONTRACT)
+            provider_calls=0, audit_writes=0, semantic_overlay_contract=SEMANTIC_CONTRACT, faq_aria_contract=FAQ_ARIA_CONTRACT, page_structure_contract=PAGE_STRUCTURE_CONTRACT,
+            reverse_review_contract=REVERSE_REVIEW_CONTRACT)
         (stage / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         _plain(destination)
         if destination.exists() or _inventory(root) != before:
@@ -152,7 +176,10 @@ def summary_counts(report):
     return dict(captures=len(report["captures"]), recommendations=len(report["recommendations"]),
         raw_v1_occurrences=sum(len(c["occurrences"]) for c in report["captures"]),
         semantic_v2_counts=report["semantic_v2"]["counts"],
+        faq_aria_v3_counts=report["faq_aria_v3"]["counts"],
+        content_structure_v3_counts=report["content_structure_v3"]["counts"],
         recommendation_v2_counts=report["semantic_v2"]["recommendation_counts"],
+        reverse_review_counts=report["reverse_review"]["counts"],
         search_reason=report["search"]["reason"], source_unchanged=report["source_unchanged"],
         network_requests=0, provider_calls=0)
 

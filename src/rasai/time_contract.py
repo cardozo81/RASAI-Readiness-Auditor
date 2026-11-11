@@ -7,6 +7,8 @@ conversion never mutates persisted source evidence.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from math import isfinite
 import os
 import re
 from typing import Any, Mapping
@@ -98,6 +100,34 @@ def configured_presentation_timezone(env: Mapping[str, str] | None = None) -> st
     return validate_presentation_timezone(raw or DEFAULT_PRESENTATION_TIMEZONE)
 
 
+
+def presentation_timezone_for_audit(configuration: Mapping[str, Any] | None) -> tuple[str, str]:
+    """Use only the audit's persisted configuration, never the current host/env.
+
+    Explicit product default is a documented fallback, *not* evidence that the
+    historic operator selected this zone. The second value is provenance.
+    """
+    settings = configuration.get("settings", {}) if isinstance(configuration, Mapping) else {}
+    settings = settings if isinstance(settings, Mapping) else {}
+    presentation = settings.get("presentation", {})
+    presentation = presentation if isinstance(presentation, Mapping) else {}
+    environment = settings.get("environment", {})
+    environment = environment if isinstance(environment, Mapping) else {}
+    direct = presentation.get("timezone")
+    env = environment.get(PRESENTATION_TIMEZONE_ENV)
+    raw = direct if direct is not None else env
+    if not isinstance(raw, str) or not raw.strip():
+        return DEFAULT_PRESENTATION_TIMEZONE, "HISTORICAL_TIMEZONE_NOT_PERSISTED_ND_DEFAULT_USED"
+    try:
+        zone = validate_presentation_timezone(raw)
+    except ValueError:
+        return DEFAULT_PRESENTATION_TIMEZONE, "INVALID_PERSISTED_TIMEZONE_ND_DEFAULT_USED"
+    if isinstance(direct, str) and isinstance(env, str) and direct.strip() != env.strip():
+        return zone, "PERSISTED_TIMEZONE_CONFLICT_PREFERRED_PRESENTATION"
+    return zone, ("settings.presentation.timezone" if direct is not None
+                  else "settings.environment." + PRESENTATION_TIMEZONE_ENV)
+
+
 def timezone_offset_label(
     timezone_name: str,
     *,
@@ -176,3 +206,40 @@ def localize_html_timestamps(
             continue
         output.append(localize_visible_timestamps(part, timezone_name=resolved))
     return "".join(output)
+
+
+def format_presentation_http_date(value: str, *, timezone_name: str | None = None) -> str:
+    """Format a typed RFC 7231 HTTP Date; preserve the raw header in its caller."""
+    if not isinstance(value, str) or not 10 <= len(value) <= 80:
+        raise ValueError("HTTP-date ausente ou fora da política")
+    try:
+        instant = parsedate_to_datetime(value)
+    except (ValueError, TypeError, IndexError) as exc:
+        raise ValueError("HTTP-date inválido") from exc
+    # RFC 7231 accepts IMF-fixdate, RFC850 (obsolete) and asctime (obsolete).
+    # A generic timezone +0000 email date is NOT evidence of an HTTP Date.
+    imf = re.fullmatch(r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [0-3][0-9] [A-Z][a-z]{2} [0-9]{4} [0-2][0-9]:[0-5][0-9]:[0-5][0-9] GMT", value)
+    rfc850 = re.fullmatch(r"(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), [0-3][0-9]-[A-Z][a-z]{2}-[0-9]{2} [0-2][0-9]:[0-5][0-9]:[0-5][0-9] GMT", value)
+    asctime = re.fullmatch(r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) [A-Z][a-z]{2} [ 0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9] [0-9]{4}", value)
+    if not (imf or rfc850 or asctime):
+        raise ValueError("formato HTTP-date não reconhecido")
+    if asctime and instant.tzinfo is None:
+        instant = instant.replace(tzinfo=UTC)  # RFC 7231 asctime is GMT.
+    if instant.tzinfo is None or instant.utcoffset() != UTC.utcoffset(None):
+        raise ValueError("HTTP-date sem prova UTC/GMT")
+    return format_presentation_timestamp(instant, timezone_name=timezone_name)
+
+
+def format_presentation_unix_epoch(
+    value: int | float, *, unit: str, timezone_name: str | None = None
+) -> str:
+    """Render a typed Unix timestamp with mandatory seconds/milliseconds unit."""
+    if type(value) not in (int, float) or not isfinite(value):
+        raise ValueError("epoch inválido")
+    if unit not in {"seconds", "milliseconds"}:
+        raise ValueError("unidade epoch deve ser seconds ou milliseconds")
+    try:
+        instant = datetime.fromtimestamp(value if unit == "seconds" else value / 1000, tz=UTC)
+    except (ValueError, OverflowError, OSError) as exc:
+        raise ValueError("epoch fora do intervalo") from exc
+    return format_presentation_timestamp(instant, timezone_name=timezone_name)

@@ -305,7 +305,7 @@ def test_new_shared_report_shell_navigation_is_accessible_in_all_canonical_pages
     """#633: one DOM nav, one disclosure, no second route or hidden static content."""
     workspace, _non_catalog = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
-    assert len(CATALOG_REPORT_PAGES) == 20
+    assert len(CATALOG_REPORT_PAGES) == 21
     assert "network.html" in CATALOG_REPORT_FILENAMES
     expected_links = set(page.filename for page in CATALOG_REPORT_PAGES)
     assert expected_links == set(file.name for file in report.glob("*.html"))
