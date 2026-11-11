@@ -217,3 +217,23 @@ offset em bytes da fonte. Atributos, paginação dinâmica, conteúdo ausente ou
 fragmentado, epoch sem unidade e latências permanecem fora da prova. O limite
 de registros não limita os totais reconhecidos. Datas HTTP só têm helpers
 focais tipados: nenhuma aplicação universal a campos externos foi demonstrada.
+
+
+## Aceite físico mínimo das 21 páginas, em cópia privada (#692)
+
+O verificador `scripts/verify_temporal_21_windows.ps1` opera somente sobre uma **cópia completa** da AUD terminal, em um diretório privado externo e novo. Confere identidade da AUD, recusa SQLite sidecars, compara inventário SHA-256 da origem antes/depois, gera 21 páginas usando o materializador canônico **na cópia**, verifica o manifesto e compara os tokens não temporais antes/depois da localização de timezone de cada página. Nenhum HTML da origem é substituído. O subprocesso Python bloqueia chamadas de conexão de sockets no próprio processo; isso não é um sandbox de rede para processos-filho.
+
+No PowerShell 5.1, usando SHA exato do HEAD da branch e `.venv` já instalado:
+
+```powershell
+Set-Location 'C:\IA-PROJETOS\github\RASAI-Readiness-Auditor'
+$Branch = 'feature/finalize-contextual-geo-timezone-690-692'
+$ExpectedSha = '<SHA_COMPLETO_DO_HEAD>'
+$AuditDir = Join-Path $PWD 'audits\AUD-C0475E4AF5674E93B8F8C6F257226808'
+$Parent = Join-Path $env:LOCALAPPDATA ('RASAi-temporal-' + [guid]::NewGuid().ToString('N'))
+.\scripts\verify_temporal_21_windows.ps1 -ExpectedSha $ExpectedSha -Branch $Branch -AuditDir $AuditDir -OutputDir (Join-Path $Parent 'validation')
+```
+
+Saída privada: `validation/temporal-acceptance.json` (status técnico, hashes confrontados, timezone histórico, cobertura de páginas) e `validation/temporal-inventory.json` (contagens/posições sem literais), além de `validation/AUD-*/report-catalog/` com 21 páginas. Não publicar a cópia da AUD, suas páginas ou qualquer arquivo privado. O inventário registra candidatos e limitações, não confirma a correção de todo instante externo não tipado.
+
+**Interpretação dos gates:** `PASS_TECHNICAL` + `source_unchanged=true` + `page_count=21` + `non_temporal_21_pages=PASS_FOCAL_LOCALIZER_PARITY` comprovam somente a etapa automática. `temporal_21_pages=REVIEW_REQUIRED` e `human_review=N/D` permanecem deliberadamente bloqueados até revisão visual e semântica dos campos tipados, confronto UTC/Unix/RFC/data civil e aprovação humana. A saída reproduzida em cópia privada não equivale a paridade integral com HTML histórico de 20 páginas nem a ausência irrestrita de rede em processos externos.
