@@ -41,7 +41,7 @@ def test_reverse_review_infers_only_conditional_tasks_with_traceable_evidence(tm
     assert "Sem tarifas escondidas" not in public
     assert "Sem tarifas escondidas" in private
     assert "href='geo.html#contextual-semantic-v2'" in private
-    assert "Controles e fragmentos não acionáveis" in private or "Histórico técnico v1" in private
+    assert "Decisão editorial e histórico técnico v1" in private
     assert contextual_advisory._inventory(root) == before
     assert result["network_requests"] == result["audit_writes"] == result["ai"]["provider_calls"] == 0
 
