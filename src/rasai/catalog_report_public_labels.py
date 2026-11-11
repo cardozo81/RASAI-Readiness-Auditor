@@ -7,6 +7,9 @@ from rasai.public_language import component_label, safe_visible_fallback, supple
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
     # #692: read-only temporal census observations, not temporal verdicts.
+    "PASS_TECHNICAL": "Verificação física técnica aprovada; revisão temporal humana ainda pendente",
+    "PASS_FOCAL_LOCALIZER_PARITY": "Estrutura e conteúdo não temporal preservados na localização, sob teste focal",
+    "REVIEW_REQUIRED": "Revisão semântica por campo necessária antes do aceite final",
     "LOCAL_PRESENTATION": "Instante apresentado no fuso declarado da auditoria",
     "OTHER_DECLARED_TIMEZONE_REVIEW": "Instante em outro fuso declarado; revisar a intenção de exibição",
     "AWARE_ISO_VISIBLE_REVIEW": "Instante ISO com fuso explícito ainda literal no texto visível",
