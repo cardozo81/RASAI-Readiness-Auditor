@@ -72,3 +72,18 @@ def test_field_inventory_generator_mapping_covers_current_canonical_pages():
         assert "N/D" not in mapping
         assert mapping.endswith("rasai.catalog_report_presentation._shell")
     assert "_catalog_body" in _generator_path("cat-01.html")
+
+
+def test_field_inventory_classification_codes_have_public_pt_br_labels():
+    from rasai.catalog_report_public_labels import public_label
+    from rasai.report_temporal_inventory import _FIELD_PATTERNS
+    classes = {code for code, _regex in _FIELD_PATTERNS}
+    classes.update({
+        "OTHER_DECLARED_TIMEZONE_REVIEW",
+        "TECHNICAL_ISO_PRESERVED",
+        "TECHNICAL_HTTP_DATE_PRESERVED",
+    })
+    for code in classes:
+        label = public_label(code)
+        assert label and label != code
+        assert "_" not in label
