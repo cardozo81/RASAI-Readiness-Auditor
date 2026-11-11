@@ -169,3 +169,13 @@ def test_rfc7231_accepts_three_http_date_variants_and_refuses_generic_email_date
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+def test_civil_date_contract_validates_calendar_and_does_not_infer_time():
+    from rasai.time_contract import format_presentation_date_only
+    assert format_presentation_date_only("2026-09-11") == "11/09/2026"
+    assert format_presentation_date_only({"year": 2026, "month": 9, "day": 11}) == "11/09/2026"
+    for invalid in ("2026-02-30", "11/09/2026", "2026-09-11T00:00:00Z", ""):
+        assert format_presentation_date_only(invalid) is None
+    assert format_presentation_date_only({"year": 2026, "month": 2, "day": 30}) is None

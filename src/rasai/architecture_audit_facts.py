@@ -41,7 +41,7 @@ def _tls_validity_presentation(value: Any, *, timezone_name: str | None = None) 
         if not raw or not raw.isascii() or not raw.isdigit():
             return "N/D", "N/D"
         instant = datetime.fromtimestamp(int(raw), tz=timezone.utc)
-        utc_label = instant.strftime("%d/%m/%Y %H:%M:%S UTC")
+        utc_label = instant.strftime("%d/%m/%Y %H:%M:%S (UTC)")
         local_label = format_presentation_timestamp(
             instant, timezone_name=timezone_name or configured_presentation_timezone()
         )
@@ -681,6 +681,9 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str, *, timezo
             + display("IP público do par remoto (não é origem/backend)",
                       sec.get("remote_public_peer_ip"))
             + "</dl></section></div>"
+            "<p class='architecture-limit'>UTC e apresentação usam dd/mm/aaaa hh:mm:ss (fuso). "
+            "Unix UTC é evidência técnica numérica, em segundos desde 01/01/1970 00:00:00 UTC; "
+            "os três campos representam o mesmo instante, sem alterar os valores originais.</p>"
             "<p class='architecture-limit'>Dados TLS e do par remoto são os "
             "informados pelo Chromium para a conexão da resposta principal. "
             "Não certificam toda a cadeia TLS, resolução DNS, o servidor "

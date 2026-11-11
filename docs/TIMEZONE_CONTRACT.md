@@ -237,3 +237,31 @@ $Parent = Join-Path $env:LOCALAPPDATA ('RASAi-temporal-' + [guid]::NewGuid().ToS
 Saída privada: `validation/temporal-acceptance.json` (status técnico, hashes confrontados, timezone histórico, cobertura de páginas) e `validation/temporal-inventory.json` (contagens/posições sem literais), além de `validation/AUD-*/report-catalog/` com 21 páginas. Não publicar a cópia da AUD, suas páginas ou qualquer arquivo privado. O inventário registra candidatos e limitações, não confirma a correção de todo instante externo não tipado.
 
 **Interpretação dos gates:** `PASS_TECHNICAL` + `source_unchanged=true` + `page_count=21` + `non_temporal_21_pages=PASS_FOCAL_LOCALIZER_PARITY` comprovam somente a etapa automática. `temporal_21_pages=REVIEW_REQUIRED` e `human_review=N/D` permanecem deliberadamente bloqueados até revisão visual e semântica dos campos tipados, confronto UTC/Unix/RFC/data civil e aprovação humana. A saída reproduzida em cópia privada não equivale a paridade integral com HTML histórico de 20 páginas nem a ausência irrestrita de rede em processos externos.
+
+
+## Ajustes de apresentação derivados do aceite físico - PR #694
+
+CAT-01 apresenta os instantes UTC e no fuso congelado em
+dd/mm/aaaa hh:mm:ss (IANA/UTC). O Unix em segundos permanece numérico
+por ser evidência técnica do mesmo instante, não um campo civil a deslocar.
+Uma explicação do quadro evita confundir os três formatos.
+
+CAT-04 converte somente datas civis tipadas do período CrUX (objetos
+year/month/day ou strings YYYY-MM-DD de histórico) para dd/mm/aaaa, sem
+inventar horário nem aplicar deslocamento de timezone. Datas inválidas
+permanecem N/D. O bug do regex de datas ISO de histórico foi corrigido.
+
+GEO formata datas civis ISO inequívocas das fontes em dd/mm/aaaa, sem
+deslocamento. Instantes completos com offset continuam sendo convertidos
+pelo shell segundo a configuração congelada. Literais externos ambíguos
+são preservados, e nenhuma data sem fuso é tratada como instante UTC.
+
+A página de rede agora apresenta no início "Datas e horários da rede",
+separando captura do navegador e medição complementar autorizada, com
+N/D quando o instante não estiver comprovado. O shell converte os
+instantes aware visíveis; a origem persistida não é modificada.
+
+O inventário temporal reconhece datas civis ISO e pt-BR sem classificá-las
+como timestamps sujeitos a timezone. A prova física anterior permanece
+no SHA anterior: novas materializações exigem gate Windows no novo SHA,
+sem reescrever a AUD histórica.

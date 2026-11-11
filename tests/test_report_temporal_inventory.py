@@ -164,3 +164,12 @@ def test_field_inventory_bounds_records_without_losing_totals_or_raw_evidence():
     assert row["field_totals"] == {"AWARE_ISO_VISIBLE_REVIEW": 520}
     split = inspect_html("<p>2026-09-11T<span>00:00:00Z</span></p>", zone="UTC")
     assert "AWARE_ISO_VISIBLE_REVIEW" not in split["field_totals"]
+
+
+
+def test_date_only_census_recognizes_presentation_without_double_counting_instants():
+    html = ("<p>CrUX 21/08/2026, fonte 2026-08-22.</p>"
+            "<p>Evento 22/08/2026 11:00:00 (America/Sao_Paulo)</p>")
+    result = inspect_html(html, zone="America/Sao_Paulo")
+    assert result["field_totals"].get("DATE_ONLY_UNSHIFTED") == 2
+    assert result["field_totals"].get("LOCAL_PRESENTATION") == 1

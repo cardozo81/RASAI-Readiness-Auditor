@@ -119,6 +119,35 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
         observations = snapshots_from_audit(root / "audit.db", audit_id)
     from rasai.network_intelligence_reporting import network_intelligence_section
     blocks = [network_intelligence_section(root, audit_id)]
+    # Surface the provenance of capture time; never infer an unobserved instant.
+    probes = read_authorized_probes(root, audit_id)
+    time_rows = []
+    for item in observations[:12]:
+        raw = item.get("capture_utc")
+        observed = item.get("capture_time_state") == "OBSERVED"
+        when = escape(str(raw)[:80]) if observed and raw else "N/D (instante não comprovado)"
+        source = escape(str(item.get("device") or "N/D")[:40])
+        time_rows.append("<tr><th scope='row'>Captura " + source + "</th><td>"
+                         + when + "</td><td>Navegador da auditoria</td></tr>")
+    for item in probes[:12]:
+        raw = item.get("capture_utc")
+        when = escape(str(raw)[:80]) if raw else "N/D (instante não comprovado)"
+        time_rows.append("<tr><th scope='row'>Medição complementar</th><td>"
+                         + when + "</td><td>Coleta independente autorizada</td></tr>")
+    if time_rows:
+        omitted = max(0, len(observations) - 12) + max(0, len(probes) - 12)
+        blocks.append(
+            "<section class='panel' id='network-time-evidence'>"
+            "<h2>Datas e horários da rede</h2><p>Instantes por origem, sem "
+            "confundir a captura do navegador com a sondagem complementar. "
+            "Timestamps com fuso conhecido são apresentados no fuso da AUD "
+            "pelo catálogo; valores sem prova permanecem N/D.</p>"
+            "<div class='table-wrap'><table><thead><tr><th>Origem</th>"
+            "<th>Data e horário</th><th>Proveniência</th></tr></thead><tbody>"
+            + "".join(time_rows) + "</tbody></table></div>"
+            + (f"<p>Outros {omitted} registros não exibidos.</p>" if omitted else "")
+            + "</section>"
+        )
     if (packet.exists() or packet.is_symlink()) and not observations:
         blocks.append(
             "<section class='panel'><h2>Dados de rede não verificáveis</h2>"
@@ -153,7 +182,6 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             + "<div class='table-wrap'><table><thead><tr><th>Indicador</th><th>Resultado</th><th>Situação</th></tr></thead><tbody>"
             + "".join(cells) + "</tbody></table></div></section>"
         )
-    probes = read_authorized_probes(root, audit_id)
     if not probes:
         notice = _incomplete_network_consent_notice(root, audit_id)
         if notice:

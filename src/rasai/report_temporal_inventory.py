@@ -19,7 +19,11 @@ CONTRACT = "report-temporal-presentation-inventory-v1"
 _LOCAL = re.compile(r"\b\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2}\s*\([^)]{1,80}\)")
 _RFC = re.compile(r"\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s+\d{2}\s+[A-Z][a-z]{2}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT\b")
 _NAIVE = re.compile(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?![\d.Z+-])")
-_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b(?![T ]\d{2}:\d{2})")
+# ISO civil dates and the equivalent pt-BR presentation are not instants.
+_DATE = re.compile(
+    r"\b(?:\d{4}-\d{2}-\d{2}(?![T ]\d{2}:\d{2})|"
+    r"\d{2}/\d{2}/\d{4}(?!\s+\d{2}:\d{2}:\d{2}))\b"
+)
 
 # The rendered HTML is untrusted: store ONLY type, tag path and line number.
 # Never copy literal timestamps, adjacent text, links, attributes or data-*.
