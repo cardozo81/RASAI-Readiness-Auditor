@@ -115,3 +115,50 @@ def test_grouped_document_review_exposes_full_count_when_proof_list_is_bounded()
     assert len(task["evidence_refs"]) == 16
     assert len(capture["occurrences"]) == 20
     assert all(x["source_sha256"] == "a" * 64 for x in task["evidence_refs"])
+    from rasai.contextual_advisory_html import _review_task_panel
+    html = _review_task_panel({'reverse_review': projection}, private=True)
+    assert 'Mostrando 16 de 20' in html
+    assert "href='capture-context.html#contextual-content'" in html
+    assert "href='capture-context.html#O-0'" in html
+    assert "O-19" not in html  # retained in capture, not in the bounded panel
+
+
+def test_title_comparison_keeps_non_latin_letters_and_product_scope():
+    from rasai.contextual_reverse_review import _title_contains_exact_heading_segment
+    assert not _title_contains_exact_heading_segment("保険 A | Brand", "車 A")
+    assert not _title_contains_exact_heading_segment("Страхование A | Brand", "Автомобиль A")
+    assert _title_contains_exact_heading_segment("保険 A | Brand", "保険 A")
+    assert _title_contains_exact_heading_segment("PROTEÇÃO | Marca", "Proteção")
+
+
+def test_windows_acceptance_payload_keeps_private_hashes_on_success_and_failure(tmp_path, monkeypatch):
+    import json
+    import pytest
+
+    script = (Path(__file__).resolve().parents[1] / 'scripts/verify_contextual_companion.ps1').read_text(encoding='utf-8')
+    payload = script.rsplit("& $python -c @'\n", 1)[1].split("\n'@", 1)[0]
+    root = source(tmp_path)
+    before = contextual_advisory._inventory(root)
+    parent = tmp_path / 'private-acceptance'
+    parent.mkdir()
+    monkeypatch.setenv('RASAI_CONTEXTUAL_AUD', str(root))
+    monkeypatch.setenv('RASAI_CONTEXTUAL_OUTPUT', str(parent / 'companion'))
+    monkeypatch.setenv('RASAI_CONTEXTUAL_REQUIRE_REVERSE', '1')
+    exec(compile(payload, 'acceptance-payload', 'exec'), {})
+    proof = json.loads((parent / 'acceptance.json').read_text(encoding='utf-8'))
+    assert proof['status'] == 'PASS'
+    assert proof['source_inventory_before'] == proof['source_inventory_after'] == before
+    assert proof['human_review'] == proof['temporal_21_pages'] == proof['non_temporal_21_pages'] == 'N/D'
+    assert proof['provider_calls'] == proof['network_requests'] == proof['audit_writes'] == 0
+    assert set(proof['captures_by_device']) == {'DESKTOP', 'MOBILE'}
+
+    def refuse(*args, **kwargs):
+        raise ValueError('synthetic refusal')
+
+    monkeypatch.setattr(contextual_advisory, 'build_companion', refuse)
+    with pytest.raises(ValueError, match='synthetic refusal'):
+        exec(compile(payload, 'acceptance-payload', 'exec'), {})
+    proof = json.loads((parent / 'acceptance.json').read_text(encoding='utf-8'))
+    assert proof['status'] == 'FAIL'
+    assert proof['source_inventory_before'] == proof['source_inventory_after'] == before
+    assert contextual_advisory._inventory(root) == before

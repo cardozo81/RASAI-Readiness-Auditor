@@ -11,10 +11,8 @@ $repo = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $repo
 if ((git status --porcelain)) { throw 'Checkout precisa estar limpo.' }
 if ((git branch --show-current) -ne $Branch) { throw 'Branch exclusiva necessária.' }
-git fetch origin "refs/heads/$Branch"
-if ($LASTEXITCODE -ne 0) { throw 'Fetch falhou.' }
-git merge --ff-only FETCH_HEAD
-if ($LASTEXITCODE -ne 0) { throw 'Fast-forward recusado.' }
+# Verification never changes Git refs or working files. Prepare this exact HEAD
+# before invoking the acceptance script.
 if ((git rev-parse HEAD) -ne $ExpectedSha) { throw 'HEAD diferente do SHA homologável.' }
 $python = Join-Path $repo '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $python)) { throw 'Python local preparado necessário; não instalar pela rede.' }
@@ -52,23 +50,44 @@ from rasai.document_advisory import _inventory
 from rasai.contextual_documents import digest
 root, out = Path(os.environ['RASAI_CONTEXTUAL_AUD']), Path(os.environ['RASAI_CONTEXTUAL_OUTPUT'])
 before = _inventory(root)
-report = build_companion(root, out, ai='none')
-assert before == _inventory(root) == report['source_inventory']
-manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
-assert all(digest((out / name).read_bytes()) == seal for name, seal in manifest['output_inventory'].items())
-if os.environ.get('RASAI_CONTEXTUAL_REQUIRE_REVERSE') == '1':
-    from rasai.contextual_faq_aria import CONTRACT as aria_contract
-    from rasai.contextual_page_structure import CONTRACT as structure_contract
-    from rasai.contextual_reverse_review import CONTRACT as reverse_contract
-    assert report['faq_aria_v3']['contract'] == aria_contract
-    assert report['content_structure_v3']['contract'] == structure_contract
+proof = out.parent / 'acceptance.json'
+proof.write_text(json.dumps(dict(status='N/D', source_inventory_before=before,
+    human_review='N/D', temporal_21_pages='N/D'), indent=2), encoding='utf-8')
+report = None
+verified = False
+try:
+    report = build_companion(root, out, ai='none')
     assert report['network_requests'] == report['audit_writes'] == report['ai']['provider_calls'] == 0
-    assert (out / 'geo-content-review.html').is_file()
-    assert manifest['faq_aria_contract'] == aria_contract
-    assert manifest['page_structure_contract'] == structure_contract
-    assert report['reverse_review']['contract'] == reverse_contract
-    assert manifest['reverse_review_contract'] == reverse_contract
-    assert all(task['validation'] and task['evidence_refs'] for task in report['reverse_review']['tasks'])
+    assert before == _inventory(root) == report['source_inventory']
+    manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
+    assert all(digest((out / name).read_bytes()) == seal for name, seal in manifest['output_inventory'].items())
+    if os.environ.get('RASAI_CONTEXTUAL_REQUIRE_REVERSE') == '1':
+        from rasai.contextual_faq_aria import CONTRACT as aria_contract
+        from rasai.contextual_page_structure import CONTRACT as structure_contract
+        from rasai.contextual_reverse_review import CONTRACT as reverse_contract
+        assert report['faq_aria_v3']['contract'] == aria_contract
+        assert report['content_structure_v3']['contract'] == structure_contract
+        assert report['network_requests'] == report['audit_writes'] == report['ai']['provider_calls'] == 0
+        assert (out / 'geo-content-review.html').is_file()
+        assert manifest['faq_aria_contract'] == aria_contract
+        assert manifest['page_structure_contract'] == structure_contract
+        assert report['reverse_review']['contract'] == reverse_contract
+        assert manifest['reverse_review_contract'] == reverse_contract
+        assert all(task['validation'] and task['evidence_refs'] for task in report['reverse_review']['tasks'])
+    verified = True
+finally:
+    after = _inventory(root)
+    proof.write_text(json.dumps(dict(status='PASS' if verified and before == after else 'FAIL',
+        source_inventory_before=before, source_inventory_after=after,
+        presentation=report['presentation'] if report else None,
+        captures_by_device={device: sum(c['device'] == device for c in report['captures'])
+            for device in sorted({c['device'] for c in report['captures']})} if report else {},
+        occurrences=sum(len(c['occurrences']) for c in report['captures']) if report else None,
+        human_review='N/D', temporal_21_pages='N/D', non_temporal_21_pages='N/D',
+        network_requests=report['network_requests'] if report else None,
+        audit_writes=report['audit_writes'] if report else None,
+        provider_calls=report['ai']['provider_calls'] if report else None), indent=2), encoding='utf-8')
+assert before == after
 print(json.dumps(dict(source_files=len(before), **summary_counts(report))))
 '@
 if ($LASTEXITCODE -ne 0) { throw 'Homologação offline recusada; examinar apenas saída privada.' }

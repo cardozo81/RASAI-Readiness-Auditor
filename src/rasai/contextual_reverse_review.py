@@ -23,7 +23,7 @@ def _plain_topic(value: str) -> str:
     """Normalize typography, never infer semantic equivalence from synonyms."""
     folded = unicodedata.normalize("NFKD", str(value).casefold())
     without_accents = "".join(ch for ch in folded if not unicodedata.combining(ch))
-    return " ".join(re.findall(r"[a-z0-9]+", without_accents))
+    return " ".join(re.findall(r"[^\W_]+", without_accents))
 
 
 def _title_contains_exact_heading_segment(title: str, heading: str) -> bool:
