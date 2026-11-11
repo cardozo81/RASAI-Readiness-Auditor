@@ -180,6 +180,11 @@ def _review_task_panel(report, *, private):
         body += "<p><strong>Como validar:</strong> " + _e(task["validation"]) + "</p>"
         body += "<p>Suficiência da evidência: " + _e(task["evidence_sufficiency"]) + ".</p>"
         if private:
+            if task.get("evidence_refs_omitted", 0):
+                body += ("<p>Mostrando " + _e(len(task["evidence_refs"])) + " de "
+                    + _e(task["evidence_refs_total"]) + " referências desta tarefa. "
+                    + "As demais ocorrências e hashes permanecem consultáveis no "
+                    + "<a href='capture-context.html#contextual-content'>inventário de captura</a>.</p>")
             for evidence in task["evidence_refs"]:
                 body += "<p><strong>" + _e(evidence.get("label") or "Trecho") + ":</strong> " + _t(evidence.get("text")) + "</p>"
                 if evidence.get("occurrence_id"):

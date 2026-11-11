@@ -375,7 +375,7 @@ A nova projeção não supre a exigência de GO para IA contextual ativa nem pro
 comparabilidade positiva de dados externos; essas pendências continuam na #690.
 
 
-## Redução conservadora de verificações title/H1 — #690
+## Redução conservadora de verificações title/H1 - #690
 
 A revisão de intenção não emite tarefa quando o H1 inteiro corresponde a
 um segmento do title, descontando diferenças exclusivamente tipográficas

@@ -87,3 +87,31 @@ def test_brand_suffix_or_prefix_is_not_a_title_h1_issue():
     divergent = review_projection(report("Seguro de vida | Marca Alpha", "Seguro de carro"))
     assert divergent["counts"]["by_kind"]["TITLE_H1_INTENT"] == 1
     assert divergent["tasks"][0]["status"] == "VALIDACAO_NECESSARIA"
+
+
+def test_grouped_document_review_exposes_full_count_when_proof_list_is_bounded():
+    from rasai.contextual_reverse_review import review_projection
+    occurrences = [{
+        "category": "DOCUMENT_REFERENCE",
+        "occurrence_id": f"O-{i}",
+        "resolved_url": "https://example.org/terms.pdf",
+        "href_literal": "/terms.pdf",
+        "text": "Regulamento",
+        "text_range": {"start": i, "end": i + 1},
+    } for i in range(20)]
+    capture = {
+        "page_id": "PAGE-1", "device": "mobile",
+        "snapshot_id": "SNAP-1", "source_ref": "artifacts/raw.html",
+        "source_sha256": "a" * 64, "occurrences": occurrences,
+    }
+    projection = review_projection({
+        "content_structure_v3": {"captures": []},
+        "faq_aria_v3": {"controls": []},
+        "captures": [capture], "semantic_v2": {"recommendation_counts": {}},
+    })
+    task = next(t for t in projection["tasks"] if t["kind"] == "DOCUMENT_CONTEXT")
+    assert task["evidence_refs_total"] == 20
+    assert task["evidence_refs_omitted"] == 4
+    assert len(task["evidence_refs"]) == 16
+    assert len(capture["occurrences"]) == 20
+    assert all(x["source_sha256"] == "a" * 64 for x in task["evidence_refs"])

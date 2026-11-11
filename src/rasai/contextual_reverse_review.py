@@ -52,6 +52,8 @@ def review_projection(report: dict) -> dict:
             kind=kind, title=title, status="VALIDACAO_NECESSARIA",
             evidence_sufficiency=confidence, rationale=rationale,
             validation=validation, evidence_refs=refs[:16],
+            evidence_refs_total=len(refs),
+            evidence_refs_omitted=max(0, len(refs) - 16),
             limitations=["NOT_AN_ENGINE_FINDING", "NO_RANKING_OR_INDEXATION_INFERENCE"]))
 
     structures = (report.get("content_structure_v3") or {}).get("captures") or []
