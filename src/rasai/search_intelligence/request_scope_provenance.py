@@ -185,6 +185,22 @@ def inspect_request_scope(
         result["country_filter_present"] = bool(options.get("country"))
         languages = options.get("search_language_filter") or []
         result["language_filter_present"] = bool(languages)
+        # Persisted request options alone are not evidence that a request was
+        # transmitted, answered, or sampled. Fail closed before comparing
+        # any filters with an observed SERP population.
+        if state == "PREPARED_NOT_SENT":
+            result.update(status="REQUEST_SCOPE_N_D",
+                          reason="REQUEST_PREPARED_NOT_SENT")
+            return result
+        if status != "SUCCESS":
+            result.update(status="REQUEST_SCOPE_N_D",
+                          reason="EXTERNAL_SEARCH_NOT_SUCCESSFUL")
+            return result
+        if (not isinstance(http_status, int)
+                or not 200 <= http_status < 300):
+            result.update(status="SCOPE_UNVERIFIABLE",
+                          reason="SUCCESS_HTTP_STATUS_INVALID")
+            return result
         if serp_scope is None:
             return result
         country = serp_scope.get("country")
