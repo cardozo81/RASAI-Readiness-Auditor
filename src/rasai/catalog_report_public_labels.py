@@ -941,3 +941,32 @@ PUBLIC_VALUE_LABELS.update({
     "PUBLIC_HTML_UNAVAILABLE": "HTML público indisponível para análise",
     "ISOLATED_RENDER_INCONCLUSIVE": "Renderização isolada inconclusiva",
 })
+
+
+# #690/B2 request-scope: machine statuses remain traceable while all public
+# consumer surfaces use user-facing pt-BR labels.
+PUBLIC_VALUE_LABELS.update({
+    "LEGACY_SCOPE_NOT_PERSISTED": "Escopo da pesquisa histórica não registrado",
+    "HISTORICAL_REQUEST_SCOPE_N_D": "Filtros da pesquisa histórica indisponíveis",
+    "SCOPE_UNVERIFIABLE": "Proveniência do escopo da pesquisa não verificável",
+    "SCOPE_SCHEMA_INVALID": "Formato de registro do escopo da pesquisa inválido",
+    "REQUEST_RUN_IDENTITY_N_D": "Identidade da execução da pesquisa não comprovada",
+    "REQUEST_SCOPE_AMBIGUOUS": "Registros de escopo da pesquisa ambíguos",
+    "REQUEST_SCOPE_BYTES_N_D": "Conteúdo de escopo fora do limite de leitura",
+    "REQUEST_SCOPE_IDENTITY_N_D": "Identidade ou horário do escopo não verificável",
+    "REQUEST_SCOPE_OPTIONS_N_D": "Opções solicitadas não verificáveis",
+    "REQUEST_SCOPE_INTEGRITY_N_D": "Integridade da requisição não comprovada",
+    "REQUEST_SCOPE_INVALID": "Dados do escopo solicitado inválidos",
+    "REQUEST_SCOPE_OBSERVED": "Filtros solicitados registrados; aplicação pelo provedor não comprovada",
+    "EFFECTIVE_PROVIDER_SCOPE_N_D": "Escopo efetivamente aplicado pelo provedor não comprovado",
+    "REQUEST_PREPARED_NOT_SENT": "Requisição preparada, mas não enviada",
+    "EXTERNAL_SEARCH_NOT_SUCCESSFUL": "Pesquisa externa não concluída com sucesso",
+    "SUCCESS_HTTP_STATUS_INVALID": "Resultado da pesquisa contradiz o código HTTP",
+    "SERP_SCOPE_N_D": "Escopo da observação SERP não verificável",
+    "REQUEST_FILTERS_MATCH_ONLY": "País e idioma solicitados coincidem; escopo efetivo não comprovado",
+    "DEVICE_AND_EFFECTIVE_PROVIDER_SCOPE_N_D": "Dispositivo e escopo efetivo do provedor não comprovados",
+    "REQUEST_SCOPE_DIVERGENT": "Filtros solicitados divergem da observação SERP",
+    "REQUESTED_FILTERS_CONTRADICT_SERP": "Filtros declarados contradizem o contexto SERP observado",
+    "REQUEST_SCOPE_N_D": "Comparação de filtros solicitados indisponível",
+    "REQUEST_FILTERS_INCOMPLETE_OR_AMBIGUOUS": "Filtros solicitados incompletos ou ambíguos",
+})

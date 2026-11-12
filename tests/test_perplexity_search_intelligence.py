@@ -547,3 +547,70 @@ def test_304_provider_ambiguous_json_never_becomes_citable_source(tmp_path, prov
     assert run.native_usage[0].billable is True
     assert run.sources == ()
     assert _db_rows(workspace, "SELECT * FROM perplexity_search_sources") == []
+
+
+@pytest.mark.parametrize("response_kind,expected_state", [
+    ("success", "HTTP_RESPONSE_OBSERVED"),
+    ("http_error", "HTTP_RESPONSE_OBSERVED"),
+    ("timeout", "TRANSPORT_ATTEMPTED"),
+    ("missing_key", "PREPARED_NOT_SENT"),
+])
+def test_new_search_runs_persist_exact_request_scope_atomically(
+    tmp_path, response_kind, expected_state,
+):
+    from rasai.search_intelligence.request_scope_provenance import inspect_request_scope
+    workspace = _workspace(tmp_path)
+    def transport(endpoint, headers, body, timeout):
+        if response_kind == "timeout":
+            raise PerplexityTimeoutError("synthetic timeout")
+        if response_kind == "http_error":
+            return PerplexityHttpResponse(429, {}, b'{"error":{"code":"limited"}}')
+        return _success_transport()(endpoint, headers, body, timeout)
+
+    run = execute_perplexity_search(
+        workspace, audit_id=AUDIT_ID, query="scope query", search_type="web",
+        country="BR", search_language_filter=("pt",),
+        env={} if response_kind == "missing_key" else {
+            API_KEY_ENV: "TEST_ONLY_PERPLEXITY_KEY",
+        }, transport=transport,
+    )
+    rows = _db_rows(workspace,
+        "SELECT run_id,scope_json FROM perplexity_search_request_scopes")
+    assert len(rows) == 1 and rows[0]["run_id"] == run.run_id
+    scope = json.loads(rows[0]["scope_json"])
+    assert scope["contract_version"] == "perplexity-request-scope-v1"
+    assert scope["request_payload_sha256"] == run.request_payload_hash
+    assert scope["request_options"]["country"] == "BR"
+    assert scope["request_options"]["search_language_filter"] == ["pt"]
+    assert scope["scope_evidence"]["device"] == "UNSUPPORTED"
+    assert scope["request_attempt_state"] == expected_state
+    with sqlite3.connect(f"file:{workspace.database.as_posix()}?mode=ro", uri=True) as con:
+        inspected = inspect_request_scope(
+            con, audit_id=AUDIT_ID, run_id=run.run_id,
+            serp_scope={"country": "BR", "language": "pt-BR", "device": "mobile"},
+        )
+    assert inspected["status"] == (
+        "REQUEST_FILTERS_MATCH_ONLY" if response_kind == "success"
+        else "REQUEST_SCOPE_N_D"
+    )
+    assert inspected["device_equivalence_proven"] is False
+    assert inspected["effective_provider_scope_proven"] is False
+    assert b"TEST_ONLY_PERPLEXITY_KEY" not in workspace.database.read_bytes()
+
+
+def test_request_scope_missing_filters_never_infers_default_country_or_language(tmp_path):
+    from rasai.search_intelligence.request_scope_provenance import inspect_request_scope
+    workspace = _workspace(tmp_path)
+    run = execute_perplexity_search(
+        workspace, audit_id=AUDIT_ID, query="unfiltered",
+        env={},  # no paid request
+    )
+    with sqlite3.connect(f"file:{workspace.database.as_posix()}?mode=ro", uri=True) as con:
+        scoped = inspect_request_scope(
+            con, audit_id=AUDIT_ID, run_id=run.run_id,
+            serp_scope={"country": "BR", "language": "pt-BR", "device": "mobile"},
+        )
+    assert scoped["status"] == "REQUEST_SCOPE_N_D"
+    assert scoped["country_filter_present"] is False
+    assert scoped["language_filter_present"] is False
+    assert scoped["device_equivalence_proven"] is False
