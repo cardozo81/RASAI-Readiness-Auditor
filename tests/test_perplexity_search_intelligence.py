@@ -589,7 +589,10 @@ def test_new_search_runs_persist_exact_request_scope_atomically(
             con, audit_id=AUDIT_ID, run_id=run.run_id,
             serp_scope={"country": "BR", "language": "pt-BR", "device": "mobile"},
         )
-    assert inspected["status"] == "REQUEST_FILTERS_MATCH_ONLY"
+    assert inspected["status"] == (
+        "REQUEST_FILTERS_MATCH_ONLY" if response_kind == "success"
+        else "REQUEST_SCOPE_N_D"
+    )
     assert inspected["device_equivalence_proven"] is False
     assert inspected["effective_provider_scope_proven"] is False
     assert b"TEST_ONLY_PERPLEXITY_KEY" not in workspace.database.read_bytes()
