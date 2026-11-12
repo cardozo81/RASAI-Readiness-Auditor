@@ -446,7 +446,7 @@ humanas/provas adicionais. GO somente para executar homologação quando o CI
 do SHA final estiver verde; merge exige autorização humana separada.
 
 
-## #690/B2 — proveniência tipada da requisição Search API (somente novas execuções)
+## #690/B2 - proveniência tipada da requisição Search API (somente novas execuções)
 
 Contrato `perplexity-request-scope-v1`: para execuções novas que passam pelo
 adapter canônico `execute_perplexity_search`, a tabela opcional **no mesmo
