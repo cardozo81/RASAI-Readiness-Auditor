@@ -220,15 +220,15 @@ def _crux_provenance_html(database: Path, data: _ReportData) -> str:
     obs=_web_observation(database,data.audit_id)
 
     def date_parts(value: Any) -> str:
-        if isinstance(value,Mapping):
-            try:
-                return f"{int(value.get('day')):02d}/{int(value.get('month')):02d}/{int(value.get('year')):04d}"
-            except (TypeError,ValueError):
-                return "-"
-        raw=str(value or "").strip()
-        if re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}",raw):
-            year,month,day=raw.split("-")
-            return f"{day}/{month}/{year}"
+        from rasai.time_contract import format_presentation_date_only
+        civil = format_presentation_date_only(value)
+        if civil is not None:
+            return civil
+        if isinstance(value, Mapping):
+            return "-"  # incomplete/invalid typed CrUX civil date
+        raw = str(value or "").strip()
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+            return "-"  # invalid Gregorian date
         return raw or "-"
 
     def scope_label(value: Any) -> str:
@@ -304,7 +304,7 @@ def _crux_provenance_html(database: Path, data: _ReportData) -> str:
     return (
         "<div class='subsection'><h3>Proveniência dos dados CrUX</h3>"
         "<p class='section-lead'>Escopo, dispositivo e período são exibidos explicitamente para evitar interpretar "
-        "uma medição da URL atual como equivalente a uma série histórica de origem.</p>"
+        "uma medição da URL atual como equivalente a uma série histórica de origem. Períodos CrUX são datas civis em dd/mm/aaaa, sem horário e sem deslocamento de fuso.</p>"
         +_table(("Fonte","Escopo","Dispositivo","Período observado","Alvo"),rows)
         +"</div>"
     )

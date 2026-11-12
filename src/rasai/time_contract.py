@@ -6,7 +6,7 @@ conversion never mutates persisted source evidence.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from email.utils import parsedate_to_datetime
 from math import isfinite
 import os
@@ -162,6 +162,23 @@ def format_presentation_timestamp(
     resolved = _resolve_presentation_timezone(timezone_name)
     local = instant.astimezone(ZoneInfo(resolved))
     return f"{local.strftime('%d/%m/%Y %H:%M:%S')} ({resolved})"
+
+
+def format_presentation_date_only(value: str | Mapping[str, Any]) -> str | None:
+    """Strict typed civil date, not a timestamp; no timezone shift."""
+    try:
+        if isinstance(value, Mapping):
+            components = (value.get("year"), value.get("month"), value.get("day"))
+            if any(type(part) is not int for part in components):
+                return None
+            civil = date(*components)
+        elif isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            civil = date.fromisoformat(value)
+        else:
+            return None
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return civil.strftime("%d/%m/%Y")
 
 
 def localize_visible_timestamps(

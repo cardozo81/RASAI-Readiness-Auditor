@@ -15,7 +15,10 @@ from html import escape
 from hashlib import sha256
 import json
 from pathlib import Path
+import re
 import sqlite3
+
+from rasai.time_contract import format_presentation_date_only
 from urllib.parse import urlsplit
 
 from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
@@ -29,6 +32,19 @@ def _host(url: str) -> str:
         return (urlsplit(url).hostname or "").lower().removeprefix("www.")
     except ValueError:
         return ""
+
+
+def _source_date_display(value: object) -> str:
+    """Normalize ISO civil dates only, keeping untyped source dates literal."""
+    raw = str(value or "").strip()[:40]
+    if not raw:
+        return "N/D"
+    civil = format_presentation_date_only(raw)
+    if civil is not None:
+        return civil
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+        return "N/D (data civil inválida)"
+    return raw
 
 
 def _observations(database: Path, audit_id: str) -> tuple[list[dict], list[dict]]:
@@ -1127,6 +1143,8 @@ def geo_body(database: Path, audit_id: str) -> str:
     summary += "<p>Somente metadados de fontes e trechos retornados pela Search API. "
     summary += "Não houve leitura integral de páginas concorrentes; os trechos não "
     summary += "comprovam profundidade, precisão ou superioridade do conteúdo.</p>"
+    summary += "<p>Datas civis ISO declaradas pelas fontes são exibidas em dd/mm/aaaa, sem horário nem deslocamento de fuso. "
+    summary += "Instantes com offset seguem o fuso histórico no relatório; valores externos ambíguos permanecem literais.</p>"
     if not sources:
         summary += "<p>Nenhuma fonte retornada para comparação nesta execução.</p>"
     else:
@@ -1170,8 +1188,8 @@ def geo_body(database: Path, audit_id: str) -> str:
                 )
             summary += "</td>"
             summary += "<td>" + escape(str(source.get("title") or "-")[:250]) + "</td>"
-            summary += "<td>Data: " + escape(str(source.get("source_date") or "N/D")[:40])
-            summary += "<br>Atualização: " + escape(str(source.get("last_updated") or "N/D")[:40]) + "</td>"
+            summary += "<td>Data: " + escape(_source_date_display(source.get("source_date")))
+            summary += "<br>Atualização: " + escape(_source_date_display(source.get("last_updated"))) + "</td>"
             snippet = str(source.get("snippet") or "Não fornecido")
             summary += "<td>" + escape(snippet[:450])
             if len(snippet) > 450:

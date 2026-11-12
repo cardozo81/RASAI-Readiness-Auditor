@@ -140,6 +140,65 @@ def test_tls_unix_validity_uses_frozen_timezone_despite_current_host(monkeypatch
     epoch = int(datetime(2026, 9, 11, tzinfo=timezone.utc).timestamp())
     monkeypatch.setenv("RASAI_PRESENTATION_TIMEZONE", "Asia/Tokyo")
     utc, local = _tls_validity_presentation(epoch, timezone_name="America/Sao_Paulo")
-    assert utc == "11/09/2026 00:00:00 UTC"
+    assert utc == "11/09/2026 00:00:00 (UTC)"
     assert local == "10/09/2026 21:00:00 (America/Sao_Paulo)"
     assert _tls_validity_presentation(epoch, timezone_name="UTC")[1] == "11/09/2026 00:00:00 (UTC)"
+
+
+
+def test_tls_validity_equivalence_groups_three_representations_without_changing_source(tmp_path, monkeypatch):
+    from rasai.architecture_audit_facts import _tls_validity_equivalence_html
+
+    raw_start, raw_end = 1789084800, 1806191999
+    monkeypatch.setenv("RASAI_PRESENTATION_TIMEZONE", "Asia/Tokyo")
+
+    start = _tls_validity_equivalence_html(
+        "Validade inicial do certificado", raw_start,
+        timezone_name="America/Sao_Paulo",
+    )
+    end = _tls_validity_equivalence_html(
+        "Validade final do certificado", raw_end,
+        timezone_name="America/Sao_Paulo",
+    )
+    assert start.count("Validade inicial do certificado</dt>") == 1
+    assert end.count("Validade final do certificado</dt>") == 1
+    assert "10/09/2026 21:00:00 (America/Sao_Paulo)" in start
+    assert "11/09/2026 00:00:00 (UTC)" in start
+    assert "<code>1789084800</code>" in start
+    assert "27/03/2027 20:59:59 (America/Sao_Paulo)" in end
+    assert "27/03/2027 23:59:59 (UTC)" in end
+    assert "<code>1806191999</code>" in end
+    assert raw_start == 1789084800 and raw_end == 1806191999
+    assert _tls_validity_equivalence_html(
+        "Validade inicial do certificado", "valor inválido",
+        timezone_name="America/Sao_Paulo",
+    ).endswith("<dd>N/D</dd></div>")
+
+
+def test_cat01_html_displays_one_group_per_tls_validity_with_both_provenances(tmp_path):
+    database = fixture(tmp_path)
+    with sqlite3.connect(database) as con:
+        raw = con.execute(
+            "SELECT browser_metadata FROM page_snapshots WHERE snapshot_id='SNP-1'"
+        ).fetchone()[0]
+        metadata = json.loads(raw)
+        metadata["main_response_network"] = {
+            "state": "OBSERVED",
+            "tls_valid_from": 1789084800,
+            "tls_valid_to": 1806191999,
+        }
+        con.execute(
+            "UPDATE page_snapshots SET browser_metadata=? WHERE snapshot_id='SNP-1'",
+            (json.dumps(metadata),),
+        )
+    html = architecture_audit_facts_html(
+        database, "AUD-1", timezone_name="America/Sao_Paulo",
+    )
+    assert html.count("Validade inicial do certificado</dt>") == 1
+    assert html.count("Validade final do certificado</dt>") == 1
+    assert "10/09/2026 21:00:00 (America/Sao_Paulo)" in html
+    assert "11/09/2026 00:00:00 (UTC)" in html
+    assert "<code>1789084800</code>" in html
+    assert "27/03/2027 20:59:59 (America/Sao_Paulo)" in html
+    assert "27/03/2027 23:59:59 (UTC)" in html
+    assert "<code>1806191999</code>" in html

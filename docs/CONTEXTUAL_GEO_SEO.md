@@ -373,3 +373,74 @@ projeção e o manifesto de saída em modo offline.
 
 A nova projeção não supre a exigência de GO para IA contextual ativa nem prova
 comparabilidade positiva de dados externos; essas pendências continuam na #690.
+
+
+## Redução conservadora de verificações title/H1 - #690
+
+A revisão de intenção não emite tarefa quando o H1 inteiro corresponde a
+um segmento do title, descontando diferenças exclusivamente tipográficas
+(caixa, acentos, pontuação), por exemplo H1 de produto e title com sufixo
+ou prefixo de marca. Isso evita que diferença de marca no title seja
+apresentada como indício de desalinhamento editorial. Outras divergências
+continuam condicionais e requerem revisão humana; não provam defeito SEO.
+A verificação não presume equivalência semântica por sinônimo, não altera
+scoring, e não emite conclusão sobre posição ou indexação.
+
+
+## Reconciliação focal da PR #694 e aceite privado
+
+CORREÇÃO_CONFIRMADA: a comparação title/H1 descartava letras não latinas,
+igualando indevidamente produtos distintos com o mesmo sufixo latino. O
+normalizador agora preserva letras e números Unicode. Acentos, caixa e
+pontuação continuam normalizados; não se infere sinonímia. Teste com textos
+japoneses e cirílicos divergentes conserva a verificação condicional.
+
+Os testes existentes de ARIA, estrutura, companheiro e integração cobrem
+pergunta/resposta vinculada, controles N/D, navegação/rodapé, preservação
+v1/v2/v3, referências documentais e separação público/privado. A lista visual
+de 16 provas mantém total/omissões e o link capture-context.html#contextual-content;
+o ledger integral continua em evidence.json. Isso não equivale a autenticação
+documental nem conclusão editorial da AUD real. Nenhuma alteração de motor,
+score, Search ou IA ativa integra este microlote. Search positivo continua N/D
+sem mesma AUD/query/janela/mercado/idioma/dispositivo/intenção/origem.
+AI=none usa somente evidência local; custo incremental de provedores zero.
+
+No Windows, preparar checkout limpo no SHA final da PR, na branch existente.
+O verificador não faz mais fetch ou merge: recusa branch/SHA divergentes antes
+de ler a AUD. Usar .venv já preparada, sem instalação ou coleta externa.
+Exemplo em PowerShell, com SHA real obtido e conferido na PR:
+
+```powershell
+Set-Location 'C:\IA-PROJETOS\github\RASAI-Readiness-Auditor'
+$finalSha = git rev-parse HEAD
+# Conferir $finalSha com o SHA final publicado na PR #694 antes de continuar.
+$audit = Join-Path $PWD 'audits\AUD-C0475E4AF5674E93B8F8C6F257226808'
+$private = Join-Path $env:LOCALAPPDATA ('RASAi-review-' + [guid]::NewGuid().ToString('N'))
+.\scripts\verify_contextual_companion.ps1 `
+  -ExpectedSha $finalSha `
+  -Branch 'feature/finalize-contextual-geo-timezone-690-692' `
+  -AuditDir $audit -OutputDir (Join-Path $private 'companion') -RequireReverse
+```
+
+Se a AUD estiver em outro local, ajustar somente $audit. O pai privado deve
+ser novo; a ACL concede acesso ao operador. Não anexar seus arquivos à PR.
+Companion contém evidence.json, manifest.json e HTML por superfície; o arquivo
+acceptance.json fica no pai, fora do manifesto do companheiro. Registra SHA-256
+de todos os arquivos antes/depois, incluindo relatórios e arquivos ocultos,
+fuso/proveniência, capturas por dispositivo, ocorrências e contadores de chamadas.
+SQLite com WAL/SHM/journal é recusado: não apagar sidecars nem abrir para escrita.
+PASS verifica integridade/contratos locais; FAIL indica recusa, divergência ou
+falha de geração. O finally registra hashes também em falha de geração;
+falhas anteriores à criação do pai privado podem não produzir acceptance.json.
+Homologação humana, temporal_21_pages e non_temporal_21_pages ficam N/D.
+O teste executa o payload em fixture, inclusive recusa simulada, não na AUD real.
+
+Para validar as 21 páginas completas, usar cópia controlada em diretório
+privado, nunca rematerializar a origem. Conservar cópia do baseline e comparar
+estrutura/atributos/blocos técnicos e texto não temporal por página antes/depois;
+inspecionar mudança de dia, DST, datas civis, fontes técnicas e dispositivos.
+O companheiro contextual não gera os 21 relatórios canônicos: seu PASS não
+fecha #692. Enquanto faltar esse aceite, ambas as issues permanecem OPEN;
+IA ativa, comparabilidade Search e validade documental dependem de decisões
+humanas/provas adicionais. GO somente para executar homologação quando o CI
+do SHA final estiver verde; merge exige autorização humana separada.

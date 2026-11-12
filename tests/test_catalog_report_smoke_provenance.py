@@ -138,3 +138,35 @@ def test_cat02_counts_only_pagespeed_as_accessibility_integration(tmp_path: Path
     ]
     assert "PageSpeed Insights" in rendered
     assert "Crux Api" not in rendered
+
+
+
+def test_cat04_crux_history_iso_civil_date_is_localized_without_time_shift(tmp_path):
+    database = _database(tmp_path, """
+        CREATE TABLE web_performance_observations(
+            audit_id TEXT, url TEXT, field_scope TEXT, crux_artifact_reference TEXT
+        );
+    """)
+    from rasai.observability.store import observability_database_path
+    sidecar = observability_database_path(tmp_path)
+    sidecar.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(sidecar) as con:
+        con.executescript("""
+            CREATE TABLE datasets(
+                dataset_id TEXT, source_type TEXT, period_start TEXT,
+                period_end TEXT, metadata TEXT, collected_at TEXT
+            );
+        """)
+        con.execute("INSERT INTO datasets VALUES (?,?,?,?,?,?)", (
+            "CRUX-H1", "CHROME_UX_REPORT_HISTORY",
+            "2026-10-01", "2026-10-23",
+            json.dumps({"target_scope": "ORIGIN", "form_factor": "PHONE",
+                        "target": "https://example.test"}),
+            "2026-10-25T12:00:00Z",
+        ))
+    before = sidecar.read_bytes()
+    html = _crux_provenance_html(database, SimpleNamespace(audit_id=AUDIT_ID))
+    assert "CrUX History" in html
+    assert "01/10/2026 a 23/10/2026" in html
+    assert "2026-10-01 a 2026-10-23" not in html
+    assert sidecar.read_bytes() == before

@@ -313,3 +313,20 @@ def test_legacy_unclassified_dns_failure_remains_explicit(tmp_path, monkeypatch)
     )
     html = report.network_report_body(tmp_path, "AUD-H2")
     assert "pacote histórico não distingue falha DNS temporária" in html
+
+
+
+def test_network_time_evidence_panel_is_discoverable_without_inference(tmp_path, monkeypatch):
+    from rasai import network_reporting as report
+    observation = {"device": "MOBILE", "capture_utc": "2026-10-25T12:00:00Z",
+                   "capture_time_state": "OBSERVED", "metrics": {}}
+    monkeypatch.setattr(report, "read_network_observations", lambda *_: [observation])
+    monkeypatch.setattr(report, "read_authorized_probes", lambda *_: [])
+    html = report.network_report_body(tmp_path, "AUD-659")
+    assert "id='network-time-evidence'" in html
+    assert "Datas e horários da rede" in html
+    assert "2026-10-25T12:00:00Z" in html
+    assert html.index("Datas e horários da rede") < html.index("Observação do dispositivo")
+    observation["capture_time_state"] = "NOT_OBSERVED"
+    rejected = report.network_report_body(tmp_path, "AUD-659")
+    assert "N/D (instante não comprovado)" in rejected

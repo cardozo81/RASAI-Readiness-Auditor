@@ -121,3 +121,165 @@ páginas da AUD real, inclusive provas RFC/epoch quando disponíveis. O resultad
 sintético não certifica essa cobertura.
 
 A leitura HTTP-date tipada aceita as três variantes do RFC 7231 (IMF-fixdate, RFC850 e asctime), incluindo GMT implícito apenas no asctime do contrato HTTP. Datas genéricas de e-mail ou sem tipo não recebem conversão automática.
+
+
+## Inventário temporal por campo e página - evolução da #692
+
+A leitura offline usa o módulo rasai.report_temporal_inventory. O resumo
+report-temporal-presentation-inventory-v1 foi preservado. A extensão aditiva
+report-temporal-field-inventory-v1 identifica o tipo do dado temporal em
+cada nó de texto do HTML final, linha, caminho das tags e gerador estático
+do corpo até o shell de apresentação. O resultado registra apenas classes,
+posições e totais; não publica timestamps literais, URLs, hashes, atributos
+ou conteúdo comercial adjacente. Há limite de 512 campos por página, com
+contador de registros omitidos e resumo que não é truncado.
+
+Classes de leitura: LOCAL_PRESENTATION (fuso exibido);
+OTHER_DECLARED_TIMEZONE_REVIEW (outro fuso explícito - revisar, não presumir
+erro); AWARE_ISO_VISIBLE_REVIEW (ISO aware ainda apresentado em texto);
+HTTP_DATE_VISIBLE_REVIEW (data GMT cuja conversão depende de campo tipado);
+NAIVE_TIMEZONE_ND (timestamp sem fuso); DATE_ONLY_UNSHIFTED (data civil,
+sem deslocamento); TECHNICAL_ISO_PRESERVED e
+TECHNICAL_HTTP_DATE_PRESERVED (evidência literal em bloco técnico).
+
+Comando, sobre saída derivada - nunca sobre a AUD histórica selada:
+
+    python -m rasai.report_temporal_inventory --report-dir CAMINHO_DO_REPORT --timezone America/Sao_Paulo
+
+**Limitação de aceite:** os campos podem estar divididos entre nós de texto;
+atributos, epoch sem tipo, duração e horários externos não comprovados
+continuam N/D. O mapa de geradores é estático e os wrappers em runtime
+podem especializar a origem efetiva. Mesmo 21/21 páginas inspecionadas
+não representam prova de cobertura exaustiva nem homologação física Windows.
+Fechar a #692 exige reconciliação dos candidatos, documentação por campo,
+testes de paridade não temporal e validação da AUD real sem alteração de hashes.
+
+
+## Reconciliação comprovável das 21 páginas - PR #694
+
+Esta matriz descreve o código inspecionado e a fixture sintética, não a AUD
+real. COBERTO significa contrato focal demonstrado; N/D significa ausência de
+prova por campo na AUD real ou ausência de instante específico na superfície.
+Todas as linhas passam por catalog_report_presentation._shell e pela função
+compartilhada localize_html_timestamps. ISO aware é string com offset/Z; a
+origem é UTC ou offset explícito, nunca o host. A configuração aplicada vem de
+audit_execution_configurations.configuration_json, via
+presentation_timezone_for_audit. Na fonte, audit.db/artefatos e o detalhe
+code/pre permanecem íntegros. Nenhum horário foi corrigido por conjectura.
+
+| Página | Campo / origem persistida / tipo e unidade | Renderer do corpo e leitura primária | Evidência / estado / teste |
+|---|---|---|---|
+| cat-01 | tls_valid_from/to do resumo de segurança, Unix segundos UTC | _catalog_body > architecture_audit_facts_html > _tls_validity_presentation; local e UTC/Unix identificados | COBERTO: test_architecture_audit_facts, test_report_evidence_ux; fonte original preservada |
+| cat-02 | Resultados Lighthouse; nenhum instante dedicado identificado nesta projeção | _catalog_body > _lighthouse_accessibility_html | N/D por campo; shell/paridade em test_report_temporal_inventory |
+| cat-03 | Captura contextual e texto de origem; instante embutido no conteúdo não estabelece tipo | _catalog_body > _semantic_html + contextual_panel | N/D para literais arbitrários; v1/v2/v3 preservados; test_contextual_report_integration |
+| cat-04 | CrUX collectionPeriod.firstDate/lastDate e period_start/end; data civil externa | _catalog_body > _crux_provenance_html; período sem deslocamento | COBERTO no contrato date-only: test_time_contract; outras datas externas N/D |
+| cat-05 | serp_observations.collected_at quando projetado, ISO aware; Search externo preservado | _catalog_body > _search_intelligence_html e contexto GEO; shell converte ISO reconhecido | N/D para cobertura tipada completa; test_contextual_report_integration |
+| cat-06 | Amostras Apdex captured_at ou aquisição física created_at, ISO aware; duração ms separada | _catalog_body > catalog_report_adherence.apdex_samples_html; Medição em ou Persistida em | COBERTO no contrato shell; N/D de aquisição na AUD real; test_report_temporal_inventory |
+| cat-07 | Amostras de experiência captured_at/created_at; ISO aware, duração ms | Mesmo instalador Apdex com experience=True; instante separado da latência | COBERTO no contrato shell; N/D por amostra real; test_report_temporal_inventory |
+| cat-08 | Hipóteses e referências contextuais; sem novo instante editorial inferido | _catalog_body + contextual_panel; evidências mantidas | N/D temporal específico; test_contextual_report_integration |
+| cat-09 | Ações persistidas e contexto; sem novo instante editorial inferido | _catalog_body + contextual_panel; não reprocessa decisões | N/D temporal específico; test_contextual_report_integration |
+| cat-10 | Evidência de segurança/runtime; literais técnicos externos sem tipo universal | _catalog_body, projeção de segurança passiva | N/D para campos externos; shell/paridade em test_report_temporal_inventory |
+| index | _ReportData e painéis contextuais; audit.created_at não aparece necessariamente | catalog_report_governance._overview_body + painéis | COBERTO no shell; não alegar campo criado visível; test_contextual_report_integration |
+| sari | Scores e limitações persistidos; sem instante específico identificado | catalog_report_governance._sari_body | N/D temporal específico; shell/paridade em test_report_temporal_inventory |
+| geo | SERP collected_at, fontes source_date/last_updated; ISO aware ou literal externo | geo_report.geo_body; ISO reconhecido no shell, datas externas permanecem candidatas | N/D para timezone externo/proveniência por campo; test_time_contract e test_report_temporal_inventory |
+| geo-content-review | Estrutura/FAQ/revisão contextual; captured_at ISO aware no companheiro | materialize_catalog_report_site + contextual_panel; companion_pages no privado | COBERTO para timezone do companheiro; N/D de homologação real; test_contextual_reverse_review |
+| capture-context | page_snapshots.captured_at, ISO aware de captura | catalog_report_final_refinements._capture_context_body substitui o original; shell converte | COBERTO em runtime sintético e paridade; test_report_temporal_inventory |
+| execution-evidence | Configuração congelada e etapas; sem instante específico identificado | catalog_report_governance._execution_evidence_body | N/D temporal específico; shell/paridade em test_report_temporal_inventory |
+| ai-integrations | Tentativas started_at/finished_at; evento externo occurred_at; ISO aware quando comprovado | Wrappers opcionais ai_dependency_reporting.install / execution_consistency_runtime._install_ai_cost_projection envolvem catalog_report_final_refinements._ai_integrations_body | COBERTO: wrapper observado em runtime; campos externos/naive N/D; test_report_temporal_inventory |
+| directed-analysis | Projeção de análise persistida; sem instante universal identificado | directed_analysis_reporting.directed_analysis_body | N/D por campo; shell/paridade em test_report_temporal_inventory |
+| metrics | recorded_at_utc do ledger de timers, ISO aware; intervalos ms separados | catalog_report_site._metrics_body | COBERTO no shell; timers não selados não provam aquisição; test_report_temporal_inventory |
+| methodology | Contratos e versões; sem instante específico identificado | catalog_report_site._methodology_body | N/D temporal específico; shell/paridade em test_report_temporal_inventory |
+| network | network_observation capture_utc, ISO aware apenas se capture_time_state=OBSERVED | network_reporting.network_catalog_sections > network_report_body | COBERTO no shell; fonte externa sem prova N/D; test_report_temporal_inventory |
+
+O teste de integração intercepta a função de localização realmente chamada
+pelo materializador e compara tokens estruturais, atributos e texto não temporal
+nas 21 saídas; code/pre/script/style são comparados integralmente. Também
+observa a cadeia _rasai_original de overview, captura e integrações após
+instaladores, até a função base. A regressão integral demonstrou que o wrapper
+externo de integrações varia com a ordem de instalação; exigir um único módulo
+externo seria incorreto. A cadeia deve ser acíclica e terminar no renderer
+de refinamentos conhecido, preservando a verificação de paridade.
+Essa prova é sintética e não cobre todas as combinações de dados nem certifica
+instantes arbitrários no texto de origem. O mapa continua estático: extensões
+posteriores podem mudar a cadeia efetiva. A comparação não substitui inspeção
+humana nem paridade de uma AUD real. Os 20 HTML históricos não são reescritos.
+
+### Limites e correção confirmada do inventário
+
+CORREÇÃO_CONFIRMADA: tags personalizadas podiam transmitir identificadores
+privados pelo tag_path. Agora somente nomes estruturais conhecidos são
+emitidos; outros viram unknown. Testes cobrem atributos privados, script,
+truncamento em 512 com totais integrais e timestamp dividido entre elementos.
+Nenhuma classe/contrato existente foi removido. Os totais legados unem nós com
+espaços; fields examina cada nó separadamente. Esses denominadores podem
+divergir. Entidades HTML são decodificadas, espaços e linhas não representam
+offset em bytes da fonte. Atributos, paginação dinâmica, conteúdo ausente ou
+fragmentado, epoch sem unidade e latências permanecem fora da prova. O limite
+de registros não limita os totais reconhecidos. Datas HTTP só têm helpers
+focais tipados: nenhuma aplicação universal a campos externos foi demonstrada.
+
+
+## Aceite físico mínimo das 21 páginas, em cópia privada (#692)
+
+O verificador `scripts/verify_temporal_21_windows.ps1` opera somente sobre uma **cópia completa** da AUD terminal, em um diretório privado externo e novo. Confere identidade da AUD, recusa SQLite sidecars, compara inventário SHA-256 da origem antes/depois, gera 21 páginas usando o materializador canônico **na cópia**, verifica o manifesto e compara os tokens não temporais antes/depois da localização de timezone de cada página. Nenhum HTML da origem é substituído. O subprocesso Python bloqueia chamadas de conexão de sockets no próprio processo; isso não é um sandbox de rede para processos-filho.
+
+No PowerShell 5.1, usando SHA exato do HEAD da branch e `.venv` já instalado:
+
+```powershell
+Set-Location 'C:\IA-PROJETOS\github\RASAI-Readiness-Auditor'
+$Branch = 'feature/finalize-contextual-geo-timezone-690-692'
+$ExpectedSha = '<SHA_COMPLETO_DO_HEAD>'
+$AuditDir = Join-Path $PWD 'audits\AUD-C0475E4AF5674E93B8F8C6F257226808'
+$Parent = Join-Path $env:LOCALAPPDATA ('RASAi-temporal-' + [guid]::NewGuid().ToString('N'))
+.\scripts\verify_temporal_21_windows.ps1 -ExpectedSha $ExpectedSha -Branch $Branch -AuditDir $AuditDir -OutputDir (Join-Path $Parent 'validation')
+```
+
+Saída privada: `validation/temporal-acceptance.json` (status técnico, hashes confrontados, timezone histórico, cobertura de páginas) e `validation/temporal-inventory.json` (contagens/posições sem literais), além de `validation/AUD-*/report-catalog/` com 21 páginas. Não publicar a cópia da AUD, suas páginas ou qualquer arquivo privado. O inventário registra candidatos e limitações, não confirma a correção de todo instante externo não tipado.
+
+**Interpretação dos gates:** `PASS_TECHNICAL` + `source_unchanged=true` + `page_count=21` + `non_temporal_21_pages=PASS_FOCAL_LOCALIZER_PARITY` comprovam somente a etapa automática. `temporal_21_pages=REVIEW_REQUIRED` e `human_review=N/D` permanecem deliberadamente bloqueados até revisão visual e semântica dos campos tipados, confronto UTC/Unix/RFC/data civil e aprovação humana. A saída reproduzida em cópia privada não equivale a paridade integral com HTML histórico de 20 páginas nem a ausência irrestrita de rede em processos externos.
+
+
+## Ajustes de apresentação derivados do aceite físico - PR #694
+
+CAT-01 apresenta os instantes UTC e no fuso congelado em
+dd/mm/aaaa hh:mm:ss (IANA/UTC). O Unix em segundos permanece numérico
+por ser evidência técnica do mesmo instante, não um campo civil a deslocar.
+Uma explicação do quadro evita confundir os três formatos.
+
+CAT-04 converte somente datas civis tipadas do período CrUX (objetos
+year/month/day ou strings YYYY-MM-DD de histórico) para dd/mm/aaaa, sem
+inventar horário nem aplicar deslocamento de timezone. Datas inválidas
+permanecem N/D. O bug do regex de datas ISO de histórico foi corrigido.
+
+GEO formata datas civis ISO inequívocas das fontes em dd/mm/aaaa, sem
+deslocamento. Instantes completos com offset continuam sendo convertidos
+pelo shell segundo a configuração congelada. Literais externos ambíguos
+são preservados, e nenhuma data sem fuso é tratada como instante UTC.
+
+A página de rede agora apresenta no início "Datas e horários da rede",
+separando captura do navegador e medição complementar autorizada, com
+N/D quando o instante não estiver comprovado. O shell converte os
+instantes aware visíveis; a origem persistida não é modificada.
+
+O inventário temporal reconhece datas civis ISO e pt-BR sem classificá-las
+como timestamps sujeitos a timezone. A prova física anterior permanece
+no SHA anterior: novas materializações exigem gate Windows no novo SHA,
+sem reescrever a AUD histórica.
+
+
+
+## CAT-01 - equivalência de validade TLS em um único grupo visual
+
+Após revisão humana da apresentação física, as três representações de cada
+validade TLS foram agrupadas numa só entrada ("Validade inicial" e
+"Validade final"). A data/hora principal segue o timezone histórico congelado
+da AUD e o padrão `dd/mm/aaaa hh:mm:ss (fuso)`. A referência UTC usa
+o **mesmo padrão textual**, e o Unix UTC original permanece em
+**segundos numéricos**, identificado como evidência técnica da mesma data.
+
+Um timestamp Unix não é uma data civil formatada; tentar convertê-lo em
+`dd/mm/aaaa hh:mm:ss` no lugar do valor original apagaria proveniência.
+O agrupamento não converte nem reescreve o número: exibe a equivalência
+UTC/local já derivada do mesmo instante tipado, sem duplicar três
+rótulos de campo. Valores inválidos ficam em N/D, sem fabricar data.
+Nenhum outro relatório foi modificado neste ajuste de legibilidade.

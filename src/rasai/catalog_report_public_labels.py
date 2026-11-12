@@ -6,6 +6,18 @@ from typing import Any
 from rasai.public_language import component_label, safe_visible_fallback, supplemental_public_label
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
+    # #692: read-only temporal census observations, not temporal verdicts.
+    "PASS_TECHNICAL": "Verificação física técnica aprovada; revisão temporal humana ainda pendente",
+    "PASS_FOCAL_LOCALIZER_PARITY": "Estrutura e conteúdo não temporal preservados na localização, sob teste focal",
+    "REVIEW_REQUIRED": "Revisão semântica por campo necessária antes do aceite final",
+    "LOCAL_PRESENTATION": "Instante apresentado no fuso declarado da auditoria",
+    "OTHER_DECLARED_TIMEZONE_REVIEW": "Instante em outro fuso declarado; revisar a intenção de exibição",
+    "AWARE_ISO_VISIBLE_REVIEW": "Instante ISO com fuso explícito ainda literal no texto visível",
+    "HTTP_DATE_VISIBLE_REVIEW": "Data HTTP GMT visível; conversão condicionada ao tipo do campo",
+    "NAIVE_TIMEZONE_ND": "Data e horário sem fuso conhecido; interpretação N/D",
+    "DATE_ONLY_UNSHIFTED": "Data civil sem horário, preservada sem conversão",
+    "TECHNICAL_ISO_PRESERVED": "Instante técnico ISO preservado sem conversão",
+    "TECHNICAL_HTTP_DATE_PRESERVED": "Data HTTP técnica preservada sem conversão",
     "VALIDACAO_NECESSARIA": "Validação necessária antes de recomendar correção",
     "SEARCH_RESOURCE_OR_SCHEMA_LIMIT_ND": "Pesquisa persistida indisponível por limite de recursos ou incompatibilidade do formato",
     "CONTEXTUAL_TASK_CONSENT_PROFILE_NOT_AUTHORIZED": "Interpretação contextual por IA sem perfil e consentimento específicos autorizados",

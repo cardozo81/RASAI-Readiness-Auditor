@@ -64,7 +64,9 @@ def test_nytimes_geo_renders_materialized_current_run_and_safe_source_details(tm
     assert "min-width:140px" in html  # mobile: prevent five-column squeeze
     assert "href=\"https://example.org/policy-0?region=pt&amp;country=br\"" in html
     assert 'href="javascript:' not in html
-    assert "2026-10-01" in html and "2026-10-23" in html
+    # Source ISO civil dates are normalized ONLY in report display; SQLite stays byte-identical.
+    assert "01/10/2026" in html and "23/10/2026" in html
+    assert "2026-10-01" not in html and "2026-10-23" not in html
     assert "trecho abreviado; íntegro no audit.db" in html
     assert db.read_bytes() == before
 

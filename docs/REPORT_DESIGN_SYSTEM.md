@@ -134,3 +134,43 @@ comprovado ou sem timezone continuam legíveis no formato de origem.
 O preenchimento N/D evita inferir que ausência na captura seja problema do site.
 Testes sintéticos não substituem aceite físico de AUD real nem autorização
 de execução de IA contextual paga.
+
+
+## Projeção consultiva de conteúdo e censo temporal (issues #690 e #692)
+
+A decisão editorial SEO/GEO é concentrada em geo-content-review.html.
+As páginas capture-context.html, cat-03.html, cat-05.html, geo.html,
+cat-08.html e cat-09.html preservam suas próprias evidências e links de
+navegação. Na análise de title/H1, a coincidência do H1 com um segmento
+literal de title com prefixo/sufixo de marca é neutralizada; demais casos
+não constituem erro comprovado sem exame da intenção. A apresentação
+privada de tarefas com mais de 16 referências exibe quantidade total,
+quantidade omitida e link para o inventário completo, sem descartar o
+ledger de ocorrências ou os hashes físicos.
+
+O relatório temporal offline não adiciona uma página gerencial nem modifica
+os HTMLs: mantém contagens e fornece censo de classes por linha/caminho de
+tag do HTML já renderizado. Classes de RFC/ISO aparentes ou de fuso
+divergente são candidatos de revisão, não falhas certificadas. Blocos de
+código e provas UTC permanecem distintos do texto gerencial. A origem
+do timezone é a configuração congelada da AUD; o fuso do host não substitui
+a prova histórica. Não se confunde o censo de nós de texto com rastreio
+dinâmico de campos tipados ou homologação completa.
+
+
+## Limites verificáveis do lote contextual e temporal
+
+A matriz das 21 páginas, fontes, tipos, renderizadores e estados está em
+TIMEZONE_CONTRACT.md, seção Reconciliação comprovável das 21 páginas.
+COBERTO no shell/fixture não significa homologação do campo na AUD real.
+O censo não publica nomes personalizados de elementos HTML: usa unknown
+fora do vocabulário estrutural permitido. Atributos e literais continuam
+excluídos. Campos divididos entre elementos e contagens truncadas devem ser
+interpretados com as limitações publicadas, sem inventar cobertura.
+
+Title/H1 mantém letras Unicode na normalização para não suprimir tarefas
+condicionais entre produtos distintos. Provas privadas e ações editoriais
+continuam sujeitas à suficiência e revisão humana; 16 referências visíveis
+não representam perda do ledger. O procedimento Windows e o significado de
+PASS/FAIL/N/D estão em CONTEXTUAL_GEO_SEO.md. Nenhuma AUD histórica é
+rematerializada pelo verificador; o aceite contextual não certifica os 21 HTML.

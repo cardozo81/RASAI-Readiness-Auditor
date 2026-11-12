@@ -41,13 +41,36 @@ def _tls_validity_presentation(value: Any, *, timezone_name: str | None = None) 
         if not raw or not raw.isascii() or not raw.isdigit():
             return "N/D", "N/D"
         instant = datetime.fromtimestamp(int(raw), tz=timezone.utc)
-        utc_label = instant.strftime("%d/%m/%Y %H:%M:%S UTC")
+        utc_label = instant.strftime("%d/%m/%Y %H:%M:%S (UTC)")
         local_label = format_presentation_timestamp(
             instant, timezone_name=timezone_name or configured_presentation_timezone()
         )
         return utc_label, local_label
     except (ValueError, OverflowError, OSError):
         return "N/D", "N/D"
+def _tls_validity_equivalence_html(label: str, value: Any, *, timezone_name: str | None = None) -> str:
+    """One readable instant with local, UTC and immutable Unix-second representations.
+
+    This is only a report projection: the raw Unix timestamp is neither
+    rewritten nor treated as a civil date. Invalid/unverified values stay N/D.
+    """
+    utc_label, local_label = _tls_validity_presentation(value, timezone_name=timezone_name)
+    if utc_label == "N/D" or local_label == "N/D":
+        return "<div class='tls-validity-equivalence'><dt>" + escape(label) + "</dt><dd>N/D</dd></div>"
+    raw_epoch = str(value).strip()
+    return (
+        "<div class='tls-validity-equivalence'><dt>" + escape(label) + "</dt>"
+        "<dd class='tls-validity-values'>"
+        "<span class='tls-validity-primary'><small>Fuso da apresentação</small>"
+        "<strong>" + escape(local_label) + "</strong></span>"
+        "<span class='tls-validity-reference'><small>Mesmo instante em UTC</small>"
+        + escape(utc_label) + "</span>"
+        "<span class='tls-validity-reference'><small>Unix UTC (segundos, valor original)</small>"
+        "<code>" + escape(raw_epoch) + "</code></span>"
+        "</dd></div>"
+    )
+
+
 _SAFE_CODE = re.compile(r"^[A-Z0-9_]{1,72}$")
 _ARCH = frozenset({"CSR_SPA", "HYDRATED", "MIXED", "STATIC_OR_SSR", "UNKNOWN"})
 
@@ -503,6 +526,13 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str, *, timezo
     #architecture-facts .architecture-fact-group dd{
       margin:2px 0 0;font-weight:600;overflow-wrap:anywhere
     }
+    #architecture-facts .tls-validity-values{display:grid;gap:8px}
+    #architecture-facts .tls-validity-values span{display:block}
+    #architecture-facts .tls-validity-values small{display:block;font-weight:400;color:var(--muted,#4a6270)}
+    #architecture-facts .tls-validity-primary strong{display:block;font-weight:700}
+    #architecture-facts .tls-validity-reference{font-weight:500}
+    #architecture-facts .tls-validity-reference code{font-size:1em;overflow-wrap:anywhere}
+
     #architecture-facts .architecture-limit {
       border-left:3px solid var(--line-strong,#afbec5);padding:10px 13px;
       margin:14px 0 0;background:var(--surface-subtle,#f6f8fa)
@@ -672,15 +702,16 @@ def architecture_audit_facts_html(database: str | Path, audit_id: str, *, timezo
             + display("Versão TLS informada", sec.get("tls_protocol"))
             + display("Emissor do certificado informado", sec.get("tls_issuer"))
             + display("Sujeito do certificado informado", sec.get("tls_subject"))
-            + display("Validade inicial do certificado (UTC)", _tls_validity_presentation(sec.get("tls_valid_from"), timezone_name=timezone_name)[0])
-            + display("Validade inicial do certificado (fuso da apresentação)", _tls_validity_presentation(sec.get("tls_valid_from"), timezone_name=timezone_name)[1])
-            + display("Validade inicial do certificado (Unix UTC, segundos)", sec.get("tls_valid_from"))
-            + display("Validade final do certificado (UTC)", _tls_validity_presentation(sec.get("tls_valid_to"), timezone_name=timezone_name)[0])
-            + display("Validade final do certificado (fuso da apresentação)", _tls_validity_presentation(sec.get("tls_valid_to"), timezone_name=timezone_name)[1])
-            + display("Validade final do certificado (Unix UTC, segundos)", sec.get("tls_valid_to"))
+            + _tls_validity_equivalence_html("Validade inicial do certificado", sec.get("tls_valid_from"), timezone_name=timezone_name)
+            + _tls_validity_equivalence_html("Validade final do certificado", sec.get("tls_valid_to"), timezone_name=timezone_name)
             + display("IP público do par remoto (não é origem/backend)",
                       sec.get("remote_public_peer_ip"))
             + "</dl></section></div>"
+            "<p class='architecture-limit'>Cada validade representa um único instante: "
+            "data/hora no fuso da auditoria, sua equivalência UTC e o timestamp Unix UTC original "
+            "(segundos desde 01/01/1970 00:00:00 UTC). As duas datas usam "
+            "dd/mm/aaaa hh:mm:ss (fuso). O número Unix não é uma data formatada "
+            "e permanece íntegro como evidência técnica.</p>"
             "<p class='architecture-limit'>Dados TLS e do par remoto são os "
             "informados pelo Chromium para a conexão da resposta principal. "
             "Não certificam toda a cadeia TLS, resolução DNS, o servidor "
