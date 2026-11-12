@@ -98,6 +98,19 @@ def _v1_panel(report, page, *, private=False):
             body += "<details><summary>Consulta persistida · " + ("observação descritiva" if row["status"] == "DESCRIPTIVE_ONLY" else "N/D") + "</summary>"
             if private:
                 body += "<p>Consulta: " + _t(row["query"]) + " · execuções: " + _t(row["source_run_ids"]) + " · evidências: " + _t(row["evidence_ids"]) + " · instantes: " + _t(row["timestamps"]) + "</p>"
+            scope = row.get("request_scope_advisory", {})
+            if isinstance(scope, dict):
+                scope_label = {
+                    "LEGACY_SCOPE_NOT_PERSISTED": "N/D — filtros não persistidos na execução histórica",
+                    "SCOPE_UNVERIFIABLE": "N/D — proveniência dos filtros inconsistente",
+                    "REQUEST_SCOPE_OBSERVED": "Filtros solicitados registrados; equivalência externa N/D",
+                    "REQUEST_FILTERS_MATCH_ONLY": "País/idioma solicitados coincidem com SERP; equivalência efetiva N/D",
+                    "REQUEST_SCOPE_DIVERGENT": "Divergência entre filtros solicitados e SERP",
+                    "REQUEST_SCOPE_N_D": "N/D — filtros ausentes ou ambíguos",
+                }.get(scope.get("status"), "N/D — escopo externo não comprovado")
+                body += "<p>Escopo da requisição Search API: " + _e(scope_label) + (
+                    ". Dispositivo, mercado efetivo, intenção e citação generativa não comprovados.</p>"
+                )
             body += _reasons([row["reason"], *row["limitations"]]) + "</details>"
     else:
         if not report["recommendations"]:

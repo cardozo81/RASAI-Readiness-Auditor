@@ -444,3 +444,41 @@ fecha #692. Enquanto faltar esse aceite, ambas as issues permanecem OPEN;
 IA ativa, comparabilidade Search e validade documental dependem de decisões
 humanas/provas adicionais. GO somente para executar homologação quando o CI
 do SHA final estiver verde; merge exige autorização humana separada.
+
+
+## #690/B2 — proveniência tipada da requisição Search API (somente novas execuções)
+
+Contrato `perplexity-request-scope-v1`: para execuções novas que passam pelo
+adapter canônico `execute_perplexity_search`, a tabela opcional **no mesmo
+`audit.db`** `perplexity_search_request_scopes` conserva uma linha por
+`run_id`. O campo `scope_json` inclui filtros **realmente enviados no corpo
+validado**, `request_payload_sha256` do corpo canônico, hash da identidade
+das queries, tipo da tentativa, timestamp UTC e estados declarados:
+`REQUESTED_ONLY` / `NOT_REQUESTED` / `UNSUPPORTED` / `N_D`.
+Não persiste `Authorization`, credenciais, headers ou payload bruto completo.
+A consulta já está vinculada a `perplexity_search_runs.query_json`.
+
+A escrita acontece na mesma transação do run e suas fontes. O adaptador já
+precisa de uma AUD ativa/mutável; o novo consumidor **não** executa adapter.
+AUDs históricas concluídas não são migradas, reabertas nem reprocessadas;
+ausência de tabela/linha é `LEGACY_SCOPE_NOT_PERSISTED`, não um erro atribuído
+ao site. O contrato deixa N/D explícito para device, região, mercado efetivo,
+intenção e citações generativas. O corpo de filtros **solicitados** não comprova
+aplicação efetiva pelo provedor.
+
+`search_intelligence.request_scope_provenance.inspect_request_scope` lê
+somente SQLite disponibilizado pelo consumidor e confere identidade da AUD,
+run, query JSON, opções normalizadas, hash do corpo, estado de transporte e
+timestamp tipado. `contextual_search` expõe apenas os estados agregados
+`REQUEST_FILTERS_MATCH_ONLY`, `REQUEST_SCOPE_DIVERGENT`,
+`REQUEST_SCOPE_N_D`, `SCOPE_UNVERIFIABLE` ou
+`LEGACY_SCOPE_NOT_PERSISTED` dentro do advisory dos CAT-05/GEO
+já existentes. Mesmo com coincidência país/idioma **solicitados**, a
+classificação contextual permanece `NOT_COMPARABLE`.
+Sem novo crawler, provider, custos em testes, CAT, score, alteração do
+ledger #304 ou tratamento retroativo de AUD histórica.
+
+Testes focais: `tests/test_perplexity_search_intelligence.py` e
+`tests/test_contextual_search.py`, executáveis offline com transporte mockado
+e `socket` bloqueado. A homologação física e o aceite humano permanecem gates
+independentes antes de qualquer merge.

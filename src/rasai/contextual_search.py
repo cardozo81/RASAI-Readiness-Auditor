@@ -5,6 +5,7 @@ import sqlite3
 from rasai.geo_observation import _canonical_url
 from rasai.geo_query_ledger import inspect_geo_per_query, _utc, _audit_digest
 from rasai.geo_search_alignment import geo_query_alignment
+from rasai.search_intelligence.request_scope_provenance import inspect_request_scope
 from rasai.geo_temporal_provenance import _last_temporally_verified, _UNVERIFIABLE
 
 
@@ -30,6 +31,12 @@ def correlate_persisted(root, captures):
                 timestamps=dict(serp=row["serp_collected_at"], external=row["external_run_started_at"]),
                 serp_scope=row["serp_scope"], exact_url_observations=[],
                 limitations=list(result["limitations"]), sufficiency="INSUFICIENTE")
+            # Optional future-run request filters; even matching filters are
+            # requested-only, never proof of effective provider/device scope.
+            item["request_scope_advisory"] = inspect_request_scope(
+                con, audit_id=root.name, run_id=run_id,
+                serp_scope=row["serp_scope"] if row["status"] == "DESCRIPTIVE_ONLY" else None,
+            )
             if row["status"] != "DESCRIPTIVE_ONLY":
                 result["observations"].append(item)
                 continue

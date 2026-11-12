@@ -85,3 +85,102 @@ def test_foreign_capture_is_never_correlated(tmp_path):
     row = correlate_persisted(root, [item])["observations"][0]
     assert row["local_references"] == []
     assert "FOREIGN_CAPTURE_NOT_CORRELATED" in row["limitations"]
+
+
+def test_request_scope_future_run_requested_filters_are_not_provider_equivalence(tmp_path):
+    import hashlib
+    import json
+    from rasai.search_intelligence.request_scope_provenance import (
+        build_request_scope, inspect_request_scope,
+    )
+    root = _audit(tmp_path, multi=False)
+    db = root / "audit.db"
+    payload = {
+        "query": "seguro de vida", "search_type": "web", "max_results": 10,
+        "country": "BR", "search_language_filter": ["pt"],
+    }
+    digest = hashlib.sha256(json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+    ).encode()).hexdigest()
+    scope = build_request_scope(
+        payload, request_payload_sha256=digest,
+        started_at_utc="2026-10-10T12:00:00Z",
+        request_attempt_state="HTTP_RESPONSE_OBSERVED",
+    )
+    with sqlite3.connect(db) as con:
+        con.execute("ALTER TABLE perplexity_search_runs ADD COLUMN http_status INTEGER")
+        con.execute("ALTER TABLE perplexity_search_runs ADD COLUMN request_payload_hash TEXT")
+        con.execute(
+            "UPDATE perplexity_search_runs SET http_status=200,request_payload_hash=?",
+            (digest,),
+        )
+        con.execute("CREATE TABLE perplexity_search_request_scopes (run_id TEXT PRIMARY KEY, scope_json TEXT)")
+        con.execute("INSERT INTO perplexity_search_request_scopes VALUES (?,?)",
+                    ("PX-A", json.dumps(scope, ensure_ascii=False)))
+    before = db.read_bytes()
+    result = correlate_persisted(root, [capture()])
+    advisory = result["observations"][0]["request_scope_advisory"]
+    assert advisory["status"] == "REQUEST_FILTERS_MATCH_ONLY"
+    assert advisory["country_requested_matches_serp"] is True
+    assert advisory["language_requested_matches_serp"] is True
+    assert advisory["effective_provider_scope_proven"] is False
+    assert advisory["device_equivalence_proven"] is False
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["observations"][0]["status"] == "DESCRIPTIVE_ONLY"
+    assert db.read_bytes() == before
+
+    with sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True) as con:
+        mismatch = inspect_request_scope(
+            con, audit_id=root.name, run_id="PX-A",
+            serp_scope={"country": "US", "language": "en-US", "device": "mobile"},
+        )
+    assert mismatch["status"] == "REQUEST_SCOPE_DIVERGENT"
+    assert mismatch["device_equivalence_proven"] is False
+
+
+@pytest.mark.parametrize("mutation", [
+    "UPDATE perplexity_search_request_scopes SET scope_json='{}'",
+    "UPDATE perplexity_search_runs SET request_payload_hash='0'",
+    "UPDATE perplexity_search_runs SET query_json='[\"outra query\"]'",
+    "UPDATE perplexity_search_runs SET http_status=NULL",
+])
+def test_request_scope_inconsistent_history_fails_closed(tmp_path, mutation):
+    import hashlib
+    import json
+    from rasai.search_intelligence.request_scope_provenance import build_request_scope
+    root = _audit(tmp_path, multi=False)
+    db = root / "audit.db"
+    payload = {"query": "seguro de vida", "search_type": "web", "max_results": 10}
+    digest = hashlib.sha256(json.dumps(
+        payload, sort_keys=True, separators=(",", ":"),
+    ).encode()).hexdigest()
+    scope = build_request_scope(
+        payload, request_payload_sha256=digest,
+        started_at_utc="2026-10-10T12:00:00Z",
+        request_attempt_state="HTTP_RESPONSE_OBSERVED",
+    )
+    with sqlite3.connect(db) as con:
+        con.execute("ALTER TABLE perplexity_search_runs ADD COLUMN http_status INTEGER")
+        con.execute("ALTER TABLE perplexity_search_runs ADD COLUMN request_payload_hash TEXT")
+        con.execute("UPDATE perplexity_search_runs SET http_status=200,request_payload_hash=?",
+                    (digest,))
+        con.execute("CREATE TABLE perplexity_search_request_scopes (run_id TEXT PRIMARY KEY, scope_json TEXT)")
+        con.execute("INSERT INTO perplexity_search_request_scopes VALUES (?,?)",
+                    ("PX-A", json.dumps(scope)))
+        con.execute(mutation)
+    raw = db.read_bytes()
+    result = correlate_persisted(root, [capture()])
+    scope_result = result["observations"][0]["request_scope_advisory"]
+    assert scope_result["status"] == "SCOPE_UNVERIFIABLE"
+    assert scope_result["effective_provider_scope_proven"] is False
+    assert result["status"] == "NOT_COMPARABLE"
+    assert db.read_bytes() == raw
+
+
+def test_legacy_aud_has_no_scope_table_and_remains_read_only(tmp_path):
+    root = _audit(tmp_path, multi=False)
+    db = root / "audit.db"
+    before = db.read_bytes()
+    result = correlate_persisted(root, [capture()])
+    assert result["observations"][0]["request_scope_advisory"]["status"] == "LEGACY_SCOPE_NOT_PERSISTED"
+    assert db.read_bytes() == before
