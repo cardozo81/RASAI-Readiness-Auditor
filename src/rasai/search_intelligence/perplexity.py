@@ -8,7 +8,7 @@ Commercial usage reuses the native usage/pricing contract introduced by issue #8
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -34,6 +34,7 @@ from rasai.m18_ai import (
 )
 from rasai.m18_persistence import M18Persistence
 from rasai.persistence import AuditWorkspace
+from rasai.search_intelligence.request_scope_provenance import build_request_scope
 
 PROVIDER = "PERPLEXITY"
 SURFACE = "SEARCH_API"
@@ -94,6 +95,7 @@ class PerplexitySearchRun:
     native_usage: tuple[NativeUsageComponent, ...]
     pricing: PricingApplication
     attempt_id: str | None = None
+    request_scope: Mapping[str, Any] | None = None
 
     @property
     def citation_urls(self) -> tuple[str, ...]:
@@ -441,6 +443,12 @@ class PerplexitySearchRepository:
                     PRIMARY KEY(run_id, position, url)
                 );
 
+                CREATE TABLE IF NOT EXISTS perplexity_search_request_scopes (
+                    run_id TEXT PRIMARY KEY
+                        REFERENCES perplexity_search_runs(run_id) ON DELETE CASCADE,
+                    scope_json TEXT NOT NULL
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_perplexity_search_runs_audit_time
                     ON perplexity_search_runs(audit_id, started_at);
                 CREATE INDEX IF NOT EXISTS idx_perplexity_search_sources_run_position
@@ -497,6 +505,13 @@ class PerplexitySearchRepository:
                     _utc_now().isoformat(),
                 ),
             )
+            if run.request_scope is not None:
+                self.connection.execute(
+                    "INSERT INTO perplexity_search_request_scopes (run_id,scope_json) "
+                    "VALUES (?,?)",
+                    (run.run_id, json.dumps(run.request_scope, ensure_ascii=False,
+                                            sort_keys=True, separators=(",", ":"))),
+                )
             for source in run.sources:
                 self.connection.execute(
                     """
@@ -670,6 +685,11 @@ def execute_perplexity_search(
             ),
             attempt_id=None,
         )
+        run = replace(run, request_scope=build_request_scope(
+            payload, request_payload_sha256=request_hash,
+            started_at_utc=started_at.isoformat(),
+            request_attempt_state="PREPARED_NOT_SENT",
+        ))
         with PerplexitySearchRepository(workspace.database, audit_id=audit_id) as repository:
             repository.save(run)
         return run
@@ -791,6 +811,12 @@ def execute_perplexity_search(
         pricing=transient_run.pricing,
         attempt_id=attempt_id,
     )
+    run = replace(run, request_scope=build_request_scope(
+        payload, request_payload_sha256=request_hash,
+        started_at_utc=started_at.isoformat(),
+        request_attempt_state=("HTTP_RESPONSE_OBSERVED" if http_status is not None
+                               else "TRANSPORT_ATTEMPTED"),
+    ))
     with PerplexitySearchRepository(workspace.database, audit_id=audit_id) as repository:
         repository.save(run)
     return run
