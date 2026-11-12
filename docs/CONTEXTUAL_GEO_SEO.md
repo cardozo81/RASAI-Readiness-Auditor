@@ -451,14 +451,17 @@ do SHA final estiver verde; merge exige autorização humana separada.
 Contrato `perplexity-request-scope-v1`: para execuções novas que passam pelo
 adapter canônico `execute_perplexity_search`, a tabela opcional **no mesmo
 `audit.db`** `perplexity_search_request_scopes` conserva uma linha por
-`run_id`. O campo `scope_json` inclui filtros **realmente enviados no corpo
-validado**, `request_payload_sha256` do corpo canônico, hash da identidade
+`run_id`. O campo `scope_json` inclui filtros do corpo final validado
+(**enviado somente se houve tentativa de transporte**),
+`request_payload_sha256` do corpo canônico, hash da identidade
 das queries, tipo da tentativa, timestamp UTC e estados declarados:
 `REQUESTED_ONLY` / `NOT_REQUESTED` / `UNSUPPORTED` / `N_D`.
 Não persiste `Authorization`, credenciais, headers ou payload bruto completo.
 A consulta já está vinculada a `perplexity_search_runs.query_json`.
 
-A escrita acontece na mesma transação do run e suas fontes. O adaptador já
+A escrita acontece na mesma transação do run e suas fontes. Em execuções
+`NOT_CONFIGURED` os filtros apenas foram preparados, **não enviados**;
+erros HTTP e de transporte não produzem equivalência de escopo. O adaptador já
 precisa de uma AUD ativa/mutável; o novo consumidor **não** executa adapter.
 AUDs históricas concluídas não são migradas, reabertas nem reprocessadas;
 ausência de tabela/linha é `LEGACY_SCOPE_NOT_PERSISTED`, não um erro atribuído
