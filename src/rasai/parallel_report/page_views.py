@@ -63,8 +63,25 @@ def editorial(page, records, costs, thresholds):
         html += '<h2>Consumo e proveniência</h2>' + chip(costs['coverage']) + kv([('Tentativas identificadas',costs['attempt_count'])])
         for currency, amounts in costs['totals'].items():
             html += kv([(f'{currency} · {kind}',value) for kind,value in amounts.items()])
-            parts = [(entry['attempt_id'],entry['amount']) for entry in costs['entries'] if entry['currency']==currency and entry['amount'] is not None]
-            html += stack(parts)
+            source_labels = {
+                'ai_provider_attempts': 'IA / integração',
+                'content_remediation_attempts': 'Remediação de conteúdo',
+            }
+            source_counts = {}
+            parts = []
+            for entry in costs['entries']:
+                if entry['currency'] != currency or entry['amount'] is None:
+                    continue
+                source = entry.get('source') or 'origem não identificada'
+                source_counts[source] = source_counts.get(source, 0) + 1
+                label = f"{source_labels.get(source, source)} #{source_counts[source]}"
+                parts.append((label, entry['amount'], entry.get('attempt_id')))
+            html += stack(
+                parts,
+                title='Composição do custo conciliado por tentativa',
+                unit=currency,
+                note='Cada segmento usa o valor conciliado da tentativa: observado quando disponível; estimado como fallback. As cores são apenas categóricas e não indicam qualidade, severidade ou conformidade.',
+            )
         html += '<p class="callout">Custo técnico estimado não equivale a cobrança observada. Tokens de Search não são inferidos.</p>'
     for title, names, columns in SECTIONS.get(page, []):
         html += '<h2>' + text(title) + '</h2>'
