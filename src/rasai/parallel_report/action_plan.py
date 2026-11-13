@@ -1,6 +1,6 @@
 """Operational action plan; exact canonical IDs, no title-based deduplication."""
 from collections import Counter
-from .components import text, kv, chip, origin, table
+from .components import text, kv, chip, origin, table, technical_link
 from .presentation_labels import public_value
 
 
@@ -18,6 +18,12 @@ def content(value, field=None):
             return '<ul>'+''.join(items)+'</ul>'
         return '<ul>'+''.join('<li>'+text(item)+'</li>' for item in value)+'</ul>'
     return '<p>'+text(value)+'</p>'
+
+
+def technical_reference(href):
+    if not href:
+        return ''
+    return '<details class="in"><summary>Referência técnica persistida</summary><p>' + technical_link(href) + '</p></details>'
 
 
 def grouped_actions(rows):
@@ -39,7 +45,7 @@ def render_plan(rows, timezone_name):
     for index,group in enumerate(groups):
         row=group[0]
         executive.append({**row,'occurrences':len(group),'_ref':f'#action-card-{index}'})
-    html+='<h2>Ações por prioridade</h2>'+table('Ações distintas e ocorrências',executive,[('priority','Prioridade'),('title','Ação'),('occurrences','Ocorrências'),('primary_objective','Objetivo'),('effort','Esforço'),('confidence','Confiança'),('source_kind','Origem'),('_ref','Cartão')],timezone_name)
+    html+='<h2>Ações por prioridade</h2>'+table('Ações distintas e ocorrências',executive,[('priority','Prioridade'),('title','Ação'),('occurrences','Ocorrências'),('primary_objective','Objetivo'),('effort','Esforço'),('confidence','Confiança'),('source_kind','Origem')],timezone_name)
     html+='<h2>Cartões de ação</h2>'
     for index,group in enumerate(groups):
         row=group[0]
@@ -47,10 +53,10 @@ def render_plan(rows, timezone_name):
         for occurrence in group:
             for key,label in [('reason','Por que importa / justificativa técnica'),('affected_dimensions_json','Dimensões afetadas'),('confidence_rationale','Justificativa da confiança'),('implementation_guidance_json','Como fazer'),('validation_steps_json','Como validar')]:
                 html+='<h3>'+label+'</h3>'+content(occurrence.get(key),key)
-            html+=f'<a href="{text(occurrence.get("_ref"))}">Evidências e origem persistida</a>'
+            html+=technical_reference(occurrence.get('_ref'))
         html+='</details>'
     corrections=rows(['improvement_intelligence_recommendations'])
-    html+='<h2>Correções técnicas propostas (código)</h2>'+table('Correções propostas',corrections,[('severity','Criticidade'),('domain','Domínio'),('title','Título'),('selector','Elemento'),('source','Origem'),('_ref','Fonte')],timezone_name)
+    html+='<h2>Correções técnicas propostas (código)</h2>'+table('Correções propostas',corrections,[('severity','Criticidade'),('domain','Domínio'),('title','Título'),('selector','Elemento'),('source','Origem')],timezone_name)
     for row in corrections:
         html+='<details><summary>'+chip(row.get('severity'),'severity')+' '+text(row.get('title'))+'</summary>'+origin('IA sugeriu' if row.get('source')=='AI' else 'Proposta persistida')+'<p>Sugestão não aprovada</p>'
         for key,label in [('recommendation','Recomendação'),('rationale','Justificativa técnica'),('verification','Verificação')]:
@@ -58,10 +64,10 @@ def render_plan(rows, timezone_name):
         for key,label in [('original_html','Atual'),('suggested_html','Sugerido'),('suggested_text','Texto sugerido')]:
             if row.get(key) is not None:
                 html+='<h3>'+label+'</h3><pre>'+text(row[key])+'</pre>'
-        html+=f'<a href="{text(row.get("_ref"))}">Evidências e origem persistida</a></details>'
+        html+=technical_reference(row.get('_ref'))+'</details>'
     html+='<h2>Textos sugeridos por IA</h2><p class="callout w">Propostas de conteúdo; não aprovadas. Exigem revisão editorial, jurídica e de compliance antes de publicar.</p>'
     for row in rows(['content_remediation_suggestions']):
         html+='<details><summary>'+text(row.get('objective'))+' '+origin('IA sugeriu')+'</summary>'
         html+=kv([('Local',row.get('target_location')),('Confiança autodeclarada — não estatística',public_value(row.get('confidence'),'confidence')),('Modelo',row.get('model')),('Nota de revisão',row.get('review_note')),('Revisão humana','Sugestão não aprovada')])
-        html+='<h3>Texto proposto</h3><pre>'+text(row.get('proposed_text'))+f'</pre><a href="{text(row.get("_ref"))}">Evidências e origem persistida</a></details>'
+        html+='<h3>Texto proposto</h3><pre>'+text(row.get('proposed_text'))+'</pre>'+technical_reference(row.get('_ref'))+'</details>'
     return html
