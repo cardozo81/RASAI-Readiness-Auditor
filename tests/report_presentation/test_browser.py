@@ -49,6 +49,18 @@ def test_browser_offline(tmp_path):
                     field.fill('no-match-unique')
                     assert '0 de ' in field.locator('..').inner_text()
                     field.fill('')
+                if page.locator('.modal-open').count():
+                    trigger = page.locator('.modal-open').first
+                    trigger.focus()
+                    trigger.click()
+                    assert page.locator('dialog.detail-dialog[open]').count() == 1
+                    assert page.locator('body').evaluate('(e) => e.classList.contains("modal-active")')
+                    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (path.name,'modal')
+                    assert page.locator('dialog.detail-dialog[open] details').count() >= 1
+                    page.keyboard.press('Escape')
+                    assert page.locator('dialog.detail-dialog[open]').count() == 0
+                    assert not page.locator('body').evaluate('(e) => e.classList.contains("modal-active")')
+                    assert page.evaluate('document.activeElement.classList.contains("modal-open")')
         page.goto((output / 'index.html').as_uri())
         page.keyboard.press('Tab')
         assert page.evaluate('document.activeElement.className') == 'skip'
