@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import logging
 import sqlite3
 import json
 from typing import Any, Mapping, Sequence
