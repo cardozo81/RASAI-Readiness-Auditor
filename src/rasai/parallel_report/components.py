@@ -128,10 +128,17 @@ def table(caption, rows, columns, timezone_name=None):
             elif key == '_ref':
                 cell = technical_link(value) if value else 'N/D'
             else:
-                cell = text(public_value(value,key,timezone_name))
-                if len(str(value)) > 180:
-                    cell = '<details class="in"><summary>Ver conteúdo completo</summary>' + cell + '</details>'
-            cells.append('<td title="' + text(value) + '">' + cell + '</td>')
+                rendered = public_value(value,key,timezone_name)
+                plain = json.dumps(rendered, ensure_ascii=False) if isinstance(rendered, (dict, list)) else str(rendered)
+                if len(plain) > 180:
+                    cell = text(plain[:177].rstrip() + '…')
+                    title_value = 'Conteúdo completo disponível em Ver detalhes'
+                else:
+                    cell = text(rendered)
+                    title_value = value
+            if key in {'status', 'state', 'result', 'severity', 'priority', 'priority_class', '_ref'}:
+                title_value = value
+            cells.append('<td title="' + text(title_value) + '">' + cell + '</td>')
         if has_details:
             trigger, dialog = _detail_dialog(caption, row, columns, index, timezone_name)
             cells.append('<td class="detail-cell">' + (trigger or 'N/D') + '</td>')
