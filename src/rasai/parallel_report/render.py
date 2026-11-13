@@ -48,6 +48,32 @@ def record_html(record, links, physical_links=()):
     return f'<article class="record" id="{record.anchor}"><h3>{esc(title)}</h3><p class="badge">{esc(origin)}</p><p>{esc(status)}</p><dl>{summary}</dl><details><summary>Dados persistidos e proveniência</summary>{payload(data)}<p>ID de apresentação: {record.anchor}</p></details><nav aria-label="Referências bidirecionais">{refs}</nav></article>'
 
 
+def review_table(records, links, evidence, physical):
+    by_href = {record.href: record for record in records}
+    body = '<div class="table-scroll"><table><caption>Arquivos e conteúdos a revisar — vínculos persistidos explícitos</caption><thead><tr>'
+    headings = ('Arquivo / SHA-256', 'Elemento / trecho', 'Problema / severidade / prioridade', 'Origem / cobertura', 'Ação', 'Evidência', 'Validação')
+    body += ''.join(f'<th scope="col">{heading}</th>' for heading in headings) + '</tr></thead><tbody>'
+    for record in records:
+        if record.table not in {'findings', 'improvement_intelligence_findings', 'passive_security_findings'}:
+            continue
+        data = thaw(record.data)
+        related = [by_href[href] for href in links[record.href]]
+        actions = [r for r in related if r.table in {'directed_analysis_actions', 'recommendations', 'improvement_intelligence_recommendations', 'passive_security_remediations'}]
+        evidence_rows = sorted({index for r in [record] + [r for r in related if r.table in {'evidence', 'element_observations'}] for index in physical.get(r.href, ())})
+        for index in evidence_rows or [None]:
+            item = evidence[index] if index is not None else {}
+            file = esc(item.get('reference')) + '<br><code>' + esc(item.get('sha256')) + '</code>'
+            element = esc(item.get('selector', data.get('selector'))) + '<pre>' + esc(item.get('excerpt')) + '</pre>'
+            problem = f'<a href="{record.href}">{esc(data.get("title", data.get("finding_id")))}</a><br>{esc(data.get("severity"))} / {esc(data.get("priority"))}'
+            origin = esc(data.get('source', data.get('origin_kind'))) + '<br>' + esc(item.get('coverage', 'Parcial — vínculo físico inequívoco ausente'))
+            action = '<br>'.join(f'<a href="{r.href}">{esc(thaw(r.data).get("title", "Ação vinculada"))}</a>' for r in actions) or 'N/D'
+            evidence_link = f'<a href="extracao.html#physical-{index}">Referência de evidência</a>' if index is not None else 'N/D'
+            validation = [thaw(r.data).get('validation_steps_json', thaw(r.data).get('validation', thaw(r.data).get('verification'))) for r in actions]
+            validation = [value for value in validation if value is not None]
+            body += '<tr>' + ''.join(f'<td>{value}</td>' for value in (file, element, problem, origin, action, evidence_link, payload(validation) if validation else esc(data.get('validation')))) + '</tr>'
+    return body + '</tbody></table></div>'
+
+
 def render(records, links, tables, evidence, calculated, costs, parity, thresholds, missing):
     output = {}
     physical = {}
@@ -89,6 +115,9 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
             body += '</div><details><summary>Reconciliação por tentativa e limitações</summary>' + payload(costs) + '</details><p>Previsto/forecast permanece no seu registro; realizado técnico não equivale a invoice.</p></section>'
         if page == 'indices':
             body += '<details><summary>Faixas de apresentação propostas</summary>' + payload(thresholds) + '</details>'
+            for proposal in thresholds:
+                ticks = ''.join(f'<line x1="{value * 5 + 20}" y1="35" x2="{value * 5 + 20}" y2="55" stroke="currentColor"/><text x="{value * 5 + 20}" y="78" text-anchor="middle" fill="currentColor">{value}</text>' for value in proposal['thresholds'])
+                body += f'<figure><svg role="img" aria-label="Faixas propostas para apresentação, não aprovadas" viewBox="0 0 550 100"><line x1="20" y1="45" x2="520" y2="45" stroke="currentColor"/>{ticks}</svg><figcaption>{esc(proposal["note"])} {esc(" / ".join(proposal["labels"]))}</figcaption></figure>'
         if page == 'extracao':
             body += '<section><h2>Referências de evidência física</h2>'
             for index, item in enumerate(evidence):
@@ -96,10 +125,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
             body += '<h2>Contagens derivadas</h2>' + payload(calculated) + '</section>'
         if page == 'plano':
             body += '<section><h2>Arquivos e conteúdos a revisar</h2><p>Os vínculos abaixo preservam achado, elemento, evidência e validação quando os IDs são inequívocos. A ausência de vínculo não autoriza localizar um trecho por aproximação.</p>'
-            for record in records:
-                if record.table in {'findings', 'element_observations', 'root_cause_analyses', 'improvement_intelligence_findings'}:
-                    data = thaw(record.data)
-                    body += f'<p><a href="{record.href}">{esc(data.get("title", data.get("finding_id", record.anchor)))}</a> · {esc(data.get("severity"))} · {esc(data.get("selector"))}</p>'
+            body += review_table(records, links, evidence, physical)
             body += '</section>'
         body += '<nav aria-label="Nesta página"><h2>Nesta página</h2>' + ''.join(f'<a href="#family-{i}">{esc(public_label(table))} ({len(items)})</a> ' for i, (table, items) in enumerate(groups.items())) + '</nav>'
         for i, (table, items) in enumerate(groups.items()):

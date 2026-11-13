@@ -134,6 +134,25 @@ def test_thresholds():
     assert load()[0]['thresholds'] == [60, 80, 95]
 
 
+def test_primary_text_contrast():
+    import re
+    css = (Path(__file__).parents[2] / 'src/rasai/parallel_report/assets/site.css').read_text(encoding='utf-8')
+    def luminance(hex_color):
+        components = [int(hex_color[index:index + 2], 16) / 255 for index in (1, 3, 5)]
+        linear = [v / 12.92 if v <= .04045 else ((v + .055) / 1.055) ** 2.4 for v in components]
+        return sum(v * weight for v, weight in zip(linear, (.2126, .7152, .0722)))
+    for selector in (':root', 'body.dark'):
+        block = re.search(re.escape(selector) + r'\{([^}]+)', css).group(1)
+        tokens = dict(re.findall(r'--([a-z]+):(#[0-9a-f]+)', block))
+        for key in ('bg', 'surface'):
+            background = tokens[key]
+            if len(background) == 4:
+                background = '#' + ''.join(c * 2 for c in background[1:])
+            for foreground in ('ink', 'muted', 'link'):
+                values = sorted((luminance(tokens[foreground]), luminance(background)))
+                assert (values[1] + .05) / (values[0] + .05) >= 4.5
+
+
 class Links(HTMLParser):
     def __init__(self, text):
         super().__init__()
