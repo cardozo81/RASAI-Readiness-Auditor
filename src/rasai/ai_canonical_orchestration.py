@@ -44,8 +44,15 @@ class AiExecutionPolicy:
     max_cycles: int = DEFAULT_AI_MAX_CYCLES
     cycle_delay_seconds: float = DEFAULT_AI_CYCLE_DELAY_SECONDS
     retry_after_cap_seconds: float = MAX_AI_RETRY_AFTER_SECONDS
+    # Counts invocations across the entire logical need, including failures and
+    # all candidates in a cycle. None preserves the existing runtime policy.
+    max_provider_calls: int | None = None
 
     def __post_init__(self) -> None:
+        if self.max_provider_calls is not None and (
+            type(self.max_provider_calls) is not int or self.max_provider_calls < 1
+        ):
+            raise ValueError("max_provider_calls must be a positive integer or None")
         if isinstance(self.max_cycles, bool) or not 1 <= int(self.max_cycles) <= MAX_AI_MAX_CYCLES:
             raise ValueError(f"max_cycles must be between 1 and {MAX_AI_MAX_CYCLES}")
         delay = float(self.cycle_delay_seconds)
@@ -174,6 +181,8 @@ def run_ai_need(
         retry_after_values: list[float | None] = []
 
         for candidate in pool:
+            if policy.max_provider_calls is not None and calls >= policy.max_provider_calls:
+                break
             calls += 1
             result = invoke(candidate, cycle, calls)
             if not isinstance(result, AiProviderInvocation):
@@ -201,7 +210,9 @@ def run_ai_need(
             elif result.outcome is AiProviderOutcome.TRANSIENT_FAILURE:
                 retry_after_values.append(result.retry_after_seconds)
 
-        if cycle >= policy.max_cycles:
+        if cycle >= policy.max_cycles or (
+            policy.max_provider_calls is not None and calls >= policy.max_provider_calls
+        ):
             break
 
         if not unique_cycle_candidates(candidates()):

@@ -44,3 +44,11 @@ workers recusam sockets/DNS e subprocessos; HTML e snippets são dados. Integra�
 ativa depende de GO e perfil/consentimento canônicos específicos ainda pendentes.
 O [companheiro privado](CONTEXTUAL_GEO_SEO.md) conserva texto potencialmente sensível;
 os painéis canônicos omitem literais e URLs arbitrários capturados.
+
+O contrato offline `contextual-editorial-ai-v1` acrescenta fatia mínima
+imutável, allowlist por tarefa e validação estrita sem prosa livre de provider.
+Inspeção de consentimento não concede autorização: mesmo escopo coincidente
+permanece NOT_AUTHORIZED. Não existe transporte nesse módulo. A reserva em
+SQLite isolado é exclusivamente ensaio sintético de replay/concorrência, sem
+reserva monetária nem escrita na AUD. Limites, ameaças e bloqueadores do runtime
+pago estão na [matriz de aceitação contextual](CONTEXTUAL_EDITORIAL_ACCEPTANCE.md).

@@ -4,6 +4,14 @@ Implementação da issue #690, sobre a base da #656. Não altera score,
 SARI, Apdex, achados de motores ou revisão independente. Nenhuma operação
 de rede, download documental, OCR ou fornecedor é oferecida por esta camada.
 
+A avaliação C0 optativa, o contrato `contextual-editorial-ai-v1`, os testes
+offline C1-C4 e a matriz de comparabilidade estão em
+[aceitação editorial contextual](CONTEXTUAL_EDITORIAL_ACCEPTANCE.md).
+São contratos locais: IA paga permanece NOT_AUTHORIZED; ganho incremental
+real e comparabilidade positiva Search permanecem N/D. A opção
+`--evaluate-editorial` acrescenta apenas contadores e um painel na página
+de análise reversa existente, preservando o comportamento padrão.
+
 ## Reuso e superfície alterada
 
 | Produtor / consumidor existente | Uso e lacuna física |

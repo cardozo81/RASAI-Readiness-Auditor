@@ -8,6 +8,12 @@
 
 Os preços deste documento e de `src/rasai/config/ai-pricing-defaults.toml` representam a política conhecida e validada na data de referência. Eles são usados para estimativa operacional e roteamento econômico. Não substituem a fatura do fornecedor.
 
+Para `contextual-editorial-ai-v1`, a resolução canônica de preço é reutilizada
+somente em preflight offline negativo. Sem reserva monetária real, teto no wire
+e consentimento próprio, execução permanece NOT_AUTHORIZED inclusive com preço
+resolvido. UNPRICED não é zero; o catálogo não autoriza despesa. Ver
+[limite econômico contextual](CONTEXTUAL_EDITORIAL_ACCEPTANCE.md#c2-limite-real-deste-ciclo).
+
 ## 1. Objetivo
 
 A política comercial de uma IA não deve exigir alteração de código quando a mudança puder ser expressa pelo schema de pricing vigente.
