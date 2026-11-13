@@ -38,11 +38,14 @@ def ruler(label, value, maximum=100, proposal=None, scope=None, href=None):
     position = min(100, max(0, value / maximum * 100)) if valid else None
     zones = proposal['thresholds'] if proposal else []
     boundaries = [0] + zones + [maximum]
-    bars = ''.join(f'<i class="z{i+1 if zones else 0}" data-width="{(end-start)/maximum*100:g}"></i>' for i, (start, end) in enumerate(zip(boundaries, boundaries[1:])))
+    zone_classes = proposal.get('zone_classes') if proposal else None
+    default_classes = [f'z{i + 1}' for i in range(len(boundaries) - 1)] if zones else ['z0']
+    classes = zone_classes if zone_classes and len(zone_classes) == len(boundaries) - 1 else default_classes
+    bars = ''.join(f'<i class="{classes[i]}" data-width="{(end-start)/maximum*100:g}"></i>' for i, (start, end) in enumerate(zip(boundaries, boundaries[1:])))
     marker = f'<b class="mk" data-position="{position:g}" aria-hidden="true"></b>' if valid else ''
     note = proposal['note'] if proposal else 'Escala de leitura; sem faixa universal aplicada. Não altera a medição persistida.'
     reference = proposal['origin'] if proposal else 'PERSISTED_CONTRACT · escala da fonte'
-    labels = ' · '.join(f'{label}: {value}' for label, value in zip(proposal['labels'], zones)) if proposal else f'0–{maximum}'
+    labels = (proposal.get('range_text') or ' · '.join(f'{label}: {value}' for label, value in zip(proposal['labels'], zones))) if proposal else f'0–{maximum}'
     display_value = (format(value, '.2f').rstrip('0').rstrip('.').replace('.', ',') if valid else text(value))
     title = f'<a href="{text(href)}">{text(label)}</a>' if href else text(label)
     return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{"Proposta" if proposal else "Valor persistido"}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)} · {text(reference)}</div><div class="rf">{text(scope)}</div><details class="in"><summary>Origem da faixa e limites</summary>{text(note)}</details></div>'
