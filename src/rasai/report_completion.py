@@ -83,6 +83,27 @@ def finalize_audit_report_site(
 _BASE_FINALIZE_AUDIT_REPORT_SITE = finalize_audit_report_site
 
 
+def _materialize_parallel_report_best_effort(*, audit_id: str, workspace: AuditWorkspace) -> Path | None:
+    """Generate the presentation report without making it an audit-success gate."""
+    try:
+        from rasai.parallel_report.generator import generate
+
+        output = Path(generate(workspace.root)).resolve()
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "Parallel presentation report unavailable for %s (%s)",
+            audit_id,
+            type(exc).__name__,
+        )
+        return None
+    logging.getLogger(__name__).info(
+        "Parallel presentation report materialized: audit=%s output=%s",
+        audit_id,
+        output.name,
+    )
+    return output
+
+
 def materialize_catalog_report_projection(
     *,
     audit_id: str,
@@ -157,6 +178,15 @@ def materialize_catalog_report_projection(
                 errors.append(
                     "catalog-report-freshness:RuntimeError:published catalog report does not match persisted audit"
                 )
+
+    # Mutable AUD/RPR/complement flows publish the secondary presentation
+    # only after the canonical catalog is confirmed. Read-only rematerialization
+    # keeps its original no-new-output contract.
+    if not read_only and not errors:
+        _materialize_parallel_report_best_effort(
+            audit_id=audit_id,
+            workspace=workspace,
+        )
 
     return AuditReportCompletion(
         expected_pages=(),
