@@ -1,0 +1,3 @@
+[
+  {"metric_id":"SARI_PRESENTATION_PROPOSAL","version":"1","unit":"0–100","thresholds":[60,80,95],"labels":["Mínimo proposto","Ideal proposto","Ótimo proposto"],"origin":"PRODUCT_PROPOSAL","reference":"Issue #697","reference_version":"2026-11-13","note":"Proposta não aprovada; não classifica prontidão nem altera score persistido."}
+]
