@@ -41,8 +41,11 @@ def test_apdex_sources():
 
 def test_ruler_origin():
     for key,label in [('value','Proposta de produto'),('performance_score','Contrato persistido'),('apdex_score','Contrato persistido')]:
-        html=ruler(key,.5,proposal=_metric_proposal(key,load()))
+        html=ruler(key,.5,proposal=_metric_proposal(key,load()),href='#technical-record')
         assert label in html
+        assert '<strong><a ' not in html
+        assert 'Referência técnica' not in html
+        assert 'Abrir registro técnico' in html
         if key!='value':
             assert '>Proposta<' not in html
 
@@ -78,6 +81,10 @@ def test_action_plan_identity_and_literals():
     assert '&lt;script&gt;privateLiteral()&lt;/script&gt;' in html
     assert 'Original English suggestion' in html
     assert 'Proposta persistida' in html
+    assert '>Cartão<' not in html
+    assert 'Evidências e origem persistida' not in html
+    assert 'Referência técnica persistida' in html
+    assert 'Abrir registro técnico' in html
 
 
 def test_typed_residual_values_and_customer_text():
@@ -124,9 +131,16 @@ def test_public_labels_across_ten_pages(tmp_path):
     for path in output.glob('*.html'):
         parser=PublicLabels();parser.feed(path.read_text(encoding='utf-8'))
         assert not parser.bad,(path.name,parser.bad)
-    html=table('Telemetria',[{'provider':'Provider literal','captured_at':'2026-09-11T00:00:00Z'}],[('provider','Provider'),('captured_at','Capturado em')],timezone_name='America/Sao_Paulo')
+    html=table('Telemetria',[{'provider':'Provider literal','captured_at':'2026-09-11T00:00:00Z','_ref':'#record'}],[('provider','Provider'),('captured_at','Capturado em'),('_ref','Fonte')],timezone_name='America/Sao_Paulo')
     assert '<th scope="col">Provedor</th>' in html and 'Provider literal' in html
     assert '10/09/2026 21:00:00' in html and 'title="2026-09-11T00:00:00Z"' in html
+    assert 'Evidência e detalhes' not in html
+    assert 'Abrir registro técnico' in html
+
+    for path in output.glob('*.html'):
+        page_html=path.read_text(encoding='utf-8')
+        assert 'Evidência e detalhes' not in page_html
+        assert 'Evidências e origem persistida' not in page_html
 
 
 def test_chip_palette_contrast():
