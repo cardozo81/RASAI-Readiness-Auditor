@@ -78,12 +78,18 @@ def _reconciled_summary(
 
 
 
-def _navigation_summary(audit_root: Path, audit_id: str) -> dict[str, Any]:
+def _navigation_summary(
+    audit_root: Path,
+    audit_id: str,
+    *,
+    summary_reader: Callable[[Path, str], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Read COMPLETE audits without mutating them; reconcile only unfinished audits."""
-    summary = _safe_summary(audit_root, audit_id)
+    reader = summary_reader or _safe_summary
+    summary = reader(audit_root, audit_id)
     if str(summary.get("processing_status") or "").upper() == "COMPLETE":
         return summary
-    return _reconciled_summary(audit_root, audit_id)
+    return _reconciled_summary(audit_root, audit_id, summary_reader=reader)
 
 def _configuration_reuse_status(state: Any, audit_id: str) -> tuple[bool, str]:
     """Return whether the selected AUD has a valid console snapshot and why not."""
