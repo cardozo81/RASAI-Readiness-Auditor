@@ -87,6 +87,32 @@ def presentation_report_entrypoint(workspace: Path | None) -> Path | None:
     return candidates[-1][2]
 
 
+def materialize_presentation_report_on_demand(
+    workspace: Path | None,
+) -> tuple[Path | None, str]:
+    """Materialize a missing historical presentation only on explicit user action."""
+    if workspace is None:
+        return None, "workspace da auditoria indisponível"
+    existing = presentation_report_entrypoint(workspace)
+    if existing is not None:
+        return existing, "EXISTING"
+    if report_entrypoint(workspace) is None:
+        return None, "relatório canônico ausente ou inválido"
+    database = workspace / "audit.db"
+    if not database.is_file() or database.is_symlink():
+        return None, "audit.db ausente ou inseguro"
+    try:
+        from rasai.parallel_report.generator import generate
+
+        generate(workspace)
+    except Exception as exc:
+        return None, f"geração da apresentação falhou ({type(exc).__name__})"
+    generated = presentation_report_entrypoint(workspace)
+    if generated is None:
+        return None, "apresentação gerada não passou no gate de integridade/freshness"
+    return generated, "MATERIALIZED"
+
+
 # The post-AUD network sidecar runs independently of the sealed AUD. A
 # browser opened immediately after the AUD might otherwise retain the older
 # (valid, but pre-probe) HTML until the user refreshes it manually.
