@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from rasai.console_artifacts import audit_workspace, report_entrypoint
+from rasai.console_artifacts import audit_workspace, presentation_report_entrypoint, report_entrypoint
 from rasai.interactive_console import _render_incomplete_requirements
 from rasai.console_config import (
     State,
@@ -222,6 +222,34 @@ class InteractiveConsoleTests(unittest.TestCase):
                 return_value=(True, ()),
             ):
                 self.assertEqual(report_entrypoint(workspace), current.resolve())
+
+    def test_presentation_report_entrypoint_requires_current_database_hash(self) -> None:
+        import hashlib
+        import json
+
+        with TemporaryDirectory() as directory:
+            workspace = Path(directory) / "AUD-PRESENTATION"
+            workspace.mkdir(parents=True)
+            database = workspace / "audit.db"
+            database.write_bytes(b"current-db")
+            source_hash = hashlib.sha256(database.read_bytes()).hexdigest()
+
+            base = workspace / "report-presentation"
+            base.mkdir()
+            (base / "index.html").write_text("presentation", encoding="utf-8")
+            (base / "_geracao.json").write_text(
+                json.dumps({
+                    "contract": "RASAI-PARALLEL-REPORT-001",
+                    "integrity": "PASS",
+                    "source_db_sha256": source_hash,
+                    "generated_at": "2026-11-13T05:00:00+00:00",
+                }),
+                encoding="utf-8",
+            )
+            self.assertEqual(presentation_report_entrypoint(workspace), (base / "index.html").resolve())
+
+            database.write_bytes(b"changed-db")
+            self.assertIsNone(presentation_report_entrypoint(workspace))
 
     def test_exposure_uses_exact_txt_urls_devices_m20_and_m21(self) -> None:
         with TemporaryDirectory() as directory:
