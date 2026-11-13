@@ -56,5 +56,5 @@ def test_prototype_tokens_and_components():
     css = (Path(__file__).parents[2] / 'src/rasai/parallel_report/assets/site.css').read_text(encoding='utf-8')
     for token in ('--ink:#18222f','--bg:#f4f6f8','--acc:#1f5fa8','--ink:#e6ebf1','--acc:#7db2ec'):
         assert token in css
-    for component in ('.shell','.rail','.top','.ruler','.bar','.mk','.chip','.org','.kv','.tw','.callout'):
+    for component in ('.shell','.rail','.top','.ruler','.bar','.mk','.chip','.org','.kv','.tw','.callout','.detail-dialog','.modal-open'):
         assert component in css
