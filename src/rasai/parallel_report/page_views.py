@@ -64,11 +64,11 @@ def editorial(page, records, costs, thresholds):
                 html += ruler(metric_label(data,key,LABELS), data[key], 1 if key == 'apdex_score' else 100, proposal, scope, data['_ref'])
                 if page == 'indices' and key == 'value':
                     contributions = [r for r in rows(['score_contributions']) if r.get('score_id') == data.get('score_id')]
-                    html += local_table('Composição da dimensão', contributions, [('rule_id','Regra'),('result','Resultado'),('weight','Peso'),('result_factor','Fator'),('effective_contribution','Contribuição'),('_ref','Fonte')])
+                    html += local_table('Composição da dimensão', contributions, [('rule_id','Regra'),('result','Resultado'),('weight','Peso'),('result_factor','Fator'),('effective_contribution','Contribuição')])
         html += '</div>'
     if page == 'index':
-        html += '<h2>Riscos e ações prioritárias</h2>' + local_table('Ações com prioridade alta persistida',[r for r in rows(['directed_analysis_actions']) if r.get('priority') in {'HIGH','CRITICAL','P1','P0'}], [('priority','Prioridade'),('title','Ação'),('effort','Esforço'),('_ref','Fonte')])
-        html += '<h2>Estado da execução</h2>' + local_table('Cobertura operacional', rows(['audit_fulfillment_work_items']), [('component','Componente'),('status','Estado'),('required','Obrigatório'),('_ref','Fonte')])
+        html += '<h2>Riscos e ações prioritárias</h2>' + local_table('Ações com prioridade alta persistida',[r for r in rows(['directed_analysis_actions']) if r.get('priority') in {'HIGH','CRITICAL','P1','P0'}], [('priority','Prioridade'),('title','Ação'),('effort','Esforço')])
+        html += '<h2>Estado da execução</h2>' + local_table('Cobertura operacional', rows(['audit_fulfillment_work_items']), [('component','Componente'),('status','Estado'),('required','Obrigatório')])
     if page in {'index','ia-custos'}:
         html += '<h2>Consumo e proveniência</h2>' + chip(costs['coverage']) + kv([('Tentativas identificadas',costs['attempt_count'])])
         for currency, amounts in costs['totals'].items():
@@ -100,5 +100,5 @@ def editorial(page, records, costs, thresholds):
         html += '<h2>' + text(title) + '</h2>'
         if any('suggest' in name or name.startswith('ai_') for name in names):
             html += origin('IA sugeriu' if 'propost' in title.lower() or 'sugerid' in title.lower() else 'Externo')
-        html += local_table(title, rows(names), columns + [('_ref','Fonte')])
+        html += local_table(title, rows(names), columns)
     return html
