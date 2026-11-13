@@ -31,7 +31,7 @@ def _input_files(root: Path, *, include_report: bool = False) -> dict[str, str]:
         if not item.is_file() or item.is_symlink():
             continue
         relative = item.relative_to(root)
-        if not include_report and relative.parts[0] == "report-catalog":
+        if not include_report and relative.parts[0] in {"report-catalog", "report-presentation"}:
             continue
         if item.name.endswith("-shm"):
             continue
