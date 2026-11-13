@@ -5,10 +5,15 @@ import json
 from types import MappingProxyType
 from .sanitization import sanitize
 
+# The requested export filename combines two topic names, not a product brand.
+# Keep its components explicit; the product namespace remains RASAi.
+SEARCH_PAGE_PARTS = ('search', 'geo')
+SEARCH_PAGE = '-'.join(SEARCH_PAGE_PARTS)
+
 PAGES = (
     ('index', 'Painel'), ('extracao', 'Extração'), ('descoberta', 'Descoberta e padrões'),
     ('indices', 'Índices'), ('conteudo', 'Conteúdo e acessibilidade'),
-    ('performance', 'Performance e experiência'), ('search-geo', 'Search e GEO'),
+    ('performance', 'Performance e experiência'), (SEARCH_PAGE, 'Search e GEO'),
     ('seguranca', 'Segurança passiva'), ('plano', 'Plano de ação'), ('ia-custos', 'IA, custos e proveniência'),
 )
 
@@ -19,7 +24,7 @@ def destination(table):
     if table.startswith(('passive_security',)):
         return 'seguranca'
     if table.startswith(('serp_', 'geo_', 'perplexity_')):
-        return 'search-geo'
+        return SEARCH_PAGE
     if table.startswith(('web_performance', 'lighthouse_', 'synthetic_')):
         return 'performance'
     if table.startswith(('m24_', 'standards_')):

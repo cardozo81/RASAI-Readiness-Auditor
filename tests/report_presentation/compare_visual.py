@@ -31,6 +31,9 @@ def compare(prototype, report, output):
                         assert page.locator('.rail a').evaluate_all('(links)=>links.every(a=>document.getElementById(a.hash.slice(1)))')
                         assert page.locator('.mk[data-position]').evaluate_all('(items)=>items.every(e=>Number.isFinite(parseFloat(e.style.left))&&parseFloat(e.style.left)>=0&&parseFloat(e.style.left)<=100)')
                         assert page.locator('.stack [data-width]').evaluate_all('(items)=>items.every(e=>Number.isFinite(parseFloat(e.style.width)))')
+                        page.locator('#expand').click()
+                        assert not page.evaluate('document.documentElement.scrollWidth>innerWidth'),(name,width,'expanded')
+                        page.locator('#expand').click()
                     pair['styles'][kind] = page.evaluate('''({selectors,properties})=>Object.fromEntries(selectors.map(s=>{const e=document.querySelector(s);return [s,e?Object.fromEntries(properties.map(k=>[k,getComputedStyle(e)[k]])):null]}))''',{'selectors':SELECTORS,'properties':PROPERTIES})
                 pair['differences'] = {selector:{key:[pair['styles']['prototype'][selector][key],pair['styles']['report'][selector][key]] for key in PROPERTIES if pair['styles']['prototype'][selector][key]!=pair['styles']['report'][selector][key]} for selector in SELECTORS if pair['styles']['prototype'][selector] and pair['styles']['report'][selector]}
                 results.append(pair)

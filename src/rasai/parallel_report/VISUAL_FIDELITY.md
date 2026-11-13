@@ -1,4 +1,4 @@
-# Visual Fidelity Pass — PR #698
+# Visual Fidelity Pass - PR #698
 
 Referência efetivamente encontrada em Downloads, extraída exclusivamente em
 diretório temporário privado em 13/11/2026:

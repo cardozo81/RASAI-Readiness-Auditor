@@ -7,7 +7,12 @@ from rasai.parallel_report.generator import generate
 
 
 def test_browser_offline(tmp_path):
-    output = generate(fixture(tmp_path / 'audit'))
+    root = fixture(tmp_path / 'audit')
+    import sqlite3
+    with sqlite3.connect(root / 'audit.db') as database:
+        database.execute('UPDATE findings SET title=?',('Persisted technical identifier: '+'LONG_IDENTIFIER_'*12,))
+    database.close()
+    output = generate(root)
     with sync_playwright() as playwright:
         if not Path(playwright.chromium.executable_path).exists():
             pytest.skip('Existing Chromium unavailable; do not install')
@@ -18,7 +23,7 @@ def test_browser_offline(tmp_path):
         page = context.new_page()
         page.on('request', lambda request: requests.append(request.url) if request.url.startswith(('http:', 'https:')) else None)
         page.on('pageerror', lambda error: errors.append(str(error)))
-        for width in (1440, 1920, 768):
+        for width in (1440, 1920, 768, 390):
             page.set_viewport_size({'width': width, 'height': 1080})
             for path in output.glob('*.html'):
                 page.goto(path.as_uri())
@@ -28,6 +33,7 @@ def test_browser_offline(tmp_path):
                 assert page.locator('body').evaluate('(e) => e.classList.contains("dark")')
                 page.locator('#expand').click()
                 assert page.locator('details:not([open])').count() == 0
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (path.name,'expanded')
                 page.locator('#expand').click()
                 assert page.locator('details[open]').count() == 0
                 for selector in ('.shell', '.top', '.rail'):

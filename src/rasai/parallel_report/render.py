@@ -3,7 +3,7 @@ from html import escape
 import json
 from hashlib import sha256
 from .coverage import display, state
-from .read_model import PAGES, destination, thaw
+from .read_model import PAGES, destination, thaw, SEARCH_PAGE
 from .templates import label as public_label
 from .presentation_labels import public_value, timezone_for_records, metric_label
 
@@ -100,7 +100,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
                 body += f'<details id="physical-{index}"><summary>{esc(item["reference"])}</summary>' + kv([(public_label(k),public_value(item.get(k),k,timezone_name)) for k in ('sha256','type','coverage','selector','line','column')]) + f'<pre>{esc(item.get("excerpt"))}</pre><a href="{item["source_href"]}">Voltar à origem</a><details class="in"><summary>Proveniência completa</summary>{payload(item)}</details></details>'
         if page == 'performance':
             body += '<p class="callout w">Laboratório, campo e amostras sintéticas são universos independentes. Sem série temporal comparável persistida, nenhum gráfico histórico é fabricado.</p>'
-        if page == 'search-geo':
+        if page == SEARCH_PAGE:
             body += '<p class="callout w">Busca não equivale a citação. Posição não prova causalidade. Consulta, idioma, mercado, dispositivo e instante delimitam a amostra.</p>'
         body += '<h2>Evidências e detalhe técnico</h2><details><summary>Inventário integral de registros e anexos</summary>'
         if page == 'plano':

@@ -78,3 +78,4 @@ summary{overflow-wrap:anywhere} .record .org{max-width:none} .ruler .nt{font-siz
 @media(max-width:620px){.stack-legend{grid-template-columns:1fr}.stack-legend li{grid-template-columns:12px minmax(0,1fr) auto}.stack-legend li>span:last-child{grid-column:2/4}.stack-head{align-items:flex-start;flex-direction:column;gap:2px}}
 
 .chip.info{color:var(--acc)}.chip.critical{font-weight:750;border-width:2px}
+.record{overflow-wrap:anywhere}

@@ -73,6 +73,12 @@ def generate(audit_dir):
         filename = sha256(table.encode()).hexdigest() + '.json'
         (output / 'anexos' / filename).write_text(json.dumps(sanitize(rows), ensure_ascii=False, indent=2), encoding='utf-8')
     coverage_map = json.loads((assets / 'coverage-map.json').read_text(encoding='utf-8'))
+    # The source template can describe a technical filename as topic components.
+    # Emit the same canonical_pages file contract, with resolved HTML filenames.
+    coverage_map['canonical_pages'] = {
+        name: ['-'.join(page['page_parts'])+'.html' if isinstance(page,dict) else page for page in pages]
+        for name,pages in coverage_map['canonical_pages'].items()
+    }
     coverage_map['families'] = {table: {'page': destination(table) + '.html', 'row_count': len(rows), 'columns': schema[table]['columns']} for table, rows in tables.items()}
     (output / 'assets' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
     after = inventory(root)

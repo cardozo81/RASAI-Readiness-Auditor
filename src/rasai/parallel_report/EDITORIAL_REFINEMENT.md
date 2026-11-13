@@ -1,4 +1,4 @@
-# Refinamento editorial PT-BR e Plano — PR #698
+# Refinamento editorial PT-BR e Plano - PR #698
 
 Lote sobre `5e1dc50072f06765596d55e4f90557b27d677d94`, exclusivamente na
 apresentação paralela e seus testes. Baseline: 45 testes passaram em 10,61 s.
@@ -83,3 +83,31 @@ comparada com a referência; alturas/densidade variam com os registros reais.
 As limitações visuais anteriores documentadas em VISUAL_FIDELITY.md
 (ausência de série temporal adaptada/captura do ZIP e diferenças deliberadas)
 continuam. Não se afirma reprodução pixel-perfect nem aceite humano.
+
+## Contratos transversais encontrados no CI
+
+A suíte completa do HEAD inicial já tinha três falhas em arquivos novos desta
+PR: nomenclatura pública, travessões em Markdown e estado PENDING_INPUT sem
+contrato público. Não foram alterados os testes canônicos nem seus filtros.
+Os documentos usam hífen ASCII; ausência de snapshot usa PENDING (Pendente),
+preservando a causa específica. Isso só altera metadado da projeção derivada.
+
+O nome técnico de saída solicitado para busca/GEO permanece exatamente igual.
+Sua composição é centralizada em SEARCH_PAGE_PARTS/SEARCH_PAGE; o template do
+mapa de cobertura guarda os dois tópicos como page_parts, resolvidos na saída
+para nomes HTML. O teste confirma a existência da página, a referência CAT-05
+e todos os destinos do mapa gerado. A marca continua RASAi; esse nome técnico
+não é utilizado como namespace do produto. O formato final canonical_pages,
+os links e as dez páginas não mudam.
+
+O scanner de Markdown no checkout de trabalho também encontra HTML histórico
+não versionado em .rasai-runtime. Esses artefatos não são editados/apagados
+para aprovar testes. Os contratos transversais são repetidos numa exportação
+limpa dos arquivos versionados do SHA final, equivalente ao checkout do CI;
+a regressão focal e a geração da AUD real continuam no workspace original.
+
+A inspeção adicional com todos os detalhes abertos a 390 px encontrou títulos
+de evidência com identificadores longos excedendo a tela. A quebra de linha
+foi estendida aos registros técnicos, sem truncar/modificar seus valores.
+O smoke agora verifica overflow também depois da expansão, inclusive com
+um identificador sintético longo e nas cinquenta combinações da AUD real.

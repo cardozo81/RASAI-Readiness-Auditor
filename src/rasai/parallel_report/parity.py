@@ -10,11 +10,11 @@ def compare(tables, root):
     try:
         snapshot = confined(root, reference)
     except (OSError, ValueError):
-        return {'status': 'PENDING_INPUT', 'reference': reference, 'reason': 'Snapshot canônico ausente/inseguro; paridade HTML não certificada'}
+        return {'status': 'PENDING', 'reference': reference, 'reason': 'Snapshot canônico ausente/inseguro; paridade HTML não certificada'}
     try:
         canonical, _ = read_database(snapshot)
     except (OSError, ValueError):
-        return {'status': 'PENDING_INPUT', 'reference': reference, 'reason': 'Snapshot canônico não está selado'}
+        return {'status': 'PENDING', 'reference': reference, 'reason': 'Snapshot canônico não está selado'}
     result = {'reference': reference, 'comparisons': {}, 'differences': [], 'html_parity': 'NOT_VERIFIED'}
     for table in ('scores', 'web_performance_observations', 'synthetic_apdex_summaries', 'synthetic_ux_apdex_summaries', 'findings', 'directed_analysis_actions', 'recommendations'):
         left, right = tables.get(table), canonical.get(table)

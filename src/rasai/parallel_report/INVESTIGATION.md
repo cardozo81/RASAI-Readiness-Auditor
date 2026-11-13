@@ -1,4 +1,4 @@
-# Issue #697 — investigação e decisão
+# Issue #697 - investigação e decisão
 
 Base: `13aeea0e5fc4ea3f8d5bdc7e7aec7f7f1ec4b6b7` (`origin/main`).
 Branch única: `feature/issue-697-report-presentation`.
@@ -52,7 +52,7 @@ consultadas e destino de cada família. Nenhum schema é criado/migrado.
 | Índices / composição | scores.score_id/dimension/value/coverage; score_contributions.score_id/rule_execution_id/weight/result_factor; rule_executions | dimensão/device; sem recálculo SARI | sari; methodology; metrics |
 | Conteúdo / achados e contexto | findings.finding_id/rule_execution_id/evidence_ids; semantic_assessments; semantic_coherence_assessments; content contexts; improvement findings/recommendations | página/snapshot; inferência IA separada de literal | cat-02; cat-03; cat-08; geo-content-review |
 | Performance / fontes independentes | web_performance_observations.*_score/*_lab_ms/*_p75_ms/field_scope; lighthouse_execution_profiles; synthetic_apdex_*; synthetic_ux_apdex_* | laboratório/campo/sintético, URL/origin/device/profile, amostra | cat-04; cat-06; cat-07; network |
-| Search/GEO / observações | serp_observations/results; serp_competitive_*; perplexity_search_runs/sources; geo_observation_runs.projection_json | query/mercado/idioma/device/tempo; sem comparação implícita | cat-05; geo; geo-content-review |
+| Busca e GEO / observações | serp_observations/results; serp_competitive_*; perplexity_search_runs/sources; geo_observation_runs.projection_json | query/mercado/idioma/device/tempo; sem comparação implícita | cat-05; geo; geo-content-review |
 | Segurança / evidência passiva | passive_security_*; findings.evidence_ids_json/validation/severity | recurso/página/party, sem probes | cat-10 |
 | Plano / ação e validação | directed_analysis_actions.action_id/source_id/validation_steps_json; recommendations; governance; root_cause_*; request_remediation_* | identidade canônica; aprovação não inferida | cat-09; directed-analysis; cat-08 |
 | IA/custos / tentativa e proveniência | ai_provider_attempts; content_remediation_attempts; native_usage; ai_tasks/rounds/exchanges; pricing; forecast | tentativa/moeda/finalidade; realizado técnico distinto de invoice | ai-integrations; execution-evidence |
