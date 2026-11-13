@@ -213,17 +213,17 @@ def test_completed_audit_detail_hides_reprocess_action_and_shortcut(
     assert state.error == "Contrato atual concluído; não existem pendências para reprocessar."
 
 
-def test_completed_audit_detail_exposes_reprocess_after_deterministic_reconciliation(
+def test_completed_audit_detail_stays_read_only_without_reconciliation(
     monkeypatch, tmp_path: Path, capsys
 ) -> None:
     import rasai.console_artifacts as artifacts
     import rasai.console_navigation as navigation
     import rasai.console_usability_refinements as usability
 
-    audit_id = "AUD-COMPLETE-BUT-STALE-M4"
+    audit_id = "AUD-COMPLETE-READONLY-DETAIL"
     (tmp_path / audit_id).mkdir()
 
-    stale_complete = {
+    complete = {
         "processing_status": "COMPLETE",
         "score_status": "FINAL",
         "report_status": "FINAL",
@@ -237,24 +237,13 @@ def test_completed_audit_detail_exposes_reprocess_after_deterministic_reconcilia
         "last_reprocess_id": "RPR-OLD",
         "completed_at": "2026-09-28T18:00:00+00:00",
     }
-    reconciled = {
-        **stale_complete,
-        "processing_status": "PARTIAL_RETRYABLE",
-        "score_status": "PENDING",
-        "report_status": "PRELIMINARY",
-        "consolidation_eligible": False,
-        "successful_items": 3,
-        "pending_items": 1,
-    }
 
-    monkeypatch.setattr(usability, "_safe_summary", lambda *_: stale_complete)
+    monkeypatch.setattr(usability, "_safe_summary", lambda *_: complete)
 
-    def reconciled_summary(audit_root, current_audit_id, *, summary_reader=None):
-        assert current_audit_id == audit_id
-        assert summary_reader is usability._safe_summary
-        return reconciled
+    def forbidden(*args, **kwargs):
+        raise AssertionError("COMPLETE audit detail must not reconcile/mutate")
 
-    monkeypatch.setattr(navigation, "_reconciled_summary", reconciled_summary)
+    monkeypatch.setattr(navigation, "_reconciled_summary", forbidden)
     monkeypatch.setattr(
         navigation,
         "_configuration_reuse_status",
@@ -269,9 +258,9 @@ def test_completed_audit_detail_exposes_reprocess_after_deterministic_reconcilia
     assert usability._selected_audit_menu(console_module, state, audit_id) is False
     rendered = capsys.readouterr().out
 
-    assert "Situação       : Parcial" in rendered
-    assert "1. Reprocessar somente pendências desta auditoria" in rendered
-    assert "Reprocessamento: não necessário" not in rendered
+    assert "Situação       : Concluída" in rendered
+    assert "1. Reprocessar somente pendências desta auditoria" not in rendered
+    assert "Reprocessamento: não necessário - contrato atual concluído." in rendered
 
 
 def test_partial_retryable_audit_detail_keeps_reprocess_action(
