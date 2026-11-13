@@ -71,9 +71,55 @@ def table(caption, rows, columns):
     return f'<div class="tw"><table><caption>{text(caption)}</caption><thead><tr>{headings}</tr></thead><tbody>{body}</tbody></table></div>' if rows else '<p class="callout">Não medido — nenhum registro disponível para esta seção.</p>'
 
 
-def stack(parts):
-    total = sum(float(value) for _, value in parts)
+def stack(parts, title='Composição proporcional', unit=None, note=None):
+    normalized = []
+    for part in parts:
+        if len(part) == 2:
+            label, value = part
+            detail = None
+        else:
+            label, value, detail = part
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(numeric) or numeric < 0:
+            continue
+        normalized.append((label, value, detail, numeric))
+    total = sum(item[3] for item in normalized)
     if total <= 0:
         return '<p>Composição não disponível para total nulo.</p>'
-    spans = ''.join(f'<span class="z{i%4+1}" data-width="{float(value)/total*100:g}"></span>' for i, (_, value) in enumerate(parts))
-    return '<div class="stack" role="img" aria-label="Composição proporcional">' + spans + '</div><p class="rf">' + ' · '.join(f'{text(label)}: {text(value)}' for label, value in parts) + '</p>'
+
+    aria_parts = []
+    spans = []
+    legend = []
+    technical = []
+    for index, (label, raw_value, detail, numeric) in enumerate(normalized):
+        percentage = numeric / total * 100
+        tone = f'cat{index % 8 + 1}'
+        amount_label = f'{unit} {raw_value}' if unit else str(raw_value)
+        aria_parts.append(f'{label}: {amount_label}, {percentage:.1f}%')
+        spans.append(
+            f'<span class="{tone}" data-width="{percentage:g}" '
+            f'title="{text(label)} · {text(amount_label)} · {percentage:.1f}%"></span>'
+        )
+        legend.append(
+            '<li><span class="sw ' + tone + '" aria-hidden="true"></span>'
+            f'<span class="stack-label">{text(label)}</span>'
+            f'<strong>{text(amount_label)}</strong><span>{percentage:.1f}%</span></li>'
+        )
+        if detail:
+            technical.append(f'<li><strong>{text(label)}</strong>: <code>{text(detail)}</code></li>')
+
+    total_label = f'{unit} {format(total, ".10g")}' if unit else format(total, '.10g')
+    aria = f'{title}. Total {total_label}. ' + '; '.join(aria_parts)
+    html = (
+        f'<div class="stack-head"><strong>{text(title)}</strong><span>{text(total_label)}</span></div>'
+        f'<div class="stack" role="img" aria-label="{text(aria)}">' + ''.join(spans) + '</div>'
+        '<ul class="stack-legend">' + ''.join(legend) + '</ul>'
+    )
+    if note:
+        html += f'<p class="rf">{text(note)}</p>'
+    if technical:
+        html += '<details class="in"><summary>Ver IDs técnicos das tentativas</summary><ul class="stack-tech">' + ''.join(technical) + '</ul></details>'
+    return html
