@@ -110,7 +110,7 @@ P. Abrir pasta/diretório
 V. Voltar
 ```
 
-A letra `I` continua reservada ao relatório canônico da AUD; `A` abre somente o `report-presentation/` cuja origem corresponde ao `audit.db` atual. Em uma AUD histórica concluída antes da existência dessa projeção, com `report-catalog/` canônico válido, o histórico mostra `[GERAR AO ABRIR]`: nenhuma escrita ocorre ao navegar; somente o acionamento explícito de `A` materializa a projeção read-only e a abre após novo gate de integridade/freshness. Se o relatório canônico estiver ausente/inválido, a apresentação permanece `[INDISPONÍVEL]`. Em superfícies CONS, que não possuem esse artefato por AUD, permanecem os atalhos próprios de relatório/pasta. Busca direta de Audit ID usa `B`.
+A letra `I` continua reservada ao relatório canônico da AUD; `A` abre somente o `report-presentation/` cuja origem corresponde ao `audit.db` atual. Em uma AUD histórica concluída antes da existência dessa projeção, com `report-catalog/` canônico estruturalmente válido, o histórico mostra `[GERAR AO ABRIR]`: nenhuma escrita ocorre ao navegar; somente o acionamento explícito de `A` inicia a recuperação. Se o canônico estiver stale frente ao `audit.db` persistido, ele é primeiro rematerializado com `read_only=True`; o digest lógico do banco é verificado antes/depois e qualquer mudança aborta a operação. Só após o canônico ficar fresh a apresentação é materializada e revalidada por integridade/freshness. Se o relatório canônico estiver ausente ou estruturalmente inválido, a apresentação permanece `[INDISPONÍVEL]`. Em superfícies CONS, que não possuem esse artefato por AUD, permanecem os atalhos próprios de relatório/pasta. Busca direta de Audit ID usa `B`.
 
 ### Entrada visual de dados sensíveis
 
