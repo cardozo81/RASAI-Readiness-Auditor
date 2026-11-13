@@ -11,6 +11,11 @@ A escolha do provider não altera a persona. Uma mesma tarefa recebe o mesmo per
 
 Os perfis são versionados e configuráveis porque a redação da persona pode exigir ajuste fino ao longo do tempo. Essa flexibilidade não permite alterar contratos normativos de evidência, schema, scoring, causalidade, segurança ou revisão humana.
 
+O envelope offline `contextual-editorial-ai-v1` reutiliza CONTENT_REMEDIATION
+de fábrica com identidade/versão, sem criar persona ou autorização comercial.
+Inspeção estrutural de consentimento contextual não habilita execução. Contrato
+e gates: [aceitação editorial contextual](CONTEXTUAL_EDITORIAL_ACCEPTANCE.md).
+
 ## Arquivos e responsabilidade
 
 O modelo usa deliberadamente duas camadas com responsabilidades diferentes.

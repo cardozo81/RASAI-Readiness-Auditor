@@ -134,7 +134,7 @@ def load_projection(audit_dir: Path, *, ai="none") -> dict:
     return result
 
 
-def build_companion(audit_dir: Path, output: Path, *, ai="none") -> dict:
+def build_companion(audit_dir: Path, output: Path, *, ai="none", evaluate_editorial=False) -> dict:
     root, destination = _plain(audit_dir), _plain(output)
     if not root.is_dir() or not root.name.startswith("AUD-"):
         raise ValueError("canonical AUD required")
@@ -145,6 +145,9 @@ def build_companion(audit_dir: Path, output: Path, *, ai="none") -> dict:
     before = _inventory(root)
     report = load_projection(root, ai=ai)
     report.update(source_inventory=before, source_unchanged=False)
+    if evaluate_editorial:
+        from rasai.contextual_editorial_evaluation import evaluate_editorial as evaluate
+        report["editorial_evaluation"] = evaluate(report, source_inventory=before)
     from rasai.contextual_advisory_html import companion_pages
     pages = companion_pages(report)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -189,9 +192,12 @@ def main(argv=None):
     parser.add_argument("--audit-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--ai", choices=("none", "requested"), default="none")
+    parser.add_argument("--evaluate-editorial", action="store_true",
+                        help="Avaliar contratos editoriais offline, sem provider nem alteração da AUD.")
     args = parser.parse_args(argv)
     try:
-        report = build_companion(args.audit_dir, args.output, ai=args.ai)
+        report = build_companion(args.audit_dir, args.output, ai=args.ai,
+                                 evaluate_editorial=args.evaluate_editorial)
     except (OSError, ValueError, TypeError, KeyError, sqlite3.Error):
         print("N/D: entrada, integridade ou limites recusados. Nenhum provedor chamado.")
         return 2

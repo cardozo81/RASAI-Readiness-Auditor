@@ -315,7 +315,7 @@ def contextual_panel(report, page, *, private=False):
     if page not in PAGES:
         return ""
     if page == "geo-content-review.html":
-        return _content_review_panel(report, private=private)
+        return _content_review_panel(report, private=private) + _editorial_evaluation_panel(report)
     # Existing engine/catalog bodies live outside this additive panel and are
     # never filtered. v1 facts/hypotheses stay in JSON and compatibility HTML.
     v1 = _v1_panel(report, page, private=private)
@@ -330,6 +330,23 @@ def contextual_panel(report, page, *, private=False):
     return ("<section class='panel' id='contextual-qualification'>" + v2
         + "<details id='contextual-v1-history'><summary>Histórico técnico v1 e compatibilidade - hipóteses estruturais, não diagnóstico editorial validado</summary>"
         + "<div class='detail-body'>" + v1 + "</div></details></section>")
+
+
+def _editorial_evaluation_panel(report):
+    evaluation = report.get("editorial_evaluation")
+    if not evaluation:
+        return ""  # Existing AI=none reports keep their byte contract by default.
+    counts = evaluation["counts"]
+    return ("<section class='panel' id='editorial-evaluation'><h2>Avaliação editorial offline</h2>"
+        "<p>Verificações condicionais com contrato e evidência íntegros: "
+        + _e(counts["qualified_conditional_verifications"]) + ". Verificações N/D: "
+        + _e(counts["verification_nd"]) + ". Hipóteses históricas não acionáveis: "
+        + _e(counts["historical_non_actionable"]) + ". Oportunidades comprovadas: "
+        + _e(counts["qualified_opportunities"]) + ".</p>"
+        "<p>Contagem mede suficiência de contrato, sem aceite editorial nem ganho de modelo. "
+        "Qualidade incremental da IA: N/D; exige piloto real autorizado. IA ativa não autorizada; "
+        "nenhum provedor chamado, custo externo zero. Uso futuro de IA exige consentimento específico e orçamento.</p>"
+        "<p><a href='capture-context.html#contextual-content'>Inspecionar proveniência capturada</a></p></section>")
 
 
 def companion_pages(report):

@@ -6,6 +6,14 @@ A lógica deste documento é operacional. Ela não altera a identidade pública 
 
 A política financeira, preços, janelas horárias e critérios de revisão do catálogo estão detalhados em [`AUTO_COST_AWARE_AI_ROUTING.md`](AUTO_COST_AWARE_AI_ROUTING.md).
 
+`AiExecutionPolicy.max_provider_calls` é um limite opcional de invocações por
+necessidade lógica inteira, somando candidatos e ciclos. O default `None`
+preserva a política existente. Com `1`, partial/transient não levam ao segundo
+callback nem a espera para novo ciclo. Não limita retries internos de adapter,
+tokens ou gasto e não concede consentimento. O contrato contextual usa essa
+capacidade apenas em ensaios offline; [gates comerciais](CONTEXTUAL_EDITORIAL_ACCEPTANCE.md)
+continuam bloqueados.
+
 ## 1. Princípios
 
 1. A configuração humana/original é preservada.

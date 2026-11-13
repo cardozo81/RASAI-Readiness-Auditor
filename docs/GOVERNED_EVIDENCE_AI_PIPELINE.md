@@ -33,6 +33,12 @@ segurança, limites e manifesto: [companheiro documental](REPORT_REMATERIALIZATI
 Não há perfil de necessidade/consentimento documental habilitado para IA; a
 solicitação degrada sem chamadas. Nenhum motor de scoring recebe essas hipóteses.
 
+O consumidor contextual possui contrato próprio **offline** e avaliação C0
+optativa. Não cria tarefas/versões na AUD selada, não herda consentimento de
+GEO/Competitive AI e não chega a provider. A inspeção de consentimento e o
+ensaio de reserva/replay não liberam runtime pago. Estado por requisito e
+provas: [aceitação editorial contextual](CONTEXTUAL_EDITORIAL_ACCEPTANCE.md).
+
 1. **IA não é coletor.** Nenhum provider substitui HTTP, browser, GSC, PageSpeed/CrUX, Clarity, SERP ou outro coletor configurado.
 2. **Coleta requerida termina antes da IA.** Um coletor não precisa terminar em `SUCCESS`, mas precisa chegar a um estado terminal explicitamente classificado.
 3. **Contexto de IA é versionado.** A IA referencia uma versão imutável da evidência da AUD.
