@@ -363,6 +363,16 @@ def test_materialize_presentation_report_on_demand_refreshes_stale_canonical_rea
         lambda **kwargs: next(freshness),
     )
 
+    runtime_steps: list[str] = []
+    monkeypatch.setattr(
+        "rasai.entrypoint._install_audit_runtime",
+        lambda: runtime_steps.append("install"),
+    )
+    monkeypatch.setattr(
+        "rasai.report_rematerialization._check_composition",
+        lambda: runtime_steps.append("check"),
+    )
+
     replay_calls = []
 
     def replay(*, audit_id, workspace, read_only):
@@ -383,6 +393,7 @@ def test_materialize_presentation_report_on_demand_refreshes_stale_canonical_rea
 
     assert report == generated
     assert status == "MATERIALIZED"
+    assert runtime_steps == ["install", "check"]
     assert replay_calls == [(workspace.name, workspace, True)]
     assert generated_calls == [workspace]
 
@@ -418,6 +429,14 @@ def test_materialize_presentation_report_on_demand_aborts_if_read_only_replay_mu
     monkeypatch.setattr(
         "rasai.catalog_report_site.catalog_report_is_fresh",
         lambda **kwargs: False,
+    )
+    monkeypatch.setattr(
+        "rasai.entrypoint._install_audit_runtime",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        "rasai.report_rematerialization._check_composition",
+        lambda: None,
     )
     monkeypatch.setattr(
         "rasai.report_completion.materialize_catalog_report_projection",
