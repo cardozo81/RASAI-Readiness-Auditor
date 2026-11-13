@@ -240,6 +240,11 @@ def rematerialize(*, audit_dir: str | Path, output_root: str | Path) -> Path:
     stage = stage_parent / audit_id
     try:
         shutil.copytree(source, stage, symlinks=False)
+        # report-presentation is a mutable-flow derived output, never an input
+        # to canonical read-only rematerialization. Do not republish a stale copy.
+        stale_presentation = stage / "report-presentation"
+        if stale_presentation.exists():
+            shutil.rmtree(stale_presentation)
         source_after_copy = _input_files(source)
         stage_after_copy = _input_files(stage)
         copy_errors = tuple(
