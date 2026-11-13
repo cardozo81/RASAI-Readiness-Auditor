@@ -2,6 +2,8 @@
 from .components import text, chip, origin, kv, ruler, table, stack
 from .read_model import thaw
 from .templates import LABELS
+from .presentation_labels import public_value, timezone_for_records, timezone_provenance, metric_label
+from functools import partial
 
 # Each page owns explicit editorial sections rather than a sequence of SQL tables.
 SECTIONS = {
@@ -28,20 +30,28 @@ def _metric_proposal(key, thresholds):
 
 
 def editorial(page, records, costs, thresholds):
+    timezone_name, timezone_reason = timezone_for_records(records)
+    local_table = partial(table, timezone_name=timezone_name)
     def rows(names):
-        return [{**thaw(r.data), '_ref': r.href} for r in records if r.table in names]
+        return [{**thaw(r.data), '_ref': r.href, '_source_table': r.table} for r in records if r.table in names]
     html = ''
     if page == 'index':
         audits = rows(['audits'])
         html += '<h2>Contexto da auditoria</h2>'
         for data in audits:
-            html += kv([(label, data.get(key)) for key,label in [('audit_id','Auditoria'),('status','Estado'),('completion_status','Conclusão'),('created_at','Criada em')]])
+            targets = rows(['audit_targets'])
+            domains = list(dict.fromkeys(r.get('normalized_origin') or r.get('input_url') for r in targets if r.get('normalized_origin') or r.get('input_url')))
+            devices = sorted({str(public_value(r.get('device'),'device')) for r in rows(['page_snapshots']) if r.get('device')})
+            pairs = [('Auditoria',data.get('audit_id')),('Domínio auditado',' · '.join(domains) or None),('Dispositivo',' · '.join(devices) or None)]
+            pairs += [(label,public_value(data.get(key),key,timezone_name)) for key,label in [('status','Estado'),('completion_status','Conclusão'),('created_at','Criada em'),('project_name','Projeto'),('primary_language','Idioma'),('market','Mercado'),('audit_mode','Modo'),('auditor_version','Versão do auditor'),('ruleset_version','Versão das regras')]]
+            pairs += [('Fuso de apresentação',timezone_name),('Origem do fuso',timezone_provenance(timezone_reason))]
+            html += kv(pairs)
         html += '<h2>Índices em uma leitura</h2>'
     if page in {'index','indices','performance'}:
         if page != 'index':
             html += '<h2>Indicadores independentes e escopos</h2>'
         html += '<div>' if page == 'indices' else '<div class="grid">'
-        for data in sorted(rows(['scores','web_performance_observations','synthetic_apdex_summaries','synthetic_ux_apdex_summaries']), key=lambda r: r.get('dimension') != 'OVERALL_READINESS'):
+        for data in sorted(rows(['scores','web_performance_observations','synthetic_apdex_summaries','synthetic_ux_apdex_summaries','synthetic_population_apdex_summaries']), key=lambda r: r.get('dimension') != 'OVERALL_READINESS'):
             for key in ('value','performance_score','accessibility_score','best_practices_score','seo_score','apdex_score'):
                 if page == 'index' and key == 'value' and data.get('dimension') != 'OVERALL_READINESS':
                     continue
@@ -50,19 +60,19 @@ def editorial(page, records, costs, thresholds):
                 if page == 'performance' and key == 'value':
                     continue
                 proposal = _metric_proposal(key, thresholds)
-                scope = ' · '.join(str(data[k]) for k in ('device','url','profile_id','consolidation_status','confidence') if data.get(k) is not None)
-                html += ruler(LABELS.get(data.get('dimension',key),data.get('dimension',key)), data[key], 1 if key == 'apdex_score' else 100, proposal, scope, data['_ref'])
+                scope = ' · '.join(str(public_value(data[k],k,timezone_name)) for k in ('device','url','profile_id','consolidation_status','confidence') if data.get(k) is not None)
+                html += ruler(metric_label(data,key,LABELS), data[key], 1 if key == 'apdex_score' else 100, proposal, scope, data['_ref'])
                 if page == 'indices' and key == 'value':
                     contributions = [r for r in rows(['score_contributions']) if r.get('score_id') == data.get('score_id')]
-                    html += table('Composição da dimensão', contributions, [('rule_id','Regra'),('result','Resultado'),('weight','Peso'),('result_factor','Fator'),('effective_contribution','Contribuição'),('_ref','Fonte')])
+                    html += local_table('Composição da dimensão', contributions, [('rule_id','Regra'),('result','Resultado'),('weight','Peso'),('result_factor','Fator'),('effective_contribution','Contribuição'),('_ref','Fonte')])
         html += '</div>'
     if page == 'index':
-        html += '<h2>Riscos e ações prioritárias</h2>' + table('Ações com prioridade alta persistida',[r for r in rows(['directed_analysis_actions']) if r.get('priority') in {'HIGH','CRITICAL','P1','P0'}], [('priority','Prioridade'),('title','Ação'),('effort','Esforço'),('_ref','Fonte')])
-        html += '<h2>Estado da execução</h2>' + table('Cobertura operacional', rows(['audit_fulfillment_work_items']), [('component','Componente'),('status','Estado'),('required','Obrigatório'),('_ref','Fonte')])
+        html += '<h2>Riscos e ações prioritárias</h2>' + local_table('Ações com prioridade alta persistida',[r for r in rows(['directed_analysis_actions']) if r.get('priority') in {'HIGH','CRITICAL','P1','P0'}], [('priority','Prioridade'),('title','Ação'),('effort','Esforço'),('_ref','Fonte')])
+        html += '<h2>Estado da execução</h2>' + local_table('Cobertura operacional', rows(['audit_fulfillment_work_items']), [('component','Componente'),('status','Estado'),('required','Obrigatório'),('_ref','Fonte')])
     if page in {'index','ia-custos'}:
         html += '<h2>Consumo e proveniência</h2>' + chip(costs['coverage']) + kv([('Tentativas identificadas',costs['attempt_count'])])
         for currency, amounts in costs['totals'].items():
-            html += kv([(f'{currency} · {kind}',value) for kind,value in amounts.items()])
+            html += kv([(f'{currency} · {kind}',public_value(value,'amount')) for kind,value in amounts.items()])
             source_labels = {
                 'ai_provider_attempts': 'IA / integração',
                 'content_remediation_attempts': 'Remediação de conteúdo',
@@ -80,12 +90,15 @@ def editorial(page, records, costs, thresholds):
                 parts,
                 title='Composição do custo conciliado por tentativa',
                 unit=currency,
-                note='Cada segmento usa o valor conciliado da tentativa: observado quando disponível; estimado como fallback. As cores são apenas categóricas e não indicam qualidade, severidade ou conformidade.',
+                note='Cada segmento usa o valor conciliado da tentativa: observado quando disponível; estimado como alternativa. As cores são apenas categóricas e não indicam qualidade, criticidade ou conformidade.',
             )
         html += '<p class="callout">Custo técnico estimado não equivale a cobrança observada. Tokens de Search não são inferidos.</p>'
-    for title, names, columns in SECTIONS.get(page, []):
+    if page == 'plano':
+        from .action_plan import render_plan
+        html += render_plan(rows, timezone_name)
+    for title, names, columns in ([] if page == 'plano' else SECTIONS.get(page, [])):
         html += '<h2>' + text(title) + '</h2>'
         if any('suggest' in name or name.startswith('ai_') for name in names):
             html += origin('IA sugeriu' if 'propost' in title.lower() or 'sugerid' in title.lower() else 'Externo')
-        html += table(title, rows(names), columns + [('_ref','Fonte')])
+        html += local_table(title, rows(names), columns + [('_ref','Fonte')])
     return html

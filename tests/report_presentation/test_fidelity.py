@@ -43,7 +43,7 @@ def test_stack_and_editorial_ownership():
     assert 'data-width="25"' in html and 'data-width="75"' in html
     assert 'Composição do custo conciliado por tentativa' in html
     assert 'USD 4' in html
-    assert '25.0%' in html and '75.0%' in html
+    assert '25,0%' in html and '75,0%' in html
     assert 'ATTEMPT-A' in html and 'ATTEMPT-B' in html
     assert 'class="cat1"' in html and 'class="cat2"' in html
     assert 'class="z1"' not in html and 'class="z2"' not in html

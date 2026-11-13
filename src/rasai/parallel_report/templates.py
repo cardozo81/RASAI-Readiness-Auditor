@@ -37,3 +37,8 @@ LABELS.update({
  'CONTENT_VALUE':'Valor do conteúdo','best_practices_score':'Lighthouse · Boas práticas',
  'seo_score':'Lighthouse · SEO',
 })
+
+# Public labels share one field vocabulary; technical payload keys stay unchanged.
+from .presentation_labels import FIELD_LABELS
+LABELS.update(FIELD_LABELS)
+LABELS.update({'performance_score':'Lighthouse · Desempenho','accessibility_score':'Lighthouse · Acessibilidade'})
