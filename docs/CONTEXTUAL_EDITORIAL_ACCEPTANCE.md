@@ -66,6 +66,8 @@ na AUD histórica. task_id, allowed_evidence_ids e input_fingerprint delimitam
 JSON imutável de uma captura. `offline_prompt` reutiliza CONTENT_REMEDIATION
 de fábrica, com versão e instrução para tratar evidência como dados hostis.
 Persona, modelo, feature flag e chave global não são consentimento.
+Importar o contrato e executar C0 não carrega configuração comercial; o catálogo
+canônico só é resolvido dentro do preflight econômico, ainda bloqueado.
 
 Limites locais: 256 capturas, 512 tarefas, 16 referências por tarefa herdadas
 da projeção, 32 evidências por input, excertos de 240 caracteres, input até

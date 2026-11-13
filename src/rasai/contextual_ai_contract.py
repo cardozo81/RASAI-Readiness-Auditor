@@ -15,7 +15,6 @@ from pathlib import PurePosixPath
 import re
 import sqlite3
 
-from rasai.ai_cost_policy import resolve_price
 from rasai.contextual_documents import stable_id
 from rasai.contextual_editorial import ai_availability
 from rasai.secret_safety import redact_text
@@ -329,9 +328,10 @@ def offline_cost_preflight(*, provider, model, at, input_tokens, output_tokens,
     if billability_known is not True or wire_limits_verified is not True:
         return {**result, "reason": "BILLABILITY_OR_WIRE_LIMIT_UNVERIFIED"}
     try:
+        from rasai.ai_cost_policy import resolve_price
         price = resolve_price(provider, model, at=_instant(at), input_tokens=input_tokens,
                               runtime_conditions=runtime_conditions)
-    except (ValueError, TypeError, KeyError, OverflowError):
+    except (ValueError, TypeError, KeyError, OverflowError, OSError):
         return {**result, "reason": "PRICING_CONDITIONS_INVALID"}
     if price is None:
         return {**result, "reason": "UNPRICED"}

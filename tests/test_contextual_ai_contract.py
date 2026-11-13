@@ -2,8 +2,11 @@
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 import json
+import os
 import socket
 import sqlite3
+import subprocess
+import sys
 
 import pytest
 
@@ -153,6 +156,29 @@ def test_c1_no_scope_inspection_can_authorize_live_execution(monkeypatch, change
     assert contract.execution_gate("requested", prepared=item, now=NOW)["consent_check"] == "INVALID_CONSENT"
 
 
+def test_c1_fresh_denied_contract_and_c0_do_not_load_commercial_configuration(tmp_path):
+    environment = {**os.environ, "RASAI_AI_PRICING_SOURCE": "file",
+                   "RASAI_AI_PRICING_FILE": str(tmp_path / "intentionally-missing-pricing.toml")}
+    code = (
+        "import sys\n"
+        "def offline(event, args):\n"
+        "    if event in {'socket.connect', 'socket.getaddrinfo'}: raise AssertionError('egress')\n"
+        "sys.addaudithook(offline)\n"
+        "from rasai.contextual_ai_contract import execution_gate, offline_cost_preflight\n"
+        "from rasai.contextual_editorial_evaluation import evaluate_editorial\n"
+        "assert execution_gate()['state'] == 'DISABLED'\n"
+        "assert execution_gate('requested')['state'] == 'NOT_AUTHORIZED'\n"
+        "assert evaluate_editorial({}, source_inventory={})['counts']['qualified_opportunities'] == 0\n"
+        "assert 'rasai.ai_cost_policy' not in sys.modules\n"
+        "assert offline_cost_preflight(provider='FIXTURE', model='fixture-v1', at='2026-11-12T15:00:00Z', "
+        "input_tokens=1, output_tokens=1, currency='USD', max_amount='0.01', remaining_amount='0.01', "
+        "billability_known=True, wire_limits_verified=True)['reason'] == 'PRICING_CONDITIONS_INVALID'\n"
+    )
+    child = subprocess.run([sys.executable, "-c", code], env=environment, cwd=tmp_path,
+                           capture_output=True, timeout=10)
+    assert child.returncode == 0, child.stderr.decode(errors="replace")
+
+
 def test_c3_immutable_minimal_input_redacts_private_text_and_omits_urls():
     report = projection(HTML.replace("Sem tarifas", 'Sem tarifas person@example.test https://evil.test/?token=fixture'))
     original = deepcopy(report)
@@ -279,7 +305,7 @@ def test_c2_default_canonical_policy_preserves_existing_candidate_behavior():
 ])
 def test_c2_diagnostics_never_turn_a_forecast_into_permission(monkeypatch, change, reason):
     from rasai.ai_cost_policy import ResolvedPrice
-    monkeypatch.setattr(contract, "resolve_price", lambda *args, **kw: ResolvedPrice(
+    monkeypatch.setattr("rasai.ai_cost_policy.resolve_price", lambda *args, **kw: ResolvedPrice(
         "FIXTURE", "fixture-v1", "fixture-rule", 1.0, 0.1, 2.0, "USD", "fixture", "STANDARD"))
     args = dict(provider="FIXTURE", model="fixture-v1", at=NOW, input_tokens=8000, output_tokens=1200,
         currency="USD", max_amount="0.01", remaining_amount="0.01", billability_known=True, wire_limits_verified=True)
