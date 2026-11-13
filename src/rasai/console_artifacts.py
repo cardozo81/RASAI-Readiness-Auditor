@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 import subprocess
 import sys
 import time
+from hashlib import sha256
 
 from rasai.console_config import State
 
@@ -32,6 +34,65 @@ def report_entrypoint(workspace: Path | None) -> Path | None:
     except Exception:
         return None
     return catalog.resolve() if valid else None
+
+
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def presentation_report_entrypoint(workspace: Path | None) -> Path | None:
+    """Return the newest presentation report matching the current audit.db."""
+    if workspace is None:
+        return None
+    database = workspace / "audit.db"
+    root = workspace / "report-presentation"
+    if not database.is_file() or not root.is_dir() or root.is_symlink():
+        return None
+    try:
+        current_db_hash = _file_sha256(database)
+    except OSError:
+        return None
+
+    candidates: list[tuple[str, float, Path]] = []
+    directories = [root]
+    try:
+        directories.extend(
+            child for child in root.iterdir()
+            if child.is_dir() and not child.is_symlink()
+        )
+    except OSError:
+        return None
+
+    for directory in directories:
+        index = directory / "index.html"
+        manifest_path = directory / "_geracao.json"
+        if not index.is_file() or not manifest_path.is_file():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            continue
+        if manifest.get("contract") != "RASAI-PARALLEL-REPORT-001":
+            continue
+        if str(manifest.get("integrity") or "").upper() != "PASS":
+            continue
+        if manifest.get("source_db_sha256") != current_db_hash:
+            continue
+        generated_at = str(manifest.get("generated_at") or "")
+        try:
+            modified = manifest_path.stat().st_mtime
+        except OSError:
+            modified = 0.0
+        candidates.append((generated_at, modified, index.resolve()))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (item[0], item[1]))
+    return candidates[-1][2]
 
 
 # The post-AUD network sidecar runs independently of the sealed AUD. A
@@ -153,6 +214,16 @@ def open_report(state: State) -> tuple[bool, str]:
         if workspace is None:
             return False, "nenhuma auditoria concluída está disponível nesta sessão"
         return False, f"entrypoint HTML não encontrado em {workspace}"
+    return open_external_path(report)
+
+
+def open_presentation_report(state: State) -> tuple[bool, str]:
+    workspace = audit_workspace(state)
+    report = presentation_report_entrypoint(workspace)
+    if report is None:
+        if workspace is None:
+            return False, "nenhuma auditoria concluída está disponível nesta sessão"
+        return False, f"relatório de apresentação não disponível ou desatualizado em {workspace}"
     return open_external_path(report)
 
 

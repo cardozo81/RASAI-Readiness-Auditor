@@ -1,0 +1,67 @@
+[
+  {
+    "metric_id": "SARI_PRESENTATION_PROPOSAL",
+    "version": "1",
+    "unit": "0–100",
+    "thresholds": [
+      60,
+      80,
+      95
+    ],
+    "labels": [
+      "Mínimo proposto",
+      "Ideal proposto",
+      "Ótimo proposto"
+    ],
+    "origin": "PRODUCT_PROPOSAL",
+    "reference": "Issue #697",
+    "reference_version": "2026-11-13",
+    "note": "Proposta não aprovada; não classifica prontidão nem altera score persistido."
+  },
+  {
+    "metric_id": "LIGHTHOUSE_CATEGORY_PERSISTED_CONTRACT",
+    "version": "1",
+    "unit": "0–100",
+    "thresholds": [
+      50,
+      90
+    ],
+    "labels": [
+      "Precisa melhorar a partir de",
+      "Bom a partir de"
+    ],
+    "zone_classes": [
+      "z1",
+      "z2",
+      "z4"
+    ],
+    "origin": "PERSISTED_CONTRACT",
+    "reference": "RASAi report_semantics._lighthouse_score_state / catalog_report_page",
+    "reference_version": "main@13aeea0",
+    "range_text": "Ruim 0–49 · Precisa melhorar 50–89 · Bom 90–100",
+    "note": "Faixas já usadas pela apresentação canônica do RASAi; somente apresentação, sem recálculo do valor Lighthouse."
+  },
+  {
+    "metric_id": "APDEX_RESULT_PERSISTED_CONTRACT",
+    "version": "1",
+    "unit": "0–1",
+    "thresholds": [
+      0.7,
+      0.85
+    ],
+    "labels": [
+      "Regular a partir de",
+      "Bom a partir de"
+    ],
+    "zone_classes": [
+      "z1",
+      "z2",
+      "z4"
+    ],
+    "origin": "PERSISTED_CONTRACT",
+    "reference": "RASAi catalog_report_page CAT-06/CAT-07",
+    "reference_version": "main@13aeea0",
+    "range_text": "Ruim <0,70 · Regular 0,70–0,84 · Bom ≥0,85",
+    "note": "Faixas de resultado já usadas pelo relatório canônico. O threshold T da Task Apdex continua independente e não é alterado."
+  }
+]

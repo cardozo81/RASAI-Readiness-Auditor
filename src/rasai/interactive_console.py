@@ -6,7 +6,13 @@ import math
 import os
 import sys
 
-from rasai.console_artifacts import artifact_status, open_audit_folder, open_report
+from rasai.console_artifacts import (
+    artifact_status,
+    open_audit_folder,
+    open_presentation_report,
+    open_report,
+    presentation_report_entrypoint,
+)
 from rasai.console_collection import (
     load_collection_coverage,
     load_web_performance_attempt_diagnostics,
@@ -690,6 +696,9 @@ def _artifact_action(state: State, action: str) -> None:
     if action == "P":
         ok, detail = open_audit_folder(state)
         state.operation = "LOCAL:OPEN_AUDIT_FOLDER"
+    elif action == "A":
+        ok, detail = open_presentation_report(state)
+        state.operation = "LOCAL:OPEN_PRESENTATION_REPORT"
     else:
         ok, detail = open_report(state)
         state.operation = "LOCAL:OPEN_REPORT"
@@ -948,6 +957,7 @@ def _post_run_actions(state: State) -> bool:
     while True:
         render_header(state)
         workspace, report = artifact_status(state)
+        presentation_report = presentation_report_entrypoint(workspace)
         if state.audit_id:
             print(f"Audit ID    : {state.audit_id}")
         _render_actual_usage(state)
@@ -961,7 +971,8 @@ def _post_run_actions(state: State) -> bool:
             )
         print(" M. Ver linha de comando")
         print(f" P. Abrir pasta da auditoria [{availability_badge(bool(workspace))}]")
-        print(f" I. Abrir relatório HTML   [{availability_badge(bool(report))}]")
+        print(f" I. Abrir relatório HTML                  [{availability_badge(bool(report))}]")
+        print(f" A. Abrir relatório de apresentação       [{availability_badge(bool(presentation_report))}]")
         print(" V. Voltar ao menu")
         print(" Q. Sair")
         try:
@@ -1024,7 +1035,8 @@ def _post_run_actions(state: State) -> bool:
             continue
         if choice == "P" and workspace: _artifact_action(state, "P")
         elif choice == "I" and report: _artifact_action(state, "I")
-        elif choice in {"P", "I"}: state.error = "artefato ainda não disponível para esta auditoria"
+        elif choice == "A" and presentation_report: _artifact_action(state, "A")
+        elif choice in {"P", "I", "A"}: state.error = "artefato ainda não disponível para esta auditoria"
 
 
 def _menu(state: State) -> str:
@@ -1084,10 +1096,12 @@ def _menu(state: State) -> str:
     print(f"R. Executar [{marker}] {reason_text}")
     print("Q. Sair")
     workspace, report = artifact_status(state)
-    if workspace or report:
+    presentation_report = presentation_report_entrypoint(workspace)
+    if workspace or report or presentation_report:
         print("\nARTEFATOS")
         print(f"P. Abrir última pasta [{availability_badge(bool(workspace))}]")
         print(f"I. Abrir último relatório [{availability_badge(bool(report))}]")
+        print(f"A. Abrir último relatório de apresentação [{availability_badge(bool(presentation_report))}]")
     return input("Escolha: ").strip().upper()
 
 
@@ -1127,7 +1141,7 @@ def main() -> int:
             if configuration_fingerprint(state) != before:
                 mark_dirty(state)
             continue
-        if choice in {"P", "I"}:
+        if choice in {"P", "I", "A"}:
             _artifact_action(state, choice)
             continue
         if choice == "R":

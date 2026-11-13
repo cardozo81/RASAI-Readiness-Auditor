@@ -26,6 +26,19 @@ audits/<AUD-ID>/
    ├─ metrics.html
    ├─ manifest.json
    └─ css/site.css
+└─ report-presentation/
+   ├─ index.html
+   ├─ extracao.html
+   ├─ descoberta.html
+   ├─ indices.html
+   ├─ conteudo.html
+   ├─ performance.html
+   ├─ [página combinada de Search e GEO]
+   ├─ seguranca.html
+   ├─ plano.html
+   ├─ ia-custos.html
+   ├─ _geracao.json
+   └─ assets/
 ```
 
 ### Caminhos fora do contrato de saída de `rasai audit`
@@ -41,13 +54,15 @@ Não fazem parte do espaço de trabalho contratual de uma AUD:
 
 Os dados funcionais pertencem a `audit.db` e `artifacts/`, incluindo achados, evidências, recomendações, análises de causa, pontuação, telemetria/custos de IA, atendimento do contrato e rastreabilidade. Coletores, rastreadores, integrações externas, cálculo de pontuação, análises determinísticas e chamadas de IA persistem seus resultados nessas superfícies contratuais.
 
-### Relatório suportado por auditoria
+### Relatórios suportados por auditoria
 
-A projeção HTML pertencente à auditoria e suportada é `report-catalog/`. Sua materialização continua usando a fonte persistida da AUD e não executa coletores, APIs, provedores, IA ou cálculo de pontuação para preencher HTML.
+A projeção HTML canônica pertencente à auditoria continua sendo `report-catalog/`. Sua materialização usa a fonte persistida da AUD e não executa coletores, APIs, provedores, IA ou cálculo de pontuação para preencher HTML.
 
-O catálogo possui contrato próprio e inclui as páginas CAT selecionadas e suas páginas de governança. CAT-01 ... CAT-10, Matriz de encerramento estrutural, regras de catálogo e rastreabilidade dependem dos dados persistidos, não de uma árvore HTML paralela.
+Após processamento, reprocessamento ou complemento mutável que conclua a projeção canônica, o runtime também materializa `report-presentation/` como uma segunda visão derivada e somente de leitura. Essa saída não é fonte de verdade, não substitui o catálogo, não altera score e não participa do gate de sucesso da auditoria. Se houver nova geração para a mesma AUD, uma subpasta temporal preserva a saída anterior.
 
-Saídas independentes como `monitoring/`, `verification/`, `quality/TIMELINE-*`, `search-history/` e `consolidated/` mantêm seus contratos próprios e ficam fora do contrato HTML pertencente à auditoria em `report-catalog/`.
+O catálogo possui contrato próprio e inclui as páginas CAT selecionadas e suas páginas de governança. CAT-01 ... CAT-10, Matriz de encerramento estrutural, regras de catálogo e rastreabilidade continuam dependendo dos dados persistidos. O relatório de apresentação apenas reorganiza esses fatos para leitura editorial e investigação.
+
+Saídas independentes como `monitoring/`, `verification/`, `quality/TIMELINE-*`, `search-history/` e `consolidated/` mantêm seus contratos próprios e ficam fora dos dois relatórios de uma AUD.
 
 ### SaaS / Web
 

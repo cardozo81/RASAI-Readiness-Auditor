@@ -1,13 +1,16 @@
-"""Catalog-only audit finalization boundary.
+"""Audit report finalization boundary.
 
 Late functional finalizers persist audit data through ``finalize_audit_report_site``.
-The supported HTML projection is materialized separately in ``report-catalog/`` after
-those data finalizers complete. No ``<AUD>/report/`` projection is part of this contract.
+The canonical HTML projection remains ``report-catalog/`` and is the blocking freshness
+gate. Mutable AUD/RPR/complement flows may additionally publish the derived
+``report-presentation/`` projection after the canonical report is valid. Read-only
+rematerialization never creates that secondary output.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import logging
 import sqlite3
 import json
 from typing import Any, Mapping, Sequence
@@ -15,7 +18,7 @@ from typing import Any, Mapping, Sequence
 from rasai.persistence import AuditWorkspace
 
 
-# No non-catalog AUD HTML pages are part of the current output contract.
+# No legacy report/report.html AUD pages are part of the current output contract.
 AUDIT_ALWAYS_PAGES: tuple[str, ...] = ()
 
 
@@ -81,6 +84,27 @@ def finalize_audit_report_site(
 # Stable reference to the catalog-only base boundary before runtime installers
 # compose late data finalizers around finalize_audit_report_site.
 _BASE_FINALIZE_AUDIT_REPORT_SITE = finalize_audit_report_site
+
+
+def _materialize_parallel_report_best_effort(*, audit_id: str, workspace: AuditWorkspace) -> Path | None:
+    """Generate the presentation report without making it an audit-success gate."""
+    try:
+        from rasai.parallel_report.generator import generate
+
+        output = Path(generate(workspace.root)).resolve()
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "Parallel presentation report unavailable for %s (%s)",
+            audit_id,
+            type(exc).__name__,
+        )
+        return None
+    logging.getLogger(__name__).info(
+        "Parallel presentation report materialized: audit=%s output=%s",
+        audit_id,
+        output.name,
+    )
+    return output
 
 
 def materialize_catalog_report_projection(
@@ -157,6 +181,15 @@ def materialize_catalog_report_projection(
                 errors.append(
                     "catalog-report-freshness:RuntimeError:published catalog report does not match persisted audit"
                 )
+
+    # Mutable AUD/RPR/complement flows publish the secondary presentation
+    # only after the canonical catalog is confirmed. Read-only rematerialization
+    # keeps its original no-new-output contract.
+    if not read_only and not errors:
+        _materialize_parallel_report_best_effort(
+            audit_id=audit_id,
+            workspace=workspace,
+        )
 
     return AuditReportCompletion(
         expected_pages=(),

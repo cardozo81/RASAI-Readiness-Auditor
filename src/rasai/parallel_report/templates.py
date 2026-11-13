@@ -1,0 +1,44 @@
+"""Public labels for the independent presentation, without runtime imports."""
+LABELS = {
+    'scores': 'Índice de Prontidão Search & IA e dimensões',
+    'findings': 'Achados da auditoria', 'evidence': 'Evidências persistidas',
+    'page_snapshots': 'Capturas de páginas', 'pages': 'Páginas auditadas',
+    'audits': 'Identificação da auditoria', 'audit_targets': 'Alvos da auditoria',
+    'directed_analysis_actions': 'Ações da análise direcionada',
+    'recommendations': 'Recomendações', 'recommendation_governance': 'Decisões de governança',
+    'score_contributions': 'Composição dos índices', 'rule_executions': 'Resultados das regras',
+    'web_performance_observations': 'Lighthouse e CrUX',
+    'synthetic_apdex_summaries': 'Apdex de navegação — sínteses',
+    'synthetic_ux_apdex_summaries': 'Apdex de experiência — sínteses',
+    'ai_provider_attempts': 'Tentativas de IA e integrações',
+    'content_remediation_attempts': 'Tentativas de remediação de conteúdo',
+    'value': 'Valor persistido', 'performance_score': 'Lighthouse Performance',
+    'accessibility_score': 'Lighthouse Accessibility', 'apdex_score': 'Apdex sintético',
+    'coverage': 'Cobertura', 'confidence': 'Confiança declarada na fonte',
+    'device': 'Dispositivo', 'url': 'URL', 'field_scope': 'Escopo de campo',
+    'profile_id': 'Perfil', 'valid_samples': 'Amostras válidas',
+    'severity': 'Severidade', 'priority': 'Prioridade', 'priority_class': 'Prioridade',
+    'validation': 'Como validar', 'verification': 'Verificação',
+    'expected_condition': 'Esperado', 'observed_value': 'Observado',
+    'lcp_p75_ms': 'LCP de campo p75 (ms)',
+}
+
+
+def label(value):
+    return LABELS.get(value, value.replace('_', ' '))
+
+LABELS.update({
+ 'OVERALL_READINESS':'Índice de Prontidão Search & IA (SARI)',
+ 'DISCOVERY_ACCESS':'Acesso e descoberta','INDEXABILITY':'Indexabilidade',
+ 'CONTENT_EXTRACTABILITY':'Extração de conteúdo','SEMANTIC_STRUCTURE':'Estrutura semântica',
+ 'ENTITY_CLARITY':'Clareza de entidades','STRUCTURED_DATA':'Dados estruturados',
+ 'ANSWERABILITY':'Capacidade de resposta','CITATION_READINESS':'Preparação para citação',
+ 'EVIDENCE_TRUST':'Confiança na evidência','INTENT_COVERAGE':'Cobertura de intenção',
+ 'CONTENT_VALUE':'Valor do conteúdo','best_practices_score':'Lighthouse · Boas práticas',
+ 'seo_score':'Lighthouse · SEO',
+})
+
+# Public labels share one field vocabulary; technical payload keys stay unchanged.
+from .presentation_labels import FIELD_LABELS
+LABELS.update(FIELD_LABELS)
+LABELS.update({'performance_score':'Lighthouse · Desempenho','accessibility_score':'Lighthouse · Acessibilidade'})

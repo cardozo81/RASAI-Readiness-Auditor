@@ -21,6 +21,7 @@ import rasai.console_navigation as navigation
 import rasai.console_runtime as console_runtime
 import rasai.console_usability_refinements as usability
 import rasai.consolidation.console as consolidated_console
+import rasai.interactive_console as interactive_console
 
 
 def test_text_prompt_identifies_field_current_value_and_cancel_action() -> None:
@@ -108,12 +109,20 @@ def test_reprocess_live_frame_delegates_to_same_runtime_renderer_as_processing(
 
 
 def test_report_and_folder_hotkeys_are_uniform_in_audit_and_consolidated_surfaces() -> None:
-    audit_source = inspect.getsource(usability._selected_audit_menu)
+    audit_sources = (
+        inspect.getsource(interactive_console._menu),
+        inspect.getsource(interactive_console._post_run_actions),
+        inspect.getsource(navigation._selected_audit_menu),
+        inspect.getsource(usability._selected_audit_menu),
+        inspect.getsource(reprocess_final._run_post_actions),
+    )
     history_source = inspect.getsource(consolidated_console._history)
     generation_source = inspect.getsource(consolidated_console._generate)
 
-    assert "I. Abrir relatório HTML" in audit_source
-    assert 'if choice == "I"' in audit_source
+    for source in audit_sources:
+        assert "I. Abrir" in source
+        assert "A. Abrir" in source
+        assert "relatório de apresentação" in source
 
     for source in (history_source, generation_source):
         assert "I. Abrir relatório" in source

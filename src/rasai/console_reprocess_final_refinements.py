@@ -662,7 +662,7 @@ def _run_post_actions(
 ) -> None:
     """Keep result, cost, remaining errors and all contextual actions on one screen."""
     from rasai import console_reprocess_parity as parity
-    from rasai.console_artifacts import artifact_status
+    from rasai.console_artifacts import artifact_status, presentation_report_entrypoint
     from rasai.console_ui import GRAY, YELLOW, availability_badge, paint, title_text
 
     normal_usage = getattr(console_module, "_render_actual_usage", None)
@@ -677,6 +677,7 @@ def _run_post_actions(
             audits_root=effective_root,
         )
         workspace, report = artifact_status(artifact_state)
+        presentation_report = presentation_report_entrypoint(workspace)
         if getattr(state, "audit_id", ""):
             from rasai.console_history_presentation import audit_identity_context
             audit_root = Path(_effective_root(state)) / state.audit_id
@@ -699,7 +700,8 @@ def _run_post_actions(
             print(" R. Reprocessar novamente " + paint("[INDISPONÍVEL — não há pendência com retry automático]", GRAY))
         print(" M. Ver linha de comando")
         print(f" P. Abrir pasta da auditoria [{availability_badge(bool(workspace))}]")
-        print(f" I. Abrir relatório HTML   [{availability_badge(bool(report))}]")
+        print(f" I. Abrir relatório HTML                  [{availability_badge(bool(report))}]")
+        print(f" A. Abrir relatório de apresentação       [{availability_badge(bool(presentation_report))}]")
         print(" V. Voltar para a auditoria selecionada")
         print(" Q. Sair")
         choice = input("Escolha: ").strip().upper()
@@ -757,7 +759,13 @@ def _run_post_actions(
             else:
                 state.error = "relatório HTML ainda não disponível"
             continue
-        state.error = "opção inválida; use R, M, P, I, V ou Q"
+        if choice == "A":
+            if presentation_report and callable(artifact_action):
+                _call_with_effective_root(state, artifact_action, "A")
+            else:
+                state.error = "relatório de apresentação ainda não disponível"
+            continue
+        state.error = "opção inválida; use R, M, P, I, A, V ou Q"
 
 
 def _reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) -> None:

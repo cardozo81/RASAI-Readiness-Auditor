@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "canonical_pages": {
+    "index.html": ["index.html"],
+    "sari.html": ["indices.html", "index.html"],
+    "cat-01.html": ["descoberta.html"],
+    "cat-02.html": ["conteudo.html", "performance.html"],
+    "cat-03.html": ["conteudo.html"],
+    "cat-04.html": ["performance.html"],
+    "cat-05.html": [{"page_parts": ["search", "geo"]}],
+    "cat-06.html": ["performance.html"],
+    "cat-07.html": ["performance.html"],
+    "cat-08.html": ["conteudo.html", "plano.html"],
+    "cat-09.html": ["plano.html"],
+    "cat-10.html": ["seguranca.html"],
+    "network.html": ["performance.html"],
+    "geo.html": [{"page_parts": ["search", "geo"]}],
+    "geo-content-review.html": ["conteudo.html", {"page_parts": ["search", "geo"]}],
+    "directed-analysis.html": ["plano.html"],
+    "capture-context.html": ["extracao.html"],
+    "execution-evidence.html": ["index.html", "ia-custos.html"],
+    "ai-integrations.html": ["ia-custos.html"],
+    "methodology.html": ["indices.html"],
+    "metrics.html": ["indices.html", "performance.html"]
+  },
+  "note": "Conceptual correspondence, not certification of HTML parity. Runtime adds all actual source families."
+}

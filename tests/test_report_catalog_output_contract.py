@@ -45,6 +45,12 @@ def test_catalog_projection_is_separate_from_data_finalization(
 
     monkeypatch.setattr(catalog_report_site, "materialize_catalog_report_site", materialize)
     monkeypatch.setattr(catalog_report_site, "catalog_report_is_fresh", lambda **_: True)
+    from rasai.parallel_report import generator as parallel_generator
+    monkeypatch.setattr(
+        parallel_generator,
+        "generate",
+        lambda root: calls.append("presentation") or (Path(root) / "report-presentation"),
+    )
 
     data_result = _base_finalizer()(
         audit_id="AUD-CATALOG-SEPARATION",
@@ -60,6 +66,35 @@ def test_catalog_projection_is_separate_from_data_finalization(
 
     assert data_result.renderer_errors == ()
     assert catalog_result.renderer_errors == ()
-    assert calls == ["materialize:AUD-CATALOG-SEPARATION"]
+    assert calls == ["materialize:AUD-CATALOG-SEPARATION", "presentation"]
     assert (workspace.root / "report-catalog" / "index.html").is_file()
     assert not (workspace.root / "report").exists()
+
+
+def test_read_only_catalog_projection_does_not_generate_presentation_report(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    workspace = AuditWorkspace.create(tmp_path, "AUD-READ-ONLY-PROJECTION")
+    calls: list[str] = []
+
+    from rasai import catalog_report_site
+    from rasai.parallel_report import generator as parallel_generator
+
+    def materialize(*, audit_id: str, workspace: AuditWorkspace):
+        root = workspace.root / "report-catalog"
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "index.html").write_text("catalog", encoding="utf-8")
+
+    monkeypatch.setattr(catalog_report_site, "materialize_catalog_report_site", materialize)
+    monkeypatch.setattr(catalog_report_site, "catalog_report_is_fresh", lambda **_: True)
+    monkeypatch.setattr(parallel_generator, "generate", lambda root: calls.append("presentation"))
+
+    result = report_completion.materialize_catalog_report_projection(
+        audit_id="AUD-READ-ONLY-PROJECTION",
+        workspace=workspace,
+        read_only=True,
+    )
+
+    assert result.renderer_errors == ()
+    assert calls == []

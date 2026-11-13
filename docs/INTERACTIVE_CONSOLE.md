@@ -101,15 +101,16 @@ Regras:
 - persistência/removal de credencial em Windows/User exige frase explícita;
 - descartar configuração não salva ao sair exige `DESCARTAR`.
 
-Atalhos operacionais são uniformes nas telas de AUD e CONS:
+Atalhos operacionais de uma AUD mantêm o relatório canônico e a visão de apresentação separados:
 
 ```text
 I. Abrir relatório HTML
+A. Abrir relatório de apresentação
 P. Abrir pasta/diretório
 V. Voltar
 ```
 
-A letra `I` fica reservada para abrir relatório nas superfícies de resultado/detalhe. Busca direta de Audit ID usa `B`.
+A letra `I` continua reservada ao relatório canônico da AUD; `A` abre somente o `report-presentation/` cuja origem corresponde ao `audit.db` atual. Em superfícies CONS, que não possuem esse artefato por AUD, permanecem os atalhos próprios de relatório/pasta. Busca direta de Audit ID usa `B`.
 
 ### Entrada visual de dados sensíveis
 
@@ -456,6 +457,7 @@ Quando uma execução física termina com diagnóstico ainda parcial e existe ao
 R. Reprocessar pendências desta auditoria [APTO]
 P. Abrir pasta da auditoria
 I. Abrir relatório HTML
+A. Abrir relatório de apresentação
 V. Voltar ao menu
 ```
 

@@ -192,24 +192,31 @@ def test_final_selected_audit_menu_can_open_catalog_report(monkeypatch, tmp_path
         "_configuration_reuse_status",
         lambda current_state, audit_id: (True, "snapshot canônico íntegro"),
     )
+    presentation = tmp_path / "presentation-index.html"
+    presentation.write_text("presentation", encoding="utf-8")
     monkeypatch.setattr(
         "rasai.console_artifacts.report_entrypoint",
         lambda workspace: report,
+    )
+    monkeypatch.setattr(
+        "rasai.console_artifacts.presentation_report_entrypoint",
+        lambda workspace: presentation,
     )
     opened: list[Path] = []
     monkeypatch.setattr(
         "rasai.console_artifacts.open_external_path",
         lambda path: (opened.append(Path(path)) or True, str(path)),
     )
-    answers = iter(["I", "V"])
+    answers = iter(["I", "A", "V"])
     monkeypatch.setattr(builtins, "input", lambda prompt="": next(answers))
 
     with redirect_stdout(StringIO()) as output:
         assert usability._selected_audit_menu(console, state, "AUD-REPORT") is False
 
-    assert opened == [report]
+    assert opened == [report, presentation]
     assert "I. Abrir relatório HTML" in output.getvalue()
-    assert state.operation == "LOCAL:OPEN_SELECTED_AUDIT_REPORT"
+    assert "A. Abrir relatório de apresentação" in output.getvalue()
+    assert state.operation == "LOCAL:OPEN_SELECTED_AUDIT_PRESENTATION_REPORT"
     assert state.error == ""
 
 
