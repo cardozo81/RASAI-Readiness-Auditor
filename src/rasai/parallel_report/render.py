@@ -50,8 +50,8 @@ def record_html(record, links, physical_links=(), timezone_name=None):
         origin = 'Externo'
     fields = ('value', 'performance_score', 'accessibility_score', 'apdex_score', 'lcp_p75_ms', 'coverage', 'confidence', 'device', 'url', 'field_scope', 'profile_id', 'valid_samples', 'severity', 'priority', 'priority_class', 'validation', 'verification', 'expected_condition', 'observed_value')
     summary = ''.join(f'<dt>{esc(metric_label({**data,"_source_table":record.table},k,{}) if k=="apdex_score" else public_label(k))}</dt><dd>{esc(public_value(data[k],k,timezone_name))}</dd>' for k in fields if k in data and not isinstance(data[k], (dict, list)))
-    refs = ''.join(f'<a href="{esc(target)}">Referência vinculada {i + 1}</a> ' for i, target in enumerate(links[record.href]))
-    refs += ''.join(f'<a href="extracao.html#physical-{index}">Referência de evidência física</a> ' for index in physical_links)
+    refs = ''.join(f'<a class="tech-link" href="{esc(target)}">Abrir registro técnico relacionado {i + 1}</a> ' for i, target in enumerate(links[record.href]))
+    refs += ''.join(f'<a class="tech-link" href="extracao.html#physical-{index}">Abrir evidência física</a> ' for index in physical_links)
     return f'<div class="record" id="{record.anchor}"><h3>{esc(title)}</h3><p class="org">{esc(origin)}</p><p>{esc(status)}</p><dl>{summary}</dl><details><summary>Dados persistidos e proveniência</summary>{payload(data)}<p>ID de apresentação: {record.anchor}</p></details><nav aria-label="Referências bidirecionais">{refs}</nav></div>'
 
 
@@ -71,10 +71,10 @@ def review_table(records, links, evidence, physical):
             item = evidence[index] if index is not None else {}
             file = esc(item.get('reference')) + '<br><code>' + esc(item.get('sha256')) + '</code>'
             element = esc(item.get('selector', data.get('selector'))) + '<pre>' + esc(item.get('excerpt')) + '</pre>'
-            problem = f'<a href="{record.href}">{esc(data.get("title", data.get("finding_id")))}</a><br>{esc(public_value(data.get("severity"),"severity"))} / {esc(public_value(data.get("priority"),"priority"))}'
+            problem = f'{esc(data.get("title", data.get("finding_id")))}<br>{esc(public_value(data.get("severity"),"severity"))} / {esc(public_value(data.get("priority"),"priority"))}<br><a class="tech-link" href="{record.href}">Abrir achado técnico</a>'
             origin = esc(data.get('source', data.get('origin_kind'))) + '<br>' + esc(item.get('coverage', 'Parcial — vínculo físico inequívoco ausente'))
-            action = '<br>'.join(f'<a href="{r.href}">{esc(thaw(r.data).get("title", "Ação vinculada"))}</a>' for r in actions) or 'N/D'
-            evidence_link = f'<a href="extracao.html#physical-{index}">Referência de evidência</a>' if index is not None else 'N/D'
+            action = '<br>'.join(f'{esc(thaw(r.data).get("title", "Ação vinculada"))}<br><a class="tech-link" href="{r.href}">Abrir ação técnica</a>' for r in actions) or 'N/D'
+            evidence_link = f'<a class="tech-link" href="extracao.html#physical-{index}">Abrir evidência física</a>' if index is not None else 'N/D'
             validation = [thaw(r.data).get('validation_steps_json', thaw(r.data).get('validation', thaw(r.data).get('verification'))) for r in actions]
             validation = [value for value in validation if value is not None]
             body += '<tr>' + ''.join(f'<td>{value}</td>' for value in (file, element, problem, origin, action, evidence_link, payload(validation) if validation else esc(data.get('validation')))) + '</tr>'
@@ -97,7 +97,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
             body += '<h2>Contagens derivadas da captura</h2>' + table('Calculado no relatório', calculated, [('source','Fonte'),('sha256','SHA-256'),('words','Palavras'),('links','Links'),('images','Imagens'),('algorithm_version','Algoritmo')])
             body += '<h2>Arquivos e referências físicas</h2>'
             for index, item in enumerate(evidence):
-                body += f'<details id="physical-{index}"><summary>{esc(item["reference"])}</summary>' + kv([(public_label(k),public_value(item.get(k),k,timezone_name)) for k in ('sha256','type','coverage','selector','line','column')]) + f'<pre>{esc(item.get("excerpt"))}</pre><a href="{item["source_href"]}">Voltar à origem</a><details class="in"><summary>Proveniência completa</summary>{payload(item)}</details></details>'
+                body += f'<details id="physical-{index}"><summary>{esc(item["reference"])}</summary>' + kv([(public_label(k),public_value(item.get(k),k,timezone_name)) for k in ('sha256','type','coverage','selector','line','column')]) + f'<pre>{esc(item.get("excerpt"))}</pre><a class="tech-link" href="{item["source_href"]}">Voltar ao registro técnico de origem</a><details class="in"><summary>Proveniência completa</summary>{payload(item)}</details></details>'
         if page == 'performance':
             body += '<p class="callout w">Laboratório, campo e amostras sintéticas são universos independentes. Sem série temporal comparável persistida, nenhum gráfico histórico é fabricado.</p>'
         if page == SEARCH_PAGE:
@@ -109,7 +109,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
             if destination(table_name) != page:
                 continue
             items = [r for r in records if r.table == table_name]
-            body += f'<details><summary>{esc(public_label(table_name))} · {len(items)} registros</summary><a href="anexos/{sha256(table_name.encode()).hexdigest()}.json">Anexo sanitizado integral</a>'
+            body += f'<details><summary>{esc(public_label(table_name))} · {len(items)} registros</summary><a class="tech-link" href="anexos/{sha256(table_name.encode()).hexdigest()}.json">Abrir anexo sanitizado integral</a>'
             body += ''.join(record_html(record, links, physical.get(record.href, ()), timezone_name) for record in items) + '</details>'
         body += '</details><details><summary>Limitações, cobertura e conferência de paridade</summary>' + payload({'missing_data':missing,'parity':parity}) + '</details>'
         audit_id = tables.get('audits',[{}])[0].get('audit_id') if tables.get('audits') else None
