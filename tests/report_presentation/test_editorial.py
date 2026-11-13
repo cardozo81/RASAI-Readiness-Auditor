@@ -136,11 +136,17 @@ def test_public_labels_across_ten_pages(tmp_path):
     assert '10/09/2026 21:00:00' in html and 'title="2026-09-11T00:00:00Z"' in html
     assert 'Evidência e detalhes' not in html
     assert 'Abrir registro técnico' in html
+    assert 'class="modal-open"' in html
+    assert 'Ver detalhes' in html
+    assert '<dialog class="detail-dialog"' in html
+    assert 'Dados persistidos completos' in html
+    assert 'Abrir registro técnico completo' in html
 
     for path in output.glob('*.html'):
         page_html=path.read_text(encoding='utf-8')
         assert 'Evidência e detalhes' not in page_html
         assert 'Evidências e origem persistida' not in page_html
+        assert 'href="#">' not in page_html
 
 
 def test_chip_palette_contrast():
