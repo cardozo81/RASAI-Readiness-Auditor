@@ -345,7 +345,7 @@ def _editorial_evaluation_panel(report):
         + _e(counts["qualified_opportunities"]) + ".</p>"
         "<p>Contagem mede suficiência de contrato, sem aceite editorial nem ganho de modelo. "
         "Qualidade incremental da IA: N/D; exige piloto real autorizado. IA ativa não autorizada; "
-        "nenhum provedor chamado, custo externo zero. Autorização de merge não autoriza despesa.</p>"
+        "nenhum provedor chamado, custo externo zero. Uso futuro de IA exige consentimento específico e orçamento.</p>"
         "<p><a href='capture-context.html#contextual-content'>Inspecionar proveniência capturada</a></p></section>")
 
 
