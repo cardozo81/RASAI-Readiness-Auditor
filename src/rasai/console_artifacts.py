@@ -102,19 +102,43 @@ def materialize_presentation_report_on_demand(
     if not database.is_file() or database.is_symlink():
         return None, "audit.db ausente ou inseguro"
     try:
-        from rasai.catalog_report_site import catalog_report_is_fresh
+        from rasai.catalog_report_site import (
+            _sqlite_logical_digest,
+            catalog_report_is_fresh,
+        )
         from rasai.persistence import AuditWorkspace
 
         canonical_workspace = AuditWorkspace.open(workspace)
-        if not catalog_report_is_fresh(
+        logical_before = _sqlite_logical_digest(database)
+        canonical_fresh = catalog_report_is_fresh(
             audit_id=workspace.name,
             workspace=canonical_workspace,
-        ):
-            return None, "relatório canônico desatualizado para o audit.db atual"
+        )
+        if not canonical_fresh:
+            from rasai.report_completion import materialize_catalog_report_projection
+
+            replay = materialize_catalog_report_projection(
+                audit_id=workspace.name,
+                workspace=canonical_workspace,
+                read_only=True,
+            )
+            logical_after_replay = _sqlite_logical_digest(database)
+            if logical_after_replay != logical_before:
+                return None, "rematerialização read-only alterou o audit.db"
+            if replay.renderer_errors:
+                return None, "não foi possível rematerializar o relatório canônico em modo read-only"
+            if not catalog_report_is_fresh(
+                audit_id=workspace.name,
+                workspace=canonical_workspace,
+            ):
+                return None, "relatório canônico permaneceu desatualizado após rematerialização read-only"
 
         from rasai.parallel_report.generator import generate
 
         generate(workspace)
+        logical_after_generation = _sqlite_logical_digest(database)
+        if logical_after_generation != logical_before:
+            return None, "geração da apresentação alterou o audit.db"
     except Exception as exc:
         return None, f"geração da apresentação falhou ({type(exc).__name__})"
     generated = presentation_report_entrypoint(workspace)
