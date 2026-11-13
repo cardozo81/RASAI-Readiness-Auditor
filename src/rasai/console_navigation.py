@@ -77,6 +77,14 @@ def _reconciled_summary(
     return reader(audit_root, audit_id)
 
 
+
+def _navigation_summary(audit_root: Path, audit_id: str) -> dict[str, Any]:
+    """Read COMPLETE audits without mutating them; reconcile only unfinished audits."""
+    summary = _safe_summary(audit_root, audit_id)
+    if str(summary.get("processing_status") or "").upper() == "COMPLETE":
+        return summary
+    return _reconciled_summary(audit_root, audit_id)
+
 def _configuration_reuse_status(state: Any, audit_id: str) -> tuple[bool, str]:
     """Return whether the selected AUD has a valid console snapshot and why not."""
     from rasai.audit_configuration_reuse import KIND_CONSOLE, load_reusable_audit_configuration
@@ -245,7 +253,7 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
 
     while True:
         audit_root = Path(state.audits_root) / audit_id
-        summary = _reconciled_summary(audit_root, audit_id)
+        summary = _navigation_summary(audit_root, audit_id)
         reuse_available, reuse_detail = _configuration_reuse_status(state, audit_id)
         report_path = report_entrypoint(audit_root)
         presentation_report_path = presentation_report_entrypoint(audit_root)
