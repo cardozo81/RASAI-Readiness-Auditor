@@ -89,6 +89,8 @@ def _navigation_summary(
     summary = reader(audit_root, audit_id)
     if str(summary.get("processing_status") or "").upper() == "COMPLETE":
         return summary
+    if summary_reader is None:
+        return _reconciled_summary(audit_root, audit_id)
     return _reconciled_summary(audit_root, audit_id, summary_reader=reader)
 
 def _configuration_reuse_status(state: Any, audit_id: str) -> tuple[bool, str]:
