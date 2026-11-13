@@ -282,9 +282,16 @@ def test_materialize_presentation_report_on_demand_requires_canonical_and_revali
 ) -> None:
     from rasai import console_artifacts
 
+    import sqlite3
+
     workspace = tmp_path / "AUD-HISTORICAL-MATERIALIZE"
     workspace.mkdir()
-    (workspace / "audit.db").write_bytes(b"sqlite-placeholder")
+    with sqlite3.connect(workspace / "audit.db") as connection:
+        connection.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY)")
+        connection.execute(
+            "INSERT INTO audits VALUES (?)",
+            (workspace.name,),
+        )
     canonical = workspace / "report-catalog" / "index.html"
     canonical.parent.mkdir()
     canonical.write_text("<html></html>", encoding="utf-8")
