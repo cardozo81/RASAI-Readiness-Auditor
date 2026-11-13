@@ -301,6 +301,10 @@ def test_materialize_presentation_report_on_demand_requires_canonical_and_revali
         "report_entrypoint",
         lambda current: canonical,
     )
+    monkeypatch.setattr(
+        "rasai.catalog_report_site.catalog_report_is_fresh",
+        lambda **kwargs: True,
+    )
     calls: list[Path] = []
     monkeypatch.setattr(
         "rasai.parallel_report.generator.generate",
