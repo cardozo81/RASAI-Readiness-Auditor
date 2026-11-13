@@ -27,6 +27,12 @@ def kv(pairs):
     return '<dl class="kv">' + ''.join(f'<div><dt>{text(k)}</dt><dd>{text(v)}</dd></div>' for k, v in pairs) + '</dl>'
 
 
+def technical_link(href, label='Abrir registro técnico'):
+    if not href:
+        return ''
+    return f'<a class="tech-link" href="{text(href)}">{text(label)}</a>'
+
+
 def ruler(label, value, maximum=100, proposal=None, scope=None, href=None):
     valid = isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
     position = min(100, max(0, value / maximum * 100)) if valid else None
@@ -41,8 +47,9 @@ def ruler(label, value, maximum=100, proposal=None, scope=None, href=None):
     reference = proposal['origin'] if proposal else 'PERSISTED_CONTRACT'
     labels = (proposal.get('range_text') or ' · '.join(f'{label}: {value}' for label, value in zip(proposal['labels'], zones))) if proposal else f'0–{maximum}'
     display_value = (format(value, '.2f').rstrip('0').rstrip('.').replace('.', ',') if valid else text(value))
-    title = f'<a href="{text(href)}">{text(label)}</a>' if href else text(label)
-    return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{text(ORIGIN_LABELS.get(reference, reference))}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)} · {text(ORIGIN_LABELS.get(reference, reference))}</div><div class="rf">{text(scope)}</div><details class="in"><summary>Origem da faixa e limites</summary>{text(note)}<p><code>{text(reference)}</code></p></details></div>'
+    title = text(label)
+    technical = ('<p class="rf">' + technical_link(href) + '</p>') if href else ''
+    return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{text(ORIGIN_LABELS.get(reference, reference))}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)} · {text(ORIGIN_LABELS.get(reference, reference))}</div><div class="rf">{text(scope)}</div><details class="in"><summary>Origem da faixa e limites</summary>{text(note)}<p><code>{text(reference)}</code></p>{technical}</details></div>'
 
 
 def table(caption, rows, columns, timezone_name=None):
@@ -55,7 +62,7 @@ def table(caption, rows, columns, timezone_name=None):
             if key in {'status', 'state', 'result', 'severity', 'priority', 'priority_class'}:
                 cell = chip(value,key)
             elif key == '_ref':
-                cell = f'<a href="{text(value)}">Evidência e detalhes</a>' if value else 'N/D'
+                cell = technical_link(value) if value else 'N/D'
             else:
                 cell = text(public_value(value,key,timezone_name))
                 if len(str(value)) > 180:
