@@ -219,6 +219,23 @@ def test_schema_and_crossrefs(tmp_path):
         finding.data['title'] = 'changed'
 
 
+def test_extension_primary_key_does_not_shadow_entity():
+    tables = {'findings': [{'finding_id': 'f'}],
+              'root_cause_precision': [{'finding_id': 'f', 'observed_selector': 'h1'}],
+              'recommendations': [{'recommendation_id': 'r', 'finding_id': 'f'}]}
+    schema = {table: {'primary_key': [next(iter(rows[0]))]} for table, rows in tables.items()}
+    records = build(tables, schema)
+    links, ambiguous = link_records(records)
+    finding = next(r for r in records if r.table == 'findings')
+    assert len(links[finding.href]) == 2
+    assert ambiguous == 0
+    tables['passive_security_findings'] = [{'finding_id': 'f'}]
+    schema['passive_security_findings'] = {'primary_key': ['finding_id']}
+    records = build(tables, schema)
+    links, ambiguous = link_records(records)
+    assert ambiguous == 1  # two canonical owners: still abstain
+
+
 def test_existing_presentation_not_shadowed():
     import rasai.report_presentation as legacy
     assert Path(legacy.__file__).name == 'report_presentation.py'

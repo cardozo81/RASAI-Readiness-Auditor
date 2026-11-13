@@ -2,6 +2,18 @@
 from collections import defaultdict
 from .read_model import thaw
 
+# These are canonical entity owners in the inspected persistence contracts.
+# Projection/extension tables may reuse the same PK as a foreign key: they must
+# link to the entity, not make its identity appear ambiguous.
+OWNERS = {
+    'audit_id': {'audits'}, 'page_id': {'pages'}, 'snapshot_id': {'page_snapshots'},
+    'finding_id': {'findings', 'improvement_intelligence_findings', 'passive_security_findings'},
+    'evidence_id': {'evidence', 'request_remediation_evidence'},
+    'score_id': {'scores'}, 'action_id': {'directed_analysis_actions'},
+    'rule_execution_id': {'rule_executions'},
+    'attempt_id': {'ai_provider_attempts', 'content_remediation_attempts'},
+}
+
 
 def values(value):
     if isinstance(value, dict):
@@ -19,7 +31,8 @@ def link_records(records):
     for record in records:
         if len(record.identity) == 1:
             key, value = record.identity[0]
-            if key.endswith('_id') and isinstance(value, str):
+            owner = key not in OWNERS or record.table in OWNERS[key]
+            if owner and key.endswith('_id') and isinstance(value, str):
                 identities[value].add(record.href)
     links = {r.href: set() for r in records}
     ambiguous = set()
