@@ -1,6 +1,6 @@
 from pathlib import Path
 from rasai.parallel_report.components import ruler, stack
-from rasai.parallel_report.page_views import SECTIONS
+from rasai.parallel_report.page_views import SECTIONS, _metric_proposal
 from rasai.parallel_report.thresholds import load
 
 
@@ -13,6 +13,25 @@ def test_ruler_proportions_and_absence():
     assert 'data-position="0"' in ruler('Zero', 0)
     assert 'data-position="100"' in ruler('Overflow', 101)
     assert 'data-position="50"' in ruler('Apdex', .5, maximum=1)
+
+
+def test_metric_contracts_color_lighthouse_and_apdex_rulers():
+    contracts = load()
+    lighthouse = _metric_proposal('performance_score', contracts)
+    apdex = _metric_proposal('apdex_score', contracts)
+    assert lighthouse['thresholds'] == [50, 90]
+    assert lighthouse['zone_classes'] == ['z1', 'z2', 'z4']
+    assert apdex['thresholds'] == [0.70, 0.85]
+    assert apdex['zone_classes'] == ['z1', 'z2', 'z4']
+    lighthouse_html = ruler('Lighthouse Performance', 78, 100, lighthouse)
+    apdex_html = ruler('Apdex sintético', .85, 1, apdex)
+    for html in (lighthouse_html, apdex_html):
+        assert 'class="z1"' in html
+        assert 'class="z2"' in html
+        assert 'class="z4"' in html
+        assert 'class="z0"' not in html
+    assert 'PERSISTED_CONTRACT' in lighthouse_html
+    assert 'PERSISTED_CONTRACT' in apdex_html
 
 
 def test_stack_and_editorial_ownership():
