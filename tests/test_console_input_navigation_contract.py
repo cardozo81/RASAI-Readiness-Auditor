@@ -114,6 +114,8 @@ def test_report_and_folder_hotkeys_are_uniform_in_audit_and_consolidated_surface
 
     assert "I. Abrir relatório HTML" in audit_source
     assert 'if choice == "I"' in audit_source
+    assert "A. Abrir relatório de apresentação" in audit_source
+    assert 'if choice == "A"' in audit_source
 
     for source in (history_source, generation_source):
         assert "I. Abrir relatório" in source
