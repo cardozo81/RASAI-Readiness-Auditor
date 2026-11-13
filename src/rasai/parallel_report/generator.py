@@ -43,6 +43,8 @@ def generate(audit_dir):
     database = confined(root, 'audit.db')
     quiescent(database)
     before = inventory(root)
+    from rasai.catalog_report_site import _sqlite_logical_digest
+    logical_before = _sqlite_logical_digest(database)
     tables, schema = read_database(database)
     records = build(tables, schema)
     links, ambiguous = link_records(records)
@@ -83,7 +85,8 @@ def generate(audit_dir):
     (output / 'assets' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
     after = inventory(root)
     quiescent(database)
-    if before != after:
+    logical_after = _sqlite_logical_digest(database)
+    if before != after or logical_before != logical_after:
         raise RuntimeError('Source changed during generation; output is NOT validated')
     generated = {p.relative_to(output).as_posix(): digest(p) for p in output.rglob('*') if p.is_file()}
     manifest = {
@@ -91,6 +94,7 @@ def generate(audit_dir):
         'audit_id': sanitize(tables.get('audits', [{}])[0].get('audit_id')) if tables.get('audits') else None,
         'generated_at': generated_at, 'timezone': 'UTC',
         'source_db_relative_path': 'audit.db', 'source_db_sha256': before['audit.db'],
+        'source_db_logical_sha256': logical_before,
         'report_catalog_tree_digest': tree_digest(before, 'report-catalog/'),
         'source_tree_digest_before': tree_digest(before), 'source_tree_digest_after': tree_digest(after),
         'source_inventory': before, 'tables_read': list(tables),

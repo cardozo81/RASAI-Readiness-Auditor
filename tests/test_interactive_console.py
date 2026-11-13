@@ -224,15 +224,26 @@ class InteractiveConsoleTests(unittest.TestCase):
                 self.assertEqual(report_entrypoint(workspace), current.resolve())
 
     def test_presentation_report_entrypoint_requires_current_database_hash(self) -> None:
-        import hashlib
         import json
+        import sqlite3
+
+        from rasai.catalog_report_site import _sqlite_logical_digest
 
         with TemporaryDirectory() as directory:
             workspace = Path(directory) / "AUD-PRESENTATION"
             workspace.mkdir(parents=True)
             database = workspace / "audit.db"
-            database.write_bytes(b"current-db")
-            source_hash = hashlib.sha256(database.read_bytes()).hexdigest()
+            connection = sqlite3.connect(database)
+            try:
+                connection.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY, status TEXT)")
+                connection.execute(
+                    "INSERT INTO audits VALUES (?, ?)",
+                    ("AUD-PRESENTATION", "COMPLETE"),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+            source_hash = _sqlite_logical_digest(database)
 
             base = workspace / "report-presentation"
             base.mkdir()
@@ -241,14 +252,22 @@ class InteractiveConsoleTests(unittest.TestCase):
                 json.dumps({
                     "contract": "RASAI-PARALLEL-REPORT-001",
                     "integrity": "PASS",
-                    "source_db_sha256": source_hash,
+                    "source_db_logical_sha256": source_hash,
                     "generated_at": "2026-11-13T05:00:00+00:00",
                 }),
                 encoding="utf-8",
             )
             self.assertEqual(presentation_report_entrypoint(workspace), (base / "index.html").resolve())
 
-            database.write_bytes(b"changed-db")
+            connection = sqlite3.connect(database)
+            try:
+                connection.execute(
+                    "UPDATE audits SET status=? WHERE audit_id=?",
+                    ("CHANGED", "AUD-PRESENTATION"),
+                )
+                connection.commit()
+            finally:
+                connection.close()
             self.assertIsNone(presentation_report_entrypoint(workspace))
 
     def test_exposure_uses_exact_txt_urls_devices_m20_and_m21(self) -> None:

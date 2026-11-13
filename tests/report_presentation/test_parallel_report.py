@@ -12,6 +12,7 @@ from rasai.parallel_report.coverage import state, display
 from rasai.parallel_report.crossrefs import link_records
 from rasai.parallel_report.evidence_index import locate, counts
 from rasai.parallel_report.generator import generate
+from rasai.console_artifacts import presentation_report_entrypoint
 from rasai.parallel_report.read_model import build
 from rasai.parallel_report.sanitization import sanitize
 from rasai.parallel_report.sqlite_reader import connect, read_database
@@ -181,6 +182,7 @@ def test_integration(tmp_path, monkeypatch, complete):
     assert manifest['source_tree_digest_before'] == manifest['source_tree_digest_after']
     assert manifest['parity_differences']['comparisons']['scores']['status'] == 'PASS'
     assert manifest['external_requests'] == manifest['ai_calls'] == manifest['source_writes'] == 0
+    assert manifest['source_db_logical_sha256']
     for name, value in manifest['sha256_per_file'].items():
         assert digest(output / name) == value
     htmls = {p.name: Links(p.read_text(encoding='utf-8')) for p in output.glob('*.html')}
@@ -237,6 +239,46 @@ def test_mutable_report_boundary_generates_real_presentation(tmp_path, monkeypat
     assert manifest['integrity'] == 'PASS'
     assert manifest['source_db_sha256'] == digest(root / 'audit.db')
 
+
+
+def test_presentation_freshness_uses_logical_sqlite_digest(tmp_path):
+    root = fixture(tmp_path / 'audit')
+    output = generate(root)
+    database = root / 'audit.db'
+    physical_before = digest(database)
+
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute('PRAGMA application_id=699')
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert digest(database) != physical_before
+    assert presentation_report_entrypoint(root) == (output / 'index.html').resolve()
+
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            "UPDATE scores SET value=? WHERE score_id='score-0'",
+            (1,),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert presentation_report_entrypoint(root) is None
+
+
+def test_presentation_manifest_requires_logical_digest(tmp_path):
+    root = fixture(tmp_path / 'audit')
+    output = generate(root)
+    manifest_path = output / '_geracao.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    manifest.pop('source_db_logical_sha256')
+    manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+
+    assert presentation_report_entrypoint(root) is None
 
 def test_schema_and_crossrefs(tmp_path):
     root = fixture(tmp_path / 'audit')

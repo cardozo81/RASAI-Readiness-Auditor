@@ -7,8 +7,6 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from hashlib import sha256
-
 from rasai.console_config import State
 
 
@@ -36,14 +34,6 @@ def report_entrypoint(workspace: Path | None) -> Path | None:
     return catalog.resolve() if valid else None
 
 
-def _file_sha256(path: Path) -> str:
-    digest = sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def presentation_report_entrypoint(workspace: Path | None) -> Path | None:
     """Return the newest presentation report matching the current audit.db."""
     if workspace is None:
@@ -53,8 +43,9 @@ def presentation_report_entrypoint(workspace: Path | None) -> Path | None:
     if not database.is_file() or not root.is_dir() or root.is_symlink():
         return None
     try:
-        current_db_hash = _file_sha256(database)
-    except OSError:
+        from rasai.catalog_report_site import _sqlite_logical_digest
+        current_db_logical_hash = _sqlite_logical_digest(database)
+    except Exception:
         return None
 
     candidates: list[tuple[str, float, Path]] = []
@@ -80,7 +71,8 @@ def presentation_report_entrypoint(workspace: Path | None) -> Path | None:
             continue
         if str(manifest.get("integrity") or "").upper() != "PASS":
             continue
-        if manifest.get("source_db_sha256") != current_db_hash:
+        expected_logical_hash = str(manifest.get("source_db_logical_sha256") or "")
+        if not expected_logical_hash or expected_logical_hash != current_db_logical_hash:
             continue
         generated_at = str(manifest.get("generated_at") or "")
         try:
