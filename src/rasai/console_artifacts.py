@@ -115,13 +115,18 @@ def materialize_presentation_report_on_demand(
             workspace=canonical_workspace,
         )
         if not canonical_fresh:
+            from rasai import entrypoint
             from rasai.report_completion import materialize_catalog_report_projection
+            from rasai.report_rematerialization import _check_composition, _forbid_network
 
-            replay = materialize_catalog_report_projection(
-                audit_id=workspace.name,
-                workspace=canonical_workspace,
-                read_only=True,
-            )
+            entrypoint._install_audit_runtime()
+            _check_composition()
+            with _forbid_network():
+                replay = materialize_catalog_report_projection(
+                    audit_id=workspace.name,
+                    workspace=canonical_workspace,
+                    read_only=True,
+                )
             logical_after_replay = _sqlite_logical_digest(database)
             if logical_after_replay != logical_before:
                 return None, "rematerialização read-only alterou o audit.db"
