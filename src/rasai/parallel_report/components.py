@@ -1,5 +1,6 @@
 """Prototype components; only persisted values enter these presentation views."""
 from html import escape
+from hashlib import sha256
 import json
 import math
 from .presentation_labels import FIELD_LABELS, ORIGIN_LABELS, public_value, chip_tone
@@ -52,10 +53,73 @@ def ruler(label, value, maximum=100, proposal=None, scope=None, href=None):
     return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{text(ORIGIN_LABELS.get(reference, reference))}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)} · {text(ORIGIN_LABELS.get(reference, reference))}</div><div class="rf">{text(scope)}</div><details class="in"><summary>Origem da faixa e limites</summary>{text(note)}<p><code>{text(reference)}</code></p>{technical}</details></div>'
 
 
+def _detail_title(row, index):
+    for key in ('title', 'label', 'query', 'url', 'requested_url', 'name', 'rule_id', 'metric_id'):
+        value = row.get(key)
+        if value not in (None, ''):
+            return str(public_value(value, key))
+    return f'Registro {index + 1}'
+
+
+def _detail_dialog(caption, row, columns, index, timezone_name=None):
+    persisted = {key: value for key, value in row.items() if not key.startswith('_')}
+    if not persisted:
+        return '', ''
+    seed = f"{caption}|{row.get('_source_table')}|{row.get('_ref')}|{index}"
+    dialog_id = 'detail-' + sha256(seed.encode('utf-8')).hexdigest()[:12]
+    title_id = dialog_id + '-title'
+    title = _detail_title(row, index)
+    trigger = (
+        f'<button type="button" class="modal-open" data-modal="{dialog_id}" '
+        f'aria-haspopup="dialog" aria-controls="{dialog_id}">Ver detalhes</button>'
+    )
+    visible = []
+    seen = set()
+    for key, label in columns:
+        if key.startswith('_') or key in seen:
+            continue
+        seen.add(key)
+        value = row.get(key)
+        if value is None:
+            continue
+        rendered = public_value(value, key, timezone_name)
+        if isinstance(rendered, (dict, list)):
+            rendered = json.dumps(rendered, ensure_ascii=False)
+        visible.append((FIELD_LABELS.get(key, label), rendered))
+    summary = kv(visible) if visible else '<p class="rf">Sem campos resumidos adicionais.</p>'
+    source = row.get('_source_table')
+    source_html = (
+        f'<p class="rf">Fonte técnica: <code>{text(source)}</code></p>' if source else ''
+    )
+    raw = text(json.dumps(persisted, ensure_ascii=False, indent=2, default=str))
+    technical = technical_link(row.get('_ref'), 'Abrir registro técnico completo')
+    dialog = (
+        f'<dialog class="detail-dialog" id="{dialog_id}" aria-labelledby="{title_id}">'
+        '<div class="modal-head"><div><span class="modal-kicker">' + text(caption) + '</span>'
+        f'<h2 id="{title_id}">{text(title)}</h2></div>'
+        '<button type="button" class="modal-close" data-modal-close aria-label="Fechar detalhes">×</button></div>'
+        '<div class="modal-body">' + summary + source_html
+        '<details class="in"><summary>Dados persistidos completos</summary><pre>' + raw + '</pre></details>'
+        '</div><div class="modal-foot">'
+        + (technical if technical else '<span class="rf">Sem referência técnica adicional.</span>')
+        + '<button type="button" class="modal-dismiss" data-modal-close>Fechar</button></div></dialog>'
+    )
+    return trigger, dialog
+
+
 def table(caption, rows, columns, timezone_name=None):
+    if not rows:
+        return '<p class="callout">Não medido — nenhum registro disponível para esta seção.</p>'
+    has_details = any(
+        row.get('_ref') or any(not key.startswith('_') and key not in {name for name, _ in columns} for key in row)
+        for row in rows
+    )
     headings = ''.join(f'<th scope="col">{text(FIELD_LABELS.get(key,label))}</th>' for key, label in columns)
+    if has_details:
+        headings += '<th scope="col" class="no-sort" data-sort="none">Detalhes</th>'
     body = ''
-    for row in rows:
+    dialogs = []
+    for index, row in enumerate(rows):
         cells = []
         for key, _ in columns:
             value = row.get(key)
@@ -68,9 +132,14 @@ def table(caption, rows, columns, timezone_name=None):
                 if len(str(value)) > 180:
                     cell = '<details class="in"><summary>Ver conteúdo completo</summary>' + cell + '</details>'
             cells.append('<td title="' + text(value) + '">' + cell + '</td>')
+        if has_details:
+            trigger, dialog = _detail_dialog(caption, row, columns, index, timezone_name)
+            cells.append('<td class="detail-cell">' + (trigger or 'N/D') + '</td>')
+            if dialog:
+                dialogs.append(dialog)
         body += '<tr>' + ''.join(cells) + '</tr>'
-    return f'<div class="tw"><table><caption>{text(caption)}</caption><thead><tr>{headings}</tr></thead><tbody>{body}</tbody></table></div>' if rows else '<p class="callout">Não medido — nenhum registro disponível para esta seção.</p>'
-
+    table_html = f'<div class="tw"><table><caption>{text(caption)}</caption><thead><tr>{headings}</tr></thead><tbody>{body}</tbody></table></div>'
+    return table_html + ''.join(dialogs)
 
 def stack(parts, title='Composição proporcional', unit=None, note=None):
     normalized = []
