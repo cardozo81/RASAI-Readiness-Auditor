@@ -275,6 +275,45 @@ def test_final_selected_audit_menu_can_open_catalog_report(monkeypatch, tmp_path
 
 
 
+
+
+def test_materialize_presentation_report_on_demand_requires_canonical_and_revalidates(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from rasai import console_artifacts
+
+    workspace = tmp_path / "AUD-HISTORICAL-MATERIALIZE"
+    workspace.mkdir()
+    (workspace / "audit.db").write_bytes(b"sqlite-placeholder")
+    canonical = workspace / "report-catalog" / "index.html"
+    canonical.parent.mkdir()
+    canonical.write_text("<html></html>", encoding="utf-8")
+    generated = workspace / "report-presentation" / "20261113-182000" / "index.html"
+
+    states = iter([None, generated])
+    monkeypatch.setattr(
+        console_artifacts,
+        "presentation_report_entrypoint",
+        lambda current: next(states),
+    )
+    monkeypatch.setattr(
+        console_artifacts,
+        "report_entrypoint",
+        lambda current: canonical,
+    )
+    calls: list[Path] = []
+    monkeypatch.setattr(
+        "rasai.parallel_report.generator.generate",
+        lambda current: calls.append(Path(current)) or generated.parent,
+    )
+
+    report, status = console_artifacts.materialize_presentation_report_on_demand(workspace)
+
+    assert report == generated
+    assert status == "MATERIALIZED"
+    assert calls == [workspace]
+
+
 def test_historical_complete_audit_offers_presentation_generation_only_on_open(
     monkeypatch, tmp_path: Path
 ) -> None:
