@@ -102,6 +102,16 @@ def materialize_presentation_report_on_demand(
     if not database.is_file() or database.is_symlink():
         return None, "audit.db ausente ou inseguro"
     try:
+        from rasai.catalog_report_site import catalog_report_is_fresh
+        from rasai.persistence import AuditWorkspace
+
+        canonical_workspace = AuditWorkspace.open(workspace)
+        if not catalog_report_is_fresh(
+            audit_id=workspace.name,
+            workspace=canonical_workspace,
+        ):
+            return None, "relatório canônico desatualizado para o audit.db atual"
+
         from rasai.parallel_report.generator import generate
 
         generate(workspace)
