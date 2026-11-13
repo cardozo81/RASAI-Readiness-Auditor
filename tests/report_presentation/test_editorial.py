@@ -149,6 +149,20 @@ def test_public_labels_across_ten_pages(tmp_path):
         assert 'href="#">' not in page_html
 
 
+def test_long_table_content_uses_modal_without_inline_expander():
+    long_value = 'conteúdo persistido ' * 20
+    html = table(
+        'Achados',
+        [{'title':'Exemplo','description':long_value,'_ref':'#technical','_source_table':'findings'}],
+        [('title','Achado'),('description','Observado')],
+    )
+    assert 'Ver conteúdo completo' not in html
+    assert 'Ver detalhes' in html
+    assert 'Conteúdo completo disponível em Ver detalhes' in html
+    assert long_value.strip() in html
+    assert 'Dados persistidos completos' in html
+
+
 def test_chip_palette_contrast():
     from pathlib import Path
     import re
