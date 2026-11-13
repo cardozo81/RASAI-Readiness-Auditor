@@ -526,7 +526,11 @@ def _reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) -
 
 def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) -> bool:
     from rasai import console_navigation as navigation
-    from rasai.console_artifacts import open_external_path, report_entrypoint
+    from rasai.console_artifacts import (
+        open_external_path,
+        presentation_report_entrypoint,
+        report_entrypoint,
+    )
     from rasai.console_history_presentation import process_finished_at, process_started_at
 
     while True:
@@ -538,6 +542,7 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
         )
         reuse_available, reuse_detail = navigation._configuration_reuse_status(state, audit_id)
         report_path = report_entrypoint(audit_root)
+        presentation_report_path = presentation_report_entrypoint(audit_root)
         processing_status = str(summary.get("processing_status") or "").upper()
         complement_available = False
         complement_detail = ""
@@ -574,6 +579,10 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
         print(
             "I. Abrir relatório HTML"
             + ("" if report_path is not None else " [INDISPONÍVEL]")
+        )
+        print(
+            "A. Abrir relatório de apresentação"
+            + ("" if presentation_report_path is not None else " [INDISPONÍVEL]")
         )
         if _can_reprocess(summary):
             print("1. Reprocessar somente pendências desta auditoria")
@@ -614,6 +623,19 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
             if not ok:
                 console_module.render_header(state)
                 print("NÃO FOI POSSÍVEL ABRIR O RELATÓRIO\n")
+                print(detail)
+                input("\nENTER para continuar...")
+            continue
+        if choice == "A":
+            if presentation_report_path is None:
+                state.error = "relatório de apresentação não está disponível ou está desatualizado para esta auditoria"
+                continue
+            ok, detail = open_external_path(presentation_report_path)
+            state.operation = "LOCAL:OPEN_SELECTED_AUDIT_PRESENTATION_REPORT"
+            state.error = "" if ok else detail
+            if not ok:
+                console_module.render_header(state)
+                print("NÃO FOI POSSÍVEL ABRIR O RELATÓRIO DE APRESENTAÇÃO\n")
                 print(detail)
                 input("\nENTER para continuar...")
             continue
