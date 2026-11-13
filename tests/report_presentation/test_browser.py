@@ -28,12 +28,21 @@ def test_browser_offline(tmp_path):
                 assert page.locator('body').evaluate('(e) => e.classList.contains("dark")')
                 page.locator('#expand').click()
                 assert page.locator('details:not([open])').count() == 0
-                page.locator('#collapse').click()
+                page.locator('#expand').click()
                 assert page.locator('details[open]').count() == 0
-                page.locator('#sort').click()
-                page.locator('#filter').fill('no-match-unique')
-                assert page.locator('.record:visible').count() == 0
-                page.locator('#filter').fill('')
+                for selector in ('.shell', '.top', '.rail'):
+                    assert page.locator(selector).count() == 1
+                if page.locator('table').count():
+                    header = page.locator('table thead th').first
+                    header.focus()
+                    page.keyboard.press('Enter')
+                    assert header.get_attribute('aria-sort') == 'ascending'
+                    page.keyboard.press('Space')
+                    assert header.get_attribute('aria-sort') == 'descending'
+                for field in page.locator('.tools input').all():
+                    field.fill('no-match-unique')
+                    assert '0 de ' in field.locator('..').inner_text()
+                    field.fill('')
         page.goto((output / 'index.html').as_uri())
         page.keyboard.press('Tab')
         assert page.evaluate('document.activeElement.className') == 'skip'

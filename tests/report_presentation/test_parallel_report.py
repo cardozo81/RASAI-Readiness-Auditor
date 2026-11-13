@@ -144,11 +144,11 @@ def test_primary_text_contrast():
     for selector in (':root', 'body.dark'):
         block = re.search(re.escape(selector) + r'\{([^}]+)', css).group(1)
         tokens = dict(re.findall(r'--([a-z]+):(#[0-9a-f]+)', block))
-        for key in ('bg', 'surface'):
+        for key in ('bg', 'card'):
             background = tokens[key]
             if len(background) == 4:
                 background = '#' + ''.join(c * 2 for c in background[1:])
-            for foreground in ('ink', 'muted', 'link'):
+            for foreground in ('ink', 'mut', 'acc'):
                 values = sorted((luminance(tokens[foreground]), luminance(background)))
                 assert (values[1] + .05) / (values[0] + .05) >= 4.5
 

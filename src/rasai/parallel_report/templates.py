@@ -26,3 +26,14 @@ LABELS = {
 
 def label(value):
     return LABELS.get(value, value.replace('_', ' '))
+
+LABELS.update({
+ 'OVERALL_READINESS':'Índice de Prontidão Search & IA (SARI)',
+ 'DISCOVERY_ACCESS':'Acesso e descoberta','INDEXABILITY':'Indexabilidade',
+ 'CONTENT_EXTRACTABILITY':'Extração de conteúdo','SEMANTIC_STRUCTURE':'Estrutura semântica',
+ 'ENTITY_CLARITY':'Clareza de entidades','STRUCTURED_DATA':'Dados estruturados',
+ 'ANSWERABILITY':'Capacidade de resposta','CITATION_READINESS':'Preparação para citação',
+ 'EVIDENCE_TRUST':'Confiança na evidência','INTENT_COVERAGE':'Cobertura de intenção',
+ 'CONTENT_VALUE':'Valor do conteúdo','best_practices_score':'Lighthouse · Boas práticas',
+ 'seo_score':'Lighthouse · SEO',
+})
