@@ -273,6 +273,183 @@ def test_final_selected_audit_menu_can_open_catalog_report(monkeypatch, tmp_path
     assert state.error == ""
 
 
+
+
+
+
+def test_materialize_presentation_report_on_demand_requires_canonical_and_revalidates(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from rasai import console_artifacts
+
+    import sqlite3
+
+    workspace = tmp_path / "AUD-HISTORICAL-MATERIALIZE"
+    workspace.mkdir()
+    (workspace / "artifacts").mkdir()
+    with sqlite3.connect(workspace / "audit.db") as connection:
+        connection.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY)")
+        connection.execute(
+            "INSERT INTO audits VALUES (?)",
+            (workspace.name,),
+        )
+    canonical = workspace / "report-catalog" / "index.html"
+    canonical.parent.mkdir()
+    canonical.write_text("<html></html>", encoding="utf-8")
+    generated = workspace / "report-presentation" / "20261113-182000" / "index.html"
+
+    states = iter([None, generated])
+    monkeypatch.setattr(
+        console_artifacts,
+        "presentation_report_entrypoint",
+        lambda current: next(states),
+    )
+    monkeypatch.setattr(
+        console_artifacts,
+        "report_entrypoint",
+        lambda current: canonical,
+    )
+    monkeypatch.setattr(
+        "rasai.catalog_report_site.catalog_report_is_fresh",
+        lambda **kwargs: True,
+    )
+    calls: list[Path] = []
+    monkeypatch.setattr(
+        "rasai.parallel_report.generator.generate",
+        lambda current: calls.append(Path(current)) or generated.parent,
+    )
+
+    report, status = console_artifacts.materialize_presentation_report_on_demand(workspace)
+
+    assert report == generated
+    assert status == "MATERIALIZED"
+    assert calls == [workspace]
+
+
+def test_historical_complete_audit_offers_presentation_generation_only_on_open(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from rasai import console_usability_refinements as usability
+
+    console = _console()
+    state = _state(tmp_path)
+    audit_id = "AUD-HISTORICAL-PRESENTATION"
+    audit_root = tmp_path / audit_id
+    audit_root.mkdir()
+    report = audit_root / "report-catalog" / "index.html"
+    report.parent.mkdir()
+    report.write_text("<html></html>", encoding="utf-8")
+    generated = audit_root / "report-presentation" / "20261113-181900" / "index.html"
+    generated.parent.mkdir(parents=True)
+    generated.write_text("<html>presentation</html>", encoding="utf-8")
+
+    monkeypatch.setattr(
+        usability,
+        "_safe_summary",
+        lambda root, current_id: {
+            "processing_status": "COMPLETE",
+            "score_status": "FINAL",
+            "report_status": "FINAL",
+            "consolidation_eligible": True,
+            "required_items": 15,
+            "successful_items": 15,
+            "pending_items": 0,
+            "blocked_items": 0,
+            "expired_items": 0,
+            "reprocess_count": 0,
+            "last_reprocess_id": None,
+        },
+    )
+    monkeypatch.setattr(
+        navigation,
+        "_configuration_reuse_status",
+        lambda current_state, current_id: (True, "snapshot canônico íntegro"),
+    )
+    monkeypatch.setattr("rasai.console_artifacts.report_entrypoint", lambda workspace: report)
+    monkeypatch.setattr(
+        "rasai.console_artifacts.presentation_report_entrypoint",
+        lambda workspace: None,
+    )
+    materialized: list[Path] = []
+    monkeypatch.setattr(
+        "rasai.console_artifacts.materialize_presentation_report_on_demand",
+        lambda workspace: (materialized.append(Path(workspace)) or generated, "MATERIALIZED"),
+    )
+    opened: list[Path] = []
+    monkeypatch.setattr(
+        "rasai.console_artifacts.open_external_path",
+        lambda path: (opened.append(Path(path)) or True, str(path)),
+    )
+    answers = iter(["A", "V"])
+    monkeypatch.setattr(builtins, "input", lambda prompt="": next(answers))
+
+    with redirect_stdout(StringIO()) as output:
+        assert usability._selected_audit_menu(console, state, audit_id) is False
+
+    rendered = output.getvalue()
+    assert "A. Abrir relatório de apresentação [GERAR AO ABRIR]" in rendered
+    assert materialized == [audit_root]
+    assert opened == [generated]
+    assert state.error == ""
+
+
+def test_historical_complete_audit_navigation_does_not_materialize_presentation(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from rasai import console_usability_refinements as usability
+
+    console = _console()
+    state = _state(tmp_path)
+    audit_id = "AUD-HISTORICAL-NO-WRITE"
+    audit_root = tmp_path / audit_id
+    audit_root.mkdir()
+    report = audit_root / "report-catalog" / "index.html"
+    report.parent.mkdir()
+    report.write_text("<html></html>", encoding="utf-8")
+
+    monkeypatch.setattr(
+        usability,
+        "_safe_summary",
+        lambda root, current_id: {
+            "processing_status": "COMPLETE",
+            "score_status": "FINAL",
+            "report_status": "FINAL",
+            "consolidation_eligible": True,
+            "required_items": 15,
+            "successful_items": 15,
+            "pending_items": 0,
+            "blocked_items": 0,
+            "expired_items": 0,
+            "reprocess_count": 0,
+            "last_reprocess_id": None,
+        },
+    )
+    monkeypatch.setattr(
+        navigation,
+        "_configuration_reuse_status",
+        lambda current_state, current_id: (True, "snapshot canônico íntegro"),
+    )
+    monkeypatch.setattr("rasai.console_artifacts.report_entrypoint", lambda workspace: report)
+    monkeypatch.setattr(
+        "rasai.console_artifacts.presentation_report_entrypoint",
+        lambda workspace: None,
+    )
+
+    def forbidden(workspace):
+        raise AssertionError("navigation must not materialize presentation")
+
+    monkeypatch.setattr(
+        "rasai.console_artifacts.materialize_presentation_report_on_demand",
+        forbidden,
+    )
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "V")
+
+    with redirect_stdout(StringIO()) as output:
+        assert usability._selected_audit_menu(console, state, audit_id) is False
+
+    assert "A. Abrir relatório de apresentação [GERAR AO ABRIR]" in output.getvalue()
+
+
 def test_root_launcher_bootstraps_and_executes_installed_console() -> None:
     root = Path(__file__).resolve().parents[1]
     shortcut = (root / "abrir-rasai-console.cmd").read_text(encoding="utf-8").casefold()
