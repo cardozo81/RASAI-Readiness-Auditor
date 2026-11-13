@@ -527,6 +527,7 @@ def _reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) -
 def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) -> bool:
     from rasai import console_navigation as navigation
     from rasai.console_artifacts import (
+        materialize_presentation_report_on_demand,
         open_external_path,
         presentation_report_entrypoint,
         report_entrypoint,
@@ -535,7 +536,7 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
 
     while True:
         audit_root = Path(state.audits_root) / audit_id
-        summary = navigation._reconciled_summary(
+        summary = navigation._navigation_summary(
             audit_root,
             audit_id,
             summary_reader=_safe_summary,
@@ -580,9 +581,20 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
             "I. Abrir relatório HTML"
             + ("" if report_path is not None else " [INDISPONÍVEL]")
         )
+        presentation_on_demand = (
+            presentation_report_path is None
+            and processing_status == "COMPLETE"
+            and report_path is not None
+        )
         print(
             "A. Abrir relatório de apresentação"
-            + ("" if presentation_report_path is not None else " [INDISPONÍVEL]")
+            + (
+                ""
+                if presentation_report_path is not None
+                else " [GERAR AO ABRIR]"
+                if presentation_on_demand
+                else " [INDISPONÍVEL]"
+            )
         )
         if _can_reprocess(summary):
             print("1. Reprocessar somente pendências desta auditoria")
@@ -627,6 +639,15 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
                 input("\nENTER para continuar...")
             continue
         if choice == "A":
+            if presentation_report_path is None and presentation_on_demand:
+                presentation_report_path, detail = materialize_presentation_report_on_demand(
+                    audit_root
+                )
+                if presentation_report_path is None:
+                    state.error = (
+                        "não foi possível gerar o relatório de apresentação: " + detail
+                    )
+                    continue
             if presentation_report_path is None:
                 state.error = "relatório de apresentação não está disponível ou está desatualizado para esta auditoria"
                 continue
