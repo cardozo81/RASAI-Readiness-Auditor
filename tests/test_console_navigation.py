@@ -117,6 +117,59 @@ def test_reconciled_summary_reconciles_before_reading_status(monkeypatch, tmp_pa
     assert summary["pending_items"] == 1
 
 
+
+def test_navigation_summary_keeps_complete_audit_read_only(monkeypatch, tmp_path: Path) -> None:
+    audit_id = "AUD-COMPLETE-READONLY"
+    audit_root = tmp_path / audit_id
+    audit_root.mkdir()
+
+    complete = {
+        "processing_status": "COMPLETE",
+        "score_status": "FINAL",
+        "report_status": "FINAL",
+        "consolidation_eligible": True,
+        "required_items": 15,
+        "successful_items": 15,
+        "pending_items": 0,
+        "blocked_items": 0,
+        "reprocess_count": 0,
+        "last_reprocess_id": None,
+    }
+    monkeypatch.setattr(navigation, "_safe_summary", lambda root, current_id: complete)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("COMPLETE audit navigation must not reconcile/mutate")
+
+    monkeypatch.setattr(navigation, "_reconciled_summary", forbidden)
+
+    assert navigation._navigation_summary(audit_root, audit_id) is complete
+
+
+def test_navigation_summary_reconciles_unfinished_audit(monkeypatch, tmp_path: Path) -> None:
+    audit_id = "AUD-PARTIAL-RECONCILE"
+    audit_root = tmp_path / audit_id
+    audit_root.mkdir()
+    monkeypatch.setattr(
+        navigation,
+        "_safe_summary",
+        lambda root, current_id: {"processing_status": "PARTIAL_RETRYABLE"},
+    )
+    expected = {
+        "processing_status": "PARTIAL_RETRYABLE",
+        "pending_items": 1,
+        "blocked_items": 0,
+    }
+    calls = []
+
+    def reconciled(root, current_id):
+        calls.append((root, current_id))
+        return expected
+
+    monkeypatch.setattr(navigation, "_reconciled_summary", reconciled)
+
+    assert navigation._navigation_summary(audit_root, audit_id) is expected
+    assert calls == [(audit_root, audit_id)]
+
 def test_selected_audit_menu_marks_missing_snapshot_as_unavailable(monkeypatch, tmp_path: Path) -> None:
     console = _console()
     state = _state(tmp_path)
