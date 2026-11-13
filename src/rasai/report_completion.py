@@ -1,8 +1,10 @@
-"""Catalog-only audit finalization boundary.
+"""Audit report finalization boundary.
 
 Late functional finalizers persist audit data through ``finalize_audit_report_site``.
-The supported HTML projection is materialized separately in ``report-catalog/`` after
-those data finalizers complete. No ``<AUD>/report/`` projection is part of this contract.
+The canonical HTML projection remains ``report-catalog/`` and is the blocking freshness
+gate. Mutable AUD/RPR/complement flows may additionally publish the derived
+``report-presentation/`` projection after the canonical report is valid. Read-only
+rematerialization never creates that secondary output.
 """
 from __future__ import annotations
 
@@ -15,7 +17,7 @@ from typing import Any, Mapping, Sequence
 from rasai.persistence import AuditWorkspace
 
 
-# No non-catalog AUD HTML pages are part of the current output contract.
+# No legacy report/report.html AUD pages are part of the current output contract.
 AUDIT_ALWAYS_PAGES: tuple[str, ...] = ()
 
 
