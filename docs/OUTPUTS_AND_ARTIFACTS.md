@@ -33,7 +33,7 @@ audits/<AUD-ID>/
    ├─ indices.html
    ├─ conteudo.html
    ├─ performance.html
-   ├─ search-geo.html
+   ├─ [página combinada de Search e GEO]
    ├─ seguranca.html
    ├─ plano.html
    ├─ ia-custos.html
