@@ -16,6 +16,17 @@ SECTIONS = {
 }
 
 
+def _metric_proposal(key, thresholds):
+    by_id = {item.get('metric_id'): item for item in thresholds}
+    if key == 'value':
+        return by_id.get('SARI_PRESENTATION_PROPOSAL')
+    if key in {'performance_score', 'accessibility_score', 'best_practices_score', 'seo_score'}:
+        return by_id.get('LIGHTHOUSE_CATEGORY_PERSISTED_CONTRACT')
+    if key == 'apdex_score':
+        return by_id.get('APDEX_RESULT_PERSISTED_CONTRACT')
+    return None
+
+
 def editorial(page, records, costs, thresholds):
     def rows(names):
         return [{**thaw(r.data), '_ref': r.href} for r in records if r.table in names]
@@ -38,7 +49,7 @@ def editorial(page, records, costs, thresholds):
                     continue
                 if page == 'performance' and key == 'value':
                     continue
-                proposal = thresholds[0] if key == 'value' else None
+                proposal = _metric_proposal(key, thresholds)
                 scope = ' · '.join(str(data[k]) for k in ('device','url','profile_id','consolidation_status','confidence') if data.get(k) is not None)
                 html += ruler(LABELS.get(data.get('dimension',key),data.get('dimension',key)), data[key], 1 if key == 'apdex_score' else 100, proposal, scope, data['_ref'])
                 if page == 'indices' and key == 'value':
