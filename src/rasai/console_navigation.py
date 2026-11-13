@@ -252,6 +252,7 @@ def _load_selected_configuration(console_module: ModuleType, state: Any, audit_i
 def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) -> bool:
     """Return True when configuration reuse should hand off to audit preparation."""
     from rasai.console_artifacts import (
+        materialize_presentation_report_on_demand,
         open_external_path,
         presentation_report_entrypoint,
         report_entrypoint,
@@ -295,11 +296,22 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
             "I. Abrir relatório HTML"
             + ("" if report_path is not None else " [INDISPONÍVEL]")
         )
+        processing_status = str(summary.get("processing_status") or "").upper()
+        presentation_on_demand = (
+            presentation_report_path is None
+            and processing_status == "COMPLETE"
+            and report_path is not None
+        )
         print(
             "A. Abrir relatório de apresentação"
-            + ("" if presentation_report_path is not None else " [INDISPONÍVEL]")
+            + (
+                ""
+                if presentation_report_path is not None
+                else " [GERAR AO ABRIR]"
+                if presentation_on_demand
+                else " [INDISPONÍVEL]"
+            )
         )
-        processing_status = str(summary.get("processing_status") or "").upper()
         complement_available = False
         complement_detail = ""
         if processing_status == "COMPLETE" and reuse_available:
@@ -347,6 +359,15 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
                 input("\nENTER para continuar...")
             continue
         if choice == "A":
+            if presentation_report_path is None and presentation_on_demand:
+                presentation_report_path, detail = materialize_presentation_report_on_demand(
+                    audit_root
+                )
+                if presentation_report_path is None:
+                    state.error = (
+                        "não foi possível gerar o relatório de apresentação: " + detail
+                    )
+                    continue
             if presentation_report_path is None:
                 state.error = "relatório de apresentação não está disponível ou está desatualizado para esta auditoria"
                 continue
