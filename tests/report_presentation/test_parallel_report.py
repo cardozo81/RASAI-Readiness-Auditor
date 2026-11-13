@@ -205,6 +205,39 @@ def test_integration(tmp_path, monkeypatch, complete):
     assert inventory(root) == before
 
 
+def test_mutable_report_boundary_generates_real_presentation(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from rasai import (
+        catalog_report_site,
+        geo_extraction_quality,
+        geo_observation,
+        network_observation_store,
+        report_completion,
+    )
+
+    root = fixture(tmp_path / 'audit')
+    workspace = SimpleNamespace(root=root, database=root / 'audit.db')
+
+    monkeypatch.setattr(network_observation_store, 'persist_network_observations', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(geo_observation, 'materialize_geo_observation', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(geo_extraction_quality, 'materialize_extraction_quality', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(catalog_report_site, 'materialize_catalog_report_site', lambda **_kwargs: None)
+    monkeypatch.setattr(catalog_report_site, 'catalog_report_is_fresh', lambda **_kwargs: True)
+
+    result = report_completion.materialize_catalog_report_projection(
+        audit_id='AUD-SYNTHETIC',
+        workspace=workspace,
+    )
+
+    assert result.renderer_errors == ()
+    report_root = root / 'report-presentation'
+    assert (report_root / 'index.html').is_file()
+    manifest = json.loads((report_root / '_geracao.json').read_text(encoding='utf-8'))
+    assert manifest['contract'] == 'RASAI-PARALLEL-REPORT-001'
+    assert manifest['integrity'] == 'PASS'
+    assert manifest['source_db_sha256'] == digest(root / 'audit.db')
+
+
 def test_schema_and_crossrefs(tmp_path):
     root = fixture(tmp_path / 'audit')
     tables, schema = read_database(root / 'audit.db')
