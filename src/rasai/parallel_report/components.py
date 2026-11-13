@@ -93,17 +93,17 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
     )
     raw = text(json.dumps(persisted, ensure_ascii=False, indent=2, default=str))
     technical = technical_link(row.get('_ref'), 'Abrir registro técnico completo')
-    dialog = (
-        f'<dialog class="detail-dialog" id="{dialog_id}" aria-labelledby="{title_id}">'
-        '<div class="modal-head"><div><span class="modal-kicker">' + text(caption) + '</span>'
-        f'<h2 id="{title_id}">{text(title)}</h2></div>'
-        '<button type="button" class="modal-close" data-modal-close aria-label="Fechar detalhes">×</button></div>'
-        '<div class="modal-body">' + summary + source_html
-        '<details class="in"><summary>Dados persistidos completos</summary><pre>' + raw + '</pre></details>'
-        '</div><div class="modal-foot">'
-        + (technical if technical else '<span class="rf">Sem referência técnica adicional.</span>')
-        + '<button type="button" class="modal-dismiss" data-modal-close>Fechar</button></div></dialog>'
-    )
+    dialog = ''.join([
+        f'<dialog class="detail-dialog" id="{dialog_id}" aria-labelledby="{title_id}">',
+        '<div class="modal-head"><div><span class="modal-kicker">' + text(caption) + '</span>',
+        f'<h2 id="{title_id}">{text(title)}</h2></div>',
+        '<button type="button" class="modal-close" data-modal-close aria-label="Fechar detalhes">×</button></div>',
+        '<div class="modal-body">' + summary + source_html,
+        '<details class="in"><summary>Dados persistidos completos</summary><pre>' + raw + '</pre></details>',
+        '</div><div class="modal-foot">',
+        technical if technical else '<span class="rf">Sem referência técnica adicional.</span>',
+        '<button type="button" class="modal-dismiss" data-modal-close>Fechar</button></div></dialog>',
+    ])
     return trigger, dialog
 
 
