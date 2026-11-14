@@ -527,7 +527,7 @@ def _reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) -
 def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) -> bool:
     from rasai import console_navigation as navigation
     from rasai.console_artifacts import (
-        materialize_presentation_report_on_demand,
+        open_workspace_presentation,
         open_external_path,
         presentation_report_entrypoint,
         report_entrypoint,
@@ -639,19 +639,10 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
                 input("\nENTER para continuar...")
             continue
         if choice == "A":
-            if presentation_report_path is None and presentation_on_demand:
-                presentation_report_path, detail = materialize_presentation_report_on_demand(
-                    audit_root
-                )
-                if presentation_report_path is None:
-                    state.error = (
-                        "não foi possível gerar o relatório de apresentação: " + detail
-                    )
-                    continue
-            if presentation_report_path is None:
+            if presentation_report_path is None and not presentation_on_demand:
                 state.error = "relatório de apresentação não está disponível ou está desatualizado para esta auditoria"
                 continue
-            ok, detail = open_external_path(presentation_report_path)
+            ok, detail = open_workspace_presentation(audit_root)
             state.operation = "LOCAL:OPEN_SELECTED_AUDIT_PRESENTATION_REPORT"
             state.error = "" if ok else detail
             if not ok:

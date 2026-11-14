@@ -5,12 +5,13 @@
 ```
 
 O nome `rasai.parallel_report` foi autorizado para evitar sombrear o módulo
-existente `rasai.report_presentation`. A geração não integra o pipeline.
+existente `rasai.report_presentation`. O finalizador da auditoria também usa este gerador.
 
 Use uma AUD selada, sem escritor ativo nem arquivos WAL/SHM/journal. Não remova
-sidecars para contornar a recusa do gerador. A saída é `report-presentation/`;
-repetições criam subdiretório UTC exclusivo, com sufixo em colisões no mesmo
-segundo. Nenhuma saída anterior é sobrescrita.
+sidecars para contornar a recusa do gerador. A entrada é `report-presentation/index.html`.
+O gerador reaproveita um pacote íntegro com fontes e versão compatíveis. Quando
+precisa atualizá-lo, valida a árvore em staging antes de substituir a anterior.
+A mesma publicação migra as subpastas datadas das auditorias históricas.
 
 Abra `index.html` por `file://`. São dez páginas, anexos JSON sanitizados,
 assets locais, manifesto e mapa completo de cobertura. CSS/JS não usam rede.

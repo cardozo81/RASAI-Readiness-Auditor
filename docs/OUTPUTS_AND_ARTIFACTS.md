@@ -58,7 +58,7 @@ Os dados funcionais pertencem a `audit.db` e `artifacts/`, incluindo achados, ev
 
 A projeção HTML canônica pertencente à auditoria continua sendo `report-catalog/`. Sua materialização usa a fonte persistida da AUD e não executa coletores, APIs, provedores, IA ou cálculo de pontuação para preencher HTML.
 
-Após processamento, reprocessamento ou complemento mutável que conclua a projeção canônica, o runtime também materializa `report-presentation/` como uma segunda visão derivada e somente de leitura. Essa saída não é fonte de verdade, não substitui o catálogo, não altera score e não participa do gate de sucesso da auditoria. Se houver nova geração para a mesma AUD, uma subpasta temporal preserva a saída anterior.
+Após processamento, reprocessamento ou complemento mutável que conclua a projeção canônica, o runtime também materializa `report-presentation/` como uma segunda visão derivada e somente de leitura. Essa saída não é fonte de verdade, não substitui o catálogo, não altera score e não participa do gate de sucesso da auditoria. A entrada vigente é sempre `report-presentation/index.html`. A geração reutiliza o pacote íntegro com origem e versão compatíveis. Uma atualização valida o novo conjunto em staging antes da troca. As subpastas datadas históricas são retiradas após a publicação bem-sucedida.
 
 O catálogo possui contrato próprio e inclui as páginas CAT selecionadas e suas páginas de governança. CAT-01 ... CAT-10, Matriz de encerramento estrutural, regras de catálogo e rastreabilidade continuam dependendo dos dados persistidos. O relatório de apresentação apenas reorganiza esses fatos para leitura editorial e investigação.
 

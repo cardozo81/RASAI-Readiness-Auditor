@@ -1,11 +1,12 @@
-"""Explicit one-shot generation; only a newly reserved output may be written."""
+"""Generate or reuse the verified offline presentation for one audit."""
 from datetime import datetime, timezone
 import json
+import shutil
 from pathlib import Path
 from . import __version__
 from .artifact_reader import confined, inventory, tree_digest, digest
 from .sqlite_reader import read_database, quiescent
-from .read_model import build, thaw, destination
+from .read_model import build, destination
 from .crossrefs import link_records
 from .cost_reconciliation import reconcile
 from .evidence_index import references
@@ -13,38 +14,52 @@ from .sanitization import sanitize
 from .thresholds import load
 from .parity import compare
 from .render import render
+from .publication import (
+    CONTRACT, DIRECTORY, MANIFEST, compatible_manifest, find_package,
+    historical_directories, publication_work, publish,
+)
 
 EXPECTED = ('audits', 'page_snapshots', 'evidence', 'scores', 'findings', 'directed_analysis_actions', 'ai_provider_attempts', 'content_remediation_attempts', 'perplexity_search_runs')
 
 
-def reserve_output(root):
-    base = root / 'report-presentation'
-    if base.is_symlink() or base.is_junction():
-        raise ValueError('Linked output is forbidden')
-    try:
-        base.mkdir(exist_ok=False)
-        return base
-    except FileExistsError:
-        if not base.is_dir():
-            raise ValueError('Output path is not a directory')
-    stamp = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')
-    for index in range(10000):
-        candidate = base / (stamp + (f'-{index}' if index else ''))
-        try:
-            candidate.mkdir(exist_ok=False)
-            return candidate
-        except FileExistsError:
-            continue
-    raise RuntimeError('Cannot reserve unique output')
-
-
 def generate(audit_dir):
+    from rasai.catalog_report_site import _sqlite_logical_digest
+
     root = Path(audit_dir).resolve(strict=True)
     database = confined(root, 'audit.db')
     quiescent(database)
-    before = inventory(root)
-    from rasai.catalog_report_site import _sqlite_logical_digest
-    logical_before = _sqlite_logical_digest(database)
+    base = root / DIRECTORY
+    with publication_work(root) as (stage, previous):
+        quiescent(database)
+        before = inventory(root)
+        logical_before = _sqlite_logical_digest(database)
+        historical = historical_directories(base)
+        package = find_package(base, historical, before, logical_before)
+        if package is not None and package[0] == base and not historical:
+            return base
+        stage.mkdir()
+        if package is None:
+            manifest = _render_package(root, database, before, logical_before, stage)
+        else:
+            directory, manifest = package
+            for name in [*manifest['generated_files'], MANIFEST]:
+                target = stage / name
+                target.parent.mkdir(exist_ok=True, parents=True)
+                shutil.copy2(confined(directory, name), target)
+        after = inventory(root)
+        quiescent(database)
+        if before != after or logical_before != _sqlite_logical_digest(database):
+            raise RuntimeError('Source changed before presentation publication')
+        if package is None:
+            manifest['source_tree_digest_after'] = tree_digest(after)
+            (stage / MANIFEST).write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
+        if compatible_manifest(stage, after, logical_before) is None:
+            raise RuntimeError('Incomplete staged presentation')
+        publish(stage, base, previous)
+    return base
+
+
+def _render_package(root, database, before, logical_before, output):
     tables, schema = read_database(database)
     records = build(tables, schema)
     links, ambiguous = link_records(records)
@@ -61,7 +76,6 @@ def generate(audit_dir):
     generated_at = datetime.now(timezone.utc).isoformat()
     for value in calculated:
         value['generated_at'] = generated_at
-    output = reserve_output(root)
     (output / 'assets').mkdir()
     (output / 'anexos').mkdir()
     assets = Path(__file__).parent / 'assets'
@@ -83,20 +97,15 @@ def generate(audit_dir):
     }
     coverage_map['families'] = {table: {'page': destination(table) + '.html', 'row_count': len(rows), 'columns': schema[table]['columns']} for table, rows in tables.items()}
     (output / 'assets' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
-    after = inventory(root)
-    quiescent(database)
-    logical_after = _sqlite_logical_digest(database)
-    if before != after or logical_before != logical_after:
-        raise RuntimeError('Source changed during generation; output is NOT validated')
     generated = {p.relative_to(output).as_posix(): digest(p) for p in output.rglob('*') if p.is_file()}
-    manifest = {
-        'contract': 'RASAI-PARALLEL-REPORT-001', 'version': 1, 'generator_version': __version__,
+    return {
+        'contract': CONTRACT, 'version': 1, 'generator_version': __version__,
         'audit_id': sanitize(tables.get('audits', [{}])[0].get('audit_id')) if tables.get('audits') else None,
         'generated_at': generated_at, 'timezone': 'UTC',
         'source_db_relative_path': 'audit.db', 'source_db_sha256': before['audit.db'],
         'source_db_logical_sha256': logical_before,
         'report_catalog_tree_digest': tree_digest(before, 'report-catalog/'),
-        'source_tree_digest_before': tree_digest(before), 'source_tree_digest_after': tree_digest(after),
+        'source_tree_digest_before': tree_digest(before),
         'source_inventory': before, 'tables_read': list(tables),
         'columns_read': {name: item['columns'] for name, item in schema.items()},
         'artifacts_read': sanitize(evidence), 'calculated_values': sanitize(calculated),
@@ -107,5 +116,3 @@ def generate(audit_dir):
         'external_requests': 0, 'ai_calls': 0, 'source_writes': 0, 'score_recomputed': False,
         'integrity': 'PASS',
     }
-    (output / '_geracao.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
-    return output
