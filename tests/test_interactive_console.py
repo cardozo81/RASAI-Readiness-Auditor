@@ -224,10 +224,7 @@ class InteractiveConsoleTests(unittest.TestCase):
                 self.assertEqual(report_entrypoint(workspace), current.resolve())
 
     def test_presentation_report_entrypoint_requires_current_database_hash(self) -> None:
-        import json
-        import sqlite3
-
-        from rasai.catalog_report_site import _sqlite_logical_digest
+        from rasai.parallel_report.generator import generate
 
         with TemporaryDirectory() as directory:
             workspace = Path(directory) / "AUD-PRESENTATION"
@@ -243,20 +240,7 @@ class InteractiveConsoleTests(unittest.TestCase):
                 connection.commit()
             finally:
                 connection.close()
-            source_hash = _sqlite_logical_digest(database)
-
-            base = workspace / "report-presentation"
-            base.mkdir()
-            (base / "index.html").write_text("presentation", encoding="utf-8")
-            (base / "_geracao.json").write_text(
-                json.dumps({
-                    "contract": "RASAI-PARALLEL-REPORT-001",
-                    "integrity": "PASS",
-                    "source_db_logical_sha256": source_hash,
-                    "generated_at": "2026-11-13T05:00:00+00:00",
-                }),
-                encoding="utf-8",
-            )
+            base = generate(workspace)
             self.assertEqual(presentation_report_entrypoint(workspace), (base / "index.html").resolve())
 
             connection = sqlite3.connect(database)

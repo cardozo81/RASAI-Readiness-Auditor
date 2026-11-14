@@ -202,7 +202,8 @@ def test_integration(tmp_path, monkeypatch, complete):
             assert '<script>alert(1)</script>' not in text or path.suffix == '.json'
     preserved = {str(p): digest(p) for p in output.rglob('*') if p.is_file()}
     second = generate(root)
-    assert second != output and second.parent == output
+    assert second == output == root / 'report-presentation'
+    assert {path.name for path in output.iterdir() if path.is_dir()} == {'anexos', 'assets'}
     assert all(digest(Path(path)) == value for path, value in preserved.items())
     assert inventory(root) == before
 
@@ -238,7 +239,173 @@ def test_mutable_report_boundary_generates_real_presentation(tmp_path, monkeypat
     assert manifest['contract'] == 'RASAI-PARALLEL-REPORT-001'
     assert manifest['integrity'] == 'PASS'
     assert manifest['source_db_sha256'] == digest(root / 'audit.db')
+    first = (report_root / '_geracao.json').read_bytes()
+    # RPR with unchanged input follows the same mutable finalizer.
+    report_completion.materialize_catalog_report_projection(audit_id='AUD-SYNTHETIC', workspace=workspace)
+    assert (report_root / '_geracao.json').read_bytes() == first
+    connection = sqlite3.connect(root / 'audit.db')
+    try:
+        connection.execute("INSERT INTO findings VALUES ('finding-2', '[]', 'Complemento persistido')")
+        connection.commit()
+    finally:
+        connection.close()
+    protected = inventory(root)
+    report_completion.materialize_catalog_report_projection(audit_id='AUD-SYNTHETIC', workspace=workspace)
+    assert 'Complemento persistido' in (report_root / 'conteudo.html').read_text(encoding='utf-8')
+    assert (report_root / '_geracao.json').read_bytes() != first
+    assert {p.name for p in report_root.iterdir() if p.is_dir()} == {'assets', 'anexos'}
+    assert inventory(root) == protected
 
+
+
+
+@pytest.mark.parametrize('screen', ['selected', 'selected_overlay', 'completion', 'reprocess'])
+def test_console_shortcuts_open_only_the_displayed_audit(tmp_path, monkeypatch, screen):
+    from rasai import (catalog_report_site, console_artifacts, console_navigation,
+                       console_usability_refinements, console_reprocess_final_refinements,
+                       console_reprocess_parity, interactive_console as console)
+    from rasai.console_config import State
+
+    root = fixture(tmp_path / 'AUD-SYNTHETIC')
+    presentation = generate(root) / 'index.html'
+    catalog = root / 'report-catalog' / 'index.html'
+    catalog.write_text('legacy', encoding='utf-8')
+    monkeypatch.setattr(catalog_report_site, 'verify_catalog_report_package', lambda _: (True, ()))
+    opened = []
+    monkeypatch.setattr(console_artifacts, 'open_external_path',
+                        lambda path: (opened.append(path) or True, str(path)))
+    state = State(audits_root=str(tmp_path), audit_id=root.name)
+    monkeypatch.setattr(console, 'render_header', lambda *_: None)
+    monkeypatch.setattr(console, '_render_actual_usage', lambda *_: None)
+    keys = iter(['a', 'i', 'v'])
+    monkeypatch.setattr('builtins.input', lambda prompt='': next(keys) if 'Escolha' in prompt else '')
+    if screen.startswith('selected'):
+        state.audit_id = 'AUD-OTHER-SESSION'
+        monkeypatch.setattr(console_navigation, '_configuration_reuse_status', lambda *_: (False, ''))
+        monkeypatch.setattr(console_navigation, '_navigation_summary', lambda *_, **kwargs: {})
+        monkeypatch.setattr(console_usability_refinements, '_safe_summary', lambda *_: {})
+        menu = console_navigation if screen == 'selected' else console_usability_refinements
+        menu._selected_audit_menu(console, state, root.name)
+    elif screen == 'completion':
+        monkeypatch.setattr(console, '_render_incomplete_requirements', lambda *_: None)
+        monkeypatch.setattr(console, '_post_run_reprocessability', lambda *_: (0, 0))
+        console._post_run_actions(state)
+    else:
+        state.audits_root = str(tmp_path / 'other-root')
+        monkeypatch.setattr(console_reprocess_parity, 'current_reprocess_audits_root', lambda _: str(tmp_path))
+        monkeypatch.setattr(console_reprocess_parity, 'render_reprocess_result', lambda *_: None)
+        monkeypatch.setattr(console_reprocess_parity, '_render_reprocess_usage_delta', lambda *_: None)
+        console_reprocess_final_refinements._run_post_actions(
+            console, state, result=None, unresolved=(), before_usage=None, after_usage=None)
+        assert state.audits_root == str(tmp_path / 'other-root')
+    assert opened == [presentation, catalog]
+
+
+def test_concurrent_generations_publish_once(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from rasai.parallel_report import generator
+
+    root = fixture(tmp_path / 'AUD-SYNTHETIC')
+    renders = []
+    original = generator.render
+    def count_render(*args):
+        renders.append(True)
+        return original(*args)
+    monkeypatch.setattr(generator, 'render', count_render)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outputs = list(pool.map(generate, [root, root]))
+    assert outputs == [root / 'report-presentation'] * 2
+    assert renders == [True]
+    assert presentation_report_entrypoint(root) == outputs[0] / 'index.html'
+
+
+def test_complement_refreshes_package_and_unchanged_reprocess_reuses_it(tmp_path, monkeypatch):
+    from rasai.parallel_report import generator
+
+    root = fixture(tmp_path / 'AUD-SYNTHETIC')
+    package = generate(root)
+    manifest = package / '_geracao.json'
+    first = manifest.read_bytes()
+    evidence = root / 'artifacts' / 'page.html'
+    evidence.write_text('<p>Complemento da auditoria</p>', encoding='utf-8')
+    assert presentation_report_entrypoint(root) is None
+    before = inventory(root)
+    assert generate(root) == package
+    updated = json.loads(manifest.read_bytes())
+    assert updated['source_inventory']['artifacts/page.html'] == digest(evidence)
+    assert manifest.read_bytes() != first
+    assert inventory(root) == before
+    monkeypatch.setattr(generator, 'render', lambda *_: pytest.fail('unexpected re-render'))
+    assert generate(root) == package
+
+
+@pytest.mark.parametrize('failure', ['render', 'publish'])
+def test_failed_refresh_preserves_published_tree(tmp_path, monkeypatch, failure):
+    from rasai.parallel_report import generator
+
+    root = fixture(tmp_path / 'AUD-SYNTHETIC')
+    package = generate(root)
+    previous = inventory(package)
+    (root / 'artifacts' / 'page.html').write_text('updated', encoding='utf-8')
+    before = inventory(root)
+
+    def fail(*args):
+        raise OSError('injected failure')
+
+    if failure == 'render':
+        monkeypatch.setattr(generator, 'render', fail)
+    else:
+        rename = Path.rename
+        def fail_stage(path, destination):
+            if path.name == 'stage' and destination == package:
+                assert not package.exists()
+                fail()
+            return rename(path, destination)
+        monkeypatch.setattr(Path, 'rename', fail_stage)
+    with pytest.raises(OSError, match='injected failure'):
+        generate(root)
+    assert inventory(package) == previous
+    assert inventory(root) == before
+
+
+@pytest.mark.parametrize('version', ['0.1.0', 'current'])
+def test_historical_package_migrates_on_explicit_open(tmp_path, monkeypatch, version):
+    from rasai import console_artifacts
+    from rasai.parallel_report import generator
+
+    root = fixture(tmp_path / 'AUD-SYNTHETIC')
+    base = generate(root)
+    dated = base / '20261113-181900-1'
+    children = list(base.iterdir())
+    dated.mkdir()
+    for path in children:
+        path.rename(dated / path.name)
+    if version == '0.1.0':
+        manifest = dated / '_geracao.json'
+        data = json.loads(manifest.read_bytes())
+        data['generator_version'] = version
+        manifest.write_text(json.dumps(data), encoding='utf-8')
+    else:
+        monkeypatch.setattr(generator, 'render', lambda *_: pytest.fail('compatible package re-rendered'))
+    before = inventory(root)
+    assert presentation_report_entrypoint(root) == dated / 'index.html'
+    assert not (base / 'index.html').exists()
+    entry, status = console_artifacts.materialize_presentation_report_on_demand(root)
+    assert (entry, status) == (base / 'index.html', 'MIGRATED')
+    assert presentation_report_entrypoint(root) == entry
+    assert not dated.exists()
+    assert inventory(root) == before
+
+
+def test_corrupt_package_is_regenerated(tmp_path):
+    root = fixture(tmp_path / 'AUD-SYNTHETIC')
+    package = generate(root)
+    page = package / 'assets' / 'app.js'
+    previous = digest(page)
+    page.write_text('truncated', encoding='utf-8')
+    assert presentation_report_entrypoint(root) is None
+    assert generate(root) == package
+    assert digest(page) == previous
 
 
 def test_presentation_freshness_uses_logical_sqlite_digest(tmp_path):

@@ -5,6 +5,10 @@ import json
 import os
 
 
+DIRECTORY = 'report-presentation'
+WORK_DIRECTORY = '.report-presentation-work'
+
+
 def digest(path):
     with path.open('rb') as stream:
         result = sha256()
@@ -37,7 +41,7 @@ def inventory(root):
     for directory, folders, files in os.walk(root, followlinks=False):
         base = Path(directory)
         if base == root:
-            folders[:] = [name for name in folders if name != 'report-presentation']
+            folders[:] = [name for name in folders if name not in {DIRECTORY, WORK_DIRECTORY}]
         for name in folders + files:
             item = base / name
             if item.is_symlink() or item.is_junction():
