@@ -1,4 +1,4 @@
-# Issue #710 — matriz de paridade informacional e arquitetura editorial
+# Issue #710 - matriz de paridade informacional e arquitetura editorial
 
 Baseline de análise: `e26d87c038c551e923d30468d9eae5bb6c145fa7` (`main`, merge da PR #709).
 
@@ -43,7 +43,7 @@ A lacuna de rede é maior que o resumo atual: o catálogo já representa estados
 | `cat-09.html` | Remediações | ações técnicas/editoriais e validação | Plano de ação | Adequada | Plano de ação | Fronteira conceitual já correta. |
 | `cat-10.html` | Segurança passiva | cobertura, scripts, findings, severidade, limitações e remediação | Segurança passiva; contagem de scripts também em Performance | Parcial / deslocada | Segurança passiva | Script observado é evidência de segurança passiva, não métrica de Web Performance. |
 | `network.html` | Rede e conectividade | captura passiva, probe autorizado, DNS/TCP/TLS, IP, traceroute, ASN/GeoIP, cronologia e limitações | Performance e experiência, apenas DNS/TCP/TLS resumidos | Parcial / deslocada | **Nova página Rede e conectividade** | Há propósito próprio, fontes/instantes distintos, estados próprios e volume incompatível com Performance. A página evita mistura conceitual e reutiliza o design system existente. |
-| `geo.html` | GEO — inteligência competitiva | observações, fontes, comparação e contexto | Search e GEO | Adequada | Search e GEO | Fronteira conceitual já correta. |
+| `geo.html` | GEO - inteligência competitiva | observações, fontes, comparação e contexto | Search e GEO | Adequada | Search e GEO | Fronteira conceitual já correta. |
 | `geo-content-review.html` | Análise reversa SEO/GEO | evidência editorial, semântica e contexto de Search/GEO | Conteúdo e acessibilidade + Search e GEO | Adequada | Conteúdo e acessibilidade + Search e GEO | Dupla projeção é intencional porque a superfície conecta conteúdo observado ao contexto Search/GEO sem fundir as fontes. |
 | `directed-analysis.html` | Análise direcionada | inventário de ações, fases e governança | Plano de ação | Adequada | Plano de ação | Fronteira conceitual já correta. |
 | `capture-context.html` | Contexto de captura | snapshots, URL solicitada/final, device, timestamp e arquitetura observada | Extração | Adequada | Extração | Fronteira conceitual já correta. |
