@@ -424,7 +424,12 @@ def _raw_serp_artifact(database: Path, observation: Mapping[str, Any]) -> Any:
     try:
         if path.stat().st_size > 8 * 1024 * 1024:
             return None
-        return json.loads(path.read_text(encoding="utf-8"))
+        from hashlib import sha256
+        payload = path.read_bytes()
+        expected = observation.get("raw_evidence_sha256")
+        if expected and sha256(payload).hexdigest() != expected:
+            return None
+        return json.loads(payload)
     except (OSError, ValueError, json.JSONDecodeError):
         return None
 
@@ -485,6 +490,33 @@ def _overview_references(values: Sequence[Any]) -> list[dict[str, Any]]:
             elif isinstance(raw, str) and raw.startswith(("http://", "https://")):
                 rows.append({"index": position - 1, "source": "-", "title": "-", "link": raw})
     return rows
+
+
+def overview_citation(values, target_hosts):
+    """Only a complete interpretable reference list can support a negative result."""
+    hosts = set()
+    complete = bool(values and target_hosts)
+    for value in values:
+        candidates = value.get("references") if isinstance(value, Mapping) else None
+        if not isinstance(candidates, list):
+            candidates = value.get("sources") if isinstance(value, Mapping) else None
+        if not isinstance(candidates, list) or not candidates:
+            complete = False
+            continue
+        for candidate in candidates:
+            url = (candidate.get("link") or candidate.get("url") or candidate.get("href")) if isinstance(candidate, Mapping) else candidate
+            try:
+                parts = urlsplit(url) if isinstance(url, str) else None
+                host = parts.hostname if parts and parts.scheme in {"http", "https"} else None
+            except ValueError:
+                host = None
+            if host:
+                hosts.add(host.casefold().removeprefix("www."))
+            else:
+                complete = False
+    if hosts & target_hosts:
+        return "Sim"
+    return "Não" if complete else "N/D"
 
 
 def _artifact_json(database: Path, reference: Any) -> Mapping[str, Any]:
@@ -688,18 +720,16 @@ def _serp_html(database: Path, data: Any) -> str:
             overview_id=f"cat05-aio-{index}"
             target_hosts=_target_hosts(data)
             references=_overview_references(overview)
-            reference_urls=[str(item.get("link") or "") for item in references if item.get("link")]
-            present_hosts={str(urlsplit(url).hostname or "").casefold().removeprefix("www.") for url in reference_urls}
-            brand_present=bool(target_hosts & present_hosts)
             detected=bool(overview)
-            citation_value=("Sim" if brand_present else "Não" if detected else "Não determinável")
+            citation_value=overview_citation(overview,target_hosts)
+            brand_present=citation_value=="Sim"
             citation_display=(
                 page._result_value(citation_value,"good" if brand_present else "warn")
                 if detected
                 else page._state_text("NOT_DETERMINABLE",citation_value)
             )
-            overview_rows.append((obs.get("query") or "-","Sim" if detected else "Não",citation_display,len(references),captured or "-",page._modal_button(overview_id,"Ver AI Overview")))
-            overview_body=page._kv((("Detectado","Sim" if detected else "Não"),("Site auditado entre as referências",citation_display),("Provedor",obs.get("provider") or "-"),("Capturado em",captured or "-"),("Artefato",obs.get("raw_evidence_ref") or "-"),("Referências declaradas pelo provider",len(references))))
+            overview_rows.append((obs.get("query") or "-","Sim" if detected else "N/D",citation_display,len(references),captured or "-",page._modal_button(overview_id,"Ver AI Overview")))
+            overview_body=page._kv((("Detectado","Sim" if detected else "N/D"),("Site auditado entre as referências",citation_display),("Provedor",obs.get("provider") or "-"),("Capturado em",captured or "-"),("Artefato",obs.get("raw_evidence_ref") or "-"),("Referências declaradas pelo provider",len(references))))
             if overview:
                 overview_body+="<h3>Conteúdo / resumo persistido</h3><div class='pre'>"+escape(_overview_text(overview))+"</div>"
                 reference_rows=[(item.get("index"),item.get("source"),item.get("title"),item.get("link")) for item in references]

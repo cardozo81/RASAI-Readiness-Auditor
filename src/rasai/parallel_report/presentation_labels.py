@@ -51,6 +51,10 @@ def timezone_provenance(reason):
 def public_value(value, field=None, timezone_name=None):
     if value is None:
         return 'N/D'
+    if field == 'lcp_lab_ms' and isinstance(value, (float, int)):
+        return f'{value:,.0f}'.replace(',', ' ')
+    if field == 'domain_status' and value == 'NOT_FOUND_WITHIN_DEPTH':
+        return 'Não encontrado na profundidade consultada'
     if field in TIMESTAMPS and isinstance(value,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?',value):
         if timezone_name:
             try:
@@ -86,6 +90,8 @@ def chip_tone(value, field):
 
 
 def metric_label(row,key,labels):
+    if key=='agentic_browsing_score':
+        return 'Lighthouse · Navegação por agentes'
     if key!='apdex_score':
         return labels.get(row.get('dimension',key),row.get('dimension',key))
     family=row.get('_source_table')

@@ -88,9 +88,9 @@ def test_zero_null(value, expected):
 def test_states():
     assert state('NOT_REQUESTED') != state('FAILED')
     assert state('NOT_APPLICABLE') != state('SUCCESS')
-    assert state(None).startswith('Não medido')
+    assert state(None) == 'Estado de medição não determinado'
     assert state('PARTIAL', 'amostra').endswith('amostra')
-    assert state('FAIL').startswith('Não medido')  # rule FAIL is not an integration error
+    assert state('FAIL') == 'Estado de medição não determinado'  # rule FAIL is not an integration error
 
 
 @pytest.mark.parametrize('reference', ['../outside', '/etc/passwd', 'C:\\secret', 'file:///secret', 'artifacts/../../secret'])

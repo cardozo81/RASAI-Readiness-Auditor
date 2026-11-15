@@ -406,7 +406,7 @@ def _ai_totals(attempts: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
 def _ai_integrations_body(database: Any, data: Any) -> str:
     from rasai import catalog_report_integrations as i
-    from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost
+    from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost, canonical_total_tokens
     from rasai.ai_failure_diagnostics import format_ai_attempt_diagnostic
     from rasai.catalog_report_presentation import _Html
 
@@ -454,10 +454,10 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
             ("Fim", attempt.get("finished_at") or "-"),
             ("Duração", i._fmt_number(attempt.get("duration_ms"), "ms")),
             ("Tokens de entrada", i._token_value_display(attempt.get("input_tokens"), cost=raw_cost)),
-            ("Entrada em cache", attempt.get("cached_input_tokens") or 0),
+            ("Entrada em cache", i._token_text(attempt.get("cached_input_tokens"))),
             ("Tokens de saída", i._token_value_display(attempt.get("output_tokens"), cost=raw_cost)),
-            ("Tokens de raciocínio", attempt.get("reasoning_tokens") or 0),
-            ("Tokens totais", i._attempt_total_tokens(attempt)),
+            ("Tokens de raciocínio", i._token_text(attempt.get("reasoning_tokens"))),
+            ("Tokens totais", i._token_text(canonical_total_tokens(attempt))),
             ("Custo individual", cost_display),
             *i._pricing_trace_rows(attempt),
             ("Roteamento / contingência", attempt.get("decision") or attempt.get("fallback_reason") or "-"),
@@ -559,11 +559,11 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
     body = i._audit_hero(data, "IA e integrações", "Auditoria das comunicações externas: finalidade, dados envolvidos, tentativas, volume, custo, resultado e solicitações/respostas persistidas, com credenciais removidas.")
     body += i._outline((("summary", "Resumo"), ("chains", "Resultado final e fallback"), ("ai", "Requisições de IA"), ("integrations", "Outras integrações"), ("cost", "Previsão × custo"), ("principles", "Leitura")))
     success_note = f"{totals['success']} concluída(s)"
-    input_text = f"{totals['input']:,}".replace(",", " ")
-    cached_text = f"{totals['cached']:,}".replace(",", " ")
-    output_text = f"{totals['output']:,}".replace(",", " ")
-    reasoning_text = f"{totals['reasoning']:,}".replace(",", " ")
-    total_text = f"{totals['total']:,}".replace(",", " ")
+    input_text = i._token_text(totals["input"]) if any(a.get("input_tokens") is not None for a in attempts) else "N/D"
+    cached_text = i._token_text(totals["cached"]) if any(a.get("cached_input_tokens") is not None for a in attempts) else "N/D"
+    output_text = i._token_text(totals["output"]) if any(a.get("output_tokens") is not None for a in attempts) else "N/D"
+    reasoning_text = i._token_text(totals["reasoning"]) if any(a.get("reasoning_tokens") is not None for a in attempts) else "N/D"
+    total_text = i._token_text(totals["total"]) if any(canonical_total_tokens(a) is not None for a in attempts) else "N/D"
     summary_html = "<div class='metric-grid'>"
     summary_html += i._metric("Tentativas de IA", totals["attempts"], success_note)
     summary_input = i._no_cost_value(input_text) if zero_cost_confirmed else input_text
@@ -573,7 +573,7 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
     summary_html += i._metric("Tokens de saída", summary_output)
     summary_html += i._metric("Tokens de raciocínio", reasoning_text, "subconjunto informativo; não somado novamente")
     summary_html += i._metric("Tokens totais", total_text, "total do provider quando presente; caso contrário, entrada + saída")
-    summary_html += i._metric("Custo observado", summary_cost, "custo técnico contabilizado, agregado por moeda; sem conversão cambial implícita")
+    summary_html += i._cost_basis_cards(attempts) + i._metric("Custo conciliado", summary_cost, "custo técnico contabilizado por moeda")
     summary_html += "</div>"
     body += i._section("summary", "Resumo do consumo", summary_html)
     chain_intro = (
@@ -645,7 +645,7 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
         if int(forecast.get("unpriced_ai_attempts") or 0):
             cost_html += f"<div class='notice warn'>{int(forecast.get('unpriced_ai_attempts') or 0)} tentativa(s) de IA não possuem preço monetário conhecido e permanecem fora do total.</div>"
     else:
-        cost_html = "<div class='metric-grid'>" + i._metric("Custo observado", summary_cost, "custo técnico contabilizado; sem conversão cambial implícita") + i._metric("Previsão pré-execução", "Não persistida") + "</div><div class='notice'>Sem previsão persistida, o relatório não inventa custo esperado, desvio ou faixa histórica.</div>"
+        cost_html = "<div class='metric-grid'>" + i._cost_basis_cards(attempts) + i._metric("Previsão pré-execução", "Não persistida") + "</div><div class='notice'>Sem previsão persistida, o relatório não inventa custo esperado, desvio ou faixa histórica.</div>"
     if forecast:
         # #319: make the conservative point-vs-interval interpretation
         # visible in the *final* report. Never sum currencies or extrapolate

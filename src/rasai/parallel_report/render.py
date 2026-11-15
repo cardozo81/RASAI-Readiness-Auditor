@@ -2,6 +2,8 @@
 from html import escape
 import json
 from hashlib import sha256
+from .governance import Governance
+from .components import kv
 from .coverage import display, state
 from .read_model import PAGES, destination, thaw, SEARCH_PAGE
 from .templates import label as public_label
@@ -35,14 +37,20 @@ def shell(page, title, body, audit_id=None):
 <div class="shell"><article><h1>{esc(title)}</h1><p class="lead">Análise dos fatos persistidos, com evidências, escopos e limitações. Sem nova coleta ou recálculo de score.</p>{body}<footer>Projeção derivada offline. Ausência não é zero. Sugestões de IA dependem de revisão humana.</footer></article><div class="rail"><b>Nesta página</b>{rail}</div></div></main></body></html>'''
 
 
-def record_html(record, links, physical_links=(), timezone_name=None):
+def record_html(record, links, physical_links=(), timezone_name=None, governance=None):
     data = thaw(record.data)
     title = next((data[k] for k in ('title', 'label', 'dimension', 'metric_id', 'rule_id') if data.get(k) is not None), None)
     if title is None:
         title = next((v for _, v in record.identity), 'Registro persistido')
     status = state(data.get('status', data.get('state', data.get('consolidation_status'))), data.get('reason'))
+    if record.table == 'serp_observations':
+        status = ('Observado' if data.get('observation_status') == 'OBSERVED' else state(data.get('observation_status'), data.get('reason')))
+    if record.table.startswith('synthetic_') and record.table.endswith('_summaries') and data.get('apdex_score') is not None:
+        status = 'Índice medido'
     origin = 'Regra' if record.table in {'rule_executions', 'findings', 'score_contributions'} else 'Medido'
-    if 'suggestion' in record.table or record.table == 'improvement_intelligence_recommendations':
+    if record.table == 'jsonld_remediation_suggestions':
+        origin = 'Proposta determinística do RASAi · baseada na captura'
+    elif record.table == 'content_remediation_suggestions' or (record.table == 'improvement_intelligence_recommendations' and data.get('source') == 'AI'):
         origin = 'IA sugeriu · Sugestão não aprovada'
     elif data.get('provider') and data.get('model'):
         origin = 'IA avaliou' if 'assessment' in record.table else 'Proveniência de IA persistida'
@@ -50,12 +58,17 @@ def record_html(record, links, physical_links=(), timezone_name=None):
         origin = 'Externo'
     fields = ('value', 'performance_score', 'accessibility_score', 'apdex_score', 'lcp_p75_ms', 'coverage', 'confidence', 'device', 'url', 'field_scope', 'profile_id', 'valid_samples', 'severity', 'priority', 'priority_class', 'validation', 'verification', 'expected_condition', 'observed_value')
     summary = ''.join(f'<dt>{esc(metric_label({**data,"_source_table":record.table},k,{}) if k=="apdex_score" else public_label(k))}</dt><dd>{esc(public_value(data[k],k,timezone_name))}</dd>' for k in fields if k in data and not isinstance(data[k], (dict, list)))
+    if governance is not None and record.table in {'improvement_intelligence_recommendations', 'directed_analysis_actions', 'recommendations', 'content_remediation_suggestions', 'jsonld_remediation_suggestions'}:
+        summary += '<dt>Governança</dt><dd>' + esc(governance.disposition(record.table, data)) + '</dd>'
+    if record.table == 'recommendation_governance':
+        summary += ''.join(f'<dt>{esc(label)}</dt><dd>{esc(value)}</dd>' for label, value in (
+            ('Decisão', data.get('decision')), ('Alvo', data.get('target_class')), ('Motivo', data.get('rejection_reason'))))
     refs = ''.join(f'<a class="tech-link" href="{esc(target)}">Abrir registro técnico relacionado {i + 1}</a> ' for i, target in enumerate(links[record.href]))
     refs += ''.join(f'<a class="tech-link" href="extracao.html#physical-{index}">Abrir evidência física</a> ' for index in physical_links)
     return f'<div class="record" id="{record.anchor}"><h3>{esc(title)}</h3><p class="org">{esc(origin)}</p><p>{esc(status)}</p><dl>{summary}</dl><details><summary>Dados persistidos e proveniência</summary>{payload(data)}<p>ID de apresentação: {record.anchor}</p></details><nav aria-label="Referências bidirecionais">{refs}</nav></div>'
 
 
-def review_table(records, links, evidence, physical):
+def review_table(records, links, evidence, physical, governance=None):
     by_href = {record.href: record for record in records}
     body = '<div class="tw"><table><caption>Arquivos e conteúdos a revisar — vínculos persistidos explícitos</caption><thead><tr>'
     headings = ('Arquivo / SHA-256', 'Elemento / trecho', 'Problema / criticidade / prioridade', 'Origem / cobertura', 'Ação', 'Evidência', 'Validação')
@@ -66,6 +79,8 @@ def review_table(records, links, evidence, physical):
         data = thaw(record.data)
         related = [by_href[href] for href in links[record.href]]
         actions = [r for r in related if r.table in {'directed_analysis_actions', 'recommendations', 'improvement_intelligence_recommendations', 'passive_security_remediations'}]
+        if governance is not None:
+            actions = [r for r in actions if not governance.excluded(r.table, r.data)]
         evidence_rows = sorted({index for r in [record] + [r for r in related if r.table in {'evidence', 'element_observations'}] for index in physical.get(r.href, ())})
         for index in evidence_rows or [None]:
             item = evidence[index] if index is not None else {}
@@ -81,7 +96,7 @@ def review_table(records, links, evidence, physical):
     return body + '</tbody></table></div>'
 
 
-def render(records, links, tables, evidence, calculated, costs, parity, thresholds, missing):
+def render(records, links, tables, evidence, calculated, costs, parity, thresholds, missing, supplements=None):
     from .page_views import editorial
     from .components import table, kv
     output, physical = {}, {}
@@ -91,10 +106,12 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         source = family[item['row_index']]
         item['source_href'] = source.href
         physical.setdefault(source.href, []).append(index)
+    governance = Governance(tables.get('recommendation_governance', ()))
     for page, title in PAGES:
-        body = editorial(page, records, costs, thresholds)
+        body = editorial(page, records, costs, thresholds, governance=governance)
+        body += (supplements or {}).get(page, '')
         if page == 'extracao':
-            body += '<h2>Contagens derivadas da captura</h2>' + table('Calculado no relatório', calculated, [('source','Fonte'),('sha256','SHA-256'),('words','Palavras'),('links','Links'),('images','Imagens'),('algorithm_version','Algoritmo')])
+            body += '<h2>Contagens derivadas da captura</h2><p>Palavras são tokens de texto no HTML renderizado, excluídos script e style. O contador não testa visibilidade CSS. A comparação competitiva pode usar outro documento e método.</p>' + table('Calculado no relatório', calculated, [('source','Fonte'),('sha256','SHA-256'),('words','Palavras'),('links','Links'),('images','Imagens'),('algorithm_version','Algoritmo')])
             body += '<h2>Arquivos e referências físicas</h2>'
             for index, item in enumerate(evidence):
                 body += f'<details id="physical-{index}"><summary>{esc(item["reference"])}</summary>' + kv([(public_label(k),public_value(item.get(k),k,timezone_name)) for k in ('sha256','type','coverage','selector','line','column')]) + f'<pre>{esc(item.get("excerpt"))}</pre><a class="tech-link" href="{item["source_href"]}">Voltar ao registro técnico de origem</a><details class="in"><summary>Proveniência completa</summary>{payload(item)}</details></details>'
@@ -104,13 +121,13 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
             body += '<p class="callout w">Busca não equivale a citação. Posição não prova causalidade. Consulta, idioma, mercado, dispositivo e instante delimitam a amostra.</p>'
         body += '<h2>Evidências e detalhe técnico</h2><details><summary>Inventário integral de registros e anexos</summary>'
         if page == 'plano':
-            body += '<details><summary>Arquivos e conteúdos a revisar</summary>' + review_table(records,links,evidence,physical) + '</details>'
+            body += '<details><summary>Arquivos e conteúdos a revisar</summary>' + review_table(records,links,evidence,physical,governance) + '</details>'
         for table_name in tables:
             if destination(table_name) != page:
                 continue
             items = [r for r in records if r.table == table_name]
             body += f'<details><summary>{esc(public_label(table_name))} · {len(items)} registros</summary><a class="tech-link" href="anexos/{sha256(table_name.encode()).hexdigest()}.json">Abrir anexo sanitizado integral</a>'
-            body += ''.join(record_html(record, links, physical.get(record.href, ()), timezone_name) for record in items) + '</details>'
+            body += ''.join(record_html(record, links, physical.get(record.href, ()), timezone_name, governance) for record in items) + '</details>'
         body += '</details><details><summary>Limitações, cobertura e conferência de paridade</summary>' + payload({'missing_data':missing,'parity':parity}) + '</details>'
         audit_id = tables.get('audits',[{}])[0].get('audit_id') if tables.get('audits') else None
         output[page+'.html'] = shell(page,title,body,audit_id)

@@ -9,6 +9,7 @@ def _obs_path(workspace: Path) -> Path:
 
 
 import json
+from hashlib import sha256
 from pathlib import Path
 import sqlite3
 from types import SimpleNamespace
@@ -227,7 +228,7 @@ def test_ai_overview_is_projected_from_persisted_serp_artifact(tmp_path: Path) -
                 "SERP-1", AUDIT_ID, "RUN-1", "rasai", "MANUAL", "google", "BR", None,
                 "pt-BR", "desktop", "2026-09-17T10:05:00+00:00", "serpapi", "REQ-1", 20,
                 1, "OBSERVED_API", "OBSERVED", "example.test", 1, "FOUND",
-                "artifacts/serp/SERP-1/raw.json", "abc", "{}", "{}", None, None,
+                "artifacts/serp/SERP-1/raw.json", sha256(artifact.read_bytes()).hexdigest(), "{}", "{}", None, None,
             ),
         )
         connection.execute(
@@ -248,6 +249,8 @@ def test_ai_overview_is_projected_from_persisted_serp_artifact(tmp_path: Path) -
     assert "https://example.test/guide" in html
     assert "Site auditado entre as referências" in html
     assert "Sim" in html
+    artifact.write_text('{"ai_overview":{"text":"tampered overview"}}', encoding="utf-8")
+    assert "tampered overview" not in _serp_html(database, _data())
 
 
 def test_ai_overview_reference_count_excludes_icons_and_thumbnails() -> None:

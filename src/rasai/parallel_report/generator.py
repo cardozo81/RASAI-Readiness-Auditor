@@ -81,7 +81,16 @@ def _render_package(root, database, before, logical_before, output):
     assets = Path(__file__).parent / 'assets'
     for name in ('site.css', 'app.js', 'thresholds.json'):
         (output / 'assets' / name).write_bytes((assets / name).read_bytes())
-    pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing)
+    from .catalog_context import catalog_context
+    from .scope_context import scope_context
+    from .presentation_labels import timezone_for_records
+
+    timezone_name, _ = timezone_for_records(records)
+    supplements = scope_context(root, tables, timezone_name, costs)
+    audit = next(iter(tables.get('audits', ())), {})
+    for page, body in catalog_context(root, logical_before, audit.get('audit_id')).items():
+        supplements[page] += body
+    pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
     for name, html in pages.items():
         (output / name).write_text(html, encoding='utf-8')
     from hashlib import sha256

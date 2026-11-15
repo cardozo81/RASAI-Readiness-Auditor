@@ -149,7 +149,7 @@ def _v2_panel(report, page, *, private):
     body += "<dl class='kv'><dt>Observações com contexto qualificado</dt><dd>" + _e(counts["qualified"]) + "</dd><dt>Controles / navegação não acionáveis</dt><dd>" + _e(counts["not_actionable"]) + "</dd><dt>Função editorial N/D</dt><dd>" + _e(counts["nd"]) + "</dd></dl>"
     if page == "index.html":
         body += "<p>" + _quantity(recs["raw"], "hipótese técnica v1 preservada", "hipóteses técnicas v1 preservadas") + "; " + _quantity(recs["qualified"], "ação editorial v2 sustentada", "ações editoriais v2 sustentadas") + ". Sem prova adicional de lacuna, a indicação de melhoria permanece N/D.</p><ul>"
-        body += "".join("<li><a href='" + name + "#contextual-semantic-v2'>" + label + "</a></li>" for name, label in PAGES.items() if name != page) + "</ul>"
+        body += "".join("<li><a href='" + name + ("#contextual-content" if name == "geo-content-review.html" else "#contextual-semantic-v2") + "'>" + label + "</a></li>" for name, label in PAGES.items() if name != page) + "</ul>"
     elif page in {"capture-context.html", "cat-03.html"}:
         body += "<p>FAQ editorial observada: " + _quantity(counts["faq_questions"], "pergunta", "perguntas") + " e " + _quantity(counts["faq_answers"], "resposta vinculada", "respostas vinculadas") + ". Pergunta sem resposta comprovada permanece N/D.</p>"
         groups = defaultdict(list)

@@ -66,7 +66,7 @@ def _load(value: Any, default: Any) -> Any:
         return default
 
 
-def governed_plan_html(database: Any, data: Any) -> str:
+def governed_plan_html(database: Any, data: Any, *, technical_html: str = "") -> str:
     from rasai import catalog_report_analysis as a
 
     accepted = list_governance(database, data.audit_id, decision=ACCEPTED)
@@ -77,6 +77,17 @@ def governed_plan_html(database: Any, data: Any) -> str:
             "<div class='notice warn'><strong>Governança de recomendações não materializada.</strong> "
             "O inventário técnico pode existir, mas não é apresentado como plano governado para o cliente.</div>"
         )
+
+    from rasai.accepted_audit_refinements import _stable_report_anchor
+
+    def historical_reference(row):
+        if row.get("source_kind") != "DETERMINISTIC" or not row.get("source_id"):
+            return ""
+        anchor = _stable_report_anchor("rem-det", row["source_id"], "")
+        if f"id='{anchor}'" in technical_html or f'id="{anchor}"' in technical_html:
+            return ""
+        return (f'<p id="{escape(anchor, quote=True)}">Referência histórica de governança · '
+                f'{escape(str(row["source_id"]))}. Detalhe técnico de origem indisponível nesta projeção.</p>')
 
     accepted_rows = []
     accepted_modals = []
@@ -100,7 +111,7 @@ def governed_plan_html(database: Any, data: Any) -> str:
             ("Evidências relacionadas", ", ".join(str(item) for item in evidence) if isinstance(evidence, list) and evidence else "—"),
             ("Contrato", row.get("contract_version") or "—"),
         ))
-        accepted_modals.append(a._modal(modal_id, row.get("title") or "Recomendação", "Governança CAT-09", body))
+        accepted_modals.append(historical_reference(row) + a._modal(modal_id, row.get("title") or "Recomendação", "Governança CAT-09", body))
 
     verify_rows = []
     verify_modals = []
@@ -126,7 +137,7 @@ def governed_plan_html(database: Any, data: Any) -> str:
             ("Evidências relacionadas", ", ".join(str(item) for item in evidence) if isinstance(evidence, list) and evidence else "—"),
         ))
         verify_modals.append(
-            a._modal(
+            historical_reference(row) + a._modal(
                 modal_id,
                 row.get("title") or "Decisão necessária",
                 "Item evidence-bound aguardando decisão",
@@ -154,7 +165,7 @@ def governed_plan_html(database: Any, data: Any) -> str:
             ("Racional", row.get("rationale") or "—"),
             ("Evidências relacionadas", ", ".join(str(item) for item in evidence) if isinstance(evidence, list) and evidence else "—"),
         ))
-        rejected_modals.append(a._modal(modal_id, row.get("title") or "Recomendação rejeitada", "Item mantido apenas para auditoria da decisão", body))
+        rejected_modals.append(historical_reference(row) + a._modal(modal_id, row.get("title") or "Recomendação rejeitada", "Item mantido apenas para auditoria da decisão", body))
 
     metrics = (
         "<div class='metric-grid'>"
@@ -209,8 +220,8 @@ def install() -> None:
         return
 
     def remediation_html(database: Any, data: Any) -> str:
-        governed = governed_plan_html(database, data)
         raw = current(database, data)
+        governed = governed_plan_html(database, data, technical_html=raw)
         return (
             governed
             + "<details><summary>Inventário técnico de remediações de origem</summary><div class='detail-body'>"
