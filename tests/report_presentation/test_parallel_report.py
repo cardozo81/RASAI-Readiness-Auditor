@@ -183,8 +183,11 @@ def test_integration(tmp_path, monkeypatch, complete):
     assert manifest['parity_differences']['comparisons']['scores']['status'] == 'PASS'
     assert manifest['external_requests'] == manifest['ai_calls'] == manifest['source_writes'] == 0
     coverage = json.loads((output / 'assets' / 'coverage-map.json').read_text(encoding='utf-8'))
-    assert coverage['families']['private_payload']['page'] is None
-    assert coverage['families']['private_payload']['representation'] == 'technical-only'
+    if complete:
+        assert coverage['families']['private_payload']['page'] is None
+        assert coverage['families']['private_payload']['representation'] == 'technical-only'
+    else:
+        assert 'private_payload' not in coverage['families']
     assert manifest['source_db_logical_sha256']
     for name, value in manifest['sha256_per_file'].items():
         assert digest(output / name) == value
