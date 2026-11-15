@@ -27,7 +27,7 @@ def test_browser_offline(tmp_path):
             page.set_viewport_size({'width': width, 'height': 1080})
             for path in output.glob('*.html'):
                 page.goto(path.as_uri())
-                assert page.locator('nav[aria-label="Páginas"] a').count() == 10
+                assert page.locator('nav[aria-label="Páginas"] a').count() == 11
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), path.name
                 page.locator('#theme').click()
                 assert page.locator('body').evaluate('(e) => e.classList.contains("dark")')
