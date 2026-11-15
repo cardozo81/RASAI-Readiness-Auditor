@@ -95,6 +95,22 @@ def canonical_total_tokens(source: Any) -> int | None:
     return derived if derived <= 999_999_999_999_999_999 else None
 
 
+def reported_token_count(source: Any, field: str) -> int | None:
+    """A complete displayed total needs a provider total or both additive components."""
+    if field != "total_tokens":
+        return _integer(_value(source, field))
+    if _value(source, field) is None and (
+        _value(source, "input_tokens") is None or _value(source, "output_tokens") is None
+    ):
+        return None
+    return canonical_total_tokens(source)
+
+
+def known_token_subtotal(attempts, field: str) -> tuple[int | None, int]:
+    values = [count for row in attempts if (count := reported_token_count(row, field)) is not None]
+    return (sum(values) if values else None, len(values))
+
+
 def price_usage(
     provider: str,
     model: str,

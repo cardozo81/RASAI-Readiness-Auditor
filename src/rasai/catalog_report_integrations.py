@@ -2,7 +2,7 @@
 from rasai.catalog_report_governance import *  # noqa: F401,F403
 from rasai.catalog_report_public_labels import public_label
 from rasai.ai_native_usage import humanize_native_usage_unit
-from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost, canonical_total_tokens
+from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost, canonical_total_tokens, known_token_subtotal, reported_token_count
 from rasai.secret_safety import redact_value
 from rasai.time_contract import parse_timestamp
 
@@ -260,6 +260,25 @@ def _token_text(value: Any) -> str:
     return "N/D" if value is None else f"{int(value):,}".replace(",", " ")
 
 
+def _token_summary_cards(attempts, zero_cost_confirmed):
+    fields = (
+        ("input_tokens", "Tokens de entrada", ""),
+        ("cached_input_tokens", "Entrada em cache", "subconjunto da entrada"),
+        ("output_tokens", "Tokens de saída", ""),
+        ("reasoning_tokens", "Tokens de raciocínio", "subconjunto informativo; não somado novamente"),
+        ("total_tokens", "Tokens totais", "total do provedor ou entrada e saída conhecidas"),
+    )
+    cards = []
+    for field, title, note in fields:
+        subtotal, count = known_token_subtotal(attempts, field)
+        value = _token_text(subtotal)
+        if zero_cost_confirmed and subtotal is not None and field in {"input_tokens", "output_tokens"}:
+            value = _no_cost_value(value)
+        coverage = f"{count} de {len(attempts)} tentativa(s) com valor conhecido"
+        cards.append(_metric(title, value, " · ".join(filter(None, (coverage, note)))))
+    return "".join(cards)
+
+
 def _token_pair_display(input_tokens: Any, output_tokens: Any, *, cost: Any) -> _Html|str:
     text = " / ".join(_token_text(value) for value in (input_tokens, output_tokens))
     return _no_cost_value(text) if _is_explicit_zero_cost(cost) else text
@@ -476,11 +495,6 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
     external=_external_integrations(database,data.audit_id)
     reprocess_runs=_reprocess_runs(database,data.audit_id)
     success=sum(1 for a in attempts if _norm(a.get("status")) in _STATUS_SUCCESS)
-    input_tokens=sum(int(a.get("input_tokens") or 0) for a in attempts)
-    cached_tokens=sum(int(a.get("cached_input_tokens") or 0) for a in attempts)
-    output_tokens=sum(int(a.get("output_tokens") or 0) for a in attempts)
-    reasoning_tokens=sum(int(a.get("reasoning_tokens") or 0) for a in attempts)
-    total_tokens=sum(_attempt_total_tokens(a) for a in attempts)
     attempt_costs=[_attempt_cost_value(a) for a in attempts]
     total_cost=sum(float(value or 0) for value in attempt_costs)
     native_usage_text,native_unpriced=_native_usage_summary(attempts)
@@ -523,7 +537,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
             ("Entrada em cache",_token_text(a.get("cached_input_tokens"))),
             ("Tokens de saída",_token_value_display(a.get("output_tokens"),cost=raw_cost) if a.get("output_tokens") is not None else "Não informado"),
             ("Tokens de raciocínio",_token_text(a.get("reasoning_tokens"))),
-            ("Tokens totais",_token_text(canonical_total_tokens(a))),
+            ("Tokens totais",_token_text(reported_token_count(a,"total_tokens"))),
             ("Custo individual",_money_display(raw_cost,currency_code)),
             *_pricing_trace_rows(a),
             ("Roteamento / contingência",a.get("decision") or a.get("fallback_reason") or "-"),
@@ -584,10 +598,8 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
 
     body=_audit_hero(data,"IA e integrações","Auditoria das comunicações externas: finalidade, dados envolvidos, tentativas, volume, custo, resultado e solicitações/respostas persistidas, com credenciais removidas.")
     body+=_outline((("summary","Resumo"),("stages","Tempos e custos por etapa"),("ai","Requisições de IA"),("integrations","Outras integrações"),("cost","Custos"),("principles","Leitura")))
-    input_display=_no_cost_value(f"{input_tokens:,}".replace(","," ")) if zero_cost_confirmed else f"{input_tokens:,}".replace(","," ")
-    output_display=_no_cost_value(f"{output_tokens:,}".replace(","," ")) if zero_cost_confirmed else f"{output_tokens:,}".replace(","," ")
     native_metric=_metric('Uso nativo',native_usage_text,'unidades comerciais do provedor; não convertidas em tokens') if native_usage_text else ""
-    body+=_section("summary","Resumo do consumo",f"<div class='metric-grid'>{_metric('Tentativas de IA',len(attempts),f'{success} concluída(s)')}{_metric('Tokens de entrada',input_display)}{_metric('Entrada em cache',f'{cached_tokens:,}'.replace(',',' '))}{_metric('Tokens de saída',output_display)}{_metric('Tokens de raciocínio',f'{reasoning_tokens:,}'.replace(',',' '), 'incluídos nos tokens de saída; não somados novamente')}{_metric('Tokens totais',f'{total_tokens:,}'.replace(',',' '),'entrada + saída')}{native_metric}{_cost_basis_cards(attempts)}</div>")
+    body+=_section("summary","Resumo do consumo",f"<div class='metric-grid'>{_metric('Tentativas de IA',len(attempts),f'{success} concluída(s)')}{_token_summary_cards(attempts,zero_cost_confirmed)}{native_metric}{_cost_basis_cards(attempts)}</div>")
     from rasai.audit_stage_cost_presentation import (
         inspect_stage_economics, stage_report_html,
     )

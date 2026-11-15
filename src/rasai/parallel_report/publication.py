@@ -44,7 +44,7 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
     try:
         path = confined(directory, MANIFEST)
         manifest = json.loads(path.read_text(encoding='utf-8'))
-        versions = (__version__, '0.2.0', '0.1.0') if historical_version else (__version__,)
+        versions = (__version__, '0.3.0', '0.2.0', '0.1.0') if historical_version else (__version__,)
         if not isinstance(manifest, dict) or (
             manifest.get('contract') != CONTRACT or manifest.get('version') != 1
             or manifest.get('generator_version') not in versions
@@ -58,7 +58,7 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
                 or manifest.get('source_tree_digest_after') != recorded_digest):
             return None
         catalog_manifest = 'report-catalog/manifest.json'
-        if manifest.get('generator_version') == __version__ and (catalog_manifest in recorded or catalog_manifest in source):
+        if manifest.get('generator_version') in {__version__, '0.3.0'} and (catalog_manifest in recorded or catalog_manifest in source):
             if tree_digest(recorded, 'report-catalog/') != tree_digest(source, 'report-catalog/'):
                 return None
         evidence = manifest['artifacts_read']

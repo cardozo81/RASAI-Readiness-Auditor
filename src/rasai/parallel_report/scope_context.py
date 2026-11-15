@@ -3,7 +3,7 @@ import sqlite3
 from collections import Counter, defaultdict
 from types import SimpleNamespace
 
-from rasai.ai_economic_telemetry import canonical_total_tokens
+from rasai.ai_economic_telemetry import known_token_subtotal
 from rasai.catalog_report_search_trust import (
     _overview_values, _overview_references, _raw_serp_artifact, _target_hosts, overview_citation,
 )
@@ -144,9 +144,8 @@ def scope_context(root, raw_tables, timezone_name, costs):
     if attempts:
         pairs = []
         for field, label in [('input_tokens','Entrada'), ('cached_input_tokens','Entrada em cache'), ('output_tokens','Saída'), ('reasoning_tokens','Raciocínio'), ('total_tokens','Total')]:
-            values = [canonical_total_tokens(r) if field == 'total_tokens' else r.get(field) for r in attempts]
-            known = [v for v in values if isinstance(v, int)]
-            pairs.append((f'Tokens · {label} ({len(known)}/{len(values)} com valor)', sum(known) if known else None))
+            subtotal, count = known_token_subtotal(attempts, field)
+            pairs.append((f'Tokens · {label} ({count}/{len(attempts)} com valor)', subtotal))
         pairs.append(('Tentativas com custo conciliado / total', f"{sum(e.get('amount') is not None for e in costs['entries'])}/{costs['attempt_count']}"))
         result['ia-custos'] += '<p>A duração por tentativa mede uma chamada. Etapas de execução, esperas e requisições HTTP podem se sobrepor; seus intervalos não devem ser somados como duração da auditoria.</p>'
         result['ia-custos'] += subsection('Consumo conhecido e cobertura', pairs, 'Cache integra a entrada. Raciocínio integra a saída. Valores ausentes permanecem desconhecidos.')

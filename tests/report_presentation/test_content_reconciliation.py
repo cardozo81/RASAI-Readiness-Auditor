@@ -32,6 +32,17 @@ def test_cost_basis_and_unknown_tokens():
     assert _token_value_display(None, cost=0) == 'N/D'
 
 
+def test_partial_tokens_keep_known_input_without_claiming_complete_total():
+    from rasai.ai_economic_telemetry import known_token_subtotal
+    from rasai.catalog_report_integrations import _token_summary_cards
+
+    attempts = [{'input_tokens': 7}, {'total_tokens': 0}, {'input_tokens': 2, 'output_tokens': 5}]
+    assert known_token_subtotal(attempts, 'input_tokens') == (9, 2)
+    assert known_token_subtotal(attempts, 'total_tokens') == (7, 2)
+    assert known_token_subtotal(attempts, 'reasoning_tokens') == (None, 0)
+    assert '2 de 3 tentativa(s) com valor conhecido' in _token_summary_cards(attempts, False)
+
+
 def test_governance_conflict_excludes_client_card_preserves_distinct_count():
     decisions = [dict(source_kind='DEEP_ANALYSIS', source_id='x', decision='ACCEPTED'),
                  dict(source_kind='DEEP_ANALYSIS', source_id='x', decision='REJECTED'),
