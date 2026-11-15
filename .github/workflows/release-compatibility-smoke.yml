@@ -32,7 +32,7 @@ jobs:
       - name: Isolated candidate and baseline smoke
         id: smoke
         shell: pwsh
-        run: ./scripts/RELEASE_COMPATIBILITY_SMOKE.ps1
+        run: ./scripts/RELEASE_COMPATIBILITY_SMOKE.ps1 -Baseline v0.9.2
       - uses: actions/upload-artifact@v4
         if: always() && steps.smoke.outputs.evidence != ''
         with:
