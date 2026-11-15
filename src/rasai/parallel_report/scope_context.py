@@ -250,6 +250,72 @@ def network_context(root, audit_id, timezone_name):
                 observations = snapshots_from_audit(database, audit_id)
             except (OSError, ValueError, TypeError, sqlite3.Error):
                 observations = []
+    probes = read_authorized_probes(root, audit_id)
+    events = [('Sonda de rede complementar',
+               public_value(item.get('capture_utc'), 'captured_at', timezone_name))
+              for item in probes]
+
+    html = '<h2>Escopo e proveniência de rede</h2>' + kv([
+        ('Capturas passivas verificadas', len(observations)),
+        ('Sondas complementares autorizadas', len(probes)),
+        ('Regra de interpretação', 'ausência de medição não é falha de conectividade'),
+        ('Mapa e rota visual', 'detalhe técnico no report-catalog quando materializado'),
+    ])
+    html += ('<p class="callout w">Captura do navegador e sonda complementar são observações independentes, '
+             'potencialmente feitas em instantes e ambientes diferentes. IP, rota e tempos não são inferidos entre elas.</p>')
+    if packet_present and not observations:
+        html += ('<p class="callout w">Existe pacote de observação passiva, mas ele não foi validado para esta AUD. '
+                 'Nenhum valor desse pacote é apresentado.</p>')
+    if not observations:
+        html += '<p>Captura passiva de rede verificável indisponível (N/D).</p>'
+    if not probes:
+        html += '<p>Sonda complementar verificável indisponível (N/D). Isso não demonstra falha de conectividade.</p>'
+
+    metric_rows = _network_metric_rows(observations, probes, timezone_name)
+    html += '<h2>Indicadores observados</h2>' + table(
+        'Rede · fatos persistidos por origem', metric_rows,
+        [('origin', 'Origem'), ('context', 'Contexto'), ('target', 'Destino'),
+         ('captured_at', 'Instante'), ('indicator', 'Indicador'), ('state', 'Estado'),
+         ('value', 'Valor'), ('provenance', 'Fonte'), ('reason', 'Motivo / limite')])
+    hop_rows = _network_hop_rows(probes, timezone_name)
+    if hop_rows:
+        html += '<h2>Etapas conhecidas do caminho</h2>' + table(
+            'Traceroute · saltos persistidos', hop_rows,
+            [('captured_at', 'Instante'), ('target', 'Destino'), ('hop', 'Salto'),
+             ('hop_state', 'Situação'), ('public_ip', 'Endereço público'),
+             ('rtt_ms', 'RTT (ms)'), ('rtt_samples', 'Amostras RTT'),
+             ('asn', 'ASN'), ('geoip', 'GeoIP aproximado')])
+    html += ('<p class="rf">O mapa geográfico consultivo e a representação visual da rota permanecem no relatório técnico '
+             'canônico. Esta página preserva os fatos materiais — estados, saltos, RTT, ASN, GeoIP, precisão e fonte — '
+             'sem fabricar uma rota física.</p>')
+    return html, events
+
+
+def scope_context(root, raw_tables, timezone_name, costs):
+    tables = {name: sanitize(rows) for name, rows in raw_tables.items() if name in {
+        'audit_targets', 'serp_observations', 'geo_observation_runs', 'perplexity_search_runs',
+        'audits', 'audit_fulfillment_contracts', 'page_snapshots', 'synthetic_apdex_summaries',
+        'synthetic_ux_apdex_summaries', 'synthetic_apdex_runs', 'synthetic_ux_apdex_runs',
+        'passive_security_runs', 'passive_security_findings', 'passive_security_script_observations',
+        'web_performance_observations', 'directed_analysis_runs', 'scores',
+        'ai_provider_attempts', 'content_remediation_attempts', 'improvement_intelligence_recommendations'}}
+    result = defaultdict(str)
+    audit = next(iter(tables.get('audits', ())), {})
+    local = lambda stamp: public_value(stamp, 'captured_at', timezone_name)
+    result[SEARCH_PAGE] = search_context(root, tables)
+    result['conteudo'] = editorial_evidence(root, tables)
+    if result['conteudo']:
+        result['conteudo'] += kv([('Instante da captura · ' + str(row.get('device') or 'N/D'), local(row.get('captured_at')))
+                                  for row in tables.get('page_snapshots', ())])
+    for contract in tables.get('audit_fulfillment_contracts', ()):
+        result['index'] += subsection('Fechamento e pendências', [
+            ('Processamento', contract.get('processing_status')), ('Relatório', contract.get('report_status')),
+            ('Pontuação', contract.get('score_status')), ('Itens pendentes', contract.get('pending_items'))])
+    events = [('Início da auditoria-base', local(audit.get('started_at'))), ('Fim da auditoria-base', local(audit.get('completed_at')))]
+    for snap in tables.get('page_snapshots', ()):
+        events.append(('Captura · ' + str(snap.get('device') or 'N/D'), local(snap.get('captured_at'))))
+    for run in tables.get('perplexity_search_runs', ()):
+        events.append(('Consulta Search API', local(run.get('started_at'))))
     network_html, network_events = network_context(root, audit.get('audit_id'), timezone_name)
     result['rede'] += network_html
     events.extend(network_events)
