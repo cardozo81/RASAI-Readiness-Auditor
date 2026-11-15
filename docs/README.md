@@ -2,7 +2,7 @@
 
 ## Estado do produto
 
-A [última GitHub Release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) é a referência para a versão efetivamente distribuída, independentemente do número em `pyproject.toml`. O código-fonte da linha `0.9.2` tem notas próprias, mas sua publicação é comprovada exclusivamente pela tag e GitHub Release. `v0.9.0` e `v0.8.0` permanecem marcos históricos. A documentação normativa descreve o contrato vigente da linha atual.
+A [última GitHub Release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) é a referência para a versão efetivamente distribuída, independentemente do número em `pyproject.toml`. A fonte candidata `0.10.0` possui [notas próprias](RELEASE_NOTES_V0_10_0.md) e ainda não foi publicada; a última release pública permanece `v0.9.2`. `v0.9.0` e `v0.8.0` permanecem marcos históricos. A documentação normativa descreve o contrato vigente da linha atual.
 
 O contrato funcional vigente usa:
 

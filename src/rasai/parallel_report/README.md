@@ -37,8 +37,10 @@ dependências de produção são da biblioteca padrão Python 3.13.
 - Famílias adicionais são acessíveis por registros/anexos; layouts especializados
   para todas as variações históricas e interpretação de sidecars arbitrários
   não são certificados nesta versão.
-- Embalagem wheel de CSS/JS não foi integrada: o comando foi validado no checkout
-  com instalação editável existente. `pyproject.toml` não foi alterado.
+- O wheel inclui explicitamente CSS, JavaScript, thresholds e mapa de cobertura.
+  `tests/test_wheel_distribution.py` verifica os bytes dos recursos e a geração
+  efetiva em venv não editável, com `python -I` fora do checkout, transporte/IA
+  negados durante a geração e Chromium offline nas páginas essenciais.
 
 ## Verificação
 

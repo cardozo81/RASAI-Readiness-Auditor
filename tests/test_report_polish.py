@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 import tempfile
 
+from rasai import __version__
 from rasai.indicator_provenance import enrich_indicator_provenance_html
 from rasai.m24_reporting import _inject_references, _page as crawling_discovery_page
 from rasai.report_contract import CANONICAL_NAV_ITEMS
@@ -51,7 +52,7 @@ def test_documentation_distinguishes_published_release_from_current_contract() -
     assert "docs/README.md" in readme
     assert "Pacote Python (última release publicada):" in readme
     assert "releases/latest" in readme
-    assert "Pacote Python (versão no código-fonte):** `0.9.2`" in readme
+    assert f"Pacote Python (versão no código-fonte):** `{__version__}`" in readme
 
 def test_actionable_table_rows_are_idempotent() -> None:
     html = "<table><tbody><tr><td>BR-GEO-017</td><td>Alerta</td></tr></tbody></table>"

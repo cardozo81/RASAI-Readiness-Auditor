@@ -1,6 +1,6 @@
 # Console interativo
 
-**Estado:** contrato vigente do runtime local; `v0.5.0` é a baseline pública atual.
+**Estado:** contrato vigente do runtime local. A última release pública é `v0.9.2`; a candidata `0.10.0` ainda não foi publicada.
 
 ## Inicialização
 
@@ -183,7 +183,7 @@ Console local e SaaS utilizam os mesmos contratos de produto para auditorias e c
 - IA é opcional no consolidado em ambas as superfícies;
 - Console executa localmente; SaaS cria jobs duráveis e o worker executa o mesmo domínio;
 - secrets locais usam sessão/Windows User; SaaS usa o mecanismo de secrets do control plane;
-- nenhuma superfície recalcula o **Índice de Prontidão Search & IA** ou o **Método de Pontuação de Prontidão**, nem reexecuta catálogos apenas para abrir/listar relatórios; IDs técnicos `SARI-001`/`SCORE-GEO-004` permanecem apenas para rastreabilidade.
+- nenhuma superfície recalcula o **Índice de Prontidão Search & IA** ou o **Método de Pontuação de Prontidão**, nem reexecuta catálogos apenas para abrir/listar relatórios; `SARI-001` e `SCORE-GEO-005` são os contratos vigentes, com `SCORE-GEO-004` preservado para replay histórico.
 
 ## Relatórios consolidados
 

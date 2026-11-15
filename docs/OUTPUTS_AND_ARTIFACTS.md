@@ -73,7 +73,7 @@ Os endpoints `/api/v1/audits/{audit_id}/reports...` continuam disponíveis, mas 
 | Conceito apresentado | Versão pública | Identificador técnico |
 |---|---:|---|
 | **Search & AI Readiness Index - Índice de Prontidão Search & IA** | **001** | `SARI-001` |
-| **Método de Pontuação de Prontidão** | **001** | `SCORE-GEO-004` |
+| **Método de Pontuação de Prontidão** | **001** | `SCORE-GEO-005` vigente; `SCORE-GEO-004` para replay histórico |
 | Sidecar observacional | contrato técnico | `RASAI-OBS-002` |
 
 Nenhuma projeção recalcula silenciosamente uma auditoria para outra `scoring_version`. HTML e manifest podem ser regenerados, mas `audit.db` + artefatos originais permanecem a evidência fonte.
