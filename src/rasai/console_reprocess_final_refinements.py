@@ -701,7 +701,7 @@ def _run_post_actions(
         print(" M. Ver linha de comando")
         print(f" P. Abrir pasta da auditoria [{availability_badge(bool(workspace))}]")
         print(f" I. Abrir relatório HTML                  [{availability_badge(bool(report))}]")
-        print(f" A. Abrir relatório de apresentação       [{availability_badge(bool(presentation_report))}]")
+        print(f" A. Abrir relatório de apresentação       [{availability_badge(bool(presentation_report or report))}]")
         print(" V. Voltar para a auditoria selecionada")
         print(" Q. Sair")
         choice = input("Escolha: ").strip().upper()
@@ -760,7 +760,7 @@ def _run_post_actions(
                 state.error = "relatório HTML ainda não disponível"
             continue
         if choice == "A":
-            if presentation_report and callable(artifact_action):
+            if (presentation_report or report) and callable(artifact_action):
                 _call_with_effective_root(state, artifact_action, "A")
             else:
                 state.error = "relatório de apresentação ainda não disponível"

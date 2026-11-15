@@ -972,7 +972,7 @@ def _post_run_actions(state: State) -> bool:
         print(" M. Ver linha de comando")
         print(f" P. Abrir pasta da auditoria [{availability_badge(bool(workspace))}]")
         print(f" I. Abrir relatório HTML                  [{availability_badge(bool(report))}]")
-        print(f" A. Abrir relatório de apresentação       [{availability_badge(bool(presentation_report))}]")
+        print(f" A. Abrir relatório de apresentação       [{availability_badge(bool(presentation_report or report))}]")
         print(" V. Voltar ao menu")
         print(" Q. Sair")
         try:
@@ -1035,7 +1035,7 @@ def _post_run_actions(state: State) -> bool:
             continue
         if choice == "P" and workspace: _artifact_action(state, "P")
         elif choice == "I" and report: _artifact_action(state, "I")
-        elif choice == "A" and presentation_report: _artifact_action(state, "A")
+        elif choice == "A" and (presentation_report or report): _artifact_action(state, "A")
         elif choice in {"P", "I", "A"}: state.error = "artefato ainda não disponível para esta auditoria"
 
 
@@ -1101,7 +1101,7 @@ def _menu(state: State) -> str:
         print("\nARTEFATOS")
         print(f"P. Abrir última pasta [{availability_badge(bool(workspace))}]")
         print(f"I. Abrir último relatório [{availability_badge(bool(report))}]")
-        print(f"A. Abrir último relatório de apresentação [{availability_badge(bool(presentation_report))}]")
+        print(f"A. Abrir último relatório de apresentação [{availability_badge(bool(presentation_report or report))}]")
     return input("Escolha: ").strip().upper()
 
 

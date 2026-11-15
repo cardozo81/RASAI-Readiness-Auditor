@@ -245,7 +245,8 @@ def test_final_selected_audit_menu_can_open_catalog_report(monkeypatch, tmp_path
         "_configuration_reuse_status",
         lambda current_state, audit_id: (True, "snapshot canônico íntegro"),
     )
-    presentation = tmp_path / "presentation-index.html"
+    presentation = audit_root / "report-presentation" / "index.html"
+    presentation.parent.mkdir()
     presentation.write_text("presentation", encoding="utf-8")
     monkeypatch.setattr(
         "rasai.console_artifacts.report_entrypoint",
@@ -254,6 +255,10 @@ def test_final_selected_audit_menu_can_open_catalog_report(monkeypatch, tmp_path
     monkeypatch.setattr(
         "rasai.console_artifacts.presentation_report_entrypoint",
         lambda workspace: presentation,
+    )
+    monkeypatch.setattr(
+        "rasai.console_artifacts._presentation_package",
+        lambda workspace: (presentation, False),
     )
     opened: list[Path] = []
     monkeypatch.setattr(
@@ -296,13 +301,13 @@ def test_materialize_presentation_report_on_demand_requires_canonical_and_revali
     canonical = workspace / "report-catalog" / "index.html"
     canonical.parent.mkdir()
     canonical.write_text("<html></html>", encoding="utf-8")
-    generated = workspace / "report-presentation" / "20261113-182000" / "index.html"
+    generated = workspace / "report-presentation" / "index.html"
 
-    states = iter([None, generated])
+    monkeypatch.setattr(console_artifacts, "_presentation_package", lambda current: None)
     monkeypatch.setattr(
         console_artifacts,
         "presentation_report_entrypoint",
-        lambda current: next(states),
+        lambda current: generated,
     )
     monkeypatch.setattr(
         console_artifacts,
@@ -340,13 +345,13 @@ def test_materialize_presentation_report_on_demand_refreshes_stale_canonical_rea
     canonical = workspace / "report-catalog" / "index.html"
     canonical.parent.mkdir()
     canonical.write_text("<html></html>", encoding="utf-8")
-    generated = workspace / "report-presentation" / "20261113-190000" / "index.html"
+    generated = workspace / "report-presentation" / "index.html"
 
-    presentation_states = iter([None, generated])
+    monkeypatch.setattr(console_artifacts, "_presentation_package", lambda current: None)
     monkeypatch.setattr(
         console_artifacts,
         "presentation_report_entrypoint",
-        lambda current: next(presentation_states),
+        lambda current: generated,
     )
     monkeypatch.setattr(
         console_artifacts,
@@ -467,7 +472,7 @@ def test_historical_complete_audit_offers_presentation_generation_only_on_open(
     report = audit_root / "report-catalog" / "index.html"
     report.parent.mkdir()
     report.write_text("<html></html>", encoding="utf-8")
-    generated = audit_root / "report-presentation" / "20261113-181900" / "index.html"
+    generated = audit_root / "report-presentation" / "index.html"
     generated.parent.mkdir(parents=True)
     generated.write_text("<html>presentation</html>", encoding="utf-8")
 

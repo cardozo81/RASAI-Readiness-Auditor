@@ -12,9 +12,9 @@ def state(value, reason=None):
         return 'Parcial — ' + cause
     if token in {'NOT_REQUESTED', 'DISABLED'}:
         return 'Não medido — não solicitado'
-    if token in {'SUCCESS', 'COMPLETE', 'COMPLETED', 'AVAILABLE', 'CONSOLIDATED'}:
+    if token in {'OBSERVED', 'SUCCESS', 'COMPLETE', 'COMPLETED', 'AVAILABLE', 'CONSOLIDATED'}:
         return 'Medido'
-    return 'Não medido — estado de medição não determinado'
+    return 'Estado de medição não determinado'
 
 
 def display(value):

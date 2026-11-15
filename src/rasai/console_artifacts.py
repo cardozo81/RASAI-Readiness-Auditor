@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-import json
+import sqlite3
 from pathlib import Path
 import subprocess
 import sys
@@ -35,67 +35,56 @@ def report_entrypoint(workspace: Path | None) -> Path | None:
 
 
 def presentation_report_entrypoint(workspace: Path | None) -> Path | None:
-    """Return the newest presentation report matching the current audit.db."""
+    """Inspect the verified presentation available to this audit. Navigation never migrates files."""
+    package = _presentation_package(workspace)
+    return package[0] if package else None
+
+
+def _presentation_package(workspace: Path | None) -> tuple[Path, bool] | None:
+    from rasai.parallel_report import __version__
+    from rasai.parallel_report.artifact_reader import DIRECTORY, confined, inventory
+    from rasai.parallel_report.publication import find_package, historical_directories
+    from rasai.parallel_report.sqlite_reader import quiescent
+
     if workspace is None:
         return None
-    database = workspace / "audit.db"
-    root = workspace / "report-presentation"
-    if not database.is_file() or not root.is_dir() or root.is_symlink():
+    base = workspace / DIRECTORY
+    if not base.is_dir():
         return None
     try:
         from rasai.catalog_report_site import _sqlite_logical_digest
-        current_db_logical_hash = _sqlite_logical_digest(database)
-    except Exception:
+        database = confined(workspace, "audit.db")
+        quiescent(database)
+        historical = historical_directories(base)
+        package = find_package(base, historical, inventory(workspace),
+                               _sqlite_logical_digest(database), historical_version=True)
+    except (OSError, ValueError, sqlite3.Error):
         return None
-
-    candidates: list[tuple[str, float, Path]] = []
-    directories = [root]
-    try:
-        directories.extend(
-            child for child in root.iterdir()
-            if child.is_dir() and not child.is_symlink()
-        )
-    except OSError:
+    if package is None:
         return None
-
-    for directory in directories:
-        index = directory / "index.html"
-        manifest_path = directory / "_geracao.json"
-        if not index.is_file() or not manifest_path.is_file():
-            continue
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, json.JSONDecodeError):
-            continue
-        if manifest.get("contract") != "RASAI-PARALLEL-REPORT-001":
-            continue
-        if str(manifest.get("integrity") or "").upper() != "PASS":
-            continue
-        expected_logical_hash = str(manifest.get("source_db_logical_sha256") or "")
-        if not expected_logical_hash or expected_logical_hash != current_db_logical_hash:
-            continue
-        generated_at = str(manifest.get("generated_at") or "")
-        try:
-            modified = manifest_path.stat().st_mtime
-        except OSError:
-            modified = 0.0
-        candidates.append((generated_at, modified, index.resolve()))
-
-    if not candidates:
-        return None
-    candidates.sort(key=lambda item: (item[0], item[1]))
-    return candidates[-1][2]
+    directory, manifest = package
+    migrate = bool(historical) or manifest["generator_version"] != __version__
+    return (directory / "index.html").resolve(), migrate
 
 
 def materialize_presentation_report_on_demand(
     workspace: Path | None,
 ) -> tuple[Path | None, str]:
-    """Materialize a missing historical presentation only on explicit user action."""
+    """Resolve the canonical presentation, publishing only on explicit open."""
     if workspace is None:
         return None, "workspace da auditoria indisponível"
-    existing = presentation_report_entrypoint(workspace)
-    if existing is not None:
-        return existing, "EXISTING"
+    package = _presentation_package(workspace)
+    if package is not None:
+        existing, migrate = package
+        if not migrate:
+            return existing, "EXISTING"
+        from rasai.parallel_report.generator import generate
+        try:
+            # This also migrates dated trees and upgrades older renderers.
+            # The generator reuses a valid canonical package in place.
+            return generate(workspace) / "index.html", "MIGRATED"
+        except Exception as exc:
+            return None, f"publicação da apresentação falhou ({type(exc).__name__})"
     if report_entrypoint(workspace) is None:
         return None, "relatório canônico ausente ou inválido"
     database = workspace / "audit.db"
@@ -275,12 +264,13 @@ def open_report(state: State) -> tuple[bool, str]:
 
 
 def open_presentation_report(state: State) -> tuple[bool, str]:
-    workspace = audit_workspace(state)
-    report = presentation_report_entrypoint(workspace)
+    return open_workspace_presentation(audit_workspace(state))
+
+
+def open_workspace_presentation(workspace: Path | None) -> tuple[bool, str]:
+    report, detail = materialize_presentation_report_on_demand(workspace)
     if report is None:
-        if workspace is None:
-            return False, "nenhuma auditoria concluída está disponível nesta sessão"
-        return False, f"relatório de apresentação não disponível ou desatualizado em {workspace}"
+        return False, detail
     return open_external_path(report)
 
 

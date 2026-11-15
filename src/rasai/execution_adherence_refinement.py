@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from time import sleep
 from typing import Any
 
 
@@ -27,6 +28,26 @@ def _verified_preliminary_projection(workspace: Any) -> bool:
         return False
     valid, _errors = verify_catalog_report_package(report_dir)
     return bool(valid)
+
+
+def _is_transient_probe_dependency_drift(error: RuntimeError) -> bool:
+    """Only retry a concurrent change to the network-probe directory.
+
+    A changed source is never promoted: the catalog builder rejects the
+    candidate and the next attempt reads and validates a fresh projection.
+    """
+    message = str(error)
+    if message == (
+        "catalog source dependency changed during materialization: "
+        "artifacts/network/probes"
+    ):
+        return True
+    return message in {
+        "catalog report source dependency changed during materialization: "
+        "source_dependency divergente: artifacts/network/probes",
+        "catalog report source dependency changed before promotion: "
+        "source_dependency divergente: artifacts/network/probes",
+    }
 
 
 def finalize_catalog_projection(state: Any) -> Path | None:
@@ -51,7 +72,17 @@ def finalize_catalog_projection(state: Any) -> Path | None:
     if not workspace.database.is_file():
         return None
 
-    path = materialize_catalog_report_site(audit_id=audit_id, workspace=workspace)
+    # An authorized probe may be sealed concurrently with the final HTML
+    # projection. Retry only that verified sidecar race; never weaken the
+    # source-dependency or package-integrity gates.
+    for attempt in range(3):
+        try:
+            path = materialize_catalog_report_site(audit_id=audit_id, workspace=workspace)
+            break
+        except RuntimeError as error:
+            if attempt == 2 or not _is_transient_probe_dependency_drift(error):
+                raise
+            sleep(0.25 * (attempt + 1))
     if not catalog_report_is_fresh(audit_id=audit_id, workspace=workspace):
         if not _verified_preliminary_projection(workspace):
             raise RuntimeError(

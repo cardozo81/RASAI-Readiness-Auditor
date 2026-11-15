@@ -17,6 +17,8 @@ import sqlite3
 import tempfile
 from typing import Iterator
 
+from rasai.parallel_report.artifact_reader import DIRECTORY, WORK_DIRECTORY
+
 
 def _input_files(root: Path, *, include_report: bool = False) -> dict[str, str]:
     """Immutable input inventory excluding derived output and transient SQLite SHM.
@@ -31,7 +33,9 @@ def _input_files(root: Path, *, include_report: bool = False) -> dict[str, str]:
         if not item.is_file() or item.is_symlink():
             continue
         relative = item.relative_to(root)
-        if not include_report and relative.parts[0] in {"report-catalog", "report-presentation"}:
+        if relative.parts[0] == WORK_DIRECTORY:
+            continue
+        if not include_report and relative.parts[0] in {"report-catalog", DIRECTORY}:
             continue
         if item.name.endswith("-shm"):
             continue
@@ -239,12 +243,12 @@ def rematerialize(*, audit_dir: str | Path, output_root: str | Path) -> Path:
     stage_parent = Path(tempfile.mkdtemp(prefix=".rasai-report-141-", dir=output))
     stage = stage_parent / audit_id
     try:
-        shutil.copytree(source, stage, symlinks=False)
-        # report-presentation is a mutable-flow derived output, never an input
-        # to canonical read-only rematerialization. Do not republish a stale copy.
-        stale_presentation = stage / "report-presentation"
-        if stale_presentation.exists():
-            shutil.rmtree(stale_presentation)
+        # Neither the presentation nor its transient publication state is an
+        # input to catalog replay. Skip both before traversing or copying them.
+        def skip_presentation(directory, _names):
+            return {DIRECTORY, WORK_DIRECTORY} if Path(directory) == source else set()
+
+        shutil.copytree(source, stage, symlinks=False, ignore=skip_presentation)
         source_after_copy = _input_files(source)
         stage_after_copy = _input_files(stage)
         copy_errors = tuple(

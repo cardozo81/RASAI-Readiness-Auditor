@@ -10,11 +10,11 @@ SECTIONS = {
  'extracao': [('Captura e metadados', ['page_snapshots'], [('requested_url','URL solicitada'),('final_url','URL final'),('device','Dispositivo'),('captured_at','Capturado em'),('title','Título'),('canonical','Canonical')]), ('Entidades e sinais identificados',['entity_observations'], [('name','Entidade'),('entity_type','Tipo'),('confidence','Confiança declarada')])],
  'descoberta': [('Arquivos de descoberta e padrões',['m24_diagnostics'], [('title','Observação'),('scope_url','URL'),('severity','Severidade'),('observed_value','Observado'),('remediation','Orientação')]), ('Padrões e métricas técnicas',['standards_metric_observations'], [('label','Métrica'),('value','Valor'),('unit','Unidade'),('scope','Escopo'),('state','Estado')]), ('Serviços de validação',['standards_service_runs'], [('service_id','Serviço'),('state','Estado'),('targets_attempted','Alvos tentados'),('targets_succeeded','Alvos concluídos')])],
  'conteudo': [('Contexto da análise',['content_analysis_contexts','property_semantic_contexts'], [('page_purpose','Propósito'),('intended_audience','Público'),('business_sector','Setor'),('source_mode','Origem')]), ('Coerência por página',['semantic_coherence_assessments'], [('page_url','Página'),('criterion_id','Critério'),('result','Resultado'),('reasoning_summary','Fundamentação'),('confidence','Confiança declarada')]), ('Achados semânticos e acessibilidade',['findings','improvement_intelligence_findings'], [('title','Achado'),('severity','Severidade'),('observed_value','Atual'),('expected_condition','Esperado'),('source','Origem')]), ('Dados estruturados',['jsonld_remediation_suggestions'], [('status','Estado'),('existing_types','Tipos observados'),('proposed_json','Sugestão não aprovada')])],
- 'performance': [('Laboratório e campo',['web_performance_observations'], [('url','URL'),('device','Dispositivo'),('performance_score','Lighthouse /100'),('lcp_lab_ms','LCP laboratório ms'),('field_scope','Escopo de campo'),('lcp_p75_ms','LCP campo p75 ms'),('inp_p75_ms','INP campo p75 ms'),('cwv_assessment','CWV')]), ('Apdex de navegação',['synthetic_apdex_summaries'], [('url','URL'),('device','Dispositivo'),('profile_id','Perfil'),('apdex_score','Apdex'),('valid_samples','Amostras válidas'),('invalid_samples','Inválidas')]), ('Apdex de experiência',['synthetic_ux_apdex_summaries'], [('url','URL'),('device','Dispositivo'),('profile_id','Perfil'),('apdex_score','Apdex'),('valid_samples','Amostras válidas'),('target_samples','Alvo de amostras')]), ('JavaScript e rede observados',['synthetic_ux_apdex_error_details'], [('error_type','Tipo'),('source_url','Recurso'),('http_status','HTTP'),('message','Observação')])],
- SEARCH_PAGE: [('Busca observada — SERP',['serp_observations'], [('query','Consulta'),('engine','Mecanismo'),('language','Idioma'),('country','Mercado'),('device','Dispositivo'),('collected_at','Instante'),('result_count','Resultados'),('observation_status','Estado')]), ('Concorrência observada',['serp_competitive_results'], [('url','URL'),('position','Posição'),('classification','Classificação'),('reason','Motivo')]), ('Pesquisa externa — Perplexity',['perplexity_search_runs'], [('query_json','Consulta'),('status','Estado'),('native_usage_quantity','Requests'),('started_at','Instante')]), ('GEO e evidências contextuais',['geo_observation_runs','serp_competitive_ai_analyses'], [('contract_version','Contrato'),('summary','Síntese'),('projection_json','Projeção persistida'),('state','Estado')])],
+ 'performance': [('Laboratório e campo',['web_performance_observations'], [('url','URL'),('device','Dispositivo'),('performance_score','Lighthouse /100'),('lcp_lab_ms','LCP laboratório ms'),('field_scope','Escopo de campo'),('lcp_p75_ms','LCP campo p75 ms'),('inp_p75_ms','INP campo p75 ms'),('cls_p75','CLS de campo p75'),('cwv_assessment','CWV')]), ('Apdex de navegação',['synthetic_apdex_summaries'], [('url','URL'),('device','Dispositivo'),('profile_id','Perfil'),('apdex_score','Apdex'),('valid_samples','Amostras válidas'),('invalid_samples','Inválidas')]), ('Apdex de experiência',['synthetic_ux_apdex_summaries'], [('url','URL'),('device','Dispositivo'),('profile_id','Perfil'),('apdex_score','Apdex'),('valid_samples','Amostras válidas'),('target_samples','Alvo de amostras')]), ('Detalhes de erros do Apdex de experiência',['synthetic_ux_apdex_error_details'], [('error_type','Tipo'),('source_url','Recurso'),('http_status','HTTP'),('message','Observação')])],
+ SEARCH_PAGE: [('Busca observada — SERP',['serp_observations'], [('query','Consulta'),('engine','Mecanismo'),('language','Idioma'),('country','Mercado'),('device','Dispositivo'),('collected_at','Instante'),('result_count','Resultados'),('requested_depth','Profundidade consultada'),('customer_position','Posição do alvo'),('domain_status','Alvo no recorte'),('observation_status','Estado')]), ('Concorrência observada',['serp_competitive_results'], [('url','URL'),('position','Posição'),('classification','Classificação'),('reason','Motivo')]), ('Pesquisa externa — Perplexity',['perplexity_search_runs'], [('query_json','Consulta'),('status','Estado'),('native_usage_quantity','Requests'),('started_at','Instante')]), ('GEO e evidências contextuais',['geo_observation_runs','serp_competitive_ai_analyses'], [('contract_version','Contrato'),('summary','Síntese'),('projection_json','Projeção persistida'),('state','Estado')])],
  'seguranca': [('Cobertura da análise passiva',['passive_security_runs'], [('status','Estado'),('pages_analyzed','Páginas'),('resources_count','Recursos'),('findings_count','Achados'),('limitations_json','Limitações')]), ('Achados e remediação',['passive_security_findings'], [('title','Achado'),('severity','Severidade'),('url_scope','Escopo'),('description','Observado'),('remediation','Remediação'),('validation','Como validar')])],
  'plano': [('Ações por prioridade',['directed_analysis_actions'], [('priority','Prioridade'),('title','Ação'),('effort','Esforço'),('source_kind','Origem'),('implementation_guidance_json','Como implementar'),('validation_steps_json','Como validar')]), ('Correções técnicas propostas',['improvement_intelligence_recommendations'], [('title','Correção'),('selector','Elemento'),('original_html','Atual persistido'),('suggested_html','Sugerido — não aprovado'),('verification','Como validar')]), ('Textos sugeridos por IA',['content_remediation_suggestions'], [('target_location','Alvo'),('objective','Objetivo'),('proposed_text','Sugerido — não aprovado'),('review_note','Revisão humana')])],
- 'ia-custos': [('Custo por chamada',['ai_provider_attempts','content_remediation_attempts'], [('provider','Provider'),('model','Modelo'),('status','Estado'),('input_tokens','Tokens entrada'),('output_tokens','Tokens saída'),('estimated_cost','Estimado'),('observed_cost','Observado'),('cost_currency','Moeda'),('duration_ms','Duração ms')]), ('Entradas e saídas completas',['ai_exchange_log'], [('purpose','Finalidade'),('provider','Provider'),('model','Modelo'),('outcome','Estado'),('request_payload','Entrada sanitizada'),('response_payload','Saída sanitizada')]), ('Proveniência e execução',['ai_tasks'], [('purpose','Finalidade'),('status','Estado'),('prompt_version','Versão do prompt'),('semantic_contract_version','Contrato')])],
+ 'ia-custos': [('Custo por chamada',['ai_provider_attempts','content_remediation_attempts'], [('provider','Provider'),('model','Modelo'),('status','Estado'),('input_tokens','Tokens entrada'),('output_tokens','Tokens saída'),('estimated_cost','Estimado'),('observed_cost','Observado'),('cost_currency','Moeda'),('started_at','Início da tentativa'),('finished_at','Fim da tentativa'),('duration_ms','Duração ms')]), ('Entradas e saídas completas',['ai_exchange_log'], [('purpose','Finalidade'),('provider','Provider'),('model','Modelo'),('outcome','Estado'),('request_payload','Entrada sanitizada'),('response_payload','Saída sanitizada')]), ('Proveniência e execução',['ai_tasks'], [('purpose','Finalidade'),('status','Estado'),('prompt_version','Versão do prompt'),('semantic_contract_version','Contrato')])],
 }
 
 
@@ -22,18 +22,21 @@ def _metric_proposal(key, thresholds):
     by_id = {item.get('metric_id'): item for item in thresholds}
     if key == 'value':
         return by_id.get('SARI_PRESENTATION_PROPOSAL')
-    if key in {'performance_score', 'accessibility_score', 'best_practices_score', 'seo_score'}:
+    if key in {'performance_score', 'accessibility_score', 'best_practices_score', 'seo_score', 'agentic_browsing_score'}:
         return by_id.get('LIGHTHOUSE_CATEGORY_PERSISTED_CONTRACT')
     if key == 'apdex_score':
         return by_id.get('APDEX_RESULT_PERSISTED_CONTRACT')
     return None
 
 
-def editorial(page, records, costs, thresholds):
+def editorial(page, records, costs, thresholds, governance=None):
     timezone_name, timezone_reason = timezone_for_records(records)
     local_table = partial(table, timezone_name=timezone_name)
     def rows(names):
         return [{**thaw(r.data), '_ref': r.href, '_source_table': r.table} for r in records if r.table in names]
+    from .governance import Governance
+    if governance is None:
+        governance = Governance(rows(['recommendation_governance']))
     html = ''
     if page == 'index':
         audits = rows(['audits'])
@@ -43,7 +46,7 @@ def editorial(page, records, costs, thresholds):
             domains = list(dict.fromkeys(r.get('normalized_origin') or r.get('input_url') for r in targets if r.get('normalized_origin') or r.get('input_url')))
             devices = sorted({str(public_value(r.get('device'),'device')) for r in rows(['page_snapshots']) if r.get('device')})
             pairs = [('Auditoria',data.get('audit_id')),('Domínio auditado',' · '.join(domains) or None),('Dispositivo',' · '.join(devices) or None)]
-            pairs += [(label,public_value(data.get(key),key,timezone_name)) for key,label in [('status','Estado'),('completion_status','Conclusão'),('created_at','Criada em'),('project_name','Projeto'),('primary_language','Idioma'),('market','Mercado'),('audit_mode','Modo'),('auditor_version','Versão do auditor'),('ruleset_version','Versão das regras')]]
+            pairs += [(label,public_value(data.get(key),key,timezone_name)) for key,label in [('status','Estado'),('completion_status','Conclusão'),('created_at','Criada em'),('started_at','Início da auditoria'),('completed_at','Fechamento da auditoria-base'),('project_name','Projeto'),('primary_language','Idioma'),('market','Mercado'),('audit_mode','Modo'),('auditor_version','Versão do auditor'),('ruleset_version','Versão das regras')]]
             pairs += [('Fuso de apresentação',timezone_name),('Origem do fuso',timezone_provenance(timezone_reason))]
             html += kv(pairs)
         html += '<h2>Índices em uma leitura</h2>'
@@ -52,7 +55,7 @@ def editorial(page, records, costs, thresholds):
             html += '<h2>Indicadores independentes e escopos</h2>'
         html += '<div>' if page == 'indices' else '<div class="grid">'
         for data in sorted(rows(['scores','web_performance_observations','synthetic_apdex_summaries','synthetic_ux_apdex_summaries','synthetic_population_apdex_summaries']), key=lambda r: r.get('dimension') != 'OVERALL_READINESS'):
-            for key in ('value','performance_score','accessibility_score','best_practices_score','seo_score','apdex_score'):
+            for key in ('value','performance_score','accessibility_score','best_practices_score','seo_score','agentic_browsing_score','apdex_score'):
                 if page == 'index' and key == 'value' and data.get('dimension') != 'OVERALL_READINESS':
                     continue
                 if key not in data:
@@ -61,13 +64,30 @@ def editorial(page, records, costs, thresholds):
                     continue
                 proposal = _metric_proposal(key, thresholds)
                 scope = ' · '.join(str(public_value(data[k],k,timezone_name)) for k in ('device','url','profile_id','consolidation_status','confidence') if data.get(k) is not None)
+                if key == 'value':
+                    coverage = data.get('coverage')
+                    percent = f'{coverage * 100:.1f}%'.replace('.', ',') if isinstance(coverage, (int, float)) else 'N/D'
+                    scope += ' · Cobertura ' + percent
+                elif key == 'apdex_score':
+                    run = next(iter(rows([data['_source_table'].replace('_summaries', '_runs')])), {})
+                    target = data.get('target_samples', run.get('target_valid_samples'))
+                    scope += ' · Amostras válidas / meta: ' + ' / '.join(str(v) if v is not None else 'N/D' for v in (data.get('valid_samples'), target))
+                    thresholds_pair = (run.get('satisfied_threshold_seconds', run.get('threshold_seconds')), run.get('frustrated_threshold_seconds', run.get('frustration_seconds')))
+                    if all(value is not None for value in thresholds_pair):
+                        scope += ' · T/F (s): ' + ' / '.join(str(v) for v in thresholds_pair)
+                    if data.get('small_group'):
+                        scope += ' · Grupo pequeno; generalização limitada'
                 html += ruler(metric_label(data,key,LABELS), data[key], 1 if key == 'apdex_score' else 100, proposal, scope, data['_ref'])
                 if page == 'indices' and key == 'value':
                     contributions = [r for r in rows(['score_contributions']) if r.get('score_id') == data.get('score_id')]
                     html += local_table('Composição da dimensão', contributions, [('rule_id','Regra'),('result','Resultado'),('weight','Peso'),('result_factor','Fator'),('effective_contribution','Contribuição')])
         html += '</div>'
     if page == 'index':
-        html += '<h2>Riscos e ações prioritárias</h2>' + local_table('Ações com prioridade alta persistida',[r for r in rows(['directed_analysis_actions']) if r.get('priority') in {'HIGH','CRITICAL','P1','P0'}], [('priority','Prioridade'),('title','Ação'),('effort','Esforço')])
+        exceptions = [r for r in rows(['scores']) if r.get('confidence') == 'LOW' or r.get('consolidation_status') == 'NOT_APPLICABLE']
+        if exceptions:
+            html += local_table('Dimensões com baixa confiança ou sem aplicação', exceptions,
+                                [('dimension','Dimensão'),('coverage','Cobertura (fração)'),('confidence','Confiança'),('consolidation_status','Estado')])
+        html += '<h2>Riscos e ações prioritárias</h2>' + local_table('Ações com prioridade alta persistida',[r for r in rows(['directed_analysis_actions']) if r.get('priority') in {'HIGH','CRITICAL','P1','P0'} and governance.disposition('directed_analysis_actions', r) == 'Aceita pela governança'], [('priority','Prioridade'),('title','Ação'),('effort','Esforço')])
         html += '<h2>Estado da execução</h2>' + local_table('Cobertura operacional', rows(['audit_fulfillment_work_items']), [('component','Componente'),('status','Estado'),('required','Obrigatório')])
     if page in {'index','ia-custos'}:
         html += '<h2>Consumo e proveniência</h2>' + chip(costs['coverage']) + kv([('Tentativas identificadas',costs['attempt_count'])])
@@ -95,10 +115,16 @@ def editorial(page, records, costs, thresholds):
         html += '<p class="callout">Custo técnico estimado não equivale a cobrança observada. Tokens de Search não são inferidos.</p>'
     if page == 'plano':
         from .action_plan import render_plan
-        html += render_plan(rows, timezone_name)
+        html += render_plan(rows, timezone_name, governance)
     for title, names, columns in ([] if page == 'plano' else SECTIONS.get(page, [])):
         html += '<h2>' + text(title) + '</h2>'
-        if any('suggest' in name or name.startswith('ai_') for name in names):
+        if 'jsonld_remediation_suggestions' in names:
+            html += origin('Proposta determinística do RASAi · baseada na captura')
+        elif any('suggest' in name or name.startswith('ai_') for name in names):
             html += origin('IA sugeriu' if 'propost' in title.lower() or 'sugerid' in title.lower() else 'Externo')
-        html += local_table(title, rows(names), columns)
+        items = rows(names)
+        if not items and names == ['synthetic_ux_apdex_error_details']:
+            html += '<p>Nenhum detalhe de erro do Apdex de experiência disponível. Consulte as medições independentes de rede e scripts.</p>'
+        else:
+            html += local_table(title, items, columns)
     return html

@@ -87,6 +87,9 @@ def test_isolated_rematerialization_preserves_source_and_partial_finality(
     root = _source(tmp_path)
     stale = root / "report-presentation"
     stale.mkdir()
+    private = root / remat.WORK_DIRECTORY
+    private.mkdir()
+    (private / "publication.lock").touch()
     (stale / "index.html").write_text("stale presentation", encoding="utf-8")
     calls = _stub_canonical(monkeypatch, freshness="PRELIMINARY")
     before = remat._input_files(root)
@@ -98,6 +101,8 @@ def test_isolated_rematerialization_preserves_source_and_partial_finality(
     assert (root / "report-catalog" / "index.html").read_text() == "historical"
     assert (root / "report-presentation" / "index.html").read_text() == "stale presentation"
     assert not (entry.parent.parent / "report-presentation").exists()
+    assert not (entry.parent.parent / remat.WORK_DIRECTORY).exists()
+    assert (private / "publication.lock").exists()
     assert before == remat._input_files(root)
     assert before == remat._input_files(entry.parent.parent)
     assert json.loads((entry.parent / "manifest.json").read_text())["freshness"] == "PRELIMINARY"
