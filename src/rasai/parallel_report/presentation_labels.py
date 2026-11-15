@@ -4,7 +4,7 @@ import re
 from rasai.time_contract import presentation_timezone_for_audit, format_presentation_timestamp
 
 FIELD_LABELS = {'status':'Estado','severity':'Criticidade','priority':'Prioridade','provider':'Provedor','model':'Modelo','source':'Origem','reference':'Referência','references':'Referências','scope':'Escopo','device':'Dispositivo','native_usage_quantity':'Requisições','input_tokens':'Tokens de entrada','output_tokens':'Tokens de saída','duration_ms':'Duração (ms)','created_at':'Criada em','started_at':'Iniciada em','completed_at':'Concluída em','captured_at':'Capturada em','collected_at':'Coletada em','executed_at':'Executada em','updated_at':'Atualizada em','finished_at':'Finalizada em'}
-STATUS_LABELS = {'SUCCESS':'Concluído','COMPLETE':'Concluído','COMPLETED':'Concluído','PASS':'Aprovado','PARTIAL':'Parcial','WARNING':'Atenção','FAILED':'Falhou','ERROR':'Falhou','FAIL':'Reprovado','BLOCKED':'Bloqueado','NOT_REQUESTED':'Não solicitado','NOT_APPLICABLE':'Não aplicável','SKIPPED':'Não executado','UNKNOWN':'Não determinado','CONSOLIDATED':'Consolidado','NOT_CONSOLIDATED':'Não consolidado','COMPLETE_WITH_LIMITATIONS':'Concluído com limitações','GOOD':'Bom','NEEDS_IMPROVEMENT':'Precisa melhorar','TOLERATING':'Tolerável','OBSERVED':'Observado','COHERENT':'Coerente','NOT_DETERMINABLE':'Não determinável','AVAILABLE':'Disponível','NOT_CONFIGURED':'Não configurado','DISABLED':'Desabilitado','NO_DATA':'Sem dados','ABSENT':'Ausente'}
+STATUS_LABELS = {'SUCCESS':'Concluído','COMPLETE':'Concluído','COMPLETED':'Concluído','PASS':'Aprovado','PARTIAL':'Parcial','WARNING':'Atenção','FAILED':'Falhou','ERROR':'Falhou','FAIL':'Reprovado','BLOCKED':'Bloqueado','NOT_OBSERVED':'Não observado','COLLECTION_FAILED':'Falha na coleta','INCONCLUSIVE':'Inconclusivo','NOT_REQUESTED':'Não solicitado','NOT_APPLICABLE':'Não aplicável','SKIPPED':'Não executado','UNKNOWN':'Não determinado','CONSOLIDATED':'Consolidado','NOT_CONSOLIDATED':'Não consolidado','COMPLETE_WITH_LIMITATIONS':'Concluído com limitações','GOOD':'Bom','NEEDS_IMPROVEMENT':'Precisa melhorar','TOLERATING':'Tolerável','OBSERVED':'Observado','COHERENT':'Coerente','NOT_DETERMINABLE':'Não determinável','AVAILABLE':'Disponível','NOT_CONFIGURED':'Não configurado','DISABLED':'Desabilitado','NO_DATA':'Sem dados','ABSENT':'Ausente'}
 STATUS_LABELS.update({'MISSING_PROPOSED':'Ausente — proposta disponível','MEASURED':'Medido','READY':'Pronto','RESPONSE':'Resposta','LIMITED_AVAILABILITY':'Disponibilidade limitada','NEWLY_AVAILABLE':'Disponível recentemente','WIDELY_AVAILABLE':'Amplamente disponível'})
 SEVERITY_LABELS = {'CRITICAL':'Crítica','HIGH':'Alta','MEDIUM':'Média','LOW':'Baixa','INFO':'Informativa','INFORMATIONAL':'Informativa'}
 PRIORITY_LABELS = {k:v for k,v in SEVERITY_LABELS.items() if k not in {'INFO','INFORMATIONAL'}}
@@ -84,7 +84,7 @@ def chip_tone(value, field):
         return 'warn'
     if token == 'CRITICAL':
         return 'bad critical'
-    if token in {'FAILED','ERROR','FAIL','BLOCKED'}:
+    if token in {'FAILED','ERROR','FAIL','BLOCKED','COLLECTION_FAILED'}:
         return 'bad'
     return 'info' if token in {'INFO','INFORMATIONAL','EXTERNAL'} else 'none'
 

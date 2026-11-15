@@ -75,7 +75,7 @@ try:
     output = generator.generate(root)
     assert inventory(root) == before and generator.generate(root) == output
     manifest = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
-    assert manifest['integrity'] == 'PASS' and manifest['page_count'] == 10
+    assert manifest['integrity'] == 'PASS' and manifest['page_count'] == 11
     assert manifest['external_requests'] == manifest['ai_calls'] == manifest['source_writes'] == 0
     assert manifest['score_recomputed'] is False
     assert manifest['source_tree_digest_before'] == manifest['source_tree_digest_after']
@@ -99,8 +99,8 @@ try:
     pages={}
     for file in output.glob('*.html'):
         parser=Links(); parser.feed(file.read_text(encoding='utf-8')); pages[file.resolve()]=parser
-        assert parser.navigation==10, file.name
-    assert len(pages)==10
+        assert parser.navigation==11, file.name
+    assert len(pages)==11
     local_links=0
     for file, parser in pages.items():
         for ref in parser.refs:
@@ -125,9 +125,9 @@ try:
         page.on('requestfailed',lambda r: failures.append(r.url))
         for width in (1440,390):
             page.set_viewport_size({'width':width,'height':1080})
-            for name in ('index','extracao','ia-custos'):
+            for name in ('index','extracao','rede','ia-custos'):
                 page.goto((output/(name+'.html')).as_uri())
-                assert page.locator('nav[aria-label="Páginas"] a').count()==10
+                assert page.locator('nav[aria-label="Páginas"] a').count()==11
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 page.locator('#expand').click()
                 assert page.locator('details:not([open])').count()==0

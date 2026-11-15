@@ -8,7 +8,9 @@ from rasai.catalog_report_search_trust import (
     _overview_values, _overview_references, _raw_serp_artifact, _target_hosts, overview_citation,
 )
 from rasai.network_active_probe import read_authorized_probes
-from .components import kv, text
+from rasai.network_observation import snapshots_from_audit
+from rasai.network_observation_store import read_network_observations, sidecar_path
+from .components import kv, table, text
 from .presentation_labels import public_value
 from .read_model import SEARCH_PAGE
 from .sanitization import sanitize
@@ -71,47 +73,190 @@ def editorial_evidence(root, tables):
         'A captura descreve o DOM em um instante. Um painel não observado não prova ausência de resposta após interação. O histórico v1 não autoriza uma intervenção v2.')
 
 
-def scope_context(root, raw_tables, timezone_name, costs):
-    tables = {name: sanitize(rows) for name, rows in raw_tables.items() if name in {
-        'audit_targets', 'serp_observations', 'geo_observation_runs', 'perplexity_search_runs',
-        'audits', 'audit_fulfillment_contracts', 'page_snapshots', 'synthetic_apdex_summaries',
-        'synthetic_ux_apdex_summaries', 'synthetic_apdex_runs', 'synthetic_ux_apdex_runs',
-        'passive_security_runs', 'passive_security_findings', 'passive_security_script_observations',
-        'web_performance_observations', 'directed_analysis_runs', 'scores',
-        'ai_provider_attempts', 'content_remediation_attempts', 'improvement_intelligence_recommendations'}}
-    result = defaultdict(str)
-    audit = next(iter(tables.get('audits', ())), {})
-    local = lambda stamp: public_value(stamp, 'captured_at', timezone_name)
-    result[SEARCH_PAGE] = search_context(root, tables)
-    result['conteudo'] = editorial_evidence(root, tables)
-    if result['conteudo']:
-        result['conteudo'] += kv([('Instante da captura · ' + str(row.get('device') or 'N/D'), local(row.get('captured_at')))
-                                  for row in tables.get('page_snapshots', ())])
-    for contract in tables.get('audit_fulfillment_contracts', ()):
-        result['index'] += subsection('Fechamento e pendências', [
-            ('Processamento', contract.get('processing_status')), ('Relatório', contract.get('report_status')),
-            ('Pontuação', contract.get('score_status')), ('Itens pendentes', contract.get('pending_items'))])
-    events = [('Início da auditoria-base', local(audit.get('started_at'))), ('Fim da auditoria-base', local(audit.get('completed_at')))]
-    for snap in tables.get('page_snapshots', ()):
-        events.append(('Captura · ' + str(snap.get('device') or 'N/D'), local(snap.get('captured_at'))))
-    for run in tables.get('perplexity_search_runs', ()):
-        events.append(('Consulta Search API', local(run.get('started_at'))))
-    probes = read_authorized_probes(root, audit.get('audit_id')) if audit.get('audit_id') else []
-    if not probes:
-        result['performance'] += '<p>Sonda complementar verificável indisponível (N/D).</p>'
-    for probe in probes:
-        stamp = local(probe.get('capture_utc'))
-        events.append(('Sonda de rede complementar', stamp))
-        metrics = probe.get('metrics', {})
-        pairs = [('Origem da medição', probe.get('measurement_origin')), ('Instante da sonda', stamp)]
-        for field, label in [('dns_elapsed_ms', 'DNS'), ('tcp_handshake_ms', 'TCP'), ('tls_handshake_ms', 'TLS')]:
-            pairs.append((label + ' (ms)', public_value((metrics.get(field) or {}).get('value'))))
-        result['performance'] += subsection('Sonda complementar de rede', pairs + [('SHA-256', probe.get('sha256'))],
-            'A sonda descreve o caminho e o instante observados. Ela não mede a experiência de toda a população.')
+
+_NETWORK_METRICS = (
+    ('connected_public_ip', 'Endereço público da conexão'),
+    ('http_protocol', 'Protocolo HTTP'),
+    ('http_status', 'Status HTTP'),
+    ('redirect_count', 'Redirecionamentos HTTP'),
+    ('dns_resolution', 'Resolução DNS'),
+    ('dns_elapsed_ms', 'Consulta DNS (ms)'),
+    ('tcp_handshake_ms', 'Conexão TCP (ms)'),
+    ('tls_handshake_ms', 'Negociação TLS (ms)'),
+    ('tls_protocol', 'Versão TLS'),
+    ('traceroute', 'Traceroute'),
+    ('asn', 'ASN / operador de rede'),
+    ('geoip', 'GeoIP aproximado'),
+)
+_NETWORK_ERRORS = {
+    'DNS_LOOKUP_FAILED': 'Falha DNS registrada no pacote histórico.',
+    'DNS_TEMPORARY_FAILURE': 'O resolvedor registrou indisponibilidade temporária.',
+    'DNS_NAME_RESOLUTION_FAILED': 'O resolvedor não conseguiu resolver o hostname.',
+    'DNS_RESOLVER_OS_ERROR': 'O resolvedor registrou erro de sistema.',
+    'TRACE_TIME_BUDGET_EXCEEDED': 'O rastreamento excedeu o limite de tempo; saltos anteriores podem estar preservados.',
+    'TRACE_COMMAND_NOT_AVAILABLE': 'Ferramenta local de rastreamento indisponível.',
+    'TRACE_COMMAND_FAILED': 'O processo de rastreamento terminou com erro.',
+    'TRACE_COLLECTION_FAILED': 'Falha técnica na coleta do rastreamento.',
+    'ROUTE_NOT_CONFIRMED': 'Não foi possível confirmar o percurso até o destino.',
+}
+_NETWORK_ABSENCE = {
+    'NO_DNS_CAPTURE': 'A captura passiva não mede a resolução DNS separadamente.',
+    'NO_TCP_TIMING_CAPTURE': 'A captura passiva não mede o handshake TCP separadamente.',
+    'NO_TLS_TIMING_CAPTURE': 'A captura passiva não mede o handshake TLS separadamente.',
+    'NO_ACTIVE_PROBE': 'Não houve sonda ativa vinculada a esta observação.',
+    'NO_ENRICHMENT': 'Não houve enriquecimento ASN/GeoIP nesta observação.',
+}
+_HOP_STATES = {
+    'PUBLIC_HOP': 'Resposta pública',
+    'PRIVATE_HOP_REDACTED': 'Endereço reservado/oculto',
+    'NO_REPLY': 'Sem resposta',
+}
+
+
+def _network_value(key, metric):
+    if not isinstance(metric, dict) or metric.get('state') != 'OBSERVED':
+        return None
+    value = metric.get('value')
+    if key == 'asn' and isinstance(value, dict):
+        number = value.get('number')
+        label = ('AS' + str(number)) if number is not None else 'ASN N/D'
+        if value.get('organization'):
+            label += ' · ' + str(value['organization'])
+        return label
+    if key == 'geoip' and isinstance(value, dict):
+        parts = []
+        if value.get('latitude') is not None and value.get('longitude') is not None:
+            parts.append(str(value['latitude']) + '°, ' + str(value['longitude']) + '°')
+        if value.get('accuracy_radius_km') is not None:
+            parts.append('precisão ±' + str(value['accuracy_radius_km']) + ' km')
+        if value.get('source'):
+            parts.append('fonte ' + str(value['source']))
+        return ' · '.join(parts) or None
+    if key == 'traceroute' and isinstance(value, dict):
+        hops = value.get('hops') if isinstance(value.get('hops'), list) else []
+        reached = 'destino alcançado' if value.get('target_reached') is True else 'caminho completo não confirmado'
+        parts = [str(len(hops)) + ' salto(s) registrado(s)', reached]
+        if value.get('method'):
+            parts.append('método ' + str(value['method']))
+        if value.get('probe_protocol'):
+            parts.append('protocolo ' + str(value['probe_protocol']))
+        if type(value.get('max_hops')) is int:
+            parts.append('limite ' + str(value['max_hops']) + ' saltos')
+        return ' · '.join(parts)
+    if isinstance(value, list):
+        return ', '.join(str(item) for item in value[:32])
+    return value
+
+
+def _network_reason(metric):
+    if not isinstance(metric, dict):
+        return None
+    error = metric.get('error')
+    if isinstance(error, str) and error:
+        return _NETWORK_ERRORS.get(error, 'Falha técnica registrada; código interno não publicado nesta camada.')
+    source = metric.get('source')
+    if metric.get('state') != 'OBSERVED' and isinstance(source, str):
+        return _NETWORK_ABSENCE.get(source)
+    return None
+
+
+def _network_metric_rows(observations, probes, timezone_name):
+    rows = []
+    for index, item in enumerate(observations, 1):
+        metrics = item.get('metrics') if isinstance(item, dict) else None
+        if not isinstance(metrics, dict):
+            continue
+        context = str(item.get('device') or ('Captura ' + str(index)))
+        stamp = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
+        for key, label in _NETWORK_METRICS:
+            metric = metrics.get(key)
+            if not isinstance(metric, dict):
+                continue
+            rows.append({
+                'origin': 'Captura persistida da AUD',
+                'context': context,
+                'target': item.get('target_host'),
+                'captured_at': stamp,
+                'indicator': label,
+                'state': metric.get('state') or 'INCONCLUSIVE',
+                'value': _network_value(key, metric),
+                'provenance': metric.get('source') or item.get('measurement_origin'),
+                'reason': _network_reason(metric),
+            })
+    for index, item in enumerate(probes, 1):
+        metrics = item.get('metrics') if isinstance(item, dict) else None
+        if not isinstance(metrics, dict):
+            continue
+        context = item.get('series_id') or ('Probe ' + str(index))
+        if item.get('port') is not None:
+            context = str(context) + ' · porta ' + str(item.get('port'))
+        stamp = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
+        for key, label in _NETWORK_METRICS:
+            metric = metrics.get(key)
+            if not isinstance(metric, dict):
+                continue
+            rows.append({
+                'origin': 'Sonda complementar autorizada',
+                'context': context,
+                'target': item.get('hostname'),
+                'captured_at': stamp,
+                'indicator': label,
+                'state': metric.get('state') or 'INCONCLUSIVE',
+                'value': _network_value(key, metric),
+                'provenance': metric.get('source') or item.get('measurement_origin'),
+                'reason': _network_reason(metric),
+            })
+    return sanitize(rows)
+
+
+def _network_hop_rows(probes, timezone_name):
+    rows = []
+    for item in probes:
+        metrics = item.get('metrics') if isinstance(item, dict) else None
+        trace = metrics.get('traceroute') if isinstance(metrics, dict) else None
+        value = trace.get('value') if isinstance(trace, dict) and trace.get('state') == 'OBSERVED' else None
+        hops = value.get('hops') if isinstance(value, dict) else None
+        if not isinstance(hops, list):
+            continue
+        stamp = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
+        for hop in hops[:16]:
+            if not isinstance(hop, dict) or type(hop.get('hop')) is not int:
+                continue
+            enrichment = hop.get('enrichment') if isinstance(hop.get('enrichment'), dict) else {}
+            rows.append({
+                'captured_at': stamp,
+                'target': item.get('hostname'),
+                'hop': hop.get('hop'),
+                'hop_state': _HOP_STATES.get(hop.get('state'), 'Estado não determinado'),
+                'public_ip': hop.get('public_ip') if hop.get('state') == 'PUBLIC_HOP' else None,
+                'rtt_ms': hop.get('rtt_ms'),
+                'rtt_samples': hop.get('rtt_samples_ms'),
+                'asn': _network_value('asn', enrichment.get('asn')),
+                'geoip': _network_value('geoip', enrichment.get('geoip')),
+            })
+    return sanitize(rows)
+
+
+def network_context(root, audit_id, timezone_name):
+    if not audit_id:
+        return '<p class="callout">Identidade da AUD indisponível; dados de rede permanecem N/D.</p>', []
+    packet = sidecar_path(root)
+    packet_present = packet.exists() or packet.is_symlink()
+    observations = read_network_observations(root, audit_id)
+    if not observations and not packet_present:
+        database = root / 'audit.db'
+        if database.is_file() and not database.is_symlink():
+            try:
+                observations = snapshots_from_audit(database, audit_id)
+            except (OSError, ValueError, TypeError, sqlite3.Error):
+                observations = []
+    network_html, network_events = network_context(root, audit.get('audit_id'), timezone_name)
+    result['rede'] += network_html
+    events.extend(network_events)
     result['index'] += subsection('Cronologia das fontes · ' + timezone_name, events,
         'Os complementos conservam seus próprios instantes. O fim da auditoria-base é o registrado no banco.')
     if tables.get('passive_security_runs'):
-        result['performance'] += kv([('Scripts observados na captura passiva', len(tables.get('passive_security_script_observations', ())) if 'passive_security_script_observations' in tables else None)])
+        result['seguranca'] += kv([('Scripts observados na captura passiva', len(tables.get('passive_security_script_observations', ())) if 'passive_security_script_observations' in tables else None)])
     for family, title in [('synthetic_apdex_summaries', 'Navegação'), ('synthetic_ux_apdex_summaries', 'Experiência')]:
         run = next(iter(tables.get(family.replace('_summaries', '_runs'), ())), {})
         configuration = run.get('configuration')

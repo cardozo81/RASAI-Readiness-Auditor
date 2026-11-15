@@ -65,17 +65,48 @@ def test_origin_and_observation_in_human_record():
 
 def test_network_and_serp_do_not_borrow_apdex_or_search_universes(tmp_path, monkeypatch):
     from rasai.parallel_report import scope_context as context
-    monkeypatch.setattr(context, 'read_authorized_probes', lambda *_: [
-        {'metrics': {'dns_elapsed_ms': {'value': 0}, 'tls_handshake_ms': {'value': 13.4}}}])
+    monkeypatch.setattr(context, 'read_network_observations', lambda *_: [])
+    monkeypatch.setattr(context, 'read_authorized_probes', lambda *_: [{
+        'hostname': 'example.org',
+        'port': 443,
+        'capture_utc': '2026-11-15T12:00:00Z',
+        'measurement_origin': 'LOCAL_OPERATOR_PROCESS',
+        'metrics': {
+            'dns_resolution': {'state': 'COLLECTION_FAILED', 'error': 'DNS_NAME_RESOLUTION_FAILED'},
+            'dns_elapsed_ms': {'state': 'OBSERVED', 'value': 0, 'source': 'LOCAL_DNS_RESOLVER'},
+            'tcp_handshake_ms': {'state': 'NOT_OBSERVED', 'value': None, 'source': 'NO_TCP_TIMING_CAPTURE'},
+            'tls_handshake_ms': {'state': 'OBSERVED', 'value': 13.4, 'source': 'LOCAL_TLS_SOCKET'},
+            'traceroute': {'state': 'OBSERVED', 'value': {
+                'target_reached': False,
+                'method': 'WINDOWS_TRACERT',
+                'probe_protocol': 'ICMP',
+                'max_hops': 16,
+                'hops': [{
+                    'hop': 1, 'state': 'PUBLIC_HOP', 'public_ip': '8.8.8.8', 'rtt_ms': 12.3,
+                    'enrichment': {
+                        'asn': {'state': 'OBSERVED', 'value': {'number': 15169, 'organization': 'Google'}},
+                        'geoip': {'state': 'OBSERVED', 'value': {
+                            'latitude': -30.0, 'longitude': -51.0,
+                            'accuracy_radius_km': 20, 'source': 'MAXMIND_MMDB'}},
+                    },
+                }],
+            }},
+        },
+    }])
     tables = {'audits': [{'audit_id':'a'}], 'passive_security_runs':[{}],
               'passive_security_script_observations':[{},{}],
               'geo_observation_runs':[{'projection_json':{'source_count':8, 'descriptive_overlap':{'common_urls':0,'perplexity_denominator':8,'serp_denominator':3}}}]}
     body = scope_context(tmp_path,tables,'UTC',{})
-    assert 'Scripts observados na captura passiva</dt><dd>2' in body['performance']
-    assert 'DNS (ms)</dt><dd>0' in body['performance'] and 'TCP (ms)</dt><dd>N/D' in body['performance']
+    assert 'Scripts observados na captura passiva</dt><dd>2' in body['seguranca']
+    assert 'Scripts observados na captura passiva' not in body['performance']
+    assert 'Consulta DNS (ms)' in body['rede'] and '>0<' in body['rede']
+    assert 'Falha na coleta' in body['rede'] and 'Conexão TCP (ms)' in body['rede']
+    assert 'caminho completo não confirmado' in body['rede']
+    assert 'AS15169' in body['rede'] and 'precisão ±20 km' in body['rede']
+    assert '8.8.8.8' in body['rede'] and '12,3' in body['rede']
+    assert 'Consulta DNS (ms)' not in body['performance']
     assert 'URLs da SERP</dt><dd>3' in body[context.SEARCH_PAGE]
     assert 'URLs da Search API</dt><dd>8' in body[context.SEARCH_PAGE]
-
 
 def test_orphaned_governance_reference_keeps_one_destination(monkeypatch):
     from rasai import recommendation_governance_reporting as module

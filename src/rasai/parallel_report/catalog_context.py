@@ -37,6 +37,7 @@ REFERENCES = {
     'indices': ('methodology', 'Método e versão das regras de pontuação'),
     'descoberta': ('cat-01', 'Diagnóstico por ocorrência, documento e posição do validador W3C'),
     'extracao': ('capture-context', 'Abrir a captura e sua prévia local'),
+    'rede': ('network', 'Abrir mapa, rota, cronologia e diagnóstico técnico de rede'),
     'ia-custos': ('metrics', 'Intervalos das tentativas, invólucros do pipeline e tempos HTTP'),
 }
 

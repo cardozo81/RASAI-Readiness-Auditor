@@ -13,7 +13,7 @@ from rasai.parallel_report.crossrefs import link_records
 from rasai.parallel_report.evidence_index import locate, counts
 from rasai.parallel_report.generator import generate
 from rasai.console_artifacts import presentation_report_entrypoint
-from rasai.parallel_report.read_model import build
+from rasai.parallel_report.read_model import build, destination
 from rasai.parallel_report.sanitization import sanitize
 from rasai.parallel_report.sqlite_reader import connect, read_database
 from rasai.parallel_report.thresholds import load
@@ -178,10 +178,13 @@ def test_integration(tmp_path, monkeypatch, complete):
     monkeypatch.setattr(socket, 'socket', no_network)
     output = generate(root)
     manifest = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
-    assert manifest['page_count'] == 10
+    assert manifest['page_count'] == 11
     assert manifest['source_tree_digest_before'] == manifest['source_tree_digest_after']
     assert manifest['parity_differences']['comparisons']['scores']['status'] == 'PASS'
     assert manifest['external_requests'] == manifest['ai_calls'] == manifest['source_writes'] == 0
+    coverage = json.loads((output / 'assets' / 'coverage-map.json').read_text(encoding='utf-8'))
+    assert coverage['families']['private_payload']['page'] is None
+    assert coverage['families']['private_payload']['representation'] == 'technical-only'
     assert manifest['source_db_logical_sha256']
     for name, value in manifest['sha256_per_file'].items():
         assert digest(output / name) == value
@@ -476,6 +479,17 @@ def test_extension_primary_key_does_not_shadow_entity():
     records = build(tables, schema)
     links, ambiguous = link_records(records)
     assert ambiguous == 1  # two canonical owners: still abstain
+
+
+def test_unknown_persisted_family_is_technical_only():
+    assert destination('private_payload') is None
+    records = build(
+        {'private_payload': [{'id': 'x', 'payload': 'opaque'}]},
+        {'private_payload': {'primary_key': ['id']}},
+    )
+    assert len(records) == 1
+    assert records[0].href.startswith('anexos/')
+    assert records[0].href.endswith('.json')
 
 
 def test_existing_presentation_not_shadowed():

@@ -13,8 +13,8 @@ O gerador reaproveita um pacote íntegro com fontes e versão compatíveis. Quan
 precisa atualizá-lo, valida a árvore em staging antes de substituir a anterior.
 A mesma publicação migra as subpastas datadas das auditorias históricas.
 
-Abra `index.html` por `file://`. São dez páginas, anexos JSON sanitizados,
-assets locais, manifesto e mapa completo de cobertura. CSS/JS não usam rede.
+Abra `index.html` por `file://`. São onze páginas, anexos JSON sanitizados,
+assets locais, manifesto e mapa completo de cobertura. A página Rede e conectividade projeta somente observações persistidas/verificadas e mantém o aprofundamento no report-catalog. CSS/JS não usam rede.
 Não publica cópias executáveis do HTML auditado. Não execute o módulo sobre
 uma AUD que outro processo possa modificar durante a leitura.
 

@@ -104,7 +104,16 @@ def _render_package(root, database, before, logical_before, output):
         name: ['-'.join(page['page_parts'])+'.html' if isinstance(page,dict) else page for page in pages]
         for name,pages in coverage_map['canonical_pages'].items()
     }
-    coverage_map['families'] = {table: {'page': destination(table) + '.html', 'row_count': len(rows), 'columns': schema[table]['columns']} for table, rows in tables.items()}
+    family_coverage = {}
+    for table, rows in tables.items():
+        page = destination(table)
+        family_coverage[table] = {
+            'page': page + '.html' if page is not None else None,
+            'representation': 'editorial' if page is not None else 'technical-only',
+            'row_count': len(rows),
+            'columns': schema[table]['columns'],
+        }
+    coverage_map['families'] = family_coverage
     (output / 'assets' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
     generated = {p.relative_to(output).as_posix(): digest(p) for p in output.rglob('*') if p.is_file()}
     return {
