@@ -94,7 +94,7 @@ A [documentação completa](docs/README.md) centraliza contratos e guias especia
 - [Relatórios e catálogos](docs/CATALOG_AND_REPORT_SURFACES.md) · [Guia de relatórios](docs/REPORT_GUIDE.md)
 - [Consolidação longitudinal](docs/CONSOLIDATED_REPORTING.md) · [Verificação de correções](docs/REPORT_GUIDE.md)
 - [Monitoramento e observabilidade](docs/MONITORING_OBSERVABILITY.md) · [Plataforma](docs/PRODUCT_PLATFORM_ARCHITECTURE.md)
-- [Versionamento](docs/VERSIONING.md) · [Notas da candidata 0.10.0](docs/RELEASE_NOTES_V0_10_0.md) · [Notas v0.9.2](docs/RELEASE_NOTES_V0_9_2.md)
+- [Versionamento](docs/VERSIONING.md) · [Notas v0.10.0](docs/RELEASE_NOTES_V0_10_0.md) · [Notas v0.9.2](docs/RELEASE_NOTES_V0_9_2.md)
 - [Pesquisa futura sobre runner SaaS](docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md) - proposta não implementada, rastreada na **Issue #1**.
 
 ## Segurança e responsabilidade

@@ -1,10 +1,9 @@
-# RASAi 0.10.0 - notas da candidata
+# RASAi 0.10.0 - notas da release
 
-**Candidata não publicada.** A release pública continua sendo `v0.9.2`,
-de 30/10/2026, no commit `6fcd78bc074dcf2d69253bf3cedf7bed09c384ef`.
-Estas notas descrevem o delta compatível até a base
-`09ff011ba1c9d12e6a6dfa07397dc9ae37ca2a42` e o preparo de distribuição.
-Merge, tag, GitHub Release e distribuição externa exigem decisões posteriores.
+**Release publicada.** `v0.10.0` foi publicada em 15/11/2026 como GitHub Release
+`RASAi 0.10.0`, final (não draft e não prerelease). Estas notas preservam o
+delta preparado até a base `09ff011ba1c9d12e6a6dfa07397dc9ae37ca2a42`;
+o ciclo de publicação foi concluído posteriormente na `main`.
 
 ## Capacidades adicionais desde v0.9.2
 
