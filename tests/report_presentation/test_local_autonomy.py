@@ -76,11 +76,23 @@ def test_persisted_preview_has_only_local_destinations_and_timezone(tmp_path, mo
     from rasai.parallel_report import catalog_context as module
     monkeypatch.setattr(module, '_verified_links', lambda *args: {'capture-context.html'})
     rows = {'page_snapshots': [
-        {'device': 'MOBILE', 'captured_at': '2026-11-16T12:00:00Z', 'requested_url': 'https://example.test'}
+        {'device': 'MOBILE', 'captured_at': '2026-11-16T12:00:00Z', 'requested_url': 'https://example.test',
+         'browser_metadata': json.dumps({
+             'browser_identity': {'channel': 'Chrome', 'browser_version': '123'},
+             'profile': {'viewport': {'width': 390, 'height': 844}},
+             'visual_artifact_ref': 'artifacts/screenshot.png',
+             'runtime_diagnostics': {'items': [
+                 {'type': 'PAGE_ERROR', 'message': 'Falha observada', 'url': 'https://example.test/'}
+             ]}
+         })}
     ]}
     section = catalog_context(tmp_path, 'logical', 'AUD-X', rows, 'America/Sao_Paulo')['extracao']
     assert '16/11/2026 09:00:00 (America/Sao_Paulo)' in section
     assert 'Ver detalhes' in section
+    assert 'Chrome 123' in section and '390 x 844' in section
+    assert 'artifacts/screenshot.png' in section
+    assert 'Ocorrências registradas pelo navegador na captura' in section
+    assert 'Erro de JavaScript' in section and 'Falha observada' in section
     assert '#capture-preview' in section
     assert '#presentation-records' in section
     assert 'report-catalog' not in section
