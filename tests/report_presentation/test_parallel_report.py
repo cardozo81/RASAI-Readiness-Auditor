@@ -564,3 +564,20 @@ def test_encrypted_response_not_distributed_in_offline_html_or_annex(tmp_path, m
     annex = json.loads((output / 'anexos' / annex_name).read_text(encoding='utf-8'))
     assert annex[0]['response_payload']['output'][0]['encrypted_content']['status'] == OPAQUE_STATUS
     assert sha256((root / 'audit.db').read_bytes()).hexdigest() == original_digest
+
+
+def test_partial_audit_standalone_presentation_without_catalog_package(tmp_path):
+    """Published HTML cannot require a catalog report or a completed audit."""
+    from shutil import rmtree
+    from rasai.console_artifacts import materialize_presentation_report_on_demand
+    root = fixture(tmp_path / 'AUD-SYNTHETIC', complete=False)
+    with sqlite3.connect(root / 'audit.db') as db:
+        db.execute('UPDATE audits SET status=?', ('PARTIAL_RETRYABLE',))
+    rmtree(root / 'report-catalog')
+    before = inventory(root)
+    report, status = materialize_presentation_report_on_demand(root)
+    assert status == 'MATERIALIZED'
+    assert report == (root / 'report-presentation' / 'index.html').resolve()
+    assert report.is_file()
+    assert inventory(root) == before
+    assert 'N/D' in (report.parent / 'extracao.html').read_text(encoding='utf-8')

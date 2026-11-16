@@ -2,8 +2,8 @@
 
 Late functional finalizers persist audit data through ``finalize_audit_report_site``.
 The canonical HTML projection remains ``report-catalog/`` and is the blocking freshness
-gate. Mutable AUD/RPR/complement flows may additionally publish the derived
-``report-presentation/`` projection after the canonical report is valid. Read-only
+gate. Mutable AUD/RPR/complement flows also attempt the independent derived
+``report-presentation/`` projection, even if the catalog freshness gate fails. Read-only
 rematerialization never creates that secondary output.
 """
 from __future__ import annotations
@@ -182,10 +182,12 @@ def materialize_catalog_report_projection(
                     "catalog-report-freshness:RuntimeError:published catalog report does not match persisted audit"
                 )
 
-    # Mutable AUD/RPR/complement flows publish the secondary presentation
-    # only after the canonical catalog is confirmed. Read-only rematerialization
-    # keeps its original no-new-output contract.
-    if not read_only and not errors:
+    # Mutable AUD/RPR/complement flows attempt the standalone presentation
+    # independently of catalog freshness. A partial AUD can still communicate
+    # verified persisted facts, with unavailable fields remaining N/D.
+    # Canonical errors are still returned unchanged to their own caller.
+    # Read-only catalog replay never creates a secondary presentation.
+    if not read_only:
         _materialize_parallel_report_best_effort(
             audit_id=audit_id,
             workspace=workspace,
