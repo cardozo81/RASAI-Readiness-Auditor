@@ -62,7 +62,10 @@ def sanitize(value, key=''):
             return sanitize(json.loads(value), key)
         except (ValueError, TypeError):
             pass
-    if has_opaque_marker(value):
+    if has_opaque_marker(value) and (
+        field in {'request_payload', 'response_payload'}
+        or value.lstrip().startswith(('{', '['))
+    ):
         # Invalid or unstructured opaque provider content cannot be safely
         # split into individual fields. Do not publish any of its bytes.
         return UNPARSEABLE_STATUS

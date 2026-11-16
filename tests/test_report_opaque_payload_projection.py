@@ -64,3 +64,11 @@ def test_invalid_json_opaque_fails_closed_without_suppressing_real_secret_detect
     assert project_opaque_fields(source) == UNPARSEABLE_STATUS
     assert sanitize({"response_payload": source})["response_payload"] == UNPARSEABLE_STATUS
     assert _credential_output_failures("<pre>" + escape(OTHER_SECRET) + "</pre>")
+
+
+def test_nonopaque_json_merely_mentioning_encrypted_content_is_preserved():
+    source = '{"note":"The term encrypted_content is documented here","usage":{"tokens":0}}'
+    assert project_opaque_fields(source) == source
+    clean = sanitize({"response_payload": source})
+    assert clean["response_payload"]["note"] == "The term encrypted_content is documented here"
+    assert clean["response_payload"]["usage"]["tokens"] == 0

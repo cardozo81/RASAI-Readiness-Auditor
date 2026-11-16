@@ -73,6 +73,9 @@ def _project(value: Any) -> tuple[Any, bool]:
             projected, changed = _project(decoded)
             if changed:
                 return json.dumps(projected, ensure_ascii=False, separators=(",", ":")), True
+            # A valid JSON document mentioning this term in an unrelated text
+            # field is not an encrypted_content field and must be preserved.
+            return value, False
         if has_opaque_marker(value):
             # No parseable structured boundary: never distribute a suspected
             # ciphertext payload in unstructured/free-form response text.
