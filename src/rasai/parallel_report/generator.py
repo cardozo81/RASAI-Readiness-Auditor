@@ -94,6 +94,11 @@ def _render_package(root, database, before, logical_before, output):
     audit = next(iter(tables.get('audits', ())), {})
     for page, body in catalog_context(root, logical_before, audit.get('audit_id'), tables, timezone_name).items():
         supplements[page] += body
+    from .evidence_coverage import build_coverage
+    coverage_html, coverage_receipt = build_coverage(root, audit.get('audit_id'), tables)
+    supplements.update(coverage_html)
+    (output / 'assets' / 'evidence-coverage.json').write_text(
+        json.dumps(coverage_receipt, ensure_ascii=False, indent=2), encoding='utf-8')
     pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
     for name, html in pages.items():
         # Presentation typography only. SQLite, source artifacts and annex JSON
