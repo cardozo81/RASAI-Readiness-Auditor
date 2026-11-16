@@ -109,3 +109,18 @@ dialog.detail-dialog::backdrop{background:rgba(7,12,18,.64);backdrop-filter:blur
 body.modal-active{overflow:hidden}
 @media(max-width:620px){dialog.detail-dialog{width:calc(100vw - 16px);max-width:none;max-height:calc(100dvh - 16px);margin:8px}.modal-head,.modal-body,.modal-foot{padding-left:12px;padding-right:12px}.modal-foot{align-items:stretch;flex-direction:column}.modal-foot .tech-link,.modal-dismiss{width:100%;box-sizing:border-box;text-align:center}.detail-cell{white-space:normal}}
 @media print{.modal-open,dialog.detail-dialog{display:none!important}}
+
+/* Capturas: evidência visual inline, abertura opcional no dialog padrão. */
+.capture-visual-section{margin:18px 0 26px}
+.capture-visual{margin:12px 0 18px;padding:12px;overflow:hidden}
+.capture-visual figcaption{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;overflow-wrap:anywhere}
+.capture-visual figcaption strong{color:var(--ink);font-size:14px}
+.capture-visual figcaption span{color:var(--mut)}
+.capture-image-button.modal-open{display:block;width:100%;max-width:100%;padding:0;overflow:hidden;border:1px solid var(--line);background:var(--bg);cursor:zoom-in;white-space:normal}
+.capture-image-preview{display:block;width:100%;height:320px;object-fit:contain;object-position:center top;background:var(--bg)}
+.capture-image-dialog.detail-dialog{width:min(1180px,calc(100vw - 20px));max-width:1180px;max-height:95vh}
+.capture-image-dialog .modal-body{min-height:0}
+.capture-image-dialog .modal-body img{display:block;width:auto;height:auto;max-width:100%;margin:0 auto}
+.capture-unavailable{border-left:3px solid var(--line);padding-left:12px}
+@media(max-width:620px){.capture-image-preview{height:230px}.capture-image-dialog.detail-dialog{width:calc(100vw - 12px);max-height:calc(100dvh - 12px);margin:6px}}
+@media print{.capture-image-button.modal-open{display:block!important;border:0;cursor:auto}.capture-image-preview{height:auto;max-height:240mm;object-fit:contain}}

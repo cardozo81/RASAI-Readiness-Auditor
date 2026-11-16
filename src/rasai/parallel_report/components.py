@@ -3,7 +3,7 @@ from html import escape
 from hashlib import sha256
 import json
 import math
-from .presentation_labels import FIELD_LABELS, ORIGIN_LABELS, public_value, chip_tone, TECHNICAL_ONLY_FIELDS
+from .presentation_labels import FIELD_LABELS, ORIGIN_LABELS, public_value, chip_tone, TECHNICAL_ONLY_FIELDS, presentation_timestamps
 
 
 def text(value):
@@ -93,7 +93,7 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
     source_html = (
         f'<p class="rf">Tabela de origem: <code>{text(source)}</code></p>' if source else ''
     )
-    raw = text(json.dumps(persisted, ensure_ascii=False, indent=2, default=str))
+    raw = text(json.dumps(presentation_timestamps(persisted, timezone_name), ensure_ascii=False, indent=2, default=str))
     technical = technical_link(row.get('_ref'), 'Abrir registro técnico completo')
     dialog = ''.join([
         f'<dialog class="detail-dialog" id="{dialog_id}" aria-labelledby="{title_id}">',
@@ -101,7 +101,7 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
         f'<h2 id="{title_id}">{text(title)}</h2></div>',
         '<button type="button" class="modal-close" data-modal-close aria-label="Fechar detalhes">×</button></div>',
         '<div class="modal-body">' + summary,
-        '<details class="in"><summary>Dados técnicos originais (rastreabilidade)</summary>'
+        '<details class="in"><summary>Dados técnicos originais (rastreabilidade)</summary><p class="rf">Horários exibidos no fuso da auditoria; valores originais permanecem nos anexos.</p>'
         + source_html + '<pre>' + raw + '</pre></details>',
         '</div><div class="modal-foot">',
         technical if technical else '<span class="rf">Sem referência técnica adicional.</span>',

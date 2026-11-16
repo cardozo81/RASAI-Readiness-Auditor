@@ -420,7 +420,7 @@ def test_previous_generator_version_is_upgraded_from_history(tmp_path):
     root = fixture(tmp_path / 'AUD-SYNTHETIC')
     package = generate(root)
     original = json.loads((package / '_geracao.json').read_text(encoding='utf-8'))
-    assert __version__ == '0.4.4'
+    assert __version__ == '0.4.8'
     original['generator_version'] = '0.4.3'
     (package / '_geracao.json').write_text(json.dumps(original), encoding='utf-8')
     assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()
@@ -527,3 +527,40 @@ def test_existing_presentation_not_shadowed():
     import rasai.report_presentation as legacy
     assert Path(legacy.__file__).name == 'report_presentation.py'
     assert callable(legacy.humanize_report_html)
+
+
+def test_encrypted_response_not_distributed_in_offline_html_or_annex(tmp_path, monkeypatch):
+    from hashlib import sha256
+
+    from rasai.report_opaque_projection import OPAQUE_STATUS
+
+    root = fixture(tmp_path / 'audit')
+    ciphertext = 'ghp_' + 'Z' * 38
+    source = json.dumps({
+        'output': [{'type': 'reasoning', 'encrypted_content': ciphertext, 'id': 'entry-3'}],
+        'usage': {'output_tokens': 0},
+    })
+    db = sqlite3.connect(root / 'audit.db')
+    db.execute('CREATE TABLE ai_exchange_log(exchange_id TEXT PRIMARY KEY, response_payload TEXT)')
+    db.execute('INSERT INTO ai_exchange_log VALUES(?, ?)', ('AIX-1', source))
+    db.commit()
+    # Keep the fixture's catalog snapshot aligned with the synthetic source.
+    snapshot = sqlite3.connect(root / 'report-catalog' / 'integrity' / 'audit-snapshot.db')
+    db.backup(snapshot)
+    snapshot.close()
+    db.close()
+    original_digest = sha256((root / 'audit.db').read_bytes()).hexdigest()
+
+    def no_network(*args, **kwargs):
+        raise AssertionError('Report generation must remain offline')
+    monkeypatch.setattr(socket, 'socket', no_network)
+    output = generate(root)
+    for file in output.rglob('*'):
+        if file.is_file() and file.suffix in ('.html', '.json'):
+            content = file.read_text(encoding='utf-8')
+            assert ciphertext not in content, file
+    assert OPAQUE_STATUS in (output / 'ia-custos.html').read_text(encoding='utf-8')
+    annex_name = sha256(b'ai_exchange_log').hexdigest() + '.json'
+    annex = json.loads((output / 'anexos' / annex_name).read_text(encoding='utf-8'))
+    assert annex[0]['response_payload']['output'][0]['encrypted_content']['status'] == OPAQUE_STATUS
+    assert sha256((root / 'audit.db').read_bytes()).hexdigest() == original_digest

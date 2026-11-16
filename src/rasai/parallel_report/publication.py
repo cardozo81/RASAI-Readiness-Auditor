@@ -9,6 +9,7 @@ import shutil
 from . import __version__
 from .artifact_reader import DIRECTORY, WORK_DIRECTORY, confined, digest, tree_digest
 from .read_model import PAGES
+from .capture_gallery import packaged_visual_files
 
 MANIFEST = '_geracao.json'
 CONTRACT = 'RASAI-PARALLEL-REPORT-001'
@@ -64,7 +65,11 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
         evidence = manifest['artifacts_read']
         if relevant_sources(recorded, evidence) != relevant_sources(source, evidence):
             return None
+        visual_files = packaged_visual_files(manifest)
+        if visual_files is None:
+            return None
         required = {name + '.html' for name, _ in PAGES}
+        required.update(visual_files)
         required.update('assets/' + name for name in ('site.css', 'app.js', 'thresholds.json', 'coverage-map.json'))
         required.update('anexos/' + sha256(table.encode()).hexdigest() + '.json'
                         for table in manifest['tables_read'])

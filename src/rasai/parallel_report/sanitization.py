@@ -3,6 +3,10 @@ from hashlib import sha256
 import json
 import re
 
+from rasai.report_opaque_projection import (
+    UNPARSEABLE_STATUS, has_opaque_marker, opaque_metadata,
+)
+
 SENSITIVE = re.compile(r'(^|[_-])(api[_-]?key|secret|password|passwd|authorization|cookie|access[_-]?token|refresh[_-]?token|credential)(s|[_-]|$)', re.I)
 ASSIGNMENT = re.compile(r'(?i)((?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|authorization|set-cookie|cookie)\s*[=:]\s*)[^\s,;<>]+')
 TOKEN = re.compile(r'\b(?:sk-|ghp_|github_pat_)[A-Za-z0-9_-]{12,}')
@@ -31,6 +35,8 @@ def _text(value, selector=False):
 
 def sanitize(value, key=''):
     field = str(key).lower()
+    if field == 'encrypted_content':
+        return opaque_metadata(value)
     if field in SAFE_COOKIE_METADATA:
         if field == 'set_cookie_index':
             return value if type(value) is int and value >= 0 else '[REDACTED]'
@@ -56,4 +62,11 @@ def sanitize(value, key=''):
             return sanitize(json.loads(value), key)
         except (ValueError, TypeError):
             pass
+    if has_opaque_marker(value) and (
+        field in {'request_payload', 'response_payload'}
+        or value.lstrip().startswith(('{', '['))
+    ):
+        # Invalid or unstructured opaque provider content cannot be safely
+        # split into individual fields. Do not publish any of its bytes.
+        return UNPARSEABLE_STATUS
     return _text(value, selector=field in SELECTOR_FIELDS)

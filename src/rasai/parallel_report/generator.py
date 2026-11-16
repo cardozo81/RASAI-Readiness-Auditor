@@ -14,6 +14,7 @@ from .sanitization import sanitize
 from .thresholds import load
 from .parity import compare
 from .render import render
+from .capture_gallery import package_captures, capture_gallery_html
 from .publication import (
     CONTRACT, DIRECTORY, MANIFEST, compatible_manifest, find_package,
     historical_directories, publication_work, publish,
@@ -87,12 +88,17 @@ def _render_package(root, database, before, logical_before, output):
 
     timezone_name, _ = timezone_for_records(records)
     supplements = scope_context(root, tables, timezone_name, costs)
+    visual_previews = package_captures(root, tables.get('page_snapshots', ()), output, before)
+    supplements['extracao:visual'] = capture_gallery_html(
+        tables.get('page_snapshots', ()), visual_previews, timezone_name)
     audit = next(iter(tables.get('audits', ())), {})
-    for page, body in catalog_context(root, logical_before, audit.get('audit_id'), tables).items():
+    for page, body in catalog_context(root, logical_before, audit.get('audit_id'), tables, timezone_name).items():
         supplements[page] += body
     pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
     for name, html in pages.items():
-        (output / name).write_text(html, encoding='utf-8')
+        # Presentation typography only. SQLite, source artifacts and annex JSON
+        # retain the precise persisted bytes and any original punctuation.
+        (output / name).write_text(html.replace('\u2014', '-'), encoding='utf-8')
     from hashlib import sha256
     for table, rows in tables.items():
         filename = sha256(table.encode()).hexdigest() + '.json'
@@ -175,6 +181,7 @@ def _render_package(root, database, before, logical_before, output):
         'warnings': costs['warnings'] + [f'Ambiguous identifier values: {ambiguous}', 'HTML parity and visual human acceptance not certified', 'Credentials are redacted; sanitized payload is not the literal source'],
         'missing_data': missing, 'parity_differences': parity, 'cost_reconciliation': costs,
         'generated_files': sorted(generated), 'sha256_per_file': generated,
+        'visual_previews': visual_previews,
         'manifest_self_hash': 'Excluded to avoid recursive hashing', 'page_count': len(pages),
         'external_requests': 0, 'ai_calls': 0, 'source_writes': 0, 'score_recomputed': False,
         'integrity': 'PASS',

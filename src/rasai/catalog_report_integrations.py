@@ -4,6 +4,7 @@ from rasai.catalog_report_public_labels import public_label
 from rasai.ai_native_usage import humanize_native_usage_unit
 from rasai.ai_economic_telemetry import aggregate_attempt_costs, attempt_monetary_cost, canonical_total_tokens, known_token_subtotal, reported_token_count
 from rasai.secret_safety import redact_value
+from rasai.report_opaque_projection import project_opaque_fields
 from rasai.time_contract import parse_timestamp
 
 
@@ -69,7 +70,8 @@ def _persisted_payload_text(value: Any) -> str:
     """Return the persisted exchange evidence without semantic humanization."""
     if value in (None, ""):
         return "Não persistido."
-    return str(value)
+    # Only the report projection omits opaque ciphertext; persisted audit.db stays intact.
+    return str(project_opaque_fields(value))
 
 
 def _raw_payload_block(value: Any) -> str:

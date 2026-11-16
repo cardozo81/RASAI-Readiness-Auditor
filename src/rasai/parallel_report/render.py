@@ -7,7 +7,7 @@ from .components import kv
 from .coverage import display, state
 from .read_model import PAGES, destination, thaw, SEARCH_PAGE
 from .templates import label as public_label
-from .presentation_labels import public_value, timezone_for_records, metric_label
+from .presentation_labels import public_value, timezone_for_records, metric_label, presentation_timestamps
 
 
 def esc(value):
@@ -70,7 +70,7 @@ def record_html(record, links, physical_links=(), timezone_name=None, governance
             ('Decisão', data.get('decision')), ('Alvo', data.get('target_class')), ('Motivo', data.get('rejection_reason'))))
     refs = ''.join(f'<a class="tech-link" href="{esc(target)}">Abrir registro técnico relacionado {i + 1}</a> ' for i, target in enumerate(links[record.href]))
     refs += ''.join(f'<a class="tech-link" href="extracao.html#physical-{index}">Abrir evidência física</a> ' for index in physical_links)
-    return f'<div class="record" id="{record.anchor}"><h3>{esc(title)}</h3><p class="org">{esc(origin)}</p><p>{esc(status)}</p><dl>{summary}</dl><details><summary>Dados persistidos e proveniência</summary>{payload(data)}<p>ID de apresentação: {record.anchor}</p></details><nav aria-label="Referências bidirecionais">{refs}</nav></div>'
+    return f'<div class="record" id="{record.anchor}"><h3>{esc(title)}</h3><p class="org">{esc(origin)}</p><p>{esc(status)}</p><dl>{summary}</dl><details><summary>Dados persistidos e proveniência (datas no fuso da auditoria)</summary>{payload(presentation_timestamps(data, timezone_name))}<p>ID de apresentação: {record.anchor}</p></details><nav aria-label="Referências bidirecionais">{refs}</nav></div>'
 
 
 def review_table(records, links, evidence, physical, governance=None):
@@ -113,10 +113,13 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         physical.setdefault(source.href, []).append(index)
     governance = Governance(tables.get('recommendation_governance', ()))
     for page, title in PAGES:
-        body = editorial(page, records, costs, thresholds, governance=governance)
+        # Visual capture evidence is visible in HTML immediately, not hidden in
+        # technical tables or available only via a modal.
+        body = ((supplements or {}).get('extracao:visual', '') if page == 'extracao' else '')
+        body += editorial(page, records, costs, thresholds, governance=governance)
         body += (supplements or {}).get(page, '')
         if page == 'extracao':
-            body += '<h2>Contagens derivadas da captura</h2><p>Palavras são tokens de texto no HTML renderizado, excluídos script e style. O contador não testa visibilidade CSS. A comparação competitiva pode usar outro documento e método.</p>' + table('Calculado no relatório', calculated, [('source','Fonte'),('sha256','SHA-256'),('words','Palavras'),('links','Links'),('images','Imagens'),('algorithm_version','Algoritmo')])
+            body += '<span id="capture-counts"></span><h2>Contagens derivadas da captura</h2><p>Palavras são tokens de texto no HTML renderizado, excluídos script e style. O contador não testa visibilidade CSS. A comparação competitiva pode usar outro documento e método.</p>' + table('Calculado no relatório', calculated, [('source','Fonte'),('sha256','SHA-256'),('words','Palavras'),('links','Links'),('images','Imagens'),('algorithm_version','Algoritmo')])
             body += '<h2>Arquivos e referências físicas</h2>'
             for index, item in enumerate(evidence):
                 body += f'<details id="physical-{index}"><summary>{esc(item["reference"])}</summary>' + kv([(public_label(k),public_value(item.get(k),k,timezone_name)) for k in ('sha256','type','coverage','selector','line','column')]) + f'<pre>{esc(item.get("excerpt"))}</pre><a class="tech-link" href="{item["source_href"]}">Voltar ao registro técnico de origem</a><details class="in"><summary>Proveniência completa</summary>{payload(item)}</details></details>'
@@ -125,7 +128,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         if page == SEARCH_PAGE:
             body += '<p class="callout w">Busca não equivale a citação. Posição não prova causalidade. Consulta, idioma, mercado, dispositivo e instante delimitam a amostra.</p>'
         inventory_anchor = ' id="network-evidence-inventory"' if page == 'rede' else ''
-        body += '<h2>Evidências e detalhe técnico</h2><details' + inventory_anchor + '><summary>Inventário integral de registros e anexos</summary>'
+        body += '<h2>Evidências e detalhe técnico</h2><details' + inventory_anchor + '><summary>Inventário integral de registros e anexos</summary><span id="presentation-records"></span>'
         if page == 'rede':
             body += (supplements or {}).get(
                 'rede:inventory',

@@ -1,13 +1,9 @@
-"""Optional catalog links and independent structured previews.
+"""Self-contained structured previews over already-read audit SQLite evidence.
 
-Never obtain material facts from report-catalog HTML. SQLite/authorized sidecars
-are the source. Catalog package checks govern links only, not presentation facts.
+No navigation or runtime dependency on report-catalog. Each preview has local
+modal details and an in-page link to the complete sanitized record inventory.
 """
 from collections import defaultdict
-import json
-
-from rasai.catalog_report_site import verify_catalog_report_package
-from rasai.catalog_source_dependencies import verify_source_dependencies
 from .components import table, text, technical_link
 from .read_model import SEARCH_PAGE
 from .sanitization import sanitize
@@ -22,7 +18,12 @@ STRUCTURED = {
     'extracao': (
         ('Identidade das capturas', 'page_snapshots',
          (('device', 'Dispositivo'), ('requested_url', 'URL solicitada'),
-          ('final_url', 'URL final'), ('captured_at', 'Instante')), 4, 'index.html'),
+          ('final_url', 'URL final'), ('captured_at', 'Instante'),
+          ('http_status', 'HTTP'), ('rendering_mode', 'Renderização'),
+          ('preview_browser', 'Navegador observado'),
+          ('preview_viewport', 'Área visível'),
+          ('preview_runtime_count', 'Ocorrências do navegador'),
+          ('preview_visual_ref', 'Referência da captura visual')), 4, 'index.html'),
     ),
     SEARCH_PAGE: (
         ('Cobertura observada de pesquisa', 'serp_observations',
@@ -47,53 +48,171 @@ STRUCTURED = {
 }
 
 REFERENCES = {
-    'indices': ('methodology', 'Método e versão das regras de pontuação'),
-    'descoberta': ('cat-01', 'Ocorrências e detalhes do validador técnico'),
-    'extracao': ('capture-context', 'Captura e prévia técnica local'),
-    'ia-custos': ('metrics', 'Telemetria e intervalos técnicos persistidos'),
+    'indices': ('#presentation-records', 'Consultar regras e evidências nesta apresentação'),
+    'descoberta': ('#presentation-records', 'Consultar registros do validador nesta apresentação'),
+    'extracao': ('#capture-preview', 'Captura e prévia técnica local'),
+    'ia-custos': ('#presentation-records', 'Consultar telemetria técnica nesta apresentação'),
 }
 
 
+def _capture_preview(row):
+    """Read-only browser context from snapshot metadata, with explicit N/D.
+
+    Does not open visual evidence or guess missing browser/runtime measurements.
+    All original columns remain available in the local record inventory.
+    """
+    item = dict(row)
+    metadata = item.get('browser_metadata')
+    metadata = metadata if isinstance(metadata, dict) else {}
+    browser = metadata.get('browser_identity')
+    browser = browser if isinstance(browser, dict) else {}
+    profile = metadata.get('profile')
+    profile = profile if isinstance(profile, dict) else {}
+    viewport = profile.get('viewport')
+    viewport = viewport if isinstance(viewport, dict) else {}
+    visual = metadata.get('visual_snapshot')
+    visual = visual if isinstance(visual, dict) else {}
+    width = viewport.get('width', visual.get('viewport_width'))
+    height = viewport.get('height', visual.get('viewport_height'))
+    runtime = metadata.get('runtime_diagnostics')
+    runtime = runtime if isinstance(runtime, dict) else {}
+    occurrences = runtime.get('items')
+    item['preview_runtime_count'] = (
+        len([event for event in occurrences if isinstance(event, dict)])
+        if isinstance(occurrences, list) else 'N/D'
+    )
+    item['preview_viewport'] = (
+        str(width) + ' x ' + str(height)
+        if width is not None and height is not None else 'N/D'
+    )
+    channel = browser.get('channel') or 'Chrome'
+    version = browser.get('browser_version') or metadata.get('browser_version')
+    item['preview_browser'] = (
+        str(channel) + ((' ' + str(version)) if version else '')
+        if browser or version else 'N/D'
+    )
+    item['preview_visual_ref'] = metadata.get('visual_artifact_ref') or 'N/D'
+    return item
+
+
+def _runtime_rows(captures):
+    """Project captured browser diagnostics locally; no extra analysis/API."""
+    result = []
+    known = {
+        'CONSOLE_ERROR': 'Erro do console',
+        'CONSOLE_WARNING': 'Alerta do console',
+        'PAGE_ERROR': 'Erro de JavaScript',
+        'REQUEST_FAILED': 'Requisição com falha',
+        'HTTP_ERROR': 'Resposta HTTP com erro',
+    }
+    for capture in captures:
+        meta = capture.get('browser_metadata')
+        meta = meta if isinstance(meta, dict) else {}
+        runtime = meta.get('runtime_diagnostics')
+        runtime = runtime if isinstance(runtime, dict) else {}
+        items = runtime.get('items')
+        if not isinstance(items, list):
+            continue
+        for diagnostic in items:
+            if not isinstance(diagnostic, dict):
+                continue
+            result.append({
+                'device': capture.get('device'),
+                'snapshot_id': capture.get('snapshot_id'),
+                'type': known.get(str(diagnostic.get('type') or '').upper(),
+                                  'Diagnóstico de navegador não classificado'),
+                'message': diagnostic.get('message'),
+                'url': diagnostic.get('url'),
+                '_source_table': 'page_snapshots',
+            })
+    return result
+
+
 def _verified_links(root, logical, audit_id):
-    """Return validated optional destinations, never a fact source."""
-    directory = root / 'report-catalog'
-    try:
-        manifest = json.loads((directory / 'manifest.json').read_text(encoding='utf-8'))
-        if (manifest.get('audit_id') != audit_id
-                or manifest.get('audit_snapshot', {}).get('source_logical_sha256') != logical
-                or not verify_catalog_report_package(directory)[0]
-                or not verify_source_dependencies(root, manifest.get('source_dependencies'))[0]):
-            return set()
-        return {item['path'] for item in manifest['packaged_files']
-                if isinstance(item, dict) and isinstance(item.get('path'), str)}
-    except (OSError, ValueError, TypeError, AttributeError, KeyError):
-        return set()
+    """Compatibility with older tests; external catalog links are prohibited."""
+    return set()
 
 
-def catalog_context(root, logical, audit_id, tables=None):
-    """Build the same material preview whether the catalog exists or not.
+def _capture_context_modal(tables, timezone_name):
+    """Complete local capture overview in the existing offline dialog component.
 
-    A catalog is used *only* to determine availability of deep-dive hyperlinks.
-    The already-verified, same-audit SQLite rows are passed explicitly by the
-    presentation generator. Unknown families stay in the sanitized annex.
+    This is a visible action, not an anchor to a collapsed details element.
+    It never accesses catalog HTML or changes persisted audit evidence.
+    """
+    fields = STRUCTURED['extracao'][0][2]
+    captures = [_capture_preview(sanitize(row))
+                for row in (tables or {}).get('page_snapshots', ())]
+    # The modal is intentionally complete; the shorter inline preview is not.
+    rows = [{key: capture.get(key) for key, _ in fields} for capture in captures]
+    return (
+        '<dialog class="detail-dialog" id="capture-context-modal" '
+        'aria-labelledby="capture-context-modal-title">'
+        '<div class="modal-head"><div>'
+        '<span class="modal-kicker">Extração - evidências registradas</span>'
+        '<h2 id="capture-context-modal-title">Captura e prévia técnica local</h2>'
+        '</div><button type="button" class="modal-close" data-modal-close '
+        'aria-label="Fechar detalhes">×</button></div>'
+        '<div class="modal-body">'
+        '<p class="rf">Registros de captura: ' + text(len(captures))
+        + '. Os dados abaixo vêm da auditoria e não exigem o catálogo técnico. '
+          'Ausência de medição permanece N/D.</p>'
+        + table('Capturas persistidas na auditoria', rows, fields,
+                timezone_name=timezone_name)
+        + '<p><a class="tech-link" href="#capture-preview">'
+          'Consultar a prévia da captura nesta página</a></p>'
+        + '<p><a class="tech-link" href="#capture-counts">'
+          'Consultar contagens derivadas da captura</a></p>'
+        + '<p><a class="tech-link" href="#presentation-records">'
+          'Consultar o inventário completo e anexos locais</a></p>'
+        + '</div><div class="modal-foot">'
+        '<span class="rf">Fonte: audit.db - somente leitura.</span>'
+        '<button type="button" class="modal-dismiss" data-modal-close>Fechar</button>'
+        '</div></dialog>'
+    )
+
+
+def catalog_context(root, logical, audit_id, tables=None, timezone_name=None):
+    """Present persisted facts locally without inspecting or linking another report.
+
+    Preview limits do not limit the full record inventory and JSON annexes.
     """
     sections = defaultdict(str)
-    available = _verified_links(root, logical, audit_id)
     for page, specs in STRUCTURED.items():
-        for title, source, fields, limit, technical_target in specs:
+        for title, source, fields, limit, _legacy_catalog_target in specs:
             rows = (tables or {}).get(source, ())
-            if not rows:
+            if not rows and page != 'extracao':
                 continue
             preview = [{**sanitize(row), '_source_table': source} for row in rows[:limit]]
-            sections[page] += ('<details><summary>' + text(title) + '</summary>'
-                               + '<p class="rf">Origem: evidências registradas na auditoria · ' + str(len(preview)) + ' de ' + str(len(rows))
-                               + ' registros; detalhe integral no inventário sanitizado.</p>'
-                               + table(title, preview, fields)
-                               + ('<p>' + technical_link('../report-catalog/' + technical_target,
-                                                        'Abrir aprofundamento técnico opcional') + '</p>'
-                                  if technical_target in available
-                                  else '<p class="rf">Aprofundamento técnico não incluído ou não verificável neste pacote.</p>')
-                               + '</details>')
+            if page == 'extracao':
+                preview = [_capture_preview(row) for row in preview]
+            attrs = ' id="capture-preview"' if page == 'extracao' else ''
+            sections[page] += (
+                '<details' + attrs + '><summary>' + text(title) + '</summary>'
+                + '<p class="rf">Fonte: registros persistidos na auditoria. '
+                + text(len(preview)) + ' de ' + text(len(rows))
+                + ' registros nesta prévia. Abra "Ver detalhes" para consultar '
+                'cada registro, ou use o inventário local para todos os dados.</p>'
+                + table(title, preview, fields, timezone_name=timezone_name)
+                + '<p><a class="tech-link" href="#presentation-records">'
+                  'Abrir inventário técnico completo nesta página</a></p>'
+                + '</details>'
+            )
+    # The original technical capture link used to hide these facts in the
+    # catalog. Include the browser's persisted diagnostic events here instead.
+    capture_rows = [sanitize(row) for row in (tables or {}).get('page_snapshots', ())]
+    runtime_rows = _runtime_rows(capture_rows)
+    if runtime_rows:
+        sections['extracao'] += (
+            '<h2>Ocorrências registradas pelo navegador na captura</h2>'
+            + '<p class="rf">Eventos observados por captura; não representam '
+              'falhas universais nem medições adicionais.</p>'
+            + table('Diagnósticos do navegador', runtime_rows,
+                    [('device', 'Dispositivo'), ('snapshot_id', 'Captura'),
+                     ('type', 'Tipo'), ('message', 'Descrição'),
+                     ('url', 'Recurso / URL')], timezone_name=timezone_name)
+        )
+    else:
+        sections['extracao'] += '<p class="rf">Nenhum diagnóstico de navegador disponível para as capturas persistidas.</p>'
     if audit_id:
         sections['rede'] += (
             '<p><button type="button" class="modal-open" data-modal="network-context-modal" '
@@ -102,13 +221,20 @@ def catalog_context(root, logical, audit_id, tables=None):
         )
     else:
         sections['rede'] += '<p class="rf">Detalhes de rede indisponíveis: identidade da auditoria não comprovada.</p>'
-    for page, (stem, title) in REFERENCES.items():
-        target = stem + '.html'
-        if target in available:
-            sections[page] += ('<p>' + technical_link('../report-catalog/' + target, title)
-                               + ' <span class="rf">(aprofundamento opcional; requer o pacote técnico junto da apresentação)</span></p>')
+    for page, (target, title) in REFERENCES.items():
+        if page == 'extracao':
+            # A hash link to a closed <details> looked inert in the offline
+            # browser. Make the action explicit and independently testable.
+            sections[page] += (
+                '<p><button type="button" class="modal-open" '
+                'data-modal="capture-context-modal" aria-haspopup="dialog" '
+                'aria-controls="capture-context-modal">'
+                + text(title) + '</button></p>'
+                + _capture_context_modal(tables, timezone_name)
+            )
         else:
-            sections[page] += ('<p class="rf">Aprofundamento técnico opcional (' + text(title)
-                               + ') indisponível neste pacote. A leitura executiva utiliza as fontes '
-                               'persistidas, independentemente do HTML técnico.</p>')
+            sections[page] += (
+                '<p>' + technical_link(target, title)
+                + ' <span class="rf">(conteúdo local, sem dependência de outro relatório)</span></p>'
+            )
     return sections

@@ -14,7 +14,7 @@ precisa atualizá-lo, valida a árvore em staging antes de substituir a anterior
 A mesma publicação migra as subpastas datadas das auditorias históricas.
 
 Abra `index.html` por `file://`. São onze páginas, anexos JSON sanitizados,
-assets locais, manifesto e mapa completo de cobertura. A página Rede e conectividade projeta somente observações persistidas/verificadas e mantém o aprofundamento no report-catalog. CSS/JS não usam rede.
+assets locais, manifesto e mapa completo de cobertura. A página Rede e conectividade projeta somente observações persistidas/verificadas e mantém o detalhamento na própria apresentação. CSS/JS não usam rede.
 Não publica cópias executáveis do HTML auditado. Não execute o módulo sobre
 uma AUD que outro processo possa modificar durante a leitura.
 
@@ -56,7 +56,7 @@ Nunca interpretar existência de relatório como homologação da auditoria.
 
 ## Paridade semântica após a #710
 
-O HTML do `report-catalog` **não é fonte de fatos para este gerador**. Quadros executivos recebem registros diretamente de `audit.db` e sidecars verificados; o manifesto íntegro do catálogo é consultado somente para habilitar links técnicos de aprofundamento. Sem o catálogo, a apresentação deve continuar explicando os fatos materiais e informar que o destino opcional está indisponível; quando exportada isoladamente, links externos ao pacote exigem o catálogo contíguo e não devem ser usados para obter conclusões essenciais.
+O HTML do `report-catalog` **não é fonte de fatos para este gerador**. Quadros executivos recebem registros diretamente de `audit.db` e sidecars verificados. Nenhum hyperlink de detalhe técnico exige o catálogo. Prévia, modal, inventário local e anexos JSON compõem uma navegação autônoma.
 
 O `coverage-map.json` versão **3** distingue anexo preservado, registro navegável, síntese editorial e conclusão/decisão; existência de tabela ou link não certifica autonomia executiva. Propostas sem decisão permanecem fora do plano aprovado. A projeção contextual SEO/GEO mantém hipóteses condicionais e estado de verificação; a consulta de rede reaproveita um avaliador determinístico sobre observações já persistidas. Geração não faz consultas de IA nem novas medições.
 
@@ -66,3 +66,15 @@ O gerador interno `0.4.1` invalida pacotes de apresentação antigos da linha `0
 ### Vocabulário e rede independente (gerador 0.4.3)
 
 Todas as superfícies executivas usam rótulos pt-BR por campo, inclusive cabeçalhos, tabelas, chip, tooltip e modal. O JSON original e os IDs canônicos ficam sob seções declaradamente técnicas. O botão de rede abre modal local; o mapa SVG offline é exibido quando a sonda autorizada persistiu coordenadas válidas, ou há justificativa explícita de ausência. Não requer `report-catalog` para esta funcionalidade. A versão do gerador força atualizar os históricos sem recalcular pontuação ou realizar nova coleta.
+
+## Autonomia editorial (gerador 0.4.6)
+
+A navegação para detalhe técnico é local, sem links para report-catalog. Classificação competitiva e motivos conhecidos são interpretados por regras determinísticas pt-BR, sem inferir concorrência comercial. Timestamps tipados visíveis são exibidos no fuso IANA persistido na auditoria; os valores originais permanecem nos anexos e SQLite. A pontuação, os motores de coleta e a sanitização de credenciais não foram alterados. Travessões U+2014 são substituídos por hífens somente no HTML da apresentação.
+
+### Ação de captura no navegador (gerador 0.4.7)
+
+O controle **Captura e prévia técnica local** abre explicitamente um `dialog` offline com **todas** as capturas persistidas, em vez de depender de um hyperlink `#capture-preview` que pode aparentar inatividade quando a seção de destino está recolhida. O modal reutiliza a infraestrutura de foco, Escape e fechamento; seus links são locais para prévia, contagens e inventário técnico. A regressão Chromium clica esse botão em desktop e mobile, verifica abertura, fechamento e navegação, inclusive com fragmento já presente. Sem chamadas de IA, rede, leituras do catálogo, mudanças em coletores, score ou UI estrutural.
+
+### Captura visual diretamente no HTML (gerador 0.4.8)
+
+Em `extracao.html`, **Prévia visual das páginas capturadas** fica visível na página, com imagens separadas por snapshot/dispositivo e ampliação opcional em modal. Não exige clicar para ver a miniatura e não depende de `report-catalog`. O screenshot é uma cópia byte a byte do raster original persistido (PNG/JPEG/WebP): somente referências confinadas, assinatura compatível, limite de tamanho, inventário original e SHA-256 pré/pós cópia são aceitos. Imagens ausentes ou inseguras são sinalizadas N/D, nunca inventadas. O manifesto e o verificador incluem hashes de todos os recursos visuais; nenhuma publicação é considerada íntegra se falta ou diverge um deles. A aparência segue o CSS e o modal existentes, sem redesenho geral. **Screenshots podem conter conteúdo sensível e o pacote com imagens permanece confidencial até avaliação específica para distribuição externa.**
