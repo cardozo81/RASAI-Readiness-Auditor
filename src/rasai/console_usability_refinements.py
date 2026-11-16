@@ -581,10 +581,14 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
             "I. Abrir relatório HTML"
             + ("" if report_path is not None else " [INDISPONÍVEL]")
         )
+        # The presentation projects persisted facts independently of catalog
+        # freshness and of COMPLETE vs PARTIAL_RETRYABLE. The generator itself
+        # verifies SQLite quiescence and the source manifest before publishing.
         presentation_on_demand = (
             presentation_report_path is None
-            and processing_status == "COMPLETE"
-            and report_path is not None
+            and audit_root.is_dir()
+            and (audit_root / "audit.db").is_file()
+            and (audit_root / "artifacts").is_dir()
         )
         print(
             "A. Abrir relatório de apresentação"

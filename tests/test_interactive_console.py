@@ -253,6 +253,11 @@ class InteractiveConsoleTests(unittest.TestCase):
             finally:
                 connection.close()
             self.assertIsNone(presentation_report_entrypoint(workspace))
+            # Read-only SQLite cursors can retain temporary Windows file handles
+            # until cycle collection; force their finalization before the strict
+            # TemporaryDirectory teardown. Do not ignore WinError 32.
+            import gc
+            gc.collect()
 
     def test_exposure_uses_exact_txt_urls_devices_m20_and_m21(self) -> None:
         with TemporaryDirectory() as directory:
