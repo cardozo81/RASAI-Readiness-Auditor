@@ -42,6 +42,11 @@ def record_html(record, links, physical_links=(), timezone_name=None, governance
     title = next((data[k] for k in ('title', 'label', 'dimension', 'metric_id', 'rule_id') if data.get(k) is not None), None)
     if title is None:
         title = next((v for _, v in record.identity), 'Registro persistido')
+    elif isinstance(title, str):
+        for key in ('dimension', 'metric_id', 'rule_id'):
+            if data.get(key) == title:
+                title = public_value(title, key, timezone_name)
+                break
     status = state(data.get('status', data.get('state', data.get('consolidation_status'))), data.get('reason'))
     if record.table == 'serp_observations':
         status = ('Observado' if data.get('observation_status') == 'OBSERVED' else state(data.get('observation_status'), data.get('reason')))
