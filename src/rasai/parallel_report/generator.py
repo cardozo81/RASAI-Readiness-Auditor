@@ -104,14 +104,48 @@ def _render_package(root, database, before, logical_before, output):
         name: ['-'.join(page['page_parts'])+'.html' if isinstance(page,dict) else page for page in pages]
         for name,pages in coverage_map['canonical_pages'].items()
     }
+    from .page_views import SECTIONS
+    from .catalog_context import STRUCTURED
+    # A route is not automatically a summary, and a summary is not a decision.
+    editorial_fields = {}
+    for sections in SECTIONS.values():
+        for _, sources, fields in sections:
+            for source in sources:
+                editorial_fields.setdefault(source, set()).update(key for key, _ in fields)
+    for specs in STRUCTURED.values():
+        for _, source, fields, _ in specs:
+            editorial_fields.setdefault(source, set()).update(key for key, _ in fields)
+    editorial_fields.update({
+        'audits': {'audit_id', 'status', 'completion_status'},
+        'audit_targets': {'normalized_origin', 'input_url'},
+        'scores': {'value', 'coverage', 'confidence', 'dimension'},
+        'recommendation_governance': {'decision', 'source_id'},
+        'directed_analysis_actions': {'title', 'source_id', 'priority'},
+    })
     family_coverage = {}
-    for table, rows in tables.items():
-        page = destination(table)
-        family_coverage[table] = {
+    for source, rows in tables.items():
+        page = destination(source)
+        fields = editorial_fields.get(source, set())
+        has_summary = bool(rows and fields and any(
+            isinstance(row, dict) and any(row.get(field) is not None for field in fields)
+            for row in rows))
+        has_conclusion = (
+            source == 'scores' and any(row.get('value') is not None for row in rows)
+            or source == 'recommendation_governance' and any(
+                row.get('decision') in {'ACCEPTED', 'REJECTED'} for row in rows)
+        )
+        family_coverage[source] = {
             'page': page + '.html' if page is not None else None,
-            'representation': 'editorial' if page is not None else 'technical-only',
+            'representation': 'editorial' if has_summary else (
+                'navigable-record' if page is not None else 'technical-only'),
+            'levels': {
+                'preserved_annex': True,
+                'navigable_record': page is not None and bool(rows),
+                'editorial_summary': has_summary,
+                'conclusion_or_decision_present': bool(has_conclusion),
+            },
             'row_count': len(rows),
-            'columns': schema[table]['columns'],
+            'columns': schema[source]['columns'],
         }
     coverage_map['families'] = family_coverage
     (output / 'assets' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
