@@ -16,7 +16,7 @@ from test_parallel_report import fixture
 # A standard, valid, 1x1 raster (no user data, no external acquisition).
 TINY_PNG = base64.b64decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC'
-    'AAAAC0lEQVR42mP8/x8AAwMCAO+/RCkAAAAASUVORK5CYII='
+    'AAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII='
 )
 
 
@@ -51,7 +51,8 @@ def test_screenshot_is_visible_inline_offline_and_manifest_verified(tmp_path):
     assert manifest['visual_previews'][0]['status'] == 'AVAILABLE'
     assert manifest['visual_previews'][0]['sha256'] == visual_hash
     assert manifest['sha256_per_file']['assets/capturas/' + paths[0].name] == visual_hash
-    assert '<h2>Prévia visual das páginas capturadas</h2>' in html
+    # shell() adds navigation anchor identifiers to every <h2>.
+    assert 'Prévia visual das páginas capturadas</h2>' in html
     assert '<img class="capture-image-preview" src="assets/capturas/' in html
     assert 'data-modal="capture-image-0"' in html
     assert 'dialog class="detail-dialog capture-image-dialog"' in html

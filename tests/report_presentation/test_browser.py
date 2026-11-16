@@ -49,8 +49,10 @@ def test_browser_offline(tmp_path):
                     field.fill('no-match-unique')
                     assert '0 de ' in field.locator('..').inner_text()
                     field.fill('')
-                if page.locator('.modal-open').count():
-                    trigger = page.locator('.modal-open').first
+                if page.locator('.modal-open:not(.capture-image-button)').count():
+                    # Screenshot zoom has a dedicated browser test below;
+                    # the generic detail-dialog contract expects provenance details.
+                    trigger = page.locator('.modal-open:not(.capture-image-button)').first
                     trigger.focus()
                     trigger.click()
                     assert page.locator('dialog.detail-dialog[open]').count() == 1
@@ -140,13 +142,14 @@ def test_screenshot_is_visible_before_click_and_enlarges_offline(tmp_path):
             screenshot = page.locator('img.capture-image-preview')
             assert screenshot.count() == 1
             assert screenshot.is_visible(), 'Screenshot must render in the HTML before opening any dialog'
-            assert screenshot.evaluate('(image) => image.complete && image.naturalWidth > 0')
+            screenshot.scroll_into_view_if_needed()
+            page.wait_for_function('document.querySelector("img.capture-image-preview").complete && document.querySelector("img.capture-image-preview").naturalWidth > 0')
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
             button = page.get_by_role('button', name='Ampliar Captura 1 - Móvel')
             button.click()
             dialog = page.locator('dialog.capture-image-dialog[open]')
             assert dialog.is_visible()
-            assert dialog.locator('img').evaluate('(image) => image.complete && image.naturalWidth > 0')
+            page.wait_for_function('document.querySelector("dialog.capture-image-dialog[open] img").complete && document.querySelector("dialog.capture-image-dialog[open] img").naturalWidth > 0')
             page.keyboard.press('Escape')
             assert not dialog.is_visible()
             assert screenshot.is_visible()
