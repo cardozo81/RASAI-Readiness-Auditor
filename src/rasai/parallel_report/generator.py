@@ -88,11 +88,13 @@ def _render_package(root, database, before, logical_before, output):
     timezone_name, _ = timezone_for_records(records)
     supplements = scope_context(root, tables, timezone_name, costs)
     audit = next(iter(tables.get('audits', ())), {})
-    for page, body in catalog_context(root, logical_before, audit.get('audit_id'), tables).items():
+    for page, body in catalog_context(root, logical_before, audit.get('audit_id'), tables, timezone_name).items():
         supplements[page] += body
     pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
     for name, html in pages.items():
-        (output / name).write_text(html, encoding='utf-8')
+        # Presentation typography only. SQLite, source artifacts and annex JSON
+        # retain the precise persisted bytes and any original punctuation.
+        (output / name).write_text(html.replace('\u2014', '-'), encoding='utf-8')
     from hashlib import sha256
     for table, rows in tables.items():
         filename = sha256(table.encode()).hexdigest() + '.json'

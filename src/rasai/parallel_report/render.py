@@ -116,7 +116,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         body = editorial(page, records, costs, thresholds, governance=governance)
         body += (supplements or {}).get(page, '')
         if page == 'extracao':
-            body += '<h2>Contagens derivadas da captura</h2><p>Palavras são tokens de texto no HTML renderizado, excluídos script e style. O contador não testa visibilidade CSS. A comparação competitiva pode usar outro documento e método.</p>' + table('Calculado no relatório', calculated, [('source','Fonte'),('sha256','SHA-256'),('words','Palavras'),('links','Links'),('images','Imagens'),('algorithm_version','Algoritmo')])
+            body += '<span id="capture-counts"></span><h2>Contagens derivadas da captura</h2><p>Palavras são tokens de texto no HTML renderizado, excluídos script e style. O contador não testa visibilidade CSS. A comparação competitiva pode usar outro documento e método.</p>' + table('Calculado no relatório', calculated, [('source','Fonte'),('sha256','SHA-256'),('words','Palavras'),('links','Links'),('images','Imagens'),('algorithm_version','Algoritmo')])
             body += '<h2>Arquivos e referências físicas</h2>'
             for index, item in enumerate(evidence):
                 body += f'<details id="physical-{index}"><summary>{esc(item["reference"])}</summary>' + kv([(public_label(k),public_value(item.get(k),k,timezone_name)) for k in ('sha256','type','coverage','selector','line','column')]) + f'<pre>{esc(item.get("excerpt"))}</pre><a class="tech-link" href="{item["source_href"]}">Voltar ao registro técnico de origem</a><details class="in"><summary>Proveniência completa</summary>{payload(item)}</details></details>'
@@ -125,7 +125,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         if page == SEARCH_PAGE:
             body += '<p class="callout w">Busca não equivale a citação. Posição não prova causalidade. Consulta, idioma, mercado, dispositivo e instante delimitam a amostra.</p>'
         inventory_anchor = ' id="network-evidence-inventory"' if page == 'rede' else ''
-        body += '<h2>Evidências e detalhe técnico</h2><details' + inventory_anchor + '><summary>Inventário integral de registros e anexos</summary>'
+        body += '<h2>Evidências e detalhe técnico</h2><span id="presentation-records"></span><details' + inventory_anchor + '><summary>Inventário integral de registros e anexos</summary>'
         if page == 'rede':
             body += (supplements or {}).get(
                 'rede:inventory',
