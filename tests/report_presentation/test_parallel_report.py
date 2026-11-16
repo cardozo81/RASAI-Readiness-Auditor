@@ -683,8 +683,8 @@ def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path)
         assert filename in receipt['pages']
     assert receipt['pages']['seguranca.html']['sqlite_record_count'] == 1
     security = (output / 'seguranca.html').read_text(encoding='utf-8')
-    assert 'Telemetria auxiliar da captura/segurança (não são achados)' in security
-    assert 'Telemetria de recursos do navegador não constitui' in security
+    assert 'Demais registros técnicos de segurança (não são achados)' in security
+    assert 'recursos e integrações capturados não constituem' in security
     assert receipt['non_routed'] == {'private_payload': 1}
     assert 'PRIVATE_VALUE' not in json.dumps(receipt)
     assert receipt['pages']['plano.html']['evidence_state'] == 'COM_REGISTROS_PERSISTIDOS'
