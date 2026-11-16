@@ -5,7 +5,7 @@ from rasai.time_contract import presentation_timezone_for_audit, format_presenta
 from rasai.public_language import component_label, scope_label, supplemental_public_label, safe_visible_fallback
 from rasai.catalog_report_public_labels import public_label as canonical_public_label
 
-FIELD_LABELS = {'status':'Estado','severity':'Criticidade','priority':'Prioridade','provider':'Provedor','model':'Modelo','source':'Origem','reference':'Referência','references':'Referências','scope':'Escopo','device':'Dispositivo','native_usage_quantity':'Requisições','input_tokens':'Tokens de entrada','output_tokens':'Tokens de saída','duration_ms':'Duração (ms)','created_at':'Criada em','started_at':'Iniciada em','completed_at':'Concluída em','captured_at':'Capturada em','collected_at':'Coletada em','executed_at':'Executada em','updated_at':'Atualizada em','finished_at':'Finalizada em'}
+FIELD_LABELS = {'status':'Estado','severity':'Criticidade','priority':'Prioridade','provider':'Provedor','model':'Modelo','source':'Origem','reference':'Referência','references':'Referências','scope':'Escopo','device':'Dispositivo','native_usage_quantity':'Requisições','input_tokens':'Tokens de entrada','output_tokens':'Tokens de saída','duration_ms':'Duração (ms)','created_at':'Criada em','started_at':'Iniciada em','completed_at':'Concluída em','captured_at':'Capturada em','collected_at':'Coletada em','executed_at':'Executada em','updated_at':'Atualizada em','finished_at':'Finalizada em','capture_utc':'Capturada em','capture_timestamp':'Capturada em','classification':'Tipo de resultado','eligible_for_content_comparison':'Comparação de conteúdo elegível','selected_for_content_comparison':'Selecionado para comparação'}
 STATUS_LABELS = {'SUCCESS':'Concluído','COMPLETE':'Concluído','COMPLETED':'Concluído','PASS':'Aprovado','PARTIAL':'Parcial','WARNING':'Atenção','FAILED':'Falhou','ERROR':'Falhou','FAIL':'Reprovado','BLOCKED':'Bloqueado','NOT_OBSERVED':'Não observado','COLLECTION_FAILED':'Falha na coleta','INCONCLUSIVE':'Inconclusivo','NOT_REQUESTED':'Não solicitado','NOT_APPLICABLE':'Não aplicável','SKIPPED':'Não executado','UNKNOWN':'Não determinado','CONSOLIDATED':'Consolidado','NOT_CONSOLIDATED':'Não consolidado','COMPLETE_WITH_LIMITATIONS':'Concluído com limitações','GOOD':'Bom','NEEDS_IMPROVEMENT':'Precisa melhorar','TOLERATING':'Tolerável','OBSERVED':'Observado','COHERENT':'Coerente','NOT_DETERMINABLE':'Não determinável','AVAILABLE':'Disponível','NOT_CONFIGURED':'Não configurado','DISABLED':'Desabilitado','NO_DATA':'Sem dados','ABSENT':'Ausente'}
 STATUS_LABELS.update({
     'UNAVAILABLE':'Indisponível', 'NOT_AVAILABLE':'Não disponível',
@@ -26,7 +26,7 @@ PRIORITY_LABELS.update({
 DEVICE_LABELS = {'MOBILE':'Móvel','DESKTOP':'Desktop','POPULATION':'Agregado de experiência','MIXED_DEVICE_POPULATION':'Agregado dos dispositivos configurados'}
 ORIGIN_LABELS = {'PRODUCT_PROPOSAL':'Proposta de produto','PERSISTED_CONTRACT':'Contrato persistido','PUBLIC_STANDARD':'Padrão público','DETERMINISTIC':'Regra determinística','CONTENT_AI':'IA de conteúdo','DEEP_ANALYSIS':'Análise aprofundada','JSONLD':'JSON-LD','SECURITY_REMEDIATION':'Remediação de segurança','EXTERNAL':'Externo','AUTO':'Automático','MIXED':'Misto'}
 VALUE_LABELS = {**STATUS_LABELS, **SEVERITY_LABELS, **DEVICE_LABELS, **ORIGIN_LABELS}
-TIMESTAMPS = {'created_at','started_at','completed_at','captured_at','collected_at','executed_at','projected_at','updated_at','fetch_time','lighthouse_fetch_time','finished_at','observed_at','calculated_at'}
+TIMESTAMPS = {'created_at','started_at','completed_at','captured_at','collected_at','executed_at','projected_at','updated_at','fetch_time','lighthouse_fetch_time','finished_at','observed_at','calculated_at','capture_utc','capture_timestamp','capture_time','capture_time_utc','timestamp_utc','provider_created_at','reused_at','persisted_at','requested_at','measurement_at'}
 ENUM_FIELDS = {'status','state','result','severity','priority','priority_class','coverage','confidence','device','source_kind','source_mode','origin_kind','effort','completion_status','consolidation_status','observation_status','outcome','analysis_state','field_scope','cwv_assessment'}
 FIELD_LABELS.update({'projected_at':'Projetada em','fetch_time':'Coletada em','lighthouse_fetch_time':'Coletada pelo Lighthouse em','observed_at':'Observada em','calculated_at':'Calculada em','type':'Tipo','selector':'Seletor','line':'Linha','column':'Coluna','coverage':'Cobertura','canonical':'URL canônica','sha256':'SHA-256'})
 TYPED_LABELS = {
@@ -116,6 +116,30 @@ SEMANTIC_ENUM_FIELDS = ENUM_FIELDS | {
     'error_scope', 'domain_status', 'service_state', 'event_state',
     'rule_result', 'provider_state', 'hop_state', 'provenance',
 }
+# Readable interpretation of persisted deterministic SERP classifier enums.
+# These maps affect only presentation, never free-text evidence or SQLite.
+COMPETITIVE_CLASSES = {
+    'CUSTOMER': 'Resultado do domínio auditado',
+    'ORGANIC_CANDIDATE': 'Resultado orgânico externo (candidato, não concorrente comprovado)',
+    'PUBLIC_AUTHORITY': 'Site de autoridade pública',
+    'KNOWLEDGE_REFERENCE': 'Fonte de referência e conhecimento',
+    'SOCIAL_PLATFORM': 'Rede social',
+    'VIDEO_PLATFORM': 'Plataforma de vídeo',
+    'MARKETPLACE': 'Marketplace (candidato à comparação de conteúdo)',
+    'NON_ORGANIC': 'Resultado não orgânico',
+}
+COMPETITIVE_REASONS = {
+    'matches configured customer domain': 'Pertence ao domínio configurado para a auditoria.',
+    'public-authority domain heuristic': 'Domínio identificado por regra como fonte de autoridade pública.',
+    'knowledge/reference platform heuristic': 'Domínio identificado por regra como fonte de referência.',
+    'social platform heuristic': 'Domínio identificado por regra como rede social.',
+    'video platform heuristic': 'Domínio identificado por regra como plataforma de vídeos.',
+    'marketplace heuristic; retained as a Search competitor candidate':
+        'Marketplace observado; mantido como candidato para comparação de conteúdo, sem presumir concorrência comercial.',
+    'external organic result; business equivalence is not inferred':
+        'Resultado orgânico externo; não foi comprovada equivalência entre os negócios.',
+}
+
 TECHNICAL_ONLY_FIELDS = frozenset({
     'projection_json', 'query_json', 'proposed_json', 'request_payload',
     'response_payload', 'limitations_json', 'implementation_guidance_json',
@@ -184,11 +208,22 @@ def timezone_provenance(reason):
 def public_value(value, field=None, timezone_name=None):
     if value is None:
         return 'N/D'
+    if field in {'eligible_for_content_comparison', 'selected_for_content_comparison'}:
+        if type(value) in (bool, int) and value in (0, 1, False, True):
+            return 'Sim' if value else 'Não'
+        return 'Não determinado'
+    if field == 'classification' and isinstance(value, str):
+        return COMPETITIVE_CLASSES.get(value.upper(), value)
+    if field == 'reason' and isinstance(value, str):
+        if value in COMPETITIVE_REASONS:
+            return COMPETITIVE_REASONS[value]
+        if value.startswith('SERP result_type='):
+            return 'Resultado não orgânico segundo o provedor (tipo: ' + value.split('=', 1)[1] + ').'
     if field == 'lcp_lab_ms' and isinstance(value, (float, int)):
         return f'{value:,.0f}'.replace(',', ' ')
     if field == 'domain_status' and value == 'NOT_FOUND_WITHIN_DEPTH':
         return 'Não encontrado na profundidade consultada'
-    if field in TIMESTAMPS and isinstance(value,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?',value):
+    if (field in TIMESTAMPS or (isinstance(field, str) and field.endswith(('_at', '_utc', '_timestamp')))) and isinstance(value,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?',value):
         if timezone_name:
             try:
                 return format_presentation_timestamp(value,timezone_name=timezone_name)
@@ -204,6 +239,21 @@ def public_value(value, field=None, timezone_name=None):
         return typed_public_label(value, field)
     if field in {'estimated_cost','observed_cost','amount','percentage'} and isinstance(value,str) and re.fullmatch(r'-?\d+(?:\.\d+)?',value):
         return value.replace('.',',')
+    return value
+
+
+def presentation_timestamps(value, timezone_name):
+    """Localize only typed timestamp keys in visible HTML data projections.
+
+    Never change source DB, annex JSON, unrelated prose, dates or epoch numbers.
+    """
+    if isinstance(value, dict):
+        return {key: presentation_timestamps(item, timezone_name)
+                if isinstance(item, (dict, list, tuple))
+                else public_value(item, key, timezone_name)
+                for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [presentation_timestamps(item, timezone_name) for item in value]
     return value
 
 
