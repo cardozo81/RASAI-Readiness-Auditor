@@ -92,3 +92,8 @@ A seção **Arquivos e referências físicas** de `extracao.html` apresenta cada
 `rede.html` distingue IP público **observado passivamente** de IP observado em sonda, rastreamento efetivamente persistido e causa operacional **não comprovada** na ausência do sidecar. Exibe histórico comparável somente para duas ou mais sondagens verificadas do mesmo host/porta, sem inferir causalidade ou topologia. Mapa, hops e GeoIP permanecem condicionais a coordenadas/saltos verificados. Nenhum link do HTML aponta para `report-catalog/`; o catálogo tem vida visual independente.
 
 `0.4.10` invalida apenas manifestos anteriores de `report-presentation`, permitindo rematerialização deliberada, sem tocar em `audit.db`, `report-catalog` ou evidências-fonte.
+
+
+### Mapa-múndi sem geolocalização comprovada (v0.4.11)
+
+A página `rede.html` sempre apresenta o mapa-múndi offline Natural Earth. Na ausência de coordenadas GeoIP persistidas, o mapa é explicitamente rotulado como **cartografia de contexto sem pontos**, mesmo quando um IP público do servidor remoto foi observado passivamente. Um endereço IP isolado não fornece latitude/longitude e não identifica o IP de origem do usuário. O contexto visual não afirma geolocalização, localização física do servidor ou percurso. Quando sondas verificadas trazem coordenadas, a visualização anterior com marcadores, proveniência, raios de precisão e saltos comprovados permanece intacta. Nenhuma chamada HTTP, enriquecimento externo, coleta ou leitura do catálogo técnico ocorre no renderizador; os 11 HTMLs continuam offline.

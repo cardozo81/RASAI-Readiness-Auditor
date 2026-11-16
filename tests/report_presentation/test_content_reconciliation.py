@@ -411,3 +411,54 @@ def test_network_temporal_comparison_uses_only_same_verified_host_port(monkeypat
     assert 'Medições autorizadas por instante' in html
     assert 'other.example.org' not in html.split('Histórico comparável de sondagens')[1].split('Mapa')[0]
     assert 'Nenhuma rota' not in html
+
+
+def test_network_world_basemap_visible_with_passive_peer_without_geoip(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as network
+    monkeypatch.setattr(network, 'read_network_observations', lambda *_: [{
+        'metrics':{'connected_public_ip':{'state':'OBSERVED','value':'8.8.8.8'},
+                   'geoip': {'state':'NOT_OBSERVED','value':None}},
+        'capture_utc':'2026-11-16T12:00:00Z', 'device':'MOBILE',
+    }])
+    monkeypatch.setattr(network,'read_authorized_probes',lambda *_:[])
+    monkeypatch.setattr(network,'build_network_assessment',lambda *_:None)
+    html, _, _=network.network_context(tmp_path,'AUD-X','UTC')
+    assert 'Mapa geográfico consultivo' in html
+    assert 'data-map-state="unlocated"' in html
+    assert 'data-map-layer=\'land\'' in html
+    assert '<svg class="network-map-plot"' in html
+    assert '<circle' not in html
+    assert "data-map-layer='logical-sequence'" not in html
+    assert '8.8.8.8' in html  # present in the network data table, not projected onto map
+    assert 'não identifica o IP de origem do usuário' in html
+    assert 'Mapa base disponível sem pontos' in html
+    assert 'report-catalog/' not in html
+
+
+def test_network_basemap_without_passive_observation_is_context_not_geo_claim(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as network
+    monkeypatch.setattr(network,'read_network_observations',lambda *_:[])
+    monkeypatch.setattr(network,'read_authorized_probes',lambda *_:[])
+    monkeypatch.setattr(network,'build_network_assessment',lambda *_:None)
+    html, _, _=network.network_context(tmp_path,'AUD-X','UTC')
+    assert 'data-map-state="unlocated"' in html
+    assert '<svg class="network-map-plot"' in html
+    assert '<circle' not in html
+    assert 'Nenhum IP público com geolocalização verificável' in html
+
+
+def test_verified_geoip_keeps_existing_map_with_exactly_one_marker(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as network
+    geo={'state':'OBSERVED','value':{'latitude':-30.1,'longitude':-51.2,
+         'accuracy_radius_km':100,'source':'LOCAL_MMDB_CITY'}}
+    monkeypatch.setattr(network,'read_network_observations',lambda *_:[])
+    monkeypatch.setattr(network,'read_authorized_probes',lambda *_:[
+        {'hostname':'example.org','capture_utc':'2026-11-16T12:00:00Z',
+         'metrics':{'geoip':geo}}
+    ])
+    monkeypatch.setattr(network,'build_network_assessment',lambda *_:None)
+    html, _, _=network.network_context(tmp_path,'AUD-X','UTC')
+    assert 'data-map-state="unlocated"' not in html
+    assert html.count('<circle') == 1
+    assert 'data-map-layer=\'land\'' in html
+    assert 'Mapa geográfico aproximado disponível' in html

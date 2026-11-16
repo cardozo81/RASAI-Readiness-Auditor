@@ -18,6 +18,7 @@ from .presentation_labels import public_value, presentation_timestamps
 from .read_model import SEARCH_PAGE
 from .sanitization import sanitize
 from .architecture_context import architecture_context
+from .network_basemap import unlocated_world_map
 
 
 def subsection(title, pairs, note=''):
@@ -360,7 +361,7 @@ def network_context(root, audit_id, timezone_name):
          'Não comprovada pelos registros desta AUD' if not probes else
          'Há pacotes verificados; consultar estados de cada indicador'),
         ('Regra de interpretação', 'ausência de medição não é falha de conectividade'),
-        ('Mapa e rota visual', 'apresentado nesta página quando houver coordenadas verificáveis'),
+        ('Mapa e rota visual', 'mapa base sempre exibido; somente fontes com GeoIP verificado geram pontos'),
     ])
     html += ('<p class="callout w">Captura do navegador e sonda complementar são observações independentes, '
              'potencialmente feitas em instantes e ambientes diferentes. IP, rota e tempos não são inferidos entre elas.</p>')
@@ -411,13 +412,18 @@ def network_context(root, audit_id, timezone_name):
         if isinstance(item, dict):
             item['capture_utc'] = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
     map_html = network_geographic_panel(map_probes)
+    has_map = '<h2>Mapa geográfico consultivo</h2>' in map_html
+    if not has_map:
+        # Render the real world basemap even when passive network telemetry
+        # contains a public peer IP but no persisted GeoIP coordinates.
+        # Never place a guessed point or infer a route from a bare IP address.
+        map_html = unlocated_world_map(observed_public_peers=passive_ip_count)
     # The existing map renderer embeds inline CSS for the catalog. Remove it
     # here so the executive report's restrictive offline CSP is respected.
     map_html = map_html.replace(
         "style='display:block;min-width:550px;max-width:100%;background:#f2f7fb'",
         "class='network-map-plot'",
     )
-    has_map = '<h2>Mapa geográfico consultivo</h2>' in map_html
     map_html = map_html.replace("<section class='panel'>",
                                 "<section class='panel' id='network-map'>", 1)
     html += map_html
@@ -452,7 +458,7 @@ def network_context(root, audit_id, timezone_name):
              'autorizadas. Não há dependência do catálogo técnico, nem inferência de '
              'topologia ou localização física dos equipamentos.</p>')
     map_status = ('Mapa geográfico aproximado disponível com coordenadas verificadas'
-                  if has_map else 'Mapa indisponível: nenhuma coordenada verificável persistida')
+                  if has_map else 'Mapa base disponível sem pontos: nenhuma coordenada verificável persistida')
     hop_status = ('Etapas de rede registradas em sondas autorizadas'
                   if hop_rows else 'Nenhum salto de rede verificável registrado')
     modal = (
