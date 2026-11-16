@@ -1,4 +1,5 @@
 """Human interpretation of persisted observations, with their denominators and limits."""
+import json
 import sqlite3
 from collections import Counter, defaultdict
 from types import SimpleNamespace
@@ -276,7 +277,8 @@ def _network_hop_rows(probes, timezone_name):
 
 def network_context(root, audit_id, timezone_name):
     if not audit_id:
-        return '<p class="callout">Identidade da AUD indisponível; dados de rede permanecem N/D.</p>', []
+        return ('<p class="callout">Identidade da AUD indisponível; dados de rede permanecem N/D.</p>',
+                [], '<p class="callout">Sem Audit ID verificável; inventário de rede indisponível.</p>')
     packet = sidecar_path(root)
     packet_present = packet.exists() or packet.is_symlink()
     observations = read_network_observations(root, audit_id)
@@ -352,7 +354,30 @@ def network_context(root, audit_id, timezone_name):
     html += ('<p class="rf">O catálogo técnico pode conter mapa, rota e cronologia apenas quando efetivamente '
              'materializados. Esta página conserva estados, saltos e enriquecimentos disponíveis sem fabricar '
              'topologia ou localização física.</p>')
-    return html, events
+    inventory = (
+        '<p class="rf">Fontes locais verificadas: capturas passivas persistidas '
+        '(sidecar validado ou projeção do audit.db histórico) e sondas complementares '
+        'autorizadas. Os registros abaixo são sanitizados para apresentação; '
+        'não representam novas medições nem substituem os artefatos originais.</p>'
+    )
+    for label, entries in (
+        ('Captura passiva verificada', observations),
+        ('Sonda complementar autorizada', probes),
+    ):
+        for position, row in enumerate(entries, 1):
+            inventory += (
+                '<details><summary>' + text(label) + ' ' + str(position)
+                + ' de ' + str(len(entries)) + '</summary><pre>'
+                + text(json.dumps(sanitize(row), ensure_ascii=False, indent=2, default=str))
+                + '</pre></details>'
+            )
+    if not observations and not probes:
+        inventory += (
+            '<p class="callout">Nenhuma captura passiva ou sonda de rede verificável '
+            'foi materializada para esta AUD. Ausência de evidência não demonstra '
+            'falha de conectividade.</p>'
+        )
+    return html, events, inventory
 
 
 def scope_context(root, raw_tables, timezone_name, costs):
@@ -386,8 +411,9 @@ def scope_context(root, raw_tables, timezone_name, costs):
         events.append(('Captura · ' + str(snap.get('device') or 'N/D'), local(snap.get('captured_at'))))
     for run in tables.get('perplexity_search_runs', ()):
         events.append(('Consulta Search API', local(run.get('started_at'))))
-    network_html, network_events = network_context(root, audit.get('audit_id'), timezone_name)
+    network_html, network_events, network_inventory = network_context(root, audit.get('audit_id'), timezone_name)
     result['rede'] += network_html
+    result['rede:inventory'] = network_inventory
     events.extend(network_events)
     result['index'] += subsection('Cronologia das fontes · ' + timezone_name, events,
         'Os complementos conservam seus próprios instantes. O fim da auditoria-base é o registrado no banco.')
