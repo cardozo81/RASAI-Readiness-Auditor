@@ -9,6 +9,7 @@ from rasai.catalog_report_search_trust import (
     _overview_values, _overview_references, _raw_serp_artifact, _target_hosts, overview_citation,
 )
 from rasai.network_intelligence import build_network_assessment
+from rasai.network_map import network_geographic_panel
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
@@ -45,7 +46,7 @@ def search_context(root, tables):
         html += subsection('Comparação observada por execução de pesquisa', [
             ('Execução Search API', row.get('perplexity_run_id')), ('Consultas', projection.get('queries')),
             ('Fontes devolvidas', projection.get('source_count')),
-            ('Alvo nas fontes', 'Ausente nas fontes devolvidas' if status == 'TARGET_NOT_IN_RETURNED_SOURCES' else status),
+            ('Alvo nas fontes', 'Ausente nas fontes devolvidas' if status == 'TARGET_NOT_IN_RETURNED_SOURCES' else public_value(status, 'domain_status')),
             ('URLs da SERP', overlap.get('serp_denominator')), ('URLs da Search API', overlap.get('perplexity_denominator')),
             ('URLs em comum', overlap.get('common_urls')), ('Intervalo entre medições (s)', context.get('time_gap_seconds')),
             ('Equivalência de intenção comprovada', {True: 'Sim', False: 'Não'}.get(context.get('intent_equivalence_proven'))),
@@ -87,8 +88,8 @@ def editorial_evidence(root, tables):
         html += '<details><summary>' + text(task.get('title')) + '</summary>'
         html += kv([
             ('Identificação', task.get('task_id')),
-            ('Estado', task.get('status')),
-            ('Suficiência da evidência', task.get('evidence_sufficiency')),
+            ('Estado', public_value(task.get('status'), 'status')),
+            ('Suficiência da evidência', public_value(task.get('evidence_sufficiency'), 'status')),
             ('Motivo observado', task.get('rationale')),
             ('Como validar', task.get('validation')),
             ('Referências total', task.get('evidence_refs_total')),
@@ -324,6 +325,13 @@ def network_context(root, audit_id, timezone_name):
              ('hop_state', 'Situação'), ('public_ip', 'Endereço público'),
              ('rtt_ms', 'RTT (ms)'), ('rtt_samples', 'Amostras RTT'),
              ('asn', 'ASN'), ('geoip', 'GeoIP aproximado')])
+    # Reuse the established offline map with exactly the verified probe objects.
+    # Missing coordinates produce an explicit explanation, never a synthetic route.
+    map_html = network_geographic_panel(probes)
+    has_map = '<h2>Mapa geográfico consultivo</h2>' in map_html
+    map_html = map_html.replace("<section class='panel'>",
+                                "<section class='panel' id='network-map'>", 1)
+    html += map_html
     html += '<h2>Diagnóstico consultivo determinístico</h2>'
     # Use the *same* pure evidence-bound assessor as the technical network report.
     # No new probe, geocoding, AI call, scoring or inferred causal relationship.
@@ -336,8 +344,8 @@ def network_context(root, audit_id, timezone_name):
     else:
         coverage = assessment.get('coverage') or {}
         html += kv([
-            ('Método', assessment.get('analysis_method')),
-            ('Escopo da confiança', assessment.get('confidence_scope')),
+            ('Método', public_value(assessment.get('analysis_method'), 'analysis_method')),
+            ('Escopo da confiança', public_value(assessment.get('confidence_scope'), 'confidence_scope')),
             ('Justificativa da confiança', assessment.get('confidence_explanation')),
             ('Capturas verificadas', coverage.get('audit_captures')),
             ('Sondas autorizadas', coverage.get('authorized_probes')),
@@ -351,9 +359,35 @@ def network_context(root, audit_id, timezone_name):
                        ('limitation', 'Limitação causal'), ('recommendation', 'Próxima ação'),
                        ('validation', 'Como validar')])
         html += '<p class="rf">Conclusões são limitadas às sessões e ao ambiente medido; não demonstram rota física, causa de lentidão, disponibilidade global nem efeito em SEO/GEO.</p>'
-    html += ('<p class="rf">O catálogo técnico pode conter mapa, rota e cronologia apenas quando efetivamente '
-             'materializados. Esta página conserva estados, saltos e enriquecimentos disponíveis sem fabricar '
-             'topologia ou localização física.</p>')
+    html += ('<p class="rf">O mapa acima usa somente coordenadas documentadas em sondas '
+             'autorizadas. Não há dependência do catálogo técnico, nem inferência de '
+             'topologia ou localização física dos equipamentos.</p>')
+    map_status = ('Mapa geográfico aproximado disponível com coordenadas verificadas'
+                  if has_map else 'Mapa indisponível: nenhuma coordenada verificável persistida')
+    hop_status = ('Etapas de rede registradas em sondas autorizadas'
+                  if hop_rows else 'Nenhum salto de rede verificável registrado')
+    modal = (
+        '<dialog class="detail-dialog" id="network-context-modal" aria-labelledby="network-context-title">'
+        '<div class="modal-head"><div><span class="modal-kicker">Rede e conectividade</span>'
+        '<h2 id="network-context-title">Detalhes da medição de rede</h2></div>'
+        '<button type="button" class="modal-close" data-modal-close aria-label="Fechar detalhes">×</button></div>'
+        '<div class="modal-body"><p>Esta explicação resume o alcance das evidências de rede '
+        'registradas. Valores por medição, fontes e limitações permanecem nas tabelas e '
+        'no inventário desta apresentação, sem repetição integral aqui.</p>'
+        + kv([
+            ('Capturas passivas verificadas', len(observations)),
+            ('Sondas autorizadas', len(probes)),
+            ('Rastreamento do caminho', hop_status),
+            ('Representação geográfica', map_status),
+            ('Limite', 'Coordenadas de IP são estimativas; não comprovam rota física.'),
+        ]) +
+        '<p><a class="tech-link" href="#network-map">Consultar mapa e sua disponibilidade</a></p>'
+        '<p><a class="tech-link" href="#network-evidence-inventory">Consultar fontes e registros locais</a></p>'
+        '</div><div class="modal-foot">'
+        '<button type="button" class="modal-dismiss" data-modal-close>Fechar</button>'
+        '</div></dialog>'
+    )
+    html += modal
     inventory = (
         '<p class="rf">Fontes locais verificadas: capturas passivas persistidas '
         '(sidecar validado ou projeção do audit.db histórico) e sondas complementares '
@@ -404,8 +438,9 @@ def scope_context(root, raw_tables, timezone_name, costs):
                                   for row in tables.get('page_snapshots', ())])
     for contract in tables.get('audit_fulfillment_contracts', ()):
         result['index'] += subsection('Fechamento e pendências', [
-            ('Processamento', contract.get('processing_status')), ('Relatório', contract.get('report_status')),
-            ('Pontuação', contract.get('score_status')), ('Itens pendentes', contract.get('pending_items'))])
+            ('Processamento', public_value(contract.get('processing_status'), 'status')),
+            ('Relatório', public_value(contract.get('report_status'), 'status')),
+            ('Pontuação', public_value(contract.get('score_status'), 'status')), ('Itens pendentes', contract.get('pending_items'))])
     events = [('Início da auditoria-base', local(audit.get('started_at'))), ('Fim da auditoria-base', local(audit.get('completed_at')))]
     for snap in tables.get('page_snapshots', ()):
         events.append(('Captura · ' + str(snap.get('device') or 'N/D'), local(snap.get('captured_at'))))
@@ -426,13 +461,13 @@ def scope_context(root, raw_tables, timezone_name, costs):
         boundary = (configuration.get('measurement_contract') or {}).get('version')
         for row in tables.get(family, ()):
             result['performance'] += subsection('Distribuição Apdex · ' + title, [
-                ('Dispositivo', 'Agregado dos dispositivos do baseline de experiência' if family == 'synthetic_ux_apdex_summaries' and row.get('device') == 'POPULATION' else row.get('device')), ('Perfil', row.get('profile_id')),
+                ('Dispositivo', 'Agregado dos dispositivos do baseline de experiência' if family == 'synthetic_ux_apdex_summaries' and row.get('device') == 'POPULATION' else public_value(row.get('device'), 'device')), ('Perfil', row.get('profile_id')),
                 ('Amostras válidas', row.get('valid_samples')), ('Meta', row.get('target_samples', run.get('target_valid_samples'))),
                 ('Satisfeitas', row.get('satisfied_count')), ('Toleráveis', row.get('tolerating_count')),
                 ('Frustradas', row.get('frustrated_count')), ('p95 (ms)', row.get('p95_ms')),
                 ('Fronteira satisfeita (s)', run.get('satisfied_threshold_seconds', run.get('threshold_seconds'))),
                 ('Fronteira frustrada (s)', run.get('frustrated_threshold_seconds', run.get('frustration_seconds'))),
-                ('Escopo dos erros', run.get('error_scope')), ('Fronteira temporal declarada', boundary)],
+                ('Escopo dos erros', public_value(run.get('error_scope'), 'error_scope')), ('Fronteira temporal declarada', boundary)],
                 ' '.join(filter(None, [
                     'Grupo pequeno; o mínimo metodológico normal é 100 amostras válidas.' if row.get('small_group') else '',
                     'A UAD mede o carregamento inicial e XHR/fetch iniciado antes de loadEventEnd. Interações SPA posteriores ficam fora dessa fronteira.' if boundary == 'UAD-BOUNDARY-001' else '',
@@ -464,7 +499,7 @@ def scope_context(root, raw_tables, timezone_name, costs):
         if correlated:
             result['seguranca'] += kv([('Achados com recomendação consultiva vinculada / observados',
                                         f"{sum(r.get('finding_id') in correlated for r in findings)}/{len(findings)}")])
-        result['seguranca'] += subsection('Severidade dos achados passivos', [(s,counts[s]) for s in ('CRITICAL','HIGH','MEDIUM','LOW','INFO')],
+        result['seguranca'] += subsection('Severidade dos achados passivos', [(public_value(s,'severity'),counts[s]) for s in ('CRITICAL','HIGH','MEDIUM','LOW','INFO')],
             'A distribuição descreve apenas o escopo observado. A análise consultiva não valida a ausência de vulnerabilidades.')
     versions = sorted({str(r['scoring_version']) for r in tables.get('scores', ()) if r.get('scoring_version')})
     result['indices'] += subsection('Como interpretar os índices', [('Versão da pontuação', ', '.join(versions) or None)],
