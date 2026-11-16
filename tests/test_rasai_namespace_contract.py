@@ -11,7 +11,13 @@ TEXT_SUFFIXES = {
 }
 # Runtime audit exports are evidence, not version-controlled public documentation.
 # Never rewrite or enforce current copy conventions on historical captures.
-EXCLUDED_DIRS = {".git", ".venv", "node_modules", "__pycache__", ".pytest_cache", "audits"}
+# Exclude local runtime exports and external agent attachments. They are not
+# version-controlled product documentation; rewriting them would corrupt
+# historical evidence. Source docs under docs/ remain in scope.
+EXCLUDED_DIRS = {
+    ".git", ".venv", "node_modules", "__pycache__", ".pytest_cache",
+    "audits", ".rasai-runtime", ".codex-attachments",
+}
 
 
 def _legacy_namespace_tokens() -> tuple[str, ...]:
@@ -44,6 +50,11 @@ def test_runtime_audit_artifacts_are_outside_source_naming_policy() -> None:
     assert not _included(ROOT / "audits" / "AUD-EXAMPLE" / "report-catalog" / "index.html")
     assert not _included(ROOT / "audits" / "consolidated" / "CONS-EXAMPLE" / "report.html")
     assert _included(ROOT / "docs" / "README.md")
+    # Generated report HTML and Codex attachment excerpts can contain original
+    # typography; they are not RASAi public source documents.
+    assert not _included(ROOT / ".rasai-runtime" / "contextual-ai-validation" / "demo" / "index.html")
+    assert not _included(ROOT / ".codex-attachments" / "sample" / "log.md")
+    assert _included(ROOT / "src" / "rasai" / "parallel_report" / "README.md")
     assert _included(ROOT / "src" / "rasai" / "entrypoint.py")
 
 
