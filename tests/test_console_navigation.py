@@ -377,6 +377,10 @@ def test_historical_complete_audit_offers_presentation_generation_only_on_open(
         "_configuration_reuse_status",
         lambda current_state, current_id: (True, "snapshot canônico íntegro"),
     )
+    # Catalog extension is unrelated to opening the presentation. Mock only
+    # this catalog-menu read because the fixture DB is not a real audit schema.
+    monkeypatch.setattr("rasai.console_audit_catalog_extension.availability",
+                        lambda *_: (False, "not configured"))
     monkeypatch.setattr("rasai.console_artifacts.report_entrypoint", lambda workspace: report)
     monkeypatch.setattr(
         "rasai.console_artifacts.presentation_report_entrypoint",
@@ -445,6 +449,10 @@ def test_historical_complete_audit_navigation_does_not_materialize_presentation(
         "_configuration_reuse_status",
         lambda current_state, current_id: (True, "snapshot canônico íntegro"),
     )
+    # Catalog extension is unrelated to opening the presentation. Mock only
+    # this catalog-menu read because the fixture DB is not a real audit schema.
+    monkeypatch.setattr("rasai.console_audit_catalog_extension.availability",
+                        lambda *_: (False, "not configured"))
     monkeypatch.setattr("rasai.console_artifacts.report_entrypoint", lambda workspace: report)
     monkeypatch.setattr(
         "rasai.console_artifacts.presentation_report_entrypoint",
