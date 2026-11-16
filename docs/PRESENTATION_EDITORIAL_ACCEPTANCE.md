@@ -17,7 +17,7 @@ o inventário inicial e hashes persistidos e reutiliza o worker estrutural
 offline existente. Esse subprocesso tem limite de memória/tempo e bloqueia
 rede e novos subprocessos. Não executa o loader, busca contextual, IA,
 coletores, sondas ou scores. Uma projeção por snapshot é compartilhada por
-Extração, Conteúdo e Search/GEO. Não existe cache global ou persistente.
+Extração, Conteúdo e Search e GEO. Não existe cache global ou persistente.
 
 ## Correções e contratos
 
@@ -55,7 +55,7 @@ explicitamente registrados para as famílias abrangidas, sem certificar 100%.
 | `conteudo.html` | Categorias dos achados corrigidas; título, headings, canonical, qualidade, texto e tipos do sidecar quando disponíveis | Extração estrutural não executa avaliação semântica; FAQ pós-interação e intenção condicionais |
 | `performance.html` | Indicadores existentes preservados; janelas CrUX de campo comparáveis com proveniência | Campo, laboratório e simulação separados; janelas sobrepostas não demonstram tendência/causalidade |
 | `rede.html` | Captura passiva, TLS, IP remoto e mapa offline existentes preservados | Sem sondas, GeoIP, rota ou coordenadas fabricadas |
-| HTML próprio de Search/GEO | SERP mantida; comparação com estado explícito, candidatos/páginas comparadas e referências verificadas do AI Overview; estrutura compartilhada | Resultado orgânico, referência de overview, citação do alvo e comparação executada distintos |
+| HTML próprio de Search e GEO | SERP mantida; comparação com estado explícito, candidatos/páginas comparadas e referências verificadas do AI Overview; estrutura compartilhada | Resultado orgânico, referência de overview, citação do alvo e comparação executada distintos |
 | `seguranca.html` | Inventário de recursos e integrações mantido e rastreado no recibo | Recursos não são vulnerabilidades; integrações não comprovam módulo completo |
 | `plano.html` | Nova contagem factual de achados, ações dirigidas e aprovações; plano e governança existentes preservados | Nenhuma ação, prioridade ou decisão gerada pelo renderer |
 | `ia-custos.html` | Previsão, consumo observado e tentativas preservados e rastreados | Zero parcial não significa custo final; nenhum token ou request inferido |
