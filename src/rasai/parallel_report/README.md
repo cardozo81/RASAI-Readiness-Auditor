@@ -83,3 +83,12 @@ Em `extracao.html`, **Prévia visual das páginas capturadas** fica visível na 
 ### Arquivos físicos consolidados na extração (gerador 0.4.9)
 
 A seção **Arquivos e referências físicas** de `extracao.html` apresenta cada caminho persistido **uma única vez**, com contagem de referências e SHA-256 (quando verificável). Ao expandir o arquivo, as observações originais permanecem individualmente acessíveis, incluindo origem, tabela/campo, trecho, cobertura e proveniência completa. Os identificadores e links existentes `#physical-N` não mudam: cada referência continua endereçável, inclusive quando o mesmo screenshot é referenciado por várias observações. Hashes divergentes e arquivos ausentes permanecem explicitamente sinalizados. É uma alteração apenas do HTML derivado; SQLite, evidências, captura, pontuação, catálogo, sanitização e IA não são alterados. A versão 0.4.9 força reconstrução de apresentações anteriores somente quando o operador chama o gerador.
+
+
+### Cobertura de arquitetura e rede (gerador 0.4.10)
+
+`extracao.html` apresenta agora um quadro executivo por captura com a **classificação arquitetural M6 efetivamente persistida**, estado de verificação RAW, contagens observacionais de recursos e hipóteses explicitamente não confirmadas quando a classe permanece `UNKNOWN`. A projeção reutiliza `read_architecture_audit_facts` sobre `audit.db`/artefatos da mesma AUD; não lê HTML técnico, não reclassifica SPA/SSR, não injeta IA ou altera coletores. IP, rota, ASN e GeoIP ficam exclusivamente em `rede.html`, com vínculo local dentro da apresentação.
+
+`rede.html` distingue IP público **observado passivamente** de IP observado em sonda, rastreamento efetivamente persistido e causa operacional **não comprovada** na ausência do sidecar. Exibe histórico comparável somente para duas ou mais sondagens verificadas do mesmo host/porta, sem inferir causalidade ou topologia. Mapa, hops e GeoIP permanecem condicionais a coordenadas/saltos verificados. Nenhum link do HTML aponta para `report-catalog/`; o catálogo tem vida visual independente.
+
+`0.4.10` invalida apenas manifestos anteriores de `report-presentation`, permitindo rematerialização deliberada, sem tocar em `audit.db`, `report-catalog` ou evidências-fonte.
