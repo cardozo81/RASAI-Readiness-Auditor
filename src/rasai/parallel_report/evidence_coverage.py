@@ -62,6 +62,10 @@ GROUPS = {
     'seguranca': (
         ('Execuções da análise passiva', ('passive_security_runs',)),
         ('Achados da análise passiva', ('passive_security_findings',)),
+        ('Recursos observados na captura (não são vulnerabilidades)',
+         ('passive_security_resources',)),
+        ('Integrações técnicas observadas (não são achados)',
+         ('passive_security_integrations',)),
     ),
     'plano': (
         ('Análise direcionada', ('directed_analysis_runs',
@@ -73,6 +77,8 @@ GROUPS = {
     'ia-custos': (
         ('Tentativas de IA', ('ai_provider_attempts', 'content_remediation_attempts')),
         ('Proveniência das chamadas', ('ai_tasks', 'ai_exchange_log')),
+        ('Resultado da previsão financeira persistida',
+         ('console_cost_forecast_outcomes',)),
     ),
 }
 
@@ -140,8 +146,9 @@ def build_coverage(root: Path, audit_id: str | None, tables: dict):
             resource_count = sum(number for name, number in routed[page].items()
                                  if name.startswith('passive_security_')
                                  and name not in accounted)
-            topics.append(('Telemetria auxiliar da captura/segurança (não são achados)',
-                           resource_count, 'audit_db'))
+            if resource_count:
+                topics.append(('Demais registros técnicos de segurança (não são achados)',
+                               resource_count, 'audit_db'))
             accounted.update(n for n in routed[page] if n.startswith('passive_security_'))
         remainder = sum(number for name, number in routed[page].items()
                         if name not in accounted)
@@ -183,8 +190,9 @@ def build_coverage(root: Path, audit_id: str | None, tables: dict):
             )
         if page == 'seguranca':
             body += (
-                '<p class="rf">Telemetria de recursos do navegador não constitui '
-                'uma execução da análise de segurança passiva nem substitui achados.</p>'
+                '<p class="rf">Os recursos e integrações capturados não constituem '
+                'uma execução da análise de segurança passiva, não são vulnerabilidades '
+                'e não substituem os achados formalmente registrados.</p>'
             )
         if page == 'rede' and network['sidecar_invalid']:
             body += (
