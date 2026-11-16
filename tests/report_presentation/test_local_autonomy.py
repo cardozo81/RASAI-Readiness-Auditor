@@ -66,6 +66,7 @@ def test_all_presentation_links_resolve_with_no_catalog_package(tmp_path):
                 assert unquote(target.fragment) in parsed[target_name].ids, (filename, href)
     extract = html['extracao.html']
     assert 'Captura e prévia técnica local' in extract
+    assert 'data-modal="capture-context-modal"' in extract
     assert 'href="#capture-preview"' in extract
     assert 'id="capture-preview"' in extract
     assert 'id="presentation-records"' in extract
@@ -89,6 +90,8 @@ def test_persisted_preview_has_only_local_destinations_and_timezone(tmp_path, mo
     section = catalog_context(tmp_path, 'logical', 'AUD-X', rows, 'America/Sao_Paulo')['extracao']
     assert '16/11/2026 09:00:00 (America/Sao_Paulo)' in section
     assert 'Ver detalhes' in section
+    assert 'data-modal="capture-context-modal"' in section
+    assert 'dialog class="detail-dialog" id="capture-context-modal"' in section
     assert 'Chrome 123' in section and '390 x 844' in section
     assert 'artifacts/screenshot.png' in section
     assert 'Ocorrências registradas pelo navegador na captura' in section

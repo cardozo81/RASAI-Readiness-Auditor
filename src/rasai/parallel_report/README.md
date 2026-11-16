@@ -70,3 +70,7 @@ Todas as superfícies executivas usam rótulos pt-BR por campo, inclusive cabeç
 ## Autonomia editorial (gerador 0.4.6)
 
 A navegação para detalhe técnico é local, sem links para report-catalog. Classificação competitiva e motivos conhecidos são interpretados por regras determinísticas pt-BR, sem inferir concorrência comercial. Timestamps tipados visíveis são exibidos no fuso IANA persistido na auditoria; os valores originais permanecem nos anexos e SQLite. A pontuação, os motores de coleta e a sanitização de credenciais não foram alterados. Travessões U+2014 são substituídos por hífens somente no HTML da apresentação.
+
+### Ação de captura no navegador (gerador 0.4.7)
+
+O controle **Captura e prévia técnica local** abre explicitamente um `dialog` offline com **todas** as capturas persistidas, em vez de depender de um hyperlink `#capture-preview` que pode aparentar inatividade quando a seção de destino está recolhida. O modal reutiliza a infraestrutura de foco, Escape e fechamento; seus links são locais para prévia, contagens e inventário técnico. A regressão Chromium clica esse botão em desktop e mobile, verifica abertura, fechamento e navegação, inclusive com fragmento já presente. Sem chamadas de IA, rede, leituras do catálogo, mudanças em coletores, score ou UI estrutural.
