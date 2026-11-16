@@ -50,7 +50,6 @@ REFERENCES = {
     'indices': ('methodology', 'Método e versão das regras de pontuação'),
     'descoberta': ('cat-01', 'Ocorrências e detalhes do validador técnico'),
     'extracao': ('capture-context', 'Captura e prévia técnica local'),
-    'rede': ('network', 'Aprofundamento opcional de rede no report-catalog'),
     'ia-custos': ('metrics', 'Telemetria e intervalos técnicos persistidos'),
 }
 
@@ -87,8 +86,7 @@ def catalog_context(root, logical, audit_id, tables=None):
                 continue
             preview = [{**sanitize(row), '_source_table': source} for row in rows[:limit]]
             sections[page] += ('<details><summary>' + text(title) + '</summary>'
-                               + '<p class="rf">Fonte: audit.db · ' + text(source)
-                               + ' · ' + str(len(preview)) + ' de ' + str(len(rows))
+                               + '<p class="rf">Origem: evidências registradas na auditoria · ' + str(len(preview)) + ' de ' + str(len(rows))
                                + ' registros; detalhe integral no inventário sanitizado.</p>'
                                + table(title, preview, fields)
                                + ('<p>' + technical_link('../report-catalog/' + technical_target,
@@ -97,10 +95,9 @@ def catalog_context(root, logical, audit_id, tables=None):
                                   else '<p class="rf">Aprofundamento técnico não incluído ou não verificável neste pacote.</p>')
                                + '</details>')
     sections['rede'] += (
-        '<p>' + technical_link(
-            '#network-evidence-inventory',
-            'Consultar o inventário de rede nesta apresentação',
-        ) + ' <span class="rf">(evidências locais; não depende do report-catalog)</span></p>'
+        '<p><button type="button" class="modal-open" data-modal="network-context-modal" '
+        'aria-haspopup="dialog" aria-controls="network-context-modal">'
+        'Consultar detalhes da medição de rede</button></p>'
     )
     for page, (stem, title) in REFERENCES.items():
         target = stem + '.html'
