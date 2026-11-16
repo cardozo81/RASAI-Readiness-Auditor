@@ -25,7 +25,7 @@ def sample_partial_contract():
             {'component': 'SEARCH_INTELLIGENCE', 'status': 'SUCCESS', 'attempt_count': 1},
             {'component': 'PASSIVE_SECURITY', 'status': 'REQUESTED_NOT_EXECUTED',
              'attempt_count': 0, 'last_error_code': 'PLANNED_WORK_NOT_EXECUTED',
-             'last_error_message': 'Bearer secret-that-must-not-appear'},
+             'last_error_message': 'internal diagnostic text that must not appear'},
             {'component': 'TECHNICAL_AI', 'status': 'REQUESTED_NOT_EXECUTED',
              'attempt_count': 0, 'last_error_code': 'PLANNED_WORK_NOT_EXECUTED'},
             {'component': 'CONTENT_REMEDIATION_AI', 'status': 'REQUESTED_NOT_EXECUTED',
