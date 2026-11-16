@@ -7,6 +7,7 @@ from rasai.ai_economic_telemetry import known_token_subtotal
 from rasai.catalog_report_search_trust import (
     _overview_values, _overview_references, _raw_serp_artifact, _target_hosts, overview_citation,
 )
+from rasai.network_intelligence import build_network_assessment
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
@@ -285,9 +286,36 @@ def network_context(root, audit_id, timezone_name):
              ('hop_state', 'Situação'), ('public_ip', 'Endereço público'),
              ('rtt_ms', 'RTT (ms)'), ('rtt_samples', 'Amostras RTT'),
              ('asn', 'ASN'), ('geoip', 'GeoIP aproximado')])
-    html += ('<p class="rf">O mapa geográfico consultivo e a representação visual da rota permanecem no relatório técnico '
-             'canônico. Esta página preserva os fatos materiais — estados, saltos, RTT, ASN, GeoIP, precisão e fonte — '
-             'sem fabricar uma rota física.</p>')
+    html += '<h2>Diagnóstico consultivo determinístico</h2>'
+    # Use the *same* pure evidence-bound assessor as the technical network report.
+    # No new probe, geocoding, AI call, scoring or inferred causal relationship.
+    try:
+        assessment = sanitize(build_network_assessment(root, audit_id))
+    except (ValueError, OSError, TypeError, KeyError):
+        assessment = None
+    if assessment is None:
+        html += '<p>N/D — evidências de rede insuficientes ou não verificáveis para diagnóstico.</p>'
+    else:
+        coverage = assessment.get('coverage') or {}
+        html += kv([
+            ('Método', assessment.get('analysis_method')),
+            ('Escopo da confiança', assessment.get('confidence_scope')),
+            ('Justificativa da confiança', assessment.get('confidence_explanation')),
+            ('Capturas verificadas', coverage.get('audit_captures')),
+            ('Sondas autorizadas', coverage.get('authorized_probes')),
+            ('Amostras DNS / TCP / TLS',
+             ' / '.join(str(coverage.get(k, 'N/D')) for k in ('dns_samples', 'tcp_samples', 'tls_samples'))),
+        ])
+        conclusions = assessment.get('findings') or []
+        html += table('Conclusões, evidências e validação', conclusions,
+                      [('title', 'Tema'), ('conclusion', 'Conclusão'),
+                       ('confidence', 'Confiança pontual'), ('evidence_refs', 'IDs da evidência'),
+                       ('limitation', 'Limitação causal'), ('recommendation', 'Próxima ação'),
+                       ('validation', 'Como validar')])
+        html += '<p class="rf">Conclusões são limitadas às sessões e ao ambiente medido; não demonstram rota física, causa de lentidão, disponibilidade global nem efeito em SEO/GEO.</p>'
+    html += ('<p class="rf">O catálogo técnico pode conter mapa, rota e cronologia apenas quando efetivamente '
+             'materializados. Esta página conserva estados, saltos e enriquecimentos disponíveis sem fabricar '
+             'topologia ou localização física.</p>')
     return html, events
 
 
