@@ -113,7 +113,7 @@ def _render_package(root, database, before, logical_before, output):
             for source in sources:
                 editorial_fields.setdefault(source, set()).update(key for key, _ in fields)
     for specs in STRUCTURED.values():
-        for _, source, fields, _ in specs:
+        for _, source, fields, _, _ in specs:
             editorial_fields.setdefault(source, set()).update(key for key, _ in fields)
     editorial_fields.update({
         'audits': {'audit_id', 'status', 'completion_status'},
