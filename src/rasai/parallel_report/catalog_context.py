@@ -94,11 +94,14 @@ def catalog_context(root, logical, audit_id, tables=None):
                                   if technical_target in available
                                   else '<p class="rf">Aprofundamento técnico não incluído ou não verificável neste pacote.</p>')
                                + '</details>')
-    sections['rede'] += (
-        '<p><button type="button" class="modal-open" data-modal="network-context-modal" '
-        'aria-haspopup="dialog" aria-controls="network-context-modal">'
-        'Consultar detalhes da medição de rede</button></p>'
-    )
+    if audit_id:
+        sections['rede'] += (
+            '<p><button type="button" class="modal-open" data-modal="network-context-modal" '
+            'aria-haspopup="dialog" aria-controls="network-context-modal">'
+            'Consultar detalhes da medição de rede</button></p>'
+        )
+    else:
+        sections['rede'] += '<p class="rf">Detalhes de rede indisponíveis: identidade da auditoria não comprovada.</p>'
     for page, (stem, title) in REFERENCES.items():
         target = stem + '.html'
         if target in available:
