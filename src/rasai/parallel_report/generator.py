@@ -88,7 +88,7 @@ def _render_package(root, database, before, logical_before, output):
     timezone_name, _ = timezone_for_records(records)
     supplements = scope_context(root, tables, timezone_name, costs)
     audit = next(iter(tables.get('audits', ())), {})
-    for page, body in catalog_context(root, logical_before, audit.get('audit_id')).items():
+    for page, body in catalog_context(root, logical_before, audit.get('audit_id'), tables).items():
         supplements[page] += body
     pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
     for name, html in pages.items():
