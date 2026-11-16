@@ -329,3 +329,45 @@ def test_network_diagnosis_uses_persisted_assessor_not_html(monkeypatch, tmp_pat
     html, _, _ = ctx.network_context(tmp_path, 'AUD-X', 'UTC')
     assert 'Escopo insuficiente' in html and 'Uma única sessão' in html
     assert 'Sem rota comprovada' in html and 'Repetir medição autorizada' in html
+
+
+def test_architecture_overview_is_bound_to_observation_not_inferred(monkeypatch, tmp_path):
+    from rasai.parallel_report import architecture_context as ac
+    (tmp_path / 'audit.db').write_bytes(b'dummy-read-only-db')
+    fake = [{
+        'snapshot_id':'SNP-01','device':'MOBILE','captured_at':'2026-11-16T12:50:00+00:00',
+        'observed_architecture':'UNKNOWN', 'raw_verified_against_capture_digest':True,
+        'hypothesis':{'candidate':'CSR_SPA','confidence':'LOW'},
+        'network_facts':{'dom_count':87,'response_count':9,'main_response_security':{
+            'remote_public_peer_ip':'8.8.8.8'}},
+        'runtime_script_resources_count':5,
+    }]
+    monkeypatch.setattr(ac, 'read_architecture_audit_facts', lambda *_: fake)
+    html=ac.architecture_context(tmp_path,'AUD-TEST','America/Sao_Paulo')
+    assert 'Arquitetura identificada na captura' in html
+    assert 'Não determinada' in html
+    assert 'Hipótese não confirmada: SPA renderizada no cliente' in html
+    assert '>87<' in html
+    assert 'Recursos declarados' in html
+    assert '8.8.8.8' not in html
+    assert 'report-catalog/' not in html
+    assert 'href="rede.html"' in html
+
+
+def test_architecture_overview_missing_source_never_invents(monkeypatch,tmp_path):
+    from rasai.parallel_report import architecture_context as ac
+    assert 'Banco original indisponível' in ac.architecture_context(tmp_path,'AUD-X','UTC')
+    (tmp_path/'audit.db').touch()
+    monkeypatch.setattr(ac,'read_architecture_audit_facts',lambda *_: [])
+    assert 'Nenhuma classificação arquitetural verificável' in ac.architecture_context(tmp_path,'AUD-X','UTC')
+
+
+def test_architecture_source_is_included_only_on_extraction(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as context
+    monkeypatch.setattr(context,'architecture_context',lambda *_:'<h2>Arquitetura identificada na captura</h2>')
+    monkeypatch.setattr(context,'network_context',lambda *_:('',[],'')) 
+    inputs={'audits':[{'audit_id':'AUD-X'}]}
+    pages=context.scope_context(tmp_path, inputs, 'UTC',{})
+    assert 'Arquitetura identificada na captura' in pages['extracao']
+    for page in ('rede','index','performance','seguranca'):
+        assert 'Arquitetura identificada na captura' not in pages[page]

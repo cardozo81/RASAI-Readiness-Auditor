@@ -17,6 +17,7 @@ from .components import kv, table, text
 from .presentation_labels import public_value, presentation_timestamps
 from .read_model import SEARCH_PAGE
 from .sanitization import sanitize
+from .architecture_context import architecture_context
 
 
 def subsection(title, pairs, note=''):
@@ -456,6 +457,7 @@ def scope_context(root, raw_tables, timezone_name, costs):
         events.append(('Captura · ' + str(snap.get('device') or 'N/D'), local(snap.get('captured_at'))))
     for run in tables.get('perplexity_search_runs', ()):
         events.append(('Consulta Search API', local(run.get('started_at'))))
+    result['extracao'] += architecture_context(root, audit.get('audit_id'), timezone_name)
     network_html, network_events, network_inventory = network_context(root, audit.get('audit_id'), timezone_name)
     result['rede'] += network_html
     result['rede:inventory'] = network_inventory
