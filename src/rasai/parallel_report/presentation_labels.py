@@ -250,7 +250,10 @@ def presentation_timestamps(value, timezone_name):
     if isinstance(value, dict):
         return {key: presentation_timestamps(item, timezone_name)
                 if isinstance(item, (dict, list, tuple))
-                else public_value(item, key, timezone_name)
+                else (public_value(item, key, timezone_name)
+                      if key in TIMESTAMPS
+                      or (isinstance(key, str) and key.endswith(('_at', '_utc', '_timestamp')))
+                      else item)
                 for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [presentation_timestamps(item, timezone_name) for item in value]
