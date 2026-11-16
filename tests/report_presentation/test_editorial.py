@@ -75,8 +75,26 @@ def test_action_plan_identity_and_literals():
     assert [len(g) for g in groups]==[1,2]
     data=records({'directed_analysis_actions':actions,'improvement_intelligence_recommendations':[{'title':'Fix','original_html':'<script>privateLiteral()</script>','suggested_html':'<h1>New</h1>'}], 'content_remediation_suggestions':[{'objective':'Title','proposed_text':'Original English suggestion'}]})
     html=editorial('plano',data,{},load())
-    for title in ('Visão geral','Ações por prioridade','Cartões de ação','Correções técnicas propostas (código)','Textos sugeridos por IA'):
-        assert '<h2>'+title+'</h2>' in html
+    # The action plan is now governed: actions without an ACCEPTED decision
+    # remain consultable, but must never be represented as approved work.
+    for title in (
+        'Visão geral',
+        'Plano aprovado pela governança',
+        'Recomendações técnicas sem aprovação',
+        'Decisões rejeitadas ou fora do escopo do cliente',
+        'Correções técnicas aceitas pela governança',
+        'Correções técnicas sem aprovação',
+        'Textos sugeridos por IA',
+    ):
+        assert '<h2>' + title + '</h2>' in html
+    approved, pending = html.split(
+        '<h2>Recomendações técnicas sem aprovação</h2>', 1
+    )
+    assert 'Nenhum registro nesta classe de governança.' in approved
+    assert 'Same' not in approved.split('<h2>Plano aprovado pela governança</h2>', 1)[1]
+    assert 'Same' in pending
+    assert 'Ações distintas e ocorrências' in pending
+    assert 'Sem decisão' in pending or 'não aprovad' in pending.lower()
     assert 'Como fazer' in html and 'Como validar' in html
     assert '&lt;script&gt;privateLiteral()&lt;/script&gt;' in html
     assert 'Original English suggestion' in html
