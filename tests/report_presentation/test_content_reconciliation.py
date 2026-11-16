@@ -371,3 +371,43 @@ def test_architecture_source_is_included_only_on_extraction(monkeypatch,tmp_path
     assert 'Arquitetura identificada na captura' in pages['extracao']
     for page in ('rede','index','performance','seguranca'):
         assert 'Arquitetura identificada na captura' not in pages[page]
+
+
+def test_network_independent_passive_ip_without_probe_has_explicit_limit(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as network
+    monkeypatch.setattr(network,'read_network_observations',lambda *_:[{
+        'metrics':{'connected_public_ip':{'state':'OBSERVED','value':'8.8.8.8'}},
+        'capture_utc':'2026-11-16T12:00:00Z','device':'MOBILE',
+    }])
+    monkeypatch.setattr(network,'read_authorized_probes',lambda *_:[])
+    monkeypatch.setattr(network,'build_network_assessment',lambda *_:None)
+    html,_,_=network.network_context(tmp_path,'AUD-X','UTC')
+    assert 'IP público observado</dt><dd>1 captura(s) passiva(s); 0 sonda(s) complementar(es)' in html
+    assert 'Origem da ausência de sonda</dt><dd>Não comprovada pelos registros desta AUD' in html
+    assert '8.8.8.8' in html
+    assert 'Rastreamentos registrados</dt><dd>0</dd>' in html
+    assert 'network-map' in html
+    assert 'report-catalog/' not in html
+
+
+def test_network_temporal_comparison_uses_only_same_verified_host_port(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as network
+    probes=[
+      dict(hostname='site.example.org',port=443,capture_utc=t,
+           state='SUCCESS',
+           metrics={'dns_resolution':{'state':'OBSERVED'},
+                    'tcp_handshake_ms':{'state':'OBSERVED'},
+                    'tls_handshake_ms':{'state':'OBSERVED'},
+                    'traceroute':{'state':'NOT_OBSERVED'}})
+      for t in ('2026-11-15T12:00:00Z','2026-11-16T12:00:00Z')
+    ]
+    probes.append(dict(hostname='other.example.org',port=443,capture_utc='2026-11-15T12:00:00Z'))
+    monkeypatch.setattr(network,'read_network_observations',lambda *_:[])
+    monkeypatch.setattr(network,'read_authorized_probes',lambda *_:probes)
+    monkeypatch.setattr(network,'build_network_assessment',lambda *_:None)
+    html,_,_=network.network_context(tmp_path,'AUD-X','UTC')
+    assert 'Histórico comparável de sondagens' in html
+    assert html.count('site.example.org') >= 2
+    assert 'Medições autorizadas por instante' in html
+    assert 'other.example.org' not in html.split('Histórico comparável de sondagens')[1].split('Mapa')[0]
+    assert 'Nenhuma rota' not in html
