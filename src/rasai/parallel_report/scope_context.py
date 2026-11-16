@@ -327,7 +327,7 @@ def network_context(root, audit_id, timezone_name):
     # No new probe, geocoding, AI call, scoring or inferred causal relationship.
     try:
         assessment = sanitize(build_network_assessment(root, audit_id))
-    except (ValueError, OSError, TypeError, KeyError):
+    except (ValueError, OSError, TypeError, KeyError, sqlite3.Error):
         assessment = None
     if assessment is None:
         html += '<p>N/D — evidências de rede insuficientes ou não verificáveis para diagnóstico.</p>'
