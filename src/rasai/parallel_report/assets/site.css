@@ -124,3 +124,8 @@ body.modal-active{overflow:hidden}
 .capture-unavailable{border-left:3px solid var(--line);padding-left:12px}
 @media(max-width:620px){.capture-image-preview{height:230px}.capture-image-dialog.detail-dialog{width:calc(100vw - 12px);max-height:calc(100dvh - 12px);margin:6px}}
 @media print{.capture-image-button.modal-open{display:block!important;border:0;cursor:auto}.capture-image-preview{height:auto;max-height:240mm;object-fit:contain}}
+
+/* Concise unique-file list with original provenance nested below. */
+.physical-file-group > summary{overflow-wrap:anywhere;word-break:break-word}
+.physical-file-group > details.in{margin:8px 0 8px 14px}
+.physical-file-group .rf{font-weight:400}
