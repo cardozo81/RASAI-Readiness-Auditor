@@ -69,3 +69,50 @@ def test_browser_offline(tmp_path):
         page.pdf(path=str(tmp_path / 'smoke-a4.pdf'), format='A4')
         assert not requests and not errors
         browser.close()
+
+
+def test_capture_preview_button_opens_offline_modal(tmp_path):
+    """Exercise the exact control reported inert by a user, not just its href."""
+    root = fixture(tmp_path / 'audit')
+    output = generate(root)
+    with sync_playwright() as playwright:
+        if not Path(playwright.chromium.executable_path).exists():
+            pytest.skip('Existing Chromium unavailable; do not install')
+        browser = playwright.chromium.launch()
+        context = browser.new_context(offline=True)
+        context.route(
+            '**/*',
+            lambda route: route.abort()
+            if route.request.url.startswith(('http:', 'https:'))
+            else route.continue_(),
+        )
+        page = context.new_page()
+        errors = []
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        for width in (1440, 390):
+            page.set_viewport_size({'width': width, 'height': 900})
+            page.goto((output / 'extracao.html').as_uri())
+            button = page.get_by_role('button', name='Captura e prévia técnica local')
+            assert button.count() == 1
+            assert button.get_attribute('aria-controls') == 'capture-context-modal'
+            button.click()
+            modal = page.locator('dialog#capture-context-modal[open]')
+            assert modal.is_visible(), 'Click must open an actual dialog, not only change a hash'
+            assert modal.get_by_text('Capturas persistidas na auditoria').count() >= 1
+            assert modal.get_by_text('Consultar contagens derivadas da captura').count() == 1
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            page.keyboard.press('Escape')
+            assert not modal.is_visible()
+            assert button.evaluate('(element) => element === document.activeElement')
+            button.click()
+            modal.get_by_role('link', name='Consultar a prévia da captura nesta página').click()
+            assert not modal.is_visible()
+            assert page.evaluate('location.hash') == '#capture-preview'
+            assert page.locator('details#capture-preview').evaluate('(element) => element.open')
+            # The control must work even after navigating to the same fragment.
+            button.click()
+            assert modal.is_visible()
+            modal.get_by_role('button', name='Fechar').last.click()
+            assert not modal.is_visible()
+        assert not errors, errors
+        browser.close()
