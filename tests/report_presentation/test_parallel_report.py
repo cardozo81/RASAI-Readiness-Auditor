@@ -420,7 +420,7 @@ def test_previous_generator_version_is_upgraded_from_history(tmp_path):
     root = fixture(tmp_path / 'AUD-SYNTHETIC')
     package = generate(root)
     original = json.loads((package / '_geracao.json').read_text(encoding='utf-8'))
-    assert __version__ == '0.4.8'
+    assert __version__ == '0.4.9'
     original['generator_version'] = '0.4.3'
     (package / '_geracao.json').write_text(json.dumps(original), encoding='utf-8')
     assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()
@@ -581,3 +581,72 @@ def test_partial_audit_standalone_presentation_without_catalog_package(tmp_path)
     assert report.is_file()
     assert inventory(root) == before
     assert 'N/D' in (report.parent / 'extracao.html').read_text(encoding='utf-8')
+
+
+def test_physical_file_groups_deduplicate_display_not_provenance(tmp_path):
+    """Every physical-N link must survive deduplicating the visible path list."""
+    import re
+    from rasai.parallel_report.evidence_index import references
+    from rasai.parallel_report.sqlite_reader import read_database
+
+    root = fixture(tmp_path / 'AUD-SYNTHETIC')
+    (root / 'artifacts' / 'secondary.html').write_text(
+        '<p>Outra evidência</p>', encoding='utf-8'
+    )
+    with sqlite3.connect(root / 'audit.db') as db:
+        db.execute("INSERT INTO evidence VALUES ('ev-2','artifacts/page.html','segundo')")
+        db.execute("INSERT INTO evidence VALUES ('ev-3','artifacts/page.html','terceiro')")
+        db.execute("INSERT INTO evidence VALUES ('ev-4','artifacts/secondary.html','outro')")
+        db.execute("INSERT INTO evidence VALUES ('ev-5','artifacts/secondary.html','outro')")
+    tables, _ = read_database(root / 'audit.db')
+    occurrences, _ = references(tables, root)
+    assert len(occurrences) == 6
+    assert len({r['reference'] for r in occurrences}) == 2
+    before = inventory(root)
+
+    presentation = generate(root)
+    html = (presentation / 'extracao.html').read_text(encoding='utf-8')
+    assert 'Arquivos referenciados: 2 caminho(s) único(s) - 6 referência(s) persistida(s).' in html
+    assert html.count('class="physical-file-group"') == 2
+    assert html.count('<summary>artifacts/page.html <span class="rf">(') == 1
+    assert html.count('<summary>artifacts/secondary.html <span class="rf">(') == 1
+    assert 'artifacts/page.html <span class="rf">(4 referências)</span>' in html
+    assert 'artifacts/secondary.html <span class="rf">(2 referências)</span>' in html
+    ids = re.findall(r'id="physical-(\\d+)"', html)
+    assert sorted(int(n) for n in ids) == list(range(len(occurrences)))
+    assert len(set(ids)) == len(occurrences)
+    assert html.count('Voltar ao registro técnico de origem') == len(occurrences)
+    for index, item in enumerate(occurrences):
+        # The canonical raw identity and all original source links remain.
+        assert f'href="extracao.html#physical-{index}"' in ''.join(
+            file.read_text(encoding='utf-8')
+            for file in presentation.glob('*.html')
+        )
+    assert inventory(root) == before
+    assert generate(root) == presentation
+    assert presentation_report_entrypoint(root) == (presentation / 'index.html').resolve()
+
+
+def test_grouped_evidence_keeps_missing_and_conflicting_hash_separate(tmp_path):
+    """A missing file must not be silently treated as a verified physical file."""
+    from rasai.parallel_report.render import grouped_physical_references
+    evidence = [
+        {'reference': 'artifacts/missing.png', 'table': 'evidence',
+         'field': 'artifact_reference', 'row_index': 0, 'coverage': 'Parcial',
+         'source_href': 'extracao.html#record-a'},
+        {'reference': 'artifacts/missing.png', 'table': 'evidence',
+         'field': 'artifact_reference', 'row_index': 1, 'coverage': 'Parcial',
+         'source_href': 'extracao.html#record-b'},
+        {'reference': 'artifacts/a.png', 'table': 'evidence',
+         'field': 'artifact_reference', 'row_index': 2, 'sha256': 'a'*64,
+         'source_href': 'extracao.html#record-c'},
+        {'reference': 'artifacts/a.png', 'table': 'evidence',
+         'field': 'artifact_reference', 'row_index': 3, 'sha256': 'b'*64,
+         'source_href': 'extracao.html#record-d'},
+    ]
+    html = grouped_physical_references(evidence, None)
+    assert html.count('class="physical-file-group"') == 2
+    assert 'SHA-256: N/D' in html
+    assert 'Hashes divergentes' in html
+    assert all(f'id="physical-{i}"' in html for i in range(4))
+    assert html.count('Proveniência completa') == 4
