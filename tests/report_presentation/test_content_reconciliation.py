@@ -156,6 +156,56 @@ def test_sensitive_cookie_fields_keep_safe_cross_references_and_redact_values():
     assert sanitize({'set_cookie_index': '0'})['set_cookie_index'] == '[REDACTED]'
 
 
+def test_network_inventory_is_local_nonempty_and_sanitized(tmp_path, monkeypatch):
+    from collections import defaultdict
+    from rasai.parallel_report import scope_context as network
+    from rasai.parallel_report import catalog_context as catalog
+    from rasai.parallel_report.render import render
+    from rasai.parallel_report.cost_reconciliation import reconcile
+    from rasai.parallel_report.thresholds import load
+
+    monkeypatch.setattr(network, 'read_network_observations', lambda *_: [{
+        'audit_id': 'AUD-TEST', 'observation_id': 'NET-AUD-001',
+        'protocol': 'h2', 'secret': 'private-token-value',
+    }])
+    monkeypatch.setattr(network, 'read_authorized_probes', lambda *_: [])
+    monkeypatch.setattr(network, 'build_network_assessment', lambda *_: {
+        'analysis_method': 'DETERMINISTIC_PERSISTED_EVIDENCE',
+        'coverage': {'audit_captures': 1, 'authorized_probes': 0},
+        'findings': [],
+    })
+    html, _, inventory = network.network_context(tmp_path, 'AUD-TEST', 'UTC')
+    assert 'Captura passiva verificada 1 de 1' in inventory
+    assert 'NET-AUD-001' in inventory
+    assert 'private-token-value' not in inventory
+    pages = render((), defaultdict(list), {}, [], [], reconcile({}), {},
+                   load(), [], {'rede': html, 'rede:inventory': inventory})
+    rendered = pages['rede.html']
+    assert 'id="network-evidence-inventory"' in rendered
+    assert 'Captura passiva verificada 1 de 1' in rendered
+    assert 'private-token-value' not in rendered
+
+    monkeypatch.setattr(catalog, '_verified_links', lambda *_: set())
+    independent = catalog.catalog_context(tmp_path, 'logical', 'AUD-TEST', {})
+    assert 'href="#network-evidence-inventory"' in independent['rede']
+    assert '../report-catalog/network.html' not in independent['rede']
+    monkeypatch.setattr(catalog, '_verified_links', lambda *_: {'network.html'})
+    optional = catalog.catalog_context(tmp_path, 'logical', 'AUD-TEST', {})
+    assert 'href="#network-evidence-inventory"' in optional['rede']
+    assert 'href="../report-catalog/network.html"' in optional['rede']
+    assert 'Aprofundamento opcional de rede no report-catalog' in optional['rede']
+
+
+def test_network_inventory_explains_missing_measurements(tmp_path, monkeypatch):
+    from rasai.parallel_report import scope_context as network
+    monkeypatch.setattr(network, 'read_network_observations', lambda *_: [])
+    monkeypatch.setattr(network, 'read_authorized_probes', lambda *_: [])
+    monkeypatch.setattr(network, 'build_network_assessment', lambda *_: None)
+    _, _, inventory = network.network_context(tmp_path, 'AUD-TEST', 'UTC')
+    assert 'Nenhuma captura passiva ou sonda de rede verificável' in inventory
+    assert 'falha de conectividade' in inventory
+
+
 def test_catalog_html_does_not_supply_structured_facts(tmp_path, monkeypatch):
     from rasai.parallel_report.catalog_context import catalog_context
     from rasai.parallel_report import catalog_context as module
