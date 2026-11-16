@@ -318,6 +318,6 @@ def test_network_diagnosis_uses_persisted_assessor_not_html(monkeypatch, tmp_pat
                       'confidence':'LOW', 'evidence_refs':[],
                       'limitation':'Sem rota comprovada', 'recommendation':'Obter autorização',
                       'validation':'Repetir medição autorizada'}]})
-    html, _ = ctx.network_context(tmp_path, 'AUD-X', 'UTC')
+    html, _, _ = ctx.network_context(tmp_path, 'AUD-X', 'UTC')
     assert 'Escopo insuficiente' in html and 'Uma única sessão' in html
     assert 'Sem rota comprovada' in html and 'Repetir medição autorizada' in html
