@@ -685,8 +685,9 @@ def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path)
     security = (output / 'seguranca.html').read_text(encoding='utf-8')
     assert 'Telemetria auxiliar da captura/segurança (não são achados)' in security
     assert 'Telemetria de recursos do navegador não constitui' in security
-    assert receipt['pages']['plano.html']['evidence_state'] == 'SEM_REGISTROS_NAS_FONTES_DESTA_PAGINA'
-    assert receipt['non_routed'] == {}
+    assert receipt['non_routed'] == {'private_payload': 1}
+    assert 'PRIVATE_VALUE' not in json.dumps(receipt)
+    assert receipt['pages']['plano.html']['evidence_state'] == 'COM_REGISTROS_PERSISTIDOS'
     assert 'console_execution_projections' in (output / 'index.html').read_text(encoding='utf-8')
     assert 'assets/evidence-coverage.json' in manifest['generated_files']
     assert manifest['source_writes'] is False or manifest['source_writes'] == 0
