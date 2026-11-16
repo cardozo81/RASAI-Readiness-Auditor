@@ -50,7 +50,7 @@ REFERENCES = {
     'indices': ('methodology', 'Método e versão das regras de pontuação'),
     'descoberta': ('cat-01', 'Ocorrências e detalhes do validador técnico'),
     'extracao': ('capture-context', 'Captura e prévia técnica local'),
-    'rede': ('network', 'Detalhes técnicos de rede, se efetivamente materializados'),
+    'rede': ('network', 'Aprofundamento opcional de rede no report-catalog'),
     'ia-custos': ('metrics', 'Telemetria e intervalos técnicos persistidos'),
 }
 
@@ -96,6 +96,12 @@ def catalog_context(root, logical, audit_id, tables=None):
                                   if technical_target in available
                                   else '<p class="rf">Aprofundamento técnico não incluído ou não verificável neste pacote.</p>')
                                + '</details>')
+    sections['rede'] += (
+        '<p>' + technical_link(
+            '#network-evidence-inventory',
+            'Consultar o inventário de rede nesta apresentação',
+        ) + ' <span class="rf">(evidências locais; não depende do report-catalog)</span></p>'
+    )
     for page, (stem, title) in REFERENCES.items():
         target = stem + '.html'
         if target in available:
