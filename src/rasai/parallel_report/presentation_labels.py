@@ -107,7 +107,7 @@ FIELD_ENUM_LABELS = {
     'required': {'1':'Sim', '0':'Não', 'TRUE':'Sim', 'FALSE':'Não'},
 }
 SEMANTIC_ENUM_FIELDS = ENUM_FIELDS | {
-    'entity_type', 'component', 'dimension', 'scope', 'scope_key',
+    'entity_type', 'component', 'dimension', 'scope', 'scope_key', 'audit_mode',
     'url_scope', 'analysis_method', 'confidence_scope', 'method',
     'decision', 'required', 'domain', 'source', 'source_kind',
     'source_mode', 'origin_kind', 'measurement_origin', 'purpose',
