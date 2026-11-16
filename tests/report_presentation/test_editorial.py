@@ -20,7 +20,7 @@ from test_parallel_report import fixture
 def test_typed_chips(value,field,label,tone):
     html=chip(value,field)
     assert f'class="chip {tone}"' in html and f'>{label}</span>' in html
-    assert f'title="{value}"' in html
+    assert f'title="{label}"' in html
 
 
 def records(tables):
@@ -92,13 +92,59 @@ def test_typed_residual_values_and_customer_text():
         assert public_value(token,'status') != token
         assert public_value(token,'title') == token
     assert public_value('HIGH','priority')=='Alta'
-    assert public_value('P1','priority')=='P1'
+    assert public_value('P1','priority')=='Prioridade 1 (alta)'
     assert public_value('AI','source')=='IA'
     assert public_value('Original provider message','source')=='Original provider message'
     assert public_value('0.0657104','estimated_cost')=='0,0657104'
     dimensions=content([{'dimension':'SECURITY','expected_gain':'HIGH'}],'affected_dimensions_json')
     assert 'Segurança · Ganho esperado na fonte: Alto' in dimensions
-    assert 'SECURITY' in dimensions and 'HIGH' in dimensions
+    assert '<li title=' not in dimensions and 'Ganho esperado na fonte: Alto' in dimensions
+
+
+@pytest.mark.parametrize('field,raw,expected', [
+    ('status', 'UNAVAILABLE', 'Indisponível'),
+    ('status', 'COMPLETE', 'Concluído'),
+    ('dimension', 'CONTENT_VALUE', 'Valor do conteúdo'),
+    ('component', 'SEMANTIC_AI', 'Análise semântica por IA'),
+    ('component', 'HTTP_ACQUISITION', 'Aquisição HTTP'),
+    ('entity_type', 'ORGANIZATION', 'Organização'),
+    ('entity_type', 'PRODUCT', 'Produto'),
+    ('entity_type', 'TOPIC', 'Assunto'),
+    ('scope', 'URL_SET', 'Conjunto de URLs'),
+    ('scope', 'DEVICE_SNAPSHOT', 'Captura por dispositivo'),
+    ('scope', 'SEARCH_QUERY', 'Consulta de pesquisa'),
+    ('scope', 'ORIGIN', 'Origem do site'),
+    ('source_kind', 'DETERMINISTIC', 'Regra determinística'),
+    ('analysis_method', 'DETERMINISTIC_PERSISTED_EVIDENCE',
+     'Análise determinística de evidências registradas'),
+    ('confidence_scope', 'LIMITED', 'Limitada às evidências disponíveis'),
+    ('provenance', 'NO_TLS_TIMING_CAPTURE',
+     'Tempo de negociação TLS não medido separadamente'),
+    ('decision', 'ACCEPTED', 'Aceita'),
+    ('required', True, 'Sim'),
+    ('priority', 'P1', 'Prioridade 1 (alta)'),
+])
+def test_typed_labels_match_in_table_tooltip_and_modal(field, raw, expected):
+    html = table('Auditoria', [{field: raw, 'additional': 'Registro contextual'}],
+                 [(field, 'Observação')])
+    assert public_value(raw,field) == expected
+    assert f'title="{expected}"' in html
+    assert f'<dd>{expected}</dd>' in html
+    assert '<dialog class="detail-dialog"' in html
+    assert 'Dados técnicos originais (rastreabilidade)' in html
+
+
+@pytest.mark.parametrize('field,raw', [
+    ('status', 'FUTURE_UNKNOWN_STATE'),
+    ('entity_type', 'UNMAPPED_ENTITY'),
+    ('scope', 'UNKNOWN_SCOPE_KIND'),
+    ('dimension', 'FUTURE_SCORE_DIMENSION'),
+    ('component', 'UNKNOWN_COMPONENT'),
+])
+def test_unmapped_machine_tokens_are_not_public_labels(field, raw):
+    html = table('Dados da AUD', [{field:raw, 'additional':'extra'}], [(field,'Observação')])
+    assert raw not in html.split('<details class="in"><summary>Dados técnicos originais')[0]
+    assert public_value(raw,field) != raw
 
 
 class PublicLabels(HTMLParser):
@@ -133,13 +179,13 @@ def test_public_labels_across_ten_pages(tmp_path):
         assert not parser.bad,(path.name,parser.bad)
     html=table('Telemetria',[{'provider':'Provider literal','captured_at':'2026-09-11T00:00:00Z','_ref':'#record'}],[('provider','Provider'),('captured_at','Capturado em'),('_ref','Fonte')],timezone_name='America/Sao_Paulo')
     assert '<th scope="col">Provedor</th>' in html and 'Provider literal' in html
-    assert '10/09/2026 21:00:00' in html and 'title="2026-09-11T00:00:00Z"' in html
+    assert '10/09/2026 21:00:00' in html and 'title="10/09/2026 21:00:00 (America/Sao_Paulo)"' in html
     assert 'Evidência e detalhes' not in html
     assert 'Abrir registro técnico' in html
     assert 'class="modal-open"' in html
     assert 'Ver detalhes' in html
     assert '<dialog class="detail-dialog"' in html
-    assert 'Dados persistidos completos' in html
+    assert 'Dados técnicos originais (rastreabilidade)' in html
     assert 'Abrir registro técnico completo' in html
 
     for path in output.glob('*.html'):
@@ -160,7 +206,7 @@ def test_long_table_content_uses_modal_without_inline_expander():
     assert 'Ver detalhes' in html
     assert 'Conteúdo completo disponível em Ver detalhes' in html
     assert long_value.strip() in html
-    assert 'Dados persistidos completos' in html
+    assert 'Dados técnicos originais (rastreabilidade)' in html
 
 
 def test_chip_palette_contrast():
