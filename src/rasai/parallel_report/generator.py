@@ -106,6 +106,7 @@ def _render_package(root, database, before, logical_before, output):
     }
     from .page_views import SECTIONS
     from .catalog_context import STRUCTURED
+    from .governance import Governance
     # A route is not automatically a summary, and a summary is not a decision.
     editorial_fields = {}
     for sections in SECTIONS.values():
@@ -121,7 +122,14 @@ def _render_package(root, database, before, logical_before, output):
         'scores': {'value', 'coverage', 'confidence', 'dimension'},
         'recommendation_governance': {'decision', 'source_id'},
         'directed_analysis_actions': {'title', 'source_id', 'priority'},
+        'directed_analysis_runs': {'strategic_summary_json', 'roadmap_json', 'status'},
     })
+    governance = Governance(tables.get('recommendation_governance', ()))
+    governed_families = {
+        'directed_analysis_actions', 'recommendations',
+        'improvement_intelligence_recommendations',
+        'content_remediation_suggestions', 'jsonld_remediation_suggestions',
+    }
     family_coverage = {}
     for source, rows in tables.items():
         page = destination(source)
@@ -133,6 +141,9 @@ def _render_package(root, database, before, logical_before, output):
             source == 'scores' and any(row.get('value') is not None for row in rows)
             or source == 'recommendation_governance' and any(
                 row.get('decision') in {'ACCEPTED', 'REJECTED'} for row in rows)
+            or source in governed_families and any(
+                governance.disposition(source, row) == 'Aceita pela governança'
+                for row in rows)
         )
         family_coverage[source] = {
             'page': page + '.html' if page is not None else None,
