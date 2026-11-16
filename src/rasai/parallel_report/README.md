@@ -52,3 +52,12 @@ O teste Chromium usa somente instalação existente. O manifesto não inclui
 hash de si mesmo para evitar autorreferência; registra hashes de todos os
 demais arquivos gerados. `source_writes=0` exclui somente a nova saída derivada.
 Nunca interpretar existência de relatório como homologação da auditoria.
+
+
+## Paridade semântica após a #710
+
+O HTML do `report-catalog` **não é fonte de fatos para este gerador**. Quadros executivos recebem registros diretamente de `audit.db` e sidecars verificados; o manifesto íntegro do catálogo é consultado somente para habilitar links técnicos de aprofundamento. Sem o catálogo, a apresentação deve continuar explicando os fatos materiais e informar que o destino opcional está indisponível; quando exportada isoladamente, links externos ao pacote exigem o catálogo contíguo e não devem ser usados para obter conclusões essenciais.
+
+O `coverage-map.json` versão **3** distingue anexo preservado, registro navegável, síntese editorial e conclusão/decisão; existência de tabela ou link não certifica autonomia executiva. Propostas sem decisão permanecem fora do plano aprovado. A projeção contextual SEO/GEO mantém hipóteses condicionais e estado de verificação; a consulta de rede reaproveita um avaliador determinístico sobre observações já persistidas. Geração não faz consultas de IA nem novas medições.
+
+O gerador interno `0.4.1` invalida pacotes de apresentação antigos da linha `0.4.0`; a versão do produto não muda. A homologação semântica da AUD real e o aceite visual continuam gates independentes do manifesto e do CI.
