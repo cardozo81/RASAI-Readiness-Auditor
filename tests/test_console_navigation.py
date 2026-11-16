@@ -282,18 +282,28 @@ def test_final_selected_audit_menu_can_open_catalog_report(monkeypatch, tmp_path
 
 
 
+def _minimal_presentation_workspace(tmp_path: Path) -> Path:
+    import sqlite3
+    root = tmp_path / "AUD-SYNTHETIC"
+    (root / "artifacts").mkdir(parents=True)
+    (root / "artifacts" / "page.html").write_text(
+        "<html lang='pt-BR'><p>Captura persistida</p></html>", encoding="utf-8"
+    )
+    with sqlite3.connect(root / "audit.db") as db:
+        db.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY, status TEXT)")
+        db.execute("INSERT INTO audits VALUES (?,?)", (root.name, "PARTIAL_RETRYABLE"))
+        db.execute("CREATE TABLE page_snapshots(snapshot_id TEXT PRIMARY KEY, rendered_artifact_ref TEXT)")
+        db.execute("INSERT INTO page_snapshots VALUES (?,?)", ("snapshot-1", "artifacts/page.html"))
+    return root
+
+
 def test_presentation_on_demand_no_catalog_and_no_canonical_replay(
     monkeypatch, tmp_path: Path
 ) -> None:
     from rasai import console_artifacts
     from rasai.parallel_report.artifact_reader import inventory
-    from rasai.parallel_report.generator import generate
-    from test_parallel_report import fixture
 
-    root = fixture(tmp_path / "AUD-SYNTHETIC")
-    # A partial AUD may have no canonical report, or only a stale catalog.
-    with __import__("sqlite3").connect(root / "audit.db") as db:
-        db.execute("UPDATE audits SET status='PARTIAL_RETRYABLE'")
+    root = _minimal_presentation_workspace(tmp_path)
     before = inventory(root)
     from rasai import catalog_report_site, report_completion
     def forbidden(*args, **kwargs):
@@ -302,7 +312,9 @@ def test_presentation_on_demand_no_catalog_and_no_canonical_replay(
     monkeypatch.setattr(report_completion, "materialize_catalog_report_projection", forbidden)
     monkeypatch.setattr(console_artifacts, "report_entrypoint", forbidden)
     report, status = console_artifacts.materialize_presentation_report_on_demand(root)
-    assert (report, status) == ((root / "report-presentation" / "index.html").resolve(), "MATERIALIZED")
+    assert (report, status) == (
+        (root / "report-presentation" / "index.html").resolve(), "MATERIALIZED"
+    )
     assert report.is_file()
     assert inventory(root) == before
     assert console_artifacts.presentation_report_entrypoint(root) == report
@@ -314,8 +326,7 @@ def test_presentation_on_demand_rejects_active_sqlite_without_catalog_replay(
     monkeypatch, tmp_path: Path
 ) -> None:
     from rasai import console_artifacts
-    from test_parallel_report import fixture
-    root = fixture(tmp_path / "AUD-SYNTHETIC")
+    root = _minimal_presentation_workspace(tmp_path)
     (root / "audit.db-wal").touch()
     report, status = console_artifacts.materialize_presentation_report_on_demand(root)
     assert report is None
