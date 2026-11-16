@@ -43,6 +43,7 @@ def _aud(tmp_path, *, mode=None, declared=None):
              "https://example.org/b", "STATIC_OR_SSR", "artifacts/raw/b.html",
              "artifacts/rendered/b.html"),
         ])
+    con.close()  # sqlite3's transaction context does not close its Windows file handle.
     if mode:
         configuration = prepare_audit_choice_configuration(
             {"targets": ["https://example.org/a"]},

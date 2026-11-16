@@ -57,15 +57,18 @@ def search_context(root, tables):
     return html
 
 
-def editorial_evidence(root, tables):
-    from rasai.contextual_advisory import load_projection
-    snapshots = tables.get('page_snapshots', ())
-    if not any(r.get('rendered_artifact_ref') or r.get('raw_artifact_ref') for r in snapshots):
-        return ''
-    try:
-        projection = load_projection(root, ai='none')
-    except (OSError, ValueError, sqlite3.Error):
-        return '<p>Qualificação editorial da captura indisponível (N/D).</p>'
+def editorial_evidence(root, tables, projection=None):
+    if projection is None:
+        from .artifact_reader import inventory
+        from .capture_projection import project_capture
+        projection = project_capture(root, tables, inventory(root))
+    state = projection.get('state', 'PROJECTION_ERROR')
+    if state not in {'AVAILABLE', 'PARTIAL'}:
+        from .capture_projection import state_label
+        return ('<h2>Qualificação estrutural da captura</h2>'
+                + kv([('Estado', state_label(state))])
+                + '<p>Não foi possível qualificar esta fonte. A ausência de projeção '
+                  'não demonstra ausência de conteúdo ou problemas.</p>')
     faq = projection.get('faq_aria_v3', {}).get('counts', {})
     semantic = projection.get('semantic_v2', {}).get('counts', {})
     review = projection.get('reverse_review', {}).get('counts', {})
@@ -509,7 +512,7 @@ def network_context(root, audit_id, timezone_name):
     return html, events, inventory
 
 
-def scope_context(root, raw_tables, timezone_name, costs):
+def scope_context(root, raw_tables, timezone_name, costs, capture_projection=None):
     tables = {name: sanitize(rows) for name, rows in raw_tables.items() if name in {
         'audit_targets', 'serp_observations', 'geo_observation_runs', 'perplexity_search_runs',
         'audits', 'audit_fulfillment_contracts', 'page_snapshots', 'synthetic_apdex_summaries',
@@ -521,7 +524,7 @@ def scope_context(root, raw_tables, timezone_name, costs):
     audit = next(iter(tables.get('audits', ())), {})
     local = lambda stamp: public_value(stamp, 'captured_at', timezone_name)
     result[SEARCH_PAGE] = search_context(root, tables)
-    review_html = editorial_evidence(root, tables)
+    review_html = editorial_evidence(root, tables, capture_projection)
     result['conteudo'] = review_html
     if review_html:
         result[SEARCH_PAGE] += ('<h2>Conteúdo observado e condições GEO/SEO</h2>'

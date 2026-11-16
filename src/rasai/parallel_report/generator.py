@@ -87,7 +87,17 @@ def _render_package(root, database, before, logical_before, output):
     from .presentation_labels import timezone_for_records
 
     timezone_name, _ = timezone_for_records(records)
-    supplements = scope_context(root, tables, timezone_name, costs)
+    from .capture_projection import project_capture
+    from .executive_evidence import summaries
+    capture_projection = project_capture(root, tables, before)
+    supplements = scope_context(root, tables, timezone_name, costs, capture_projection)
+    summary_html, editorial_receipt = summaries(root, tables, before, records, capture_projection)
+    if (capture_projection['state'] == 'SOURCE_INTEGRITY_MISMATCH'
+            or editorial_receipt['history_state'] == 'SOURCE_INTEGRITY_MISMATCH'
+            or editorial_receipt['overview_state'] == 'SOURCE_INTEGRITY_MISMATCH'):
+        raise RuntimeError('Source integrity mismatch; presentation publication refused')
+    for page, body in summary_html.items():
+        supplements[page] += body
     visual_previews = package_captures(root, tables.get('page_snapshots', ()), output, before)
     supplements['extracao:visual'] = capture_gallery_html(
         tables.get('page_snapshots', ()), visual_previews, timezone_name)
@@ -101,6 +111,7 @@ def _render_package(root, database, before, logical_before, output):
     execution_html, execution_receipt = build_execution_context(tables, coverage_receipt)
     supplements.update(execution_html)
     coverage_receipt['execution'] = execution_receipt
+    coverage_receipt['editorial'] = editorial_receipt
     (output / 'assets' / 'evidence-coverage.json').write_text(
         json.dumps(coverage_receipt, ensure_ascii=False, indent=2), encoding='utf-8')
     pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
@@ -174,6 +185,16 @@ def _render_package(root, database, before, logical_before, output):
             'columns': schema[source]['columns'],
         }
     coverage_map['families'] = family_coverage
+    # Explicit projection receipts supersede route/field heuristics where available.
+    for source, entry in family_coverage.items():
+        uses = [(page, topic) for page, topics in editorial_receipt['pages'].items()
+                for topic in topics if source in topic.get('families', ())]
+        if uses:
+            summarized = any(t['state'] == 'PRESENT_SUMMARIZED' for _,t in uses)
+            entry['levels']['editorial_summary'] = summarized
+            entry['representation'] = 'editorial' if summarized else 'navigable-record'
+            entry['editorial_uses'] = [dict(page=p, topic=t['topic'], state=t['state']) for p,t in uses]
+    coverage_map['editorial'] = editorial_receipt
     (output / 'assets' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
     generated = {p.relative_to(output).as_posix(): digest(p) for p in output.rglob('*') if p.is_file()}
     return {

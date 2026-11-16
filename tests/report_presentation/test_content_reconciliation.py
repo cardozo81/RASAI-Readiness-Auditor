@@ -290,8 +290,8 @@ def test_persisted_strategic_synthesis_keeps_governance_classes():
 
 def test_editorial_verification_tasks_keep_source_and_validation(monkeypatch, tmp_path):
     from rasai.parallel_report.scope_context import editorial_evidence
-    from rasai import contextual_advisory
-    monkeypatch.setattr(contextual_advisory, 'load_projection', lambda *_a, **_kw: {
+    projection = {
+        'state': 'AVAILABLE',
         'faq_aria_v3': {'counts': {}},
         'semantic_v2': {'counts': {}},
         'reverse_review': {
@@ -305,8 +305,8 @@ def test_editorial_verification_tasks_keep_source_and_validation(monkeypatch, tm
                                           'source_ref':'artifacts/page.html',
                                           'source_sha256': 'a' * 64}]}],
         },
-    })
-    html = editorial_evidence(tmp_path, {'page_snapshots':[{'rendered_artifact_ref':'artifacts/page.html'}]})
+    }
+    html = editorial_evidence(tmp_path, {'page_snapshots':[{'rendered_artifact_ref':'artifacts/page.html'}]}, projection)
     assert 'Conferir alegação' in html and 'Solicitar prova vigente' in html
     assert 'Até 25' in html and 'artifacts/page.html' in html
     assert 'Insuficiente' in html and '>INSUFICIENTE<' not in html
