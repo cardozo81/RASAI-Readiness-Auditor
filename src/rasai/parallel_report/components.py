@@ -54,7 +54,7 @@ def ruler(label, value, maximum=100, proposal=None, scope=None, href=None):
 
 
 def _detail_title(row, index):
-    for key in ('title', 'label', 'query', 'url', 'requested_url', 'name', 'rule_id', 'metric_id'):
+    for key in ('title', 'label', 'query', 'url', 'requested_url', 'name'):
         value = row.get(key)
         if value not in (None, ''):
             return str(public_value(value, key))
