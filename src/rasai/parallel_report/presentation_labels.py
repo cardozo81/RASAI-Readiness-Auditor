@@ -72,8 +72,24 @@ CONFIDENCE_SCOPE_LABELS = {
     'INSUFFICIENT':'Evidência insuficiente para conclusão ampla',
     'GLOBAL':'Abrangência global declarada',
 }
+PROVENANCE_LABELS = {
+    'LOCAL_DNS_RESOLVER':'Resolvedor DNS local',
+    'LOCAL_TLS_SOCKET':'Conexão TLS observada localmente',
+    'LOCAL_TCP_SOCKET':'Conexão TCP observada localmente',
+    'LOCAL_OPERATOR_PROCESS':'Sonda executada localmente com autorização',
+    'NO_DNS_CAPTURE':'DNS não medido separadamente na captura',
+    'NO_TCP_TIMING_CAPTURE':'Tempo de conexão TCP não medido separadamente',
+    'NO_TLS_TIMING_CAPTURE':'Tempo de negociação TLS não medido separadamente',
+    'NO_ACTIVE_PROBE':'Sonda complementar não realizada',
+    'NO_ENRICHMENT':'Geolocalização ou ASN não enriquecidos',
+    'LOCAL_MAXMIND_MMDB':'Base geográfica local',
+    'LOCAL_MMDB_CITY':'Base geográfica local',
+    'AUD_CAPTURE':'Captura registrada na auditoria',
+}
 FIELD_ENUM_LABELS = {
     'dimension': DIMENSION_LABELS,
+    'provenance': PROVENANCE_LABELS,
+    'measurement_origin': PROVENANCE_LABELS,
     'entity_type': ENTITY_TYPE_LABELS,
     'scope': SCOPE_LABELS,
     'field_scope': SCOPE_LABELS,
@@ -96,13 +112,13 @@ SEMANTIC_ENUM_FIELDS = ENUM_FIELDS | {
     'decision', 'required', 'domain', 'source', 'source_kind',
     'source_mode', 'origin_kind', 'measurement_origin', 'purpose',
     'error_scope', 'domain_status', 'service_state', 'event_state',
-    'rule_result', 'provider_state', 'hop_state',
+    'rule_result', 'provider_state', 'hop_state', 'provenance',
 }
 TECHNICAL_ONLY_FIELDS = frozenset({
     'projection_json', 'query_json', 'proposed_json', 'request_payload',
     'response_payload', 'limitations_json', 'implementation_guidance_json',
     'validation_steps_json', 'original_html', 'suggested_html',
-    'proposed_text', 'suggested_text', 'raw_payload', 'configuration_json',
+    'raw_payload', 'configuration_json',
 })
 MACHINE_TOKEN = re.compile(r'^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$')
 
