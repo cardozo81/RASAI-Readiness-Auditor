@@ -128,3 +128,146 @@ def test_contextual_index_links_to_review_entry():
     html = _v2_panel(dict(semantic_v2=overlay,captures=[]), 'index.html', private=False)
     assert "geo-content-review.html#contextual-content" in html
     assert "geo-content-review.html#contextual-semantic-v2" not in html
+
+
+def test_sensitive_cookie_fields_keep_safe_cross_references_and_redact_values():
+    from rasai.parallel_report.sanitization import sanitize
+    raw = {
+        'cookie_attribution_id': 'ATTR-0042',
+        'cookie_ref': 'ATTR-0042',
+        'cookie_name_display': 'SID',
+        'set_cookie_index': 0,
+        'cookie_value': 'private-session-value',
+        'authorization': 'Bearer private-secret',
+        'selector': '.sk-navigation-98765432109876',
+        'nested': '{"cookie_ref":"ATTR-0042","cookie_value":"PRIVATE"}',
+    }
+    out = sanitize(raw)
+    assert out['cookie_attribution_id'] == out['cookie_ref'] == 'ATTR-0042'
+    assert out['cookie_name_display'] == 'SID'
+    assert out['set_cookie_index'] == 0
+    assert out['selector'] == raw['selector']
+    assert out['cookie_value'] == out['authorization'] == '[REDACTED]'
+    assert out['nested']['cookie_ref'] == 'ATTR-0042'
+    assert out['nested']['cookie_value'] == '[REDACTED]'
+    dubious = sanitize({'cookie_ref': 'ghp_' + 'a' * 25, 'other': 'sk-' + 'b' * 24})
+    assert dubious['cookie_ref'].startswith('[REF-')
+    assert 'ghp_' not in str(dubious) and 'sk-' not in str(dubious)
+    assert sanitize({'set_cookie_index': '0'})['set_cookie_index'] == '[REDACTED]'
+
+
+def test_catalog_html_does_not_supply_structured_facts(tmp_path, monkeypatch):
+    from rasai.parallel_report.catalog_context import catalog_context
+    from rasai.parallel_report import catalog_context as module
+    monkeypatch.setattr(module, '_verified_links', lambda *_: set())
+    source = {'audit_fulfillment_work_items': [{
+        'component': 'SEARCH', 'status': 'NOT_REQUESTED', 'required': 0,
+    }]}
+    first = catalog_context(tmp_path, 'digest', 'AUD-X', source)
+    (tmp_path / 'report-catalog').mkdir()
+    (tmp_path / 'report-catalog' / 'execution-evidence.html').write_text(
+        '<table><tr><td>FORGED_SUCCESS</td></tr></table>', encoding='utf-8')
+    second = catalog_context(tmp_path, 'digest', 'AUD-X', source)
+    assert first['index'] == second['index']
+    assert 'SEARCH' in second['index'] and 'FORGED_SUCCESS' not in second['index']
+    assert 'NOT_REQUESTED' in second['index']
+
+
+def test_sari_measured_score_without_breakdown_is_not_reported_as_unmeasured():
+    from rasai.parallel_report.page_views import editorial
+    from rasai.parallel_report.thresholds import load
+    data = {'scores': [{'score_id':'s-1', 'dimension':'OVERALL_READINESS',
+                        'value':89.8, 'confidence':'HIGH'}]}
+    records = build(data, {'scores': {'columns': list(data['scores'][0]),
+                                     'primary_key': ['score_id']}})
+    html = editorial('indices', records, {}, load())
+    assert 'Decomposição de regras desta dimensão não disponível' in html
+    assert 'O índice acima permanece medido' in html
+    assert '89,8' in html
+
+
+def test_action_plan_separates_governed_undecided_and_excluded():
+    decisions = [
+        dict(source_kind='DETERMINISTIC', source_id='ok', decision='ACCEPTED'),
+        dict(source_kind='DETERMINISTIC', source_id='deny', decision='REJECTED'),
+    ]
+    data = {'directed_analysis_actions': [
+        dict(action_id='1', title='Action-OK', source_kind='DETERMINISTIC', source_id='ok'),
+        dict(action_id='2', title='Action-PENDING', source_kind='DETERMINISTIC', source_id='pending'),
+        dict(action_id='3', title='Action-DENIED', source_kind='DETERMINISTIC', source_id='deny')],
+        'recommendation_governance': decisions}
+    html = render_plan(lambda names: [r for name in names for r in data.get(name, [])],
+                       'UTC', Governance(decisions))
+    approved = html.split('Plano aprovado pela governança', 1)[1].split('Recomendações técnicas sem aprovação', 1)[0]
+    pending = html.split('Recomendações técnicas sem aprovação', 1)[1].split('Decisões rejeitadas', 1)[0]
+    assert 'Action-OK' in approved and 'Action-PENDING' not in approved
+    assert 'Action-PENDING' in pending and 'Action-OK' not in pending
+    assert 'Action-DENIED' not in html
+    assert 'Ações direcionadas excluídas da execução' in html
+
+
+def test_persisted_strategic_synthesis_keeps_governance_classes():
+    from rasai.parallel_report.action_plan import strategic_context
+    import json
+    data = {
+        'directed_analysis_runs': [{
+            'status':'COMPLETE', 'provider':'Persisted', 'model':'Previous',
+            'strategic_summary_json': json.dumps({
+                'strengths':['Retenção comprovada no snapshot'],
+                'risks':['Risco condicional, verificar escopo']}),
+            'roadmap_json': json.dumps([
+                {'phase':'Fase 1', 'objective':'Conferir evidências', 'action_ids':['a','b']}]),
+        }],
+        'directed_analysis_actions': [
+            {'action_id':'a', 'source_kind':'DETERMINISTIC', 'source_id':'ok'},
+            {'action_id':'b', 'source_kind':'DETERMINISTIC', 'source_id':'pending'}],
+    }
+    decisions = [dict(source_kind='DETERMINISTIC', source_id='ok', decision='ACCEPTED')]
+    html = strategic_context(lambda names: [r for n in names for r in data.get(n, [])],
+                             Governance(decisions))
+    assert 'Retenção comprovada no snapshot' in html and 'Risco condicional' in html
+    assert 'Fase 1' in html and 'Aceitas pela governança' in html
+    assert 'Sem decisão ou pendentes' in html
+
+
+def test_editorial_verification_tasks_keep_source_and_validation(monkeypatch, tmp_path):
+    from rasai.parallel_report.scope_context import editorial_evidence
+    from rasai import contextual_advisory
+    monkeypatch.setattr(contextual_advisory, 'load_projection', lambda *_a, **_kw: {
+        'faq_aria_v3': {'counts': {}},
+        'semantic_v2': {'counts': {}},
+        'reverse_review': {
+            'counts': {'verification_tasks': 1},
+            'tasks': [{'task_id': 'T1', 'status': 'VALIDACAO_NECESSARIA',
+                       'title': 'Conferir alegação',
+                       'rationale': 'Alegação observada, não autenticada',
+                       'validation': 'Solicitar prova vigente',
+                       'evidence_sufficiency': 'INSUFICIENTE',
+                       'evidence_refs': [{'label':'H1', 'text':'Até 25',
+                                          'source_ref':'artifacts/page.html',
+                                          'source_sha256': 'a' * 64}]}],
+        },
+    })
+    html = editorial_evidence(tmp_path, {'page_snapshots':[{'rendered_artifact_ref':'artifacts/page.html'}]})
+    assert 'Conferir alegação' in html and 'Solicitar prova vigente' in html
+    assert 'Até 25' in html and 'artifacts/page.html' in html
+    assert 'INSUFICIENTE' in html
+
+
+def test_network_diagnosis_uses_persisted_assessor_not_html(monkeypatch, tmp_path):
+    from rasai.parallel_report import scope_context as ctx
+    monkeypatch.setattr(ctx, 'read_network_observations', lambda *_: [])
+    monkeypatch.setattr(ctx, 'read_authorized_probes', lambda *_: [])
+    monkeypatch.setattr(ctx, 'build_network_assessment', lambda *_: {
+        'analysis_method':'DETERMINISTIC_PERSISTED_EVIDENCE',
+        'confidence_scope':'LIMITED',
+        'confidence_explanation':'Uma única sessão',
+        'coverage': {'audit_captures':1, 'authorized_probes':0,
+                     'dns_samples':0, 'tcp_samples':0, 'tls_samples':0},
+        'findings': [{'title':'Escopo insuficiente', 'conclusion':'Sem causa atribuída',
+                      'confidence':'LOW', 'evidence_refs':[],
+                      'limitation':'Sem rota comprovada', 'recommendation':'Obter autorização',
+                      'validation':'Repetir medição autorizada'}]})
+    html, _ = ctx.network_context(tmp_path, 'AUD-X', 'UTC')
+    assert 'Escopo insuficiente' in html and 'Uma única sessão' in html
+    assert 'Sem rota comprovada' in html and 'Repetir medição autorizada' in html
