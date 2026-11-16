@@ -152,3 +152,64 @@ def test_multiple_work_items_for_one_component_are_counted_without_discarding_st
     assert 'REQUESTED_NOT_EXECUTED (1)' in statuses['state']
     assert 'Concluído (1)' in html['seguranca:execution']
     assert 'Solicitado, não executado (1)' in html['seguranca:execution']
+
+
+def test_only_persisted_rule_result_distribution_is_displayed_not_a_new_score():
+    rows = sample_partial_contract()
+    rows['rule_executions'] = (
+        [{'result':'PASS'} for _ in range(16)]
+        + [{'result':'UNKNOWN'} for _ in range(9)]
+        + [{'result':'WARNING'} for _ in range(2)]
+    )
+    body, _ = build_execution_context(rows, receipt_with_network())
+    html = body['indices:execution']
+    assert 'Resultados das regras, sem recomputar índices' in html
+    assert 'Regra atendida' in html
+    assert 'Regra com ressalva' in html
+    assert 'Resultado da regra não determinado' in html
+    assert 'score consolidado' in html
+    assert '>16</td>' in html and '>9</td>' in html and '>2</td>' in html
+    assert '>89,8<' not in html
+
+
+def test_passive_resources_and_integrations_are_not_security_findings():
+    rows = sample_partial_contract()
+    rows['passive_security_resources'] = (
+        [{'resource_kind':'IMG','party':'FIRST_PARTY'} for _ in range(46)]
+        + [{'resource_kind':'STYLESHEET','party':'FIRST_PARTY'} for _ in range(18)]
+        + [{'resource_kind':'SCRIPT','party':'FIRST_PARTY'} for _ in range(6)]
+        + [{'resource_kind':'SCRIPT','party':'THIRD_PARTY'} for _ in range(10)]
+        + [{'resource_kind':'SCRIPT','party':'INLINE'} for _ in range(2)]
+        + [{'resource_kind':'RESOURCE','party':'INLINE'} for _ in range(5)]
+    )
+    rows['passive_security_integrations']=[
+        {'integration_id':'TLS_EXTERNAL','state':'SUCCESS','attempts':1},
+        {'integration_id':'THREAT_REPUTATION','state':'NO_DATA','attempts':0},
+        {'integration_id':'MDN_OBSERVATORY','state':'NOT_REQUESTED','attempts':0},
+    ]
+    html, _ = build_execution_context(rows, receipt_with_network())
+    body=html['seguranca:execution']
+    assert 'Perfil dos recursos da captura' in body
+    assert 'Folhas de estilo' in body and 'Imagens' in body
+    assert 'Primeira parte' in body and 'Terceira parte' in body
+    assert 'Situação das integrações técnicas observadas' in body
+    assert 'TLS externo' in body and 'Reputação de ameaças' in body
+    assert 'Sem dados' in body and 'Não solicitado' in body
+    assert 'não comprovam análise passiva executada' in body
+
+
+def test_forecast_with_incomplete_execution_does_not_claim_final_spend():
+    rows=sample_partial_contract()
+    rows['console_cost_forecast_outcomes']=[{
+        'currency':'USD', 'expected_cost':0.0411926,
+        'actual_cost':0.0, 'status':'NÃO COMPARÁVEL',
+        'relation':'unsafe source text should not appear in output',
+    }]
+    html, _ = build_execution_context(rows, receipt_with_network())
+    ai=html['ia-custos:execution']
+    assert 'Previsão versus execução registrada' in ai
+    assert 'Não comparável' in ai
+    assert '0,0411926' in ai
+    assert 'Observado até o momento' in ai
+    assert 'não significa custo final' in ai
+    assert 'unsafe source text' not in ai
