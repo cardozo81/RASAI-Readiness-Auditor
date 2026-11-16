@@ -344,6 +344,10 @@ def test_historical_complete_audit_offers_presentation_generation_only_on_open(
     audit_id = "AUD-HISTORICAL-PRESENTATION"
     audit_root = tmp_path / audit_id
     audit_root.mkdir()
+    # A real historical AUD has source evidence and a persisted audit.db.
+    # Keep the fixture representative of the new generation eligibility gate.
+    (audit_root / "audit.db").write_bytes(b"fixture - not read by mocked opener")
+    (audit_root / "artifacts").mkdir()
     report = audit_root / "report-catalog" / "index.html"
     report.parent.mkdir()
     report.write_text("<html></html>", encoding="utf-8")
@@ -411,6 +415,10 @@ def test_historical_complete_audit_navigation_does_not_materialize_presentation(
     audit_id = "AUD-HISTORICAL-NO-WRITE"
     audit_root = tmp_path / audit_id
     audit_root.mkdir()
+    # A real historical AUD has source evidence and a persisted audit.db.
+    # Keep the fixture representative of the new generation eligibility gate.
+    (audit_root / "audit.db").write_bytes(b"fixture - not read by mocked opener")
+    (audit_root / "artifacts").mkdir()
     report = audit_root / "report-catalog" / "index.html"
     report.parent.mkdir()
     report.write_text("<html></html>", encoding="utf-8")
@@ -457,6 +465,32 @@ def test_historical_complete_audit_navigation_does_not_materialize_presentation(
 
     assert "A. Abrir relatório de apresentação [GERAR AO ABRIR]" in output.getvalue()
 
+
+
+def test_historical_complete_audit_without_db_is_not_marked_generatable(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Never promise a usable presentation without audit evidence sources."""
+    from rasai import console_usability_refinements as usability
+
+    console = _console()
+    state = _state(tmp_path)
+    audit_id = "AUD-HISTORICAL-MISSING-DATABASE"
+    audit_root = tmp_path / audit_id
+    audit_root.mkdir()
+    report = audit_root / "report-catalog" / "index.html"
+    report.parent.mkdir()
+    report.write_text("<html>catalog</html>", encoding="utf-8")
+    monkeypatch.setattr(
+        usability, "_safe_summary",
+        lambda *_: {"processing_status": "COMPLETE"},
+    )
+    monkeypatch.setattr("rasai.console_artifacts.report_entrypoint", lambda _: report)
+    monkeypatch.setattr("rasai.console_artifacts.presentation_report_entrypoint", lambda _: None)
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "V")
+    with redirect_stdout(StringIO()) as output:
+        assert usability._selected_audit_menu(console, state, audit_id) is False
+    assert "A. Abrir relatório de apresentação [INDISPONÍVEL]" in output.getvalue()
 
 def test_root_launcher_bootstraps_and_executes_installed_console() -> None:
     root = Path(__file__).resolve().parents[1]
