@@ -70,7 +70,8 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
             return None
         required = {name + '.html' for name, _ in PAGES}
         required.update(visual_files)
-        required.update('assets/' + name for name in ('site.css', 'app.js', 'thresholds.json', 'coverage-map.json'))
+        required.update('assets/' + name for name in ('site.css', 'app.js', 'thresholds.json',
+                                                          'coverage-map.json', 'evidence-coverage.json'))
         required.update('anexos/' + sha256(table.encode()).hexdigest() + '.json'
                         for table in manifest['tables_read'])
         hashes = manifest['sha256_per_file']
