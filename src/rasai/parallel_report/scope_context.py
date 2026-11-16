@@ -65,13 +65,49 @@ def editorial_evidence(root, tables):
     faq = projection.get('faq_aria_v3', {}).get('counts', {})
     semantic = projection.get('semantic_v2', {}).get('counts', {})
     review = projection.get('reverse_review', {}).get('counts', {})
-    return subsection('FAQ ARIA e decisão editorial na captura', [
+    overview = subsection('FAQ ARIA e decisão editorial na captura', [
         ('Controles observados', faq.get('controls')), ('Respostas presentes no DOM', faq.get('answer_present')),
         ('Painéis não observados', faq.get('not_observed_nd')), ('Ambíguos', faq.get('ambiguous')),
         ('Contextos qualificados v2', semantic.get('qualified')), ('Verificações editoriais', review.get('verification_tasks')),
         ('Ações qualificadas v2', review.get('actionable_v2')), ('Histórico sem ação', review.get('historical_non_actionable')),
         ('Histórico indeterminado', review.get('historical_undetermined'))],
         'A captura descreve o DOM em um instante. Um painel não observado não prova ausência de resposta após interação. O histórico v1 não autoriza uma intervenção v2.')
+    tasks = (projection.get('reverse_review') or {}).get('tasks') or []
+    html = '<section id="editorial-verification"><h2>Verificações editoriais condicionais</h2>'
+    html += '<p>Tarefas de validação sustentadas pelo material de captura, não defeitos SEO/GEO comprovados. SPA, FAQ pós-interação, visibilidade e intenção permanecem condicionais.</p>'
+    if not isinstance(tasks, list) or not tasks:
+        return overview + html + '<p>N/D — nenhuma tarefa de verificação sustentada nesta captura.</p></section>'
+    html += '<p>' + text(len(tasks)) + ' tarefa(s) no contrato de revisão da captura.</p>'
+    for item in tasks[:64]:
+        if not isinstance(item, dict):
+            continue
+        task = sanitize(item)
+        refs = task.get('evidence_refs') or []
+        html += '<details><summary>' + text(task.get('title')) + '</summary>'
+        html += kv([
+            ('Identificação', task.get('task_id')),
+            ('Estado', task.get('status')),
+            ('Suficiência da evidência', task.get('evidence_sufficiency')),
+            ('Motivo observado', task.get('rationale')),
+            ('Como validar', task.get('validation')),
+            ('Referências total', task.get('evidence_refs_total')),
+            ('Referências omitidas na origem', task.get('evidence_refs_omitted')),
+        ])
+        for ref in refs[:16]:
+            if not isinstance(ref, dict):
+                continue
+            html += kv([
+                ('Elemento / trecho observado', ref.get('label')),
+                ('Texto observado', ref.get('text')),
+                ('Snapshot', ref.get('snapshot_id')),
+                ('Ocorrência / heading', ref.get('occurrence_id') or ref.get('heading_id')),
+                ('Arquivo fonte', ref.get('source_ref')),
+                ('SHA-256 da fonte', ref.get('source_sha256')),
+            ])
+        html += '</details>'
+    if len(tasks) > 64:
+        html += '<p>Exibidas 64 verificações de ' + text(len(tasks)) + '; restante permanece no contrato técnico.</p>'
+    return overview + html + '</section>'
 
 
 
@@ -331,7 +367,13 @@ def scope_context(root, raw_tables, timezone_name, costs):
     audit = next(iter(tables.get('audits', ())), {})
     local = lambda stamp: public_value(stamp, 'captured_at', timezone_name)
     result[SEARCH_PAGE] = search_context(root, tables)
-    result['conteudo'] = editorial_evidence(root, tables)
+    review_html = editorial_evidence(root, tables)
+    result['conteudo'] = review_html
+    if review_html:
+        result[SEARCH_PAGE] += ('<h2>Conteúdo observado e condições GEO/SEO</h2>'
+                                '<p>As mesmas tarefas de validação editorial estão disponíveis na superfície de conteúdo, '
+                                'sem equivaler a medição de ranking ou citação generativa.</p>'
+                                + review_html)
     if result['conteudo']:
         result['conteudo'] += kv([('Instante da captura · ' + str(row.get('device') or 'N/D'), local(row.get('captured_at')))
                                   for row in tables.get('page_snapshots', ())])
