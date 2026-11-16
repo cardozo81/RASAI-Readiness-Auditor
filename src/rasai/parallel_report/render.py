@@ -101,6 +101,67 @@ def review_table(records, links, evidence, physical, governance=None):
     return body + '</tbody></table></div>'
 
 
+
+def grouped_physical_references(evidence, timezone_name):
+    """Show each physical path once, preserving every indexed provenance link.
+
+    The physical reference index is intentionally *not* deduplicated: existing
+    `extracao.html#physical-N` anchors still identify individual observations.
+    A group merely changes the presentation of an immutable evidence inventory.
+    """
+    from .components import kv
+
+    grouped = {}
+    for index, item in enumerate(evidence):
+        reference = str(item.get('reference') or '')
+        grouped.setdefault(reference, []).append((index, item))
+    total_references = len(evidence)
+    body = (
+        '<p class="rf">Arquivos referenciados: ' + str(len(grouped))
+        + ' caminho(s) único(s) - ' + str(total_references)
+        + ' referência(s) persistida(s). Entradas repetidas apontam ao '
+        'mesmo arquivo; cada vínculo e sua proveniência são preservados.</p>'
+    )
+    for reference, occurrences in grouped.items():
+        hashes = {item.get('sha256') for _, item in occurrences if item.get('sha256')}
+        count = len(occurrences)
+        body += (
+            '<details class="physical-file-group"><summary>'
+            + esc(reference)
+            + ' <span class="rf">(' + str(count) + ' referência'
+            + ('s' if count != 1 else '') + ')</span></summary>'
+        )
+        if len(hashes) == 1:
+            body += '<p class="rf">SHA-256 do arquivo: <code>' + esc(next(iter(hashes))) + '</code></p>'
+        elif len(hashes) > 1:
+            body += '<p class="callout w">Hashes divergentes entre referências; verificar cada vínculo.</p>'
+        else:
+            body += '<p class="rf">SHA-256: N/D - arquivo ausente ou não verificado.</p>'
+        for index, item in occurrences:
+            label = (
+                'Referência ' + str(index + 1) + ' - '
+                + str(item.get('table') or 'registro')
+                + ' / ' + str(item.get('field') or 'campo não identificado')
+                + ' (linha ' + str(item.get('row_index', 0) + 1) + ')'
+            )
+            body += (
+                '<details class="in" id="physical-' + str(index) + '">'
+                '<summary>' + esc(label) + '</summary>'
+                + kv([
+                    (public_label(k), public_value(item.get(k), k, timezone_name))
+                    for k in ('sha256', 'type', 'coverage', 'selector', 'line', 'column')
+                    if k != 'sha256' or len(hashes) != 1
+                ])
+                + '<pre>' + esc(item.get('excerpt')) + '</pre>'
+                + '<a class="tech-link" href="' + esc(item['source_href'])
+                + '">Voltar ao registro técnico de origem</a>'
+                + '<details class="in"><summary>Proveniência completa</summary>'
+                + payload(item) + '</details></details>'
+            )
+        body += '</details>'
+    return body
+
+
 def render(records, links, tables, evidence, calculated, costs, parity, thresholds, missing, supplements=None):
     from .page_views import editorial
     from .components import table, kv
@@ -121,8 +182,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         if page == 'extracao':
             body += '<span id="capture-counts"></span><h2>Contagens derivadas da captura</h2><p>Palavras são tokens de texto no HTML renderizado, excluídos script e style. O contador não testa visibilidade CSS. A comparação competitiva pode usar outro documento e método.</p>' + table('Calculado no relatório', calculated, [('source','Fonte'),('sha256','SHA-256'),('words','Palavras'),('links','Links'),('images','Imagens'),('algorithm_version','Algoritmo')])
             body += '<h2>Arquivos e referências físicas</h2>'
-            for index, item in enumerate(evidence):
-                body += f'<details id="physical-{index}"><summary>{esc(item["reference"])}</summary>' + kv([(public_label(k),public_value(item.get(k),k,timezone_name)) for k in ('sha256','type','coverage','selector','line','column')]) + f'<pre>{esc(item.get("excerpt"))}</pre><a class="tech-link" href="{item["source_href"]}">Voltar ao registro técnico de origem</a><details class="in"><summary>Proveniência completa</summary>{payload(item)}</details></details>'
+            body += grouped_physical_references(evidence, timezone_name)
         if page == 'performance':
             body += '<p class="callout w">Laboratório, campo e amostras sintéticas são universos independentes. Sem série temporal comparável persistida, nenhum gráfico histórico é fabricado.</p>'
         if page == SEARCH_PAGE:
