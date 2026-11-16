@@ -14,6 +14,7 @@ STATUS_LABELS.update({
     'PENDING':'Pendente', 'RUNNING':'Em execução', 'IN_PROGRESS':'Em andamento',
     'ACCEPTED':'Aceita', 'REJECTED':'Rejeitada', 'UNVERIFIED':'Não verificado',
     'VALIDACAO_NECESSARIA':'Validação necessária',
+    'INSUFICIENTE':'Insuficiente', 'SUFICIENTE':'Suficiente',
 })
 STATUS_LABELS.update({'MISSING_PROPOSED':'Ausente — proposta disponível','MEASURED':'Medido','READY':'Pronto','RESPONSE':'Resposta','LIMITED_AVAILABILITY':'Disponibilidade limitada','NEWLY_AVAILABLE':'Disponível recentemente','WIDELY_AVAILABLE':'Amplamente disponível'})
 SEVERITY_LABELS = {'CRITICAL':'Crítica','HIGH':'Alta','MEDIUM':'Média','LOW':'Baixa','INFO':'Informativa','INFORMATIONAL':'Informativa'}
@@ -136,7 +137,7 @@ def typed_public_label(value, field):
         return value
     token = value.upper()
     if field == 'component':
-        return component_label(value)
+        return {'SEARCH': 'Pesquisa em mecanismos de busca'}.get(token) or component_label(value)
     if field == 'scope_key':
         return scope_label(value)
     mapped = FIELD_ENUM_LABELS.get(field, {}).get(token)
