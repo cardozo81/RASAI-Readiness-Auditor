@@ -92,7 +92,7 @@ def review_table(records, links, evidence, physical, governance=None):
             file = esc(item.get('reference')) + '<br><code>' + esc(item.get('sha256')) + '</code>'
             element = esc(item.get('selector', data.get('selector'))) + '<pre>' + esc(item.get('excerpt')) + '</pre>'
             problem = f'{esc(data.get("title", data.get("finding_id")))}<br>{esc(public_value(data.get("severity"),"severity"))} / {esc(public_value(data.get("priority"),"priority"))}<br><a class="tech-link" href="{record.href}">Abrir achado técnico</a>'
-            origin = esc(data.get('source', data.get('origin_kind'))) + '<br>' + esc(item.get('coverage', 'Parcial — vínculo físico inequívoco ausente'))
+            origin = esc(public_value(data.get('source', data.get('origin_kind')), 'source')) + '<br>' + esc(public_value(item.get('coverage', 'Parcial — vínculo físico inequívoco ausente'), 'coverage'))
             action = '<br>'.join(f'{esc(thaw(r.data).get("title", "Ação vinculada"))}<br><a class="tech-link" href="{r.href}">Abrir ação técnica</a>' for r in actions) or 'N/D'
             evidence_link = f'<a class="tech-link" href="extracao.html#physical-{index}">Abrir evidência física</a>' if index is not None else 'N/D'
             validation = [thaw(r.data).get('validation_steps_json', thaw(r.data).get('validation', thaw(r.data).get('verification'))) for r in actions]
