@@ -1,13 +1,9 @@
-"""Optional catalog links and independent structured previews.
+"""Self-contained structured previews over already-read audit SQLite evidence.
 
-Never obtain material facts from report-catalog HTML. SQLite/authorized sidecars
-are the source. Catalog package checks govern links only, not presentation facts.
+No navigation or runtime dependency on report-catalog. Each preview has local
+modal details and an in-page link to the complete sanitized record inventory.
 """
 from collections import defaultdict
-import json
-
-from rasai.catalog_report_site import verify_catalog_report_package
-from rasai.catalog_source_dependencies import verify_source_dependencies
 from .components import table, text, technical_link
 from .read_model import SEARCH_PAGE
 from .sanitization import sanitize
@@ -47,53 +43,42 @@ STRUCTURED = {
 }
 
 REFERENCES = {
-    'indices': ('methodology', 'Método e versão das regras de pontuação'),
-    'descoberta': ('cat-01', 'Ocorrências e detalhes do validador técnico'),
-    'extracao': ('capture-context', 'Captura e prévia técnica local'),
-    'ia-custos': ('metrics', 'Telemetria e intervalos técnicos persistidos'),
+    'indices': ('#presentation-records', 'Consultar regras e evidências nesta apresentação'),
+    'descoberta': ('#presentation-records', 'Consultar registros do validador nesta apresentação'),
+    'extracao': ('#capture-preview', 'Captura e prévia técnica local'),
+    'ia-custos': ('#presentation-records', 'Consultar telemetria técnica nesta apresentação'),
 }
 
 
 def _verified_links(root, logical, audit_id):
-    """Return validated optional destinations, never a fact source."""
-    directory = root / 'report-catalog'
-    try:
-        manifest = json.loads((directory / 'manifest.json').read_text(encoding='utf-8'))
-        if (manifest.get('audit_id') != audit_id
-                or manifest.get('audit_snapshot', {}).get('source_logical_sha256') != logical
-                or not verify_catalog_report_package(directory)[0]
-                or not verify_source_dependencies(root, manifest.get('source_dependencies'))[0]):
-            return set()
-        return {item['path'] for item in manifest['packaged_files']
-                if isinstance(item, dict) and isinstance(item.get('path'), str)}
-    except (OSError, ValueError, TypeError, AttributeError, KeyError):
-        return set()
+    """Compatibility with older tests; external catalog links are prohibited."""
+    return set()
 
 
-def catalog_context(root, logical, audit_id, tables=None):
-    """Build the same material preview whether the catalog exists or not.
+def catalog_context(root, logical, audit_id, tables=None, timezone_name=None):
+    """Present persisted facts locally without inspecting or linking another report.
 
-    A catalog is used *only* to determine availability of deep-dive hyperlinks.
-    The already-verified, same-audit SQLite rows are passed explicitly by the
-    presentation generator. Unknown families stay in the sanitized annex.
+    Preview limits do not limit the full record inventory and JSON annexes.
     """
     sections = defaultdict(str)
-    available = _verified_links(root, logical, audit_id)
     for page, specs in STRUCTURED.items():
-        for title, source, fields, limit, technical_target in specs:
+        for title, source, fields, limit, _legacy_catalog_target in specs:
             rows = (tables or {}).get(source, ())
-            if not rows:
+            if not rows and page != 'extracao':
                 continue
             preview = [{**sanitize(row), '_source_table': source} for row in rows[:limit]]
-            sections[page] += ('<details><summary>' + text(title) + '</summary>'
-                               + '<p class="rf">Origem: evidências registradas na auditoria · ' + str(len(preview)) + ' de ' + str(len(rows))
-                               + ' registros; detalhe integral no inventário sanitizado.</p>'
-                               + table(title, preview, fields)
-                               + ('<p>' + technical_link('../report-catalog/' + technical_target,
-                                                        'Abrir aprofundamento técnico opcional') + '</p>'
-                                  if technical_target in available
-                                  else '<p class="rf">Aprofundamento técnico não incluído ou não verificável neste pacote.</p>')
-                               + '</details>')
+            attrs = ' id="capture-preview"' if page == 'extracao' else ''
+            sections[page] += (
+                '<details' + attrs + '><summary>' + text(title) + '</summary>'
+                + '<p class="rf">Fonte: registros persistidos na auditoria. '
+                + text(len(preview)) + ' de ' + text(len(rows))
+                + ' registros nesta prévia. Abra "Ver detalhes" para consultar '
+                'cada registro, ou use o inventário local para todos os dados.</p>'
+                + table(title, preview, fields, timezone_name=timezone_name)
+                + '<p><a class="tech-link" href="#presentation-records">'
+                  'Abrir inventário técnico completo nesta página</a></p>'
+                + '</details>'
+            )
     if audit_id:
         sections['rede'] += (
             '<p><button type="button" class="modal-open" data-modal="network-context-modal" '
@@ -102,13 +87,9 @@ def catalog_context(root, logical, audit_id, tables=None):
         )
     else:
         sections['rede'] += '<p class="rf">Detalhes de rede indisponíveis: identidade da auditoria não comprovada.</p>'
-    for page, (stem, title) in REFERENCES.items():
-        target = stem + '.html'
-        if target in available:
-            sections[page] += ('<p>' + technical_link('../report-catalog/' + target, title)
-                               + ' <span class="rf">(aprofundamento opcional; requer o pacote técnico junto da apresentação)</span></p>')
-        else:
-            sections[page] += ('<p class="rf">Aprofundamento técnico opcional (' + text(title)
-                               + ') indisponível neste pacote. A leitura executiva utiliza as fontes '
-                               'persistidas, independentemente do HTML técnico.</p>')
+    for page, (target, title) in REFERENCES.items():
+        sections[page] += (
+            '<p>' + technical_link(target, title)
+            + ' <span class="rf">(conteúdo local, sem dependência de outro relatório)</span></p>'
+        )
     return sections
