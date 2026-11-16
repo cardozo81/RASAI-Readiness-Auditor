@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import subprocess
+import sys
 
 import pytest
 
@@ -62,13 +64,25 @@ def test_search_profile_validates_provider_contract_not_only_terms(monkeypatch: 
 
 
 def test_deep_profile_with_missing_primary_ai_is_ready_with_closure_limitation() -> None:
-    install()
-    state = _state()
-    state.improvement_enabled = True
-    ready, blockers, advisories = profile_status(state, "deep-analysis")
-    assert ready is True
-    assert blockers == ()
-    assert any("pendente" in item.casefold() for item in advisories)
+    # This tests the readiness layer before the runtime cleanup installer
+    # replaces its global function. Other console tests install that layer in
+    # this interpreter; a fresh process keeps this contract independent of order.
+    code = '''
+from rasai.ai_orchestration_unification import install_ai_orchestration_unification
+install_ai_orchestration_unification()
+from tests.test_console_execution_profile_readiness import _state
+from rasai.console_execution_profile_readiness import install, profile_status
+install()
+state = _state()
+state.improvement_enabled = True
+ready, blockers, advisories = profile_status(state, "deep-analysis")
+assert ready is True
+assert blockers == ()
+assert any("pendente" in item.casefold() for item in advisories)
+'''
+    result = subprocess.run([sys.executable, '-c', code], capture_output=True,
+                            text=True, timeout=30, check=False)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_blocked_complete_maximum_remains_visible_but_is_not_selected(
