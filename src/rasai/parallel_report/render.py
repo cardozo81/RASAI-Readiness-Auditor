@@ -113,7 +113,10 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         physical.setdefault(source.href, []).append(index)
     governance = Governance(tables.get('recommendation_governance', ()))
     for page, title in PAGES:
-        body = editorial(page, records, costs, thresholds, governance=governance)
+        # Visual capture evidence is visible in HTML immediately, not hidden in
+        # technical tables or available only via a modal.
+        body = ((supplements or {}).get('extracao:visual', '') if page == 'extracao' else '')
+        body += editorial(page, records, costs, thresholds, governance=governance)
         body += (supplements or {}).get(page, '')
         if page == 'extracao':
             body += '<span id="capture-counts"></span><h2>Contagens derivadas da captura</h2><p>Palavras são tokens de texto no HTML renderizado, excluídos script e style. O contador não testa visibilidade CSS. A comparação competitiva pode usar outro documento e método.</p>' + table('Calculado no relatório', calculated, [('source','Fonte'),('sha256','SHA-256'),('words','Palavras'),('links','Links'),('images','Imagens'),('algorithm_version','Algoritmo')])
