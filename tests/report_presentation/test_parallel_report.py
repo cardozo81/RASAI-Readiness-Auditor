@@ -690,7 +690,8 @@ def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path)
     assert receipt['non_routed'] == {'private_payload': 1}
     assert 'PRIVATE_VALUE' not in json.dumps(receipt)
     assert receipt['pages']['plano.html']['evidence_state'] == 'COM_REGISTROS_PERSISTIDOS'
-    assert 'console_execution_projections' in (output / 'index.html').read_text(encoding='utf-8')
+    assert receipt['pages']['index.html']['sqlite_record_count'] == 2
+    assert 'Projeções operacionais do console' in (output / 'index.html').read_text(encoding='utf-8')
     assert 'assets/evidence-coverage.json' in manifest['generated_files']
     assert manifest['source_writes'] is False or manifest['source_writes'] == 0
     assert inventory(root) == before
