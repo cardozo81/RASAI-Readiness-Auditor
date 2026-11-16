@@ -48,7 +48,7 @@ def test_screenshot_is_visible_inline_offline_and_manifest_verified(tmp_path):
     assert len(paths) == 1
     assert paths[0].read_bytes() == original.read_bytes() == TINY_PNG
     assert paths[0].name == visual_hash + '.png'
-    assert manifest['visual_previews'][0]['status'] == 'DISPONIVEL'
+    assert manifest['visual_previews'][0]['status'] == 'AVAILABLE'
     assert manifest['visual_previews'][0]['sha256'] == visual_hash
     assert manifest['sha256_per_file']['assets/capturas/' + paths[0].name] == visual_hash
     assert '<h2>Prévia visual das páginas capturadas</h2>' in html
@@ -79,7 +79,7 @@ def test_missing_invalid_or_traversal_screenshot_never_appears_as_image(tmp_path
     ]
     output = package_captures(root, rows, stage, inventory(root))
     assert len(output) == len(rows)
-    assert all(p['status'] == 'NAO_DISPONIVEL' and p['local_path'] is None for p in output)
+    assert all(p['status'] == 'UNAVAILABLE' and p['local_path'] is None for p in output)
     assert not list(stage.rglob('*.png'))
 
 
@@ -95,7 +95,7 @@ def test_two_device_screenshots_remain_independent_without_duplicate_binary(tmp_
     html = (output / 'extracao.html').read_text(encoding='utf-8')
     manifest = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
     assert len(manifest['visual_previews']) == 2
-    assert all(item['status'] == 'DISPONIVEL' for item in manifest['visual_previews'])
+    assert all(item['status'] == 'AVAILABLE' for item in manifest['visual_previews'])
     assert len(list((output / 'assets' / 'capturas').glob('*.png'))) == 1
     assert html.count('class="capture-image-preview"') == 2
     assert 'Captura 1 - Móvel' in html

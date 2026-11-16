@@ -56,7 +56,7 @@ def package_captures(root, snapshots, stage, source_inventory):
     for index, snapshot in enumerate(snapshots):
         meta = _metadata(snapshot.get('browser_metadata'))
         reference = meta.get('visual_artifact_ref')
-        item = {'row_index': index, 'status': 'NAO_DISPONIVEL',
+        item = {'row_index': index, 'status': 'UNAVAILABLE',
                 'local_path': None, 'sha256': None, 'size_bytes': None,
                 'reason': 'Nenhuma imagem da captura foi persistida.'}
         if not isinstance(reference, str) or not reference.strip():
@@ -107,7 +107,7 @@ def package_captures(root, snapshots, stage, source_inventory):
                     raise RuntimeError('Screenshot copy failed hash verification')
                 copied.add(dest_rel)
                 total += size
-            item.update({'status': 'DISPONIVEL', 'local_path': dest_rel,
+            item.update({'status': 'AVAILABLE', 'local_path': dest_rel,
                          'sha256': expected, 'size_bytes': size, 'reason': None})
         except (OSError, ValueError):
             pass
@@ -126,13 +126,13 @@ def packaged_visual_files(manifest):
             return None
         state = item.get('status')
         location = item.get('local_path')
-        if state == 'DISPONIVEL':
+        if state == 'AVAILABLE':
             if not isinstance(location, str) or not _LOCAL_PATTERN.fullmatch(location):
                 return None
             if item.get('sha256') != location.split('/')[-1].split('.')[0]:
                 return None
             result.add(location)
-        elif state != 'NAO_DISPONIVEL' or location is not None:
+        elif state != 'UNAVAILABLE' or location is not None:
             return None
     return result
 
@@ -161,7 +161,7 @@ def capture_gallery_html(snapshots, previews, timezone_name):
         html.append('<figcaption><strong>' + text(title) + '</strong>'
                     '<span>' + text(timestamp) + '</span>'
                     '<span>' + text(address) + '</span></figcaption>')
-        if item.get('status') != 'DISPONIVEL' or not image:
+        if item.get('status') != 'AVAILABLE' or not image:
             html.append('<p class="rf capture-unavailable">Imagem não disponível: '
                         + text(item.get('reason') or 'evidência visual não persistida')
                         + '</p></figure>')
