@@ -668,7 +668,7 @@ def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path)
     before = inventory(root)
     output = generate(root)
     receipt = json.loads((output / 'assets' / 'evidence-coverage.json').read_text(encoding='utf-8'))
-    manifest = json.loads((output / 'manifest.json').read_text(encoding='utf-8'))
+    manifest = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
     assert receipt['measurement'] == 'PERSISTED_ROWS_AND_VERIFIED_SIDECARS_ONLY'
     assert receipt['certifies_editorial_completeness'] is False
     assert len(receipt['pages']) == len(PAGES) == 11
