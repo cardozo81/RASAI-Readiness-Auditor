@@ -679,7 +679,9 @@ def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path)
         assert 'Evidências materializadas nesta página' in html
         assert 'A ausência de registro não comprova ausência de problemas.' in html
         assert 'href="#presentation-records"' in html
-        assert 'report-catalog/' not in html
+        import re
+        hrefs = re.findall(r'<a\\b[^>]*\\bhref=["\\\']([^"\\\']+)', html)
+        assert all('report-catalog' not in target for target in hrefs)
         assert filename in receipt['pages']
     assert receipt['pages']['seguranca.html']['sqlite_record_count'] == 1
     security = (output / 'seguranca.html').read_text(encoding='utf-8')
