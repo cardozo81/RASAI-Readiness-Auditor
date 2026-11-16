@@ -114,7 +114,7 @@ O roteamento passa a ter dois resultados legítimos:
 Não são autorizados nesta implementação: nova coleta, nova sonda, chamada de IA, recomputação de score, alteração de `audit.db`, alteração de artifacts-fonte, mudança em `report-catalog`, redesign, NDR novo, inferência de causa/rota/IP/ASN ou reescrita de resultados históricos.
 
 
-## Auditoria complementar de paridade semântica — 15/11/2026
+## Auditoria complementar de paridade semântica - 15/11/2026
 
 **Status: NO-GO para merge até a homologação na AUD real.** Este adendo registra correções no código da mesma PR #711, sem alegar execução física ou equivalência de fatos da auditoria piloto. A fonte de verdade é `audit.db` e sidecars íntegros, **não** o HTML da superfície técnica. A exigência é equivalência de interpretação, estados e decisão, não igualdade visual ou de quantidade de páginas. O catálogo mantém 21 páginas e a apresentação, 11. Os 46 testes Windows comunicados anteriormente e o CI 9/9 referem-se ao HEAD anterior às correções abaixo; repetir somente os gates focalizados e os checks do HEAD novo.
 
@@ -138,7 +138,7 @@ As fontes abaixo são contratos de leitura potencial; cada fato só deve aparece
 
 **Lacuna ainda dependente de evidência real:** o antigo extrator de tabelas do catálogo apresentava, na piloto, quadros de causas de limitações de Search, Common Crawl, CrUX histórico, detalhes de campo, resultado/fallback por finalidade, prontidão de IA e arquitetura por captura. As novas projeções diretas não estão comprovadas como equivalentes a cada um desses quadros. Os respectivos registros continuam no anexo técnico sanitizado quando presentes, mas *anexo não equivale a síntese executiva*. Sem comparação campo a campo com os três anexos de auditoria obrigatórios, classificá-los como PASS seria indevido.
 
-### Achados A-01–A-10
+### Achados A-01-A-10
 
 | Achado | Correção / estado nesta branch | Gate remanescente |
 | --- | --- | --- |
@@ -180,3 +180,7 @@ O inventário material fornecido para análise anterior indicou **16 links obser
 3. Confrontar os links e destinos com `links_report_presentation_para_catalog.csv`, e as evidências semânticas com `PARECER_TECNICO.md`, `resumo_evidencias.json` e o snapshot operacional, depois classificar cada linha como PASS/PARTIAL/MISSING.
 4. Navegar `file://` em Chromium offline, com e sem o catálogo contíguo. Exigir os mesmos fatos materiais e decisões nas 11 páginas; se faltar fonte, N/D explícito, nunca zero.
 5. **Não fazer merge nem encerrar #710** até aceite humano expresso. Atualização das outras 42 auditorias concluídas somente após gate da piloto e novo inventário.
+
+## Rede: inventário independente (16/11/2026)
+
+A pagina `rede.html` possuia um accordion de inventario sem registros, pois os dados de rede provem de sidecars validados ou projecoes read-only do `audit.db`, e nenhuma tabela SQLite estava roteada para a pagina. Corrigido nesta PR: o inventario exibe registros de captura passiva e sondas autorizadas sanitizados diretamente na apresentacao, inclusive IDs/evidencias verificaveis, ou informa de forma explicita quando nada foi materializado. O acesso principal e um link interno `#network-evidence-inventory`; `report-catalog/network.html` continua estritamente opcional, com rotulo inequivoco. Estilos e estrutura de navegacao nao foram alterados. Exige re-render com gerador `0.4.2` e homologacao da AUD real. Nao equivale a autorizacao para novo probe, coleta ou merge.
