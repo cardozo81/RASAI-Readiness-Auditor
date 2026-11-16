@@ -110,7 +110,9 @@ def test_capture_preview_button_opens_offline_modal(tmp_path):
             modal.get_by_role('link', name='Consultar a prévia da captura nesta página').click()
             assert not modal.is_visible()
             assert page.evaluate('location.hash') == '#capture-preview'
-            assert page.locator('details#capture-preview').evaluate('(element) => element.open')
+            # hashchange is dispatched asynchronously after the fragment changes.
+            # Wait on the actual open state; do not race against the browser event.
+            page.locator('details#capture-preview[open]').wait_for(state='visible', timeout=10000)
             # The control must work even after navigating to the same fragment.
             button.click()
             assert modal.is_visible()
