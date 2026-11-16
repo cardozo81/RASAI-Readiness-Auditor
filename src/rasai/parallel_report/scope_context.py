@@ -332,6 +332,12 @@ def network_context(root, audit_id, timezone_name):
         if isinstance(item, dict):
             item['capture_utc'] = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
     map_html = network_geographic_panel(map_probes)
+    # The existing map renderer embeds inline CSS for the catalog. Remove it
+    # here so the executive report's restrictive offline CSP is respected.
+    map_html = map_html.replace(
+        "style='display:block;min-width:550px;max-width:100%;background:#f2f7fb'",
+        "class='network-map-plot'",
+    )
     has_map = '<h2>Mapa geográfico consultivo</h2>' in map_html
     map_html = map_html.replace("<section class='panel'>",
                                 "<section class='panel' id='network-map'>", 1)
