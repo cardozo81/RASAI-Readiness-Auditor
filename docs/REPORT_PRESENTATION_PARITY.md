@@ -184,3 +184,29 @@ O inventário material fornecido para análise anterior indicou **16 links obser
 ## Rede: inventário independente (16/11/2026)
 
 A pagina `rede.html` possuia um accordion de inventario sem registros, pois os dados de rede provem de sidecars validados ou projecoes read-only do `audit.db`, e nenhuma tabela SQLite estava roteada para a pagina. Corrigido nesta PR: o inventario exibe registros de captura passiva e sondas autorizadas sanitizados diretamente na apresentacao, inclusive IDs/evidencias verificaveis, ou informa de forma explicita quando nada foi materializado. O acesso principal e um link interno `#network-evidence-inventory`; `report-catalog/network.html` continua estritamente opcional, com rotulo inequivoco. Estilos e estrutura de navegacao nao foram alterados. Exige re-render com gerador `0.4.2` e homologacao da AUD real. Nao equivale a autorizacao para novo probe, coleta ou merge.
+
+## Humanização pt-BR e autonomia do mapa de rede (16/11/2026)
+
+A camada pública do `report-presentation` traduz valores enumerados por campo e domínio, conservando os valores originais apenas nas seções expressamente técnicas de rastreabilidade. Células, tooltips, modal de detalhes, chips, indicadores e cartões utilizam o mesmo interpretador. Dados persistidos de fonte, texto livre, IDs, URLs, seletores e evidências não são modificados.
+
+Inventário das 11 páginas e seus contratos semânticos:
+
+| Página | Valores de interpretação pública |
+| --- | --- |
+| Painel e estado da execução | component, status, required, dimension, coverage, confidence |
+| Extração | device, entity_type, timestamps; metadados das capturas |
+| Descoberta e padrões | scope, state, severity, observações de serviços |
+| Índices | dimension, result, confidence, consolidation_status, priority |
+| Conteúdo e acessibilidade | result, status, source_mode, origin_kind, severity |
+| Performance e experiência | field_scope, device, cwv_assessment, status, provenance |
+| Rede e conectividade | analysis_method, confidence_scope, status, provenance, hop_state |
+| Search e GEO | observation_status, domain_status, device, market, query |
+| Segurança passiva | status, severity, domain, origem de observação |
+| Plano de ação | priority, source_kind, status, decision, coverage |
+| IA, custos e proveniência | status, purpose, outcome, source, source_kind |
+
+Exemplos de vocabulário: `UNAVAILABLE` = Indisponível, `COMPLETE` = Concluído, `CONTENT_VALUE` = Valor do conteúdo, `DETERMINISTIC_PERSISTED_EVIDENCE` = Análise determinística de evidências registradas. Os componentes de execução utilizam a taxonomia pública já consolidada do RASAi; tipos de entidade e escopos de métricas usam dicionários por domínio. Estados futuros ainda não catalogados jamais são exibidos como enum cru em superfície executiva: indicam condição não catalogada, com literal íntegro apenas no bloco técnico.
+
+O link anteriormente destinado a `report-catalog/network.html` foi substituído por uma modal local que resume quais medições e rotas estão efetivamente persistidas e aponta para os registros e mapa na própria apresentação. Não duplica a tabela completa. `rede.html` reutiliza a projeção geográfica offline determinística com apenas coordenadas válidas das sondas autorizadas. Na ausência de coordenadas, a seção informa explicitamente que não há mapa verificável; jamais desenha uma rota física inferida. Sem requisições externas, IA, nova sonda, mudança de `audit.db` ou edição de `report-catalog`.
+
+Contrato de autonomia: as 11 páginas precisam abrir sem o pacote `report-catalog` ao lado. Os demais links para catálogo continuam opcionais e condicionados a manifesto válido, mas não são fonte de fatos. A comprovação de todos os rótulos na auditoria piloto e a inspeção visual em Chromium offline permanecem gates de homologação.
