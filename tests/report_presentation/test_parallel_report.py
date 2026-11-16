@@ -650,3 +650,82 @@ def test_grouped_evidence_keeps_missing_and_conflicting_hash_separate(tmp_path):
     assert 'Hashes divergentes' in html
     assert all(f'id="physical-{i}"' in html for i in range(4))
     assert html.count('Proveniência completa') == 4
+
+
+def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path):
+    """Page creation + row preservation + evidence disclosures are distinct checks."""
+    from shutil import rmtree
+    from rasai.parallel_report.read_model import PAGES
+    from rasai.parallel_report.artifact_reader import inventory
+    root = fixture(tmp_path / 'AUD-EVIDENCE-RECEIPT')
+    rmtree(root / 'report-catalog')
+    with sqlite3.connect(root / 'audit.db') as db:
+        db.execute("CREATE TABLE console_execution_projections (id INTEGER PRIMARY KEY, state TEXT)")
+        db.execute("INSERT INTO console_execution_projections VALUES(1,'PARTIAL')")
+        db.execute("CREATE TABLE passive_security_resource_observations "
+                   "(id INTEGER PRIMARY KEY, resource_type TEXT)")
+        db.execute("INSERT INTO passive_security_resource_observations VALUES (1,'script')")
+    before = inventory(root)
+    output = generate(root)
+    receipt = json.loads((output / 'assets' / 'evidence-coverage.json').read_text(encoding='utf-8'))
+    manifest = json.loads((output / 'manifest.json').read_text(encoding='utf-8'))
+    assert receipt['measurement'] == 'PERSISTED_ROWS_AND_VERIFIED_SIDECARS_ONLY'
+    assert receipt['certifies_editorial_completeness'] is False
+    assert len(receipt['pages']) == len(PAGES) == 11
+    for page, _ in PAGES:
+        filename = page + '.html'
+        html = (output / filename).read_text(encoding='utf-8')
+        assert html.count('data-evidence-page="' + page + '"') == 1
+        assert 'Evidências materializadas nesta página' in html
+        assert 'A ausência de registro não comprova ausência de problemas.' in html
+        assert 'href="#presentation-records"' in html
+        assert 'report-catalog/' not in html
+        assert filename in receipt['pages']
+    assert receipt['pages']['seguranca.html']['sqlite_record_count'] == 1
+    security = (output / 'seguranca.html').read_text(encoding='utf-8')
+    assert 'Telemetria auxiliar da captura/segurança (não são achados)' in security
+    assert 'Telemetria de recursos do navegador não constitui' in security
+    assert receipt['pages']['plano.html']['evidence_state'] == 'SEM_REGISTROS_NAS_FONTES_DESTA_PAGINA'
+    assert receipt['non_routed'] == {}
+    assert 'console_execution_projections' in (output / 'index.html').read_text(encoding='utf-8')
+    assert 'assets/evidence-coverage.json' in manifest['generated_files']
+    assert manifest['source_writes'] is False or manifest['source_writes'] == 0
+    assert inventory(root) == before
+    assert generate(root) == output
+
+
+def test_coverage_receipt_does_not_claim_completed_pipeline_for_empty_topic(tmp_path, monkeypatch):
+    """Validated network fallback and missing plan are not a fabricated decision."""
+    from rasai.parallel_report import evidence_coverage as mod
+    monkeypatch.setattr(mod, 'read_network_observations', lambda *_: [])
+    monkeypatch.setattr(mod, 'read_authorized_probes', lambda *_: [])
+    monkeypatch.setattr(mod, 'snapshots_from_audit', lambda *_: [{'snapshot_id':'a'}])
+    (tmp_path / 'audit.db').touch()
+    html, receipt = mod.build_coverage(tmp_path,'AUD-TEST',{
+        'audits':[{'audit_id':'AUD-TEST','status':'FAILED'}],
+        'passive_security_resource_observations': [{} for _ in range(87)],
+        'console_execution_projections':[{'status':'PARTIAL'}],
+    })
+    assert receipt['pages']['rede.html']['verified_network_observations'] == 1
+    assert receipt['pages']['rede.html']['verified_network_probes'] == 0
+    assert receipt['pages']['plano.html']['evidence_state'] == 'SEM_REGISTROS_NAS_FONTES_DESTA_PAGINA'
+    assert receipt['pages']['seguranca.html']['sqlite_record_count'] == 87
+    assert '87' in html['seguranca:coverage']
+    assert 'não comprova ausência de problemas' in html['plano:coverage']
+    assert 'Nenhum registro verificável' in html['plano:coverage']
+    assert '1' in html['rede:coverage']
+    assert 'não comprova ausência de problemas' in html['rede:coverage']
+
+
+def test_evidence_coverage_excludes_unknown_tables_from_claims_and_reports_them(tmp_path, monkeypatch):
+    from rasai.parallel_report import evidence_coverage as mod
+    monkeypatch.setattr(mod,'_network_counts',lambda *_: {
+        'passive':0,'probes':0,'sidecar_invalid':True})
+    pages, receipt=mod.build_coverage(tmp_path,'AUD-TEST',{
+        'audits':[{'audit_id':'AUD-TEST'}],
+        'opaque_future_table':[{'secret':'should-not-print'}],
+    })
+    assert receipt['non_routed'] == {'opaque_future_table':1}
+    assert 'should-not-print' not in repr(receipt)
+    assert 'should-not-print' not in ''.join(pages.values())
+    assert 'Pacote passivo presente, porém não validado' in pages['rede:coverage']
