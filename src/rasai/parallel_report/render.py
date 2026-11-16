@@ -7,7 +7,7 @@ from .components import kv
 from .coverage import display, state
 from .read_model import PAGES, destination, thaw, SEARCH_PAGE
 from .templates import label as public_label
-from .presentation_labels import public_value, timezone_for_records, metric_label
+from .presentation_labels import public_value, timezone_for_records, metric_label, presentation_timestamps
 
 
 def esc(value):
@@ -70,7 +70,7 @@ def record_html(record, links, physical_links=(), timezone_name=None, governance
             ('Decisão', data.get('decision')), ('Alvo', data.get('target_class')), ('Motivo', data.get('rejection_reason'))))
     refs = ''.join(f'<a class="tech-link" href="{esc(target)}">Abrir registro técnico relacionado {i + 1}</a> ' for i, target in enumerate(links[record.href]))
     refs += ''.join(f'<a class="tech-link" href="extracao.html#physical-{index}">Abrir evidência física</a> ' for index in physical_links)
-    return f'<div class="record" id="{record.anchor}"><h3>{esc(title)}</h3><p class="org">{esc(origin)}</p><p>{esc(status)}</p><dl>{summary}</dl><details><summary>Dados persistidos e proveniência</summary>{payload(data)}<p>ID de apresentação: {record.anchor}</p></details><nav aria-label="Referências bidirecionais">{refs}</nav></div>'
+    return f'<div class="record" id="{record.anchor}"><h3>{esc(title)}</h3><p class="org">{esc(origin)}</p><p>{esc(status)}</p><dl>{summary}</dl><details><summary>Dados persistidos e proveniência (datas no fuso da auditoria)</summary>{payload(presentation_timestamps(data, timezone_name))}<p>ID de apresentação: {record.anchor}</p></details><nav aria-label="Referências bidirecionais">{refs}</nav></div>'
 
 
 def review_table(records, links, evidence, physical, governance=None):

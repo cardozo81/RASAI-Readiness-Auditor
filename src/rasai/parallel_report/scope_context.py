@@ -14,7 +14,7 @@ from rasai.network_active_probe import read_authorized_probes
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
 from .components import kv, table, text
-from .presentation_labels import public_value
+from .presentation_labels import public_value, presentation_timestamps
 from .read_model import SEARCH_PAGE
 from .sanitization import sanitize
 
@@ -299,7 +299,7 @@ def network_context(root, audit_id, timezone_name):
         ('Capturas passivas verificadas', len(observations)),
         ('Sondas complementares autorizadas', len(probes)),
         ('Regra de interpretação', 'ausência de medição não é falha de conectividade'),
-        ('Mapa e rota visual', 'detalhe técnico no report-catalog quando materializado'),
+        ('Mapa e rota visual', 'apresentado nesta página quando houver coordenadas verificáveis'),
     ])
     html += ('<p class="callout w">Captura do navegador e sonda complementar são observações independentes, '
              'potencialmente feitas em instantes e ambientes diferentes. IP, rota e tempos não são inferidos entre elas.</p>')
@@ -412,7 +412,7 @@ def network_context(root, audit_id, timezone_name):
             inventory += (
                 '<details><summary>' + text(label) + ' ' + str(position)
                 + ' de ' + str(len(entries)) + '</summary><pre>'
-                + text(json.dumps(sanitize(row), ensure_ascii=False, indent=2, default=str))
+                + text(json.dumps(presentation_timestamps(sanitize(row), timezone_name), ensure_ascii=False, indent=2, default=str))
                 + '</pre></details>'
             )
     if not observations and not probes:
