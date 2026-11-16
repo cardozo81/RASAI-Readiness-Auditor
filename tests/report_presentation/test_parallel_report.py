@@ -186,6 +186,15 @@ def test_integration(tmp_path, monkeypatch, complete):
     if complete:
         assert coverage['families']['private_payload']['page'] is None
         assert coverage['families']['private_payload']['representation'] == 'technical-only'
+        assert coverage['families']['private_payload']['levels'] == {
+            'preserved_annex': True,
+            'navigable_record': False,
+            'editorial_summary': False,
+            'conclusion_or_decision_present': False,
+        }
+        assert coverage['families']['scores']['levels']['editorial_summary']
+        assert coverage['families']['scores']['levels']['conclusion_or_decision_present']
+        assert not coverage['families']['findings']['levels']['conclusion_or_decision_present']
     else:
         assert 'private_payload' not in coverage['families']
     assert manifest['source_db_logical_sha256']
