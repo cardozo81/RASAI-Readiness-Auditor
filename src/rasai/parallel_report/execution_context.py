@@ -157,6 +157,138 @@ def _notes(page, rows, network):
     return notes
 
 
+def _decision_summaries(page, rows):
+    """Concise facts for decisions, not a copy of technical rows or new scores."""
+    output = ''
+    if page == 'indices':
+        results = Counter(
+            str(row.get('result') or 'UNKNOWN').upper()
+            for row in rows.get('rule_executions', ())
+            if isinstance(row, dict)
+        )
+        if results:
+            types = {
+                'PASS': 'Regra atendida',
+                'WARNING': 'Regra com ressalva',
+                'FAIL': 'Regra reprovada',
+                'UNKNOWN': 'Resultado da regra não determinado',
+            }
+            summary = [
+                {'result': types.get(kind, 'Outro estado de regra'), 'count': count}
+                for kind, count in sorted(results.items())
+            ]
+            output += (
+                '<h2>Resultados das regras, sem recomputar índices</h2>'
+                '<p class="rf">Distribuição das execuções persistidas; uma regra '
+                'atendida não substitui score consolidado, cobertura ou confiança.</p>'
+                + table('Distribuição dos resultados das regras', summary,
+                        [('result', 'Estado da regra'), ('count', 'Execuções')])
+            )
+    if page == 'seguranca':
+        resources = [
+            r for r in rows.get('passive_security_resources', ())
+            if isinstance(r, dict)
+        ]
+        if resources:
+            kinds = Counter(str(r.get('resource_kind') or '').upper() for r in resources)
+            parties = Counter(str(r.get('party') or '').upper() for r in resources)
+            known_kind = {'IMG':'Imagens', 'STYLESHEET':'Folhas de estilo',
+                          'SCRIPT':'Scripts', 'RESOURCE':'Outros recursos'}
+            known_party = {'FIRST_PARTY':'Primeira parte',
+                           'THIRD_PARTY':'Terceira parte', 'INLINE':'Recurso embutido'}
+            summary = [
+                {'category': 'Recurso: ' + kind, 'count': sum(
+                    amount for name, amount in kinds.items()
+                    if known_kind.get(name, 'Não classificado') == kind)}
+                for kind in sorted(set(known_kind.get(n, 'Não classificado') for n in kinds))
+            ]
+            summary.extend([
+                {'category': 'Origem: ' + party, 'count': sum(
+                    amount for name, amount in parties.items()
+                    if known_party.get(name, 'Não classificada') == party)}
+                for party in sorted(set(known_party.get(n, 'Não classificada') for n in parties))
+            ])
+            output += (
+                '<h2>Perfil dos recursos da captura</h2>'
+                '<p class="rf">As categorias abaixo são contagens independentes por '
+                'tipo de recurso e relação com a página: não se somam entre si, '
+                'não indicam vulnerabilidade, e não comprovam análise passiva executada.</p>'
+                + table('Recursos observados, sem conclusões de segurança',
+                        summary, [('category','Categoria'),('count','Registros')])
+            )
+        integrations = [
+            r for r in rows.get('passive_security_integrations', ())
+            if isinstance(r, dict)
+        ]
+        if integrations:
+            labels = {
+                'TLS_EXTERNAL':'TLS externo',
+                'THREAT_REPUTATION':'Reputação de ameaças',
+                'OSV':'OSV',
+                'MDN_OBSERVATORY':'MDN Observatory',
+                'CISA_KEV':'CISA KEV',
+            }
+            states = []
+            for row in integrations:
+                token = str(row.get('state') or '').upper()
+                states.append({
+                    'integration': labels.get(
+                        str(row.get('integration_id') or '').upper(),
+                        'Integração não classificada'
+                    ),
+                    'state': _state(token) if token in KNOWN_STATES or
+                             token in CONTRACT_STATES else
+                             ('Sem dados' if token == 'NO_DATA' else
+                              'Estado não classificado'),
+                    'attempts': row.get('attempts') if type(row.get('attempts')) is int
+                                and row['attempts'] >= 0 else None,
+                })
+            output += (
+                '<h2>Situação das integrações técnicas observadas</h2>'
+                '<p class="rf">O sucesso pontual de uma integração não comprova '
+                'execução integral de segurança passiva. Estados não solicitados '
+                'ou sem dados permanecem distintos.</p>'
+                + table('Estados das integrações persistidas',
+                        states, [('integration','Integração'),
+                                 ('state','Estado'),('attempts','Tentativas')])
+            )
+    if page == 'ia-custos':
+        forecasts = [
+            r for r in rows.get('console_cost_forecast_outcomes', ())
+            if isinstance(r, dict)
+        ]
+        if forecasts:
+            result = []
+            for row in forecasts:
+                currency = row.get('currency')
+                currency = currency if currency in {'BRL','USD','EUR'} else 'N/D'
+                observed = row.get('actual_cost')
+                estimate = row.get('expected_cost')
+                status = str(row.get('status') or 'N/D')
+                result.append({
+                    'currency': currency,
+                    'forecast': public_value(estimate, 'estimated_cost')
+                                if type(estimate) in (int, float) else 'N/D',
+                    'observed': public_value(observed, 'observed_cost')
+                                if type(observed) in (int, float) else 'N/D',
+                    'status': 'Não comparável' if status == 'NÃO COMPARÁVEL'
+                              else ('Disponível para análise' if status in
+                                    {'COMPARAVEL','COMPARÁVEL'} else 'Estado não classificado'),
+                })
+            output += (
+                '<h2>Previsão versus execução registrada</h2>'
+                '<p class="callout w">Estimativa e valor observado nesta AUD são '
+                'fontes distintas. Quando o contrato de execução está incompleto, '
+                'um valor observado igual a zero não significa custo final '
+                'ou cobrança total igual a zero.</p>'
+                + table('Comparação financeira, respeitando a cobertura',
+                        result, [('currency','Moeda'),('forecast','Previsão'),
+                                 ('observed','Observado até o momento'),
+                                 ('status','Comparabilidade')])
+            )
+    return output
+
+
 def build_execution_context(tables, coverage_receipt):
     """Return (HTML by page, structured public operational receipt).
 
@@ -276,6 +408,7 @@ def build_execution_context(tables, coverage_receipt):
             html += '<p class="rf">Nenhum requisito do contrato foi associado diretamente a esta seção.</p>'
         for note in notes:
             html += '<p class="callout w">' + text(note) + '</p>'
+        html += _decision_summaries(page, tables)
         html += '</section>'
         supplemental[page + ':execution'] = html
     return supplemental, records
