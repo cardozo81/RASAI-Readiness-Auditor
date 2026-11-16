@@ -97,6 +97,10 @@ def _render_package(root, database, before, logical_before, output):
     from .evidence_coverage import build_coverage
     coverage_html, coverage_receipt = build_coverage(root, audit.get('audit_id'), tables)
     supplements.update(coverage_html)
+    from .execution_context import build_execution_context
+    execution_html, execution_receipt = build_execution_context(tables, coverage_receipt)
+    supplements.update(execution_html)
+    coverage_receipt['execution'] = execution_receipt
     (output / 'assets' / 'evidence-coverage.json').write_text(
         json.dumps(coverage_receipt, ensure_ascii=False, indent=2), encoding='utf-8')
     pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)

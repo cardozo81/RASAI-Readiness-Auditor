@@ -14,7 +14,7 @@ from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
 
 from .components import text
-from .read_model import PAGES, destination
+from .read_model import PAGES, destination, SEARCH_PAGE
 
 # Human meaning is deliberately narrower than the family names.
 # An observed browser resource does not prove a security finding.
@@ -53,7 +53,7 @@ GROUPS = {
         ('Experiência sintética', ('synthetic_ux_apdex_summaries',
                                  'synthetic_ux_apdex_error_details')),
     ),
-    'search-geo': (
+    SEARCH_PAGE: (
         ('SERP e resultados classificados', ('serp_observations',
                                             'serp_competitive_results')),
         ('Projeção GEO persistida', ('geo_observation_runs',)),

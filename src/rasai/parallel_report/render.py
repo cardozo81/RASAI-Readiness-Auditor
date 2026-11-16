@@ -177,6 +177,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         # Visual capture evidence is visible in HTML immediately, not hidden in
         # technical tables or available only via a modal.
         body = ((supplements or {}).get('extracao:visual', '') if page == 'extracao' else '')
+        body += (supplements or {}).get(page + ':execution', '')
         body += (supplements or {}).get(page + ':coverage', '')
         body += editorial(page, records, costs, thresholds, governance=governance)
         body += (supplements or {}).get(page, '')
