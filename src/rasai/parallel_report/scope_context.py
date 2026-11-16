@@ -219,7 +219,7 @@ def _network_metric_rows(observations, probes, timezone_name):
                 'indicator': label,
                 'state': metric.get('state') or 'INCONCLUSIVE',
                 'value': _network_value(key, metric),
-                'provenance': metric.get('source') or item.get('measurement_origin'),
+                'provenance': public_value(metric.get('source') or item.get('measurement_origin'), 'provenance'),
                 'reason': _network_reason(metric),
             })
     for index, item in enumerate(probes, 1):
@@ -242,7 +242,7 @@ def _network_metric_rows(observations, probes, timezone_name):
                 'indicator': label,
                 'state': metric.get('state') or 'INCONCLUSIVE',
                 'value': _network_value(key, metric),
-                'provenance': metric.get('source') or item.get('measurement_origin'),
+                'provenance': public_value(metric.get('source') or item.get('measurement_origin'), 'provenance'),
                 'reason': _network_reason(metric),
             })
     return sanitize(rows)
