@@ -42,6 +42,11 @@ def record_html(record, links, physical_links=(), timezone_name=None, governance
     title = next((data[k] for k in ('title', 'label', 'dimension', 'metric_id', 'rule_id') if data.get(k) is not None), None)
     if title is None:
         title = next((v for _, v in record.identity), 'Registro persistido')
+    elif isinstance(title, str):
+        for key in ('dimension', 'metric_id', 'rule_id'):
+            if data.get(key) == title:
+                title = public_value(title, key, timezone_name)
+                break
     status = state(data.get('status', data.get('state', data.get('consolidation_status'))), data.get('reason'))
     if record.table == 'serp_observations':
         status = ('Observado' if data.get('observation_status') == 'OBSERVED' else state(data.get('observation_status'), data.get('reason')))
@@ -87,7 +92,7 @@ def review_table(records, links, evidence, physical, governance=None):
             file = esc(item.get('reference')) + '<br><code>' + esc(item.get('sha256')) + '</code>'
             element = esc(item.get('selector', data.get('selector'))) + '<pre>' + esc(item.get('excerpt')) + '</pre>'
             problem = f'{esc(data.get("title", data.get("finding_id")))}<br>{esc(public_value(data.get("severity"),"severity"))} / {esc(public_value(data.get("priority"),"priority"))}<br><a class="tech-link" href="{record.href}">Abrir achado técnico</a>'
-            origin = esc(data.get('source', data.get('origin_kind'))) + '<br>' + esc(item.get('coverage', 'Parcial — vínculo físico inequívoco ausente'))
+            origin = esc(public_value(data.get('source', data.get('origin_kind')), 'source')) + '<br>' + esc(public_value(item.get('coverage', 'Parcial — vínculo físico inequívoco ausente'), 'coverage'))
             action = '<br>'.join(f'{esc(thaw(r.data).get("title", "Ação vinculada"))}<br><a class="tech-link" href="{r.href}">Abrir ação técnica</a>' for r in actions) or 'N/D'
             evidence_link = f'<a class="tech-link" href="extracao.html#physical-{index}">Abrir evidência física</a>' if index is not None else 'N/D'
             validation = [thaw(r.data).get('validation_steps_json', thaw(r.data).get('validation', thaw(r.data).get('verification'))) for r in actions]
@@ -119,12 +124,19 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
             body += '<p class="callout w">Laboratório, campo e amostras sintéticas são universos independentes. Sem série temporal comparável persistida, nenhum gráfico histórico é fabricado.</p>'
         if page == SEARCH_PAGE:
             body += '<p class="callout w">Busca não equivale a citação. Posição não prova causalidade. Consulta, idioma, mercado, dispositivo e instante delimitam a amostra.</p>'
-        body += '<h2>Evidências e detalhe técnico</h2><details><summary>Inventário integral de registros e anexos</summary>'
+        inventory_anchor = ' id="network-evidence-inventory"' if page == 'rede' else ''
+        body += '<h2>Evidências e detalhe técnico</h2><details' + inventory_anchor + '><summary>Inventário integral de registros e anexos</summary>'
+        if page == 'rede':
+            body += (supplements or {}).get(
+                'rede:inventory',
+                '<p class="callout">Inventário local de rede indisponível para esta projeção.</p>',
+            )
         if page == 'plano':
             body += '<details><summary>Arquivos e conteúdos a revisar</summary>' + review_table(records,links,evidence,physical,governance) + '</details>'
-        for table_name in tables:
-            if destination(table_name) != page:
-                continue
+        routed_tables = [table_name for table_name in tables if destination(table_name) == page]
+        if page != 'rede' and not routed_tables:
+            body += '<p class="callout">Nenhuma família de registros do audit.db foi roteada para esta página.</p>'
+        for table_name in routed_tables:
             items = [r for r in records if r.table == table_name]
             body += f'<details><summary>{esc(public_label(table_name))} · {len(items)} registros</summary><a class="tech-link" href="anexos/{sha256(table_name.encode()).hexdigest()}.json">Abrir anexo sanitizado integral</a>'
             body += ''.join(record_html(record, links, physical.get(record.href, ()), timezone_name, governance) for record in items) + '</details>'

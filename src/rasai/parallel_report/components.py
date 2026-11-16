@@ -3,7 +3,7 @@ from html import escape
 from hashlib import sha256
 import json
 import math
-from .presentation_labels import FIELD_LABELS, ORIGIN_LABELS, public_value, chip_tone
+from .presentation_labels import FIELD_LABELS, ORIGIN_LABELS, public_value, chip_tone, TECHNICAL_ONLY_FIELDS
 
 
 def text(value):
@@ -16,7 +16,7 @@ def text(value):
 
 def chip(value, field='status'):
     tone = chip_tone(value, field)
-    return f'<span class="chip {tone}" title="{text(value)}">{text(public_value(value,field))}</span>'
+    return f'<span class="chip {tone}" title="{text(public_value(value,field))}">{text(public_value(value,field))}</span>'
 
 
 def origin(value='Medido'):
@@ -50,11 +50,11 @@ def ruler(label, value, maximum=100, proposal=None, scope=None, href=None):
     display_value = (format(value, '.2f').rstrip('0').rstrip('.').replace('.', ',') if valid else text(value))
     title = text(label)
     technical = ('<p class="rf">' + technical_link(href) + '</p>') if href else ''
-    return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{text(ORIGIN_LABELS.get(reference, reference))}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)} · {text(ORIGIN_LABELS.get(reference, reference))}</div><div class="rf">{text(scope)}</div><details class="in"><summary>Origem da faixa e limites</summary>{text(note)}<p><code>{text(reference)}</code></p>{technical}</details></div>'
+    return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{text(ORIGIN_LABELS.get(reference, reference))}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)} · {text(ORIGIN_LABELS.get(reference, reference))}</div><div class="rf">{text(scope)}</div><details class="in"><summary>Detalhes técnicos da faixa e limites</summary>{text(note)}<p><code>{text(reference)}</code></p>{technical}</details></div>'
 
 
 def _detail_title(row, index):
-    for key in ('title', 'label', 'query', 'url', 'requested_url', 'name', 'rule_id', 'metric_id'):
+    for key in ('title', 'label', 'query', 'url', 'requested_url', 'name'):
         value = row.get(key)
         if value not in (None, ''):
             return str(public_value(value, key))
@@ -85,11 +85,13 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
         rendered = public_value(value, key, timezone_name)
         if isinstance(rendered, (dict, list)):
             rendered = json.dumps(rendered, ensure_ascii=False)
+        if key in TECHNICAL_ONLY_FIELDS:
+            rendered = 'Conteúdo técnico registrado; consultar os dados técnicos abaixo.'
         visible.append((FIELD_LABELS.get(key, label), rendered))
     summary = kv(visible) if visible else '<p class="rf">Sem campos resumidos adicionais.</p>'
     source = row.get('_source_table')
     source_html = (
-        f'<p class="rf">Fonte técnica: <code>{text(source)}</code></p>' if source else ''
+        f'<p class="rf">Tabela de origem: <code>{text(source)}</code></p>' if source else ''
     )
     raw = text(json.dumps(persisted, ensure_ascii=False, indent=2, default=str))
     technical = technical_link(row.get('_ref'), 'Abrir registro técnico completo')
@@ -98,8 +100,9 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
         '<div class="modal-head"><div><span class="modal-kicker">' + text(caption) + '</span>',
         f'<h2 id="{title_id}">{text(title)}</h2></div>',
         '<button type="button" class="modal-close" data-modal-close aria-label="Fechar detalhes">×</button></div>',
-        '<div class="modal-body">' + summary + source_html,
-        '<details class="in"><summary>Dados persistidos completos</summary><pre>' + raw + '</pre></details>',
+        '<div class="modal-body">' + summary,
+        '<details class="in"><summary>Dados técnicos originais (rastreabilidade)</summary>'
+        + source_html + '<pre>' + raw + '</pre></details>',
         '</div><div class="modal-foot">',
         technical if technical else '<span class="rf">Sem referência técnica adicional.</span>',
         '<button type="button" class="modal-dismiss" data-modal-close>Fechar</button></div></dialog>',
@@ -111,7 +114,9 @@ def table(caption, rows, columns, timezone_name=None):
     if not rows:
         return '<p class="callout">Não medido — nenhum registro disponível para esta seção.</p>'
     has_details = any(
-        row.get('_ref') or any(not key.startswith('_') and key not in {name for name, _ in columns} for key in row)
+        row.get('_ref')
+        or any(not key.startswith('_') and key not in {name for name, _ in columns} for key in row)
+        or any(key in TECHNICAL_ONLY_FIELDS and row.get(key) is not None for key, _ in columns)
         for row in rows
     )
     headings = ''.join(f'<th scope="col">{text(FIELD_LABELS.get(key,label))}</th>' for key, label in columns)
@@ -128,16 +133,21 @@ def table(caption, rows, columns, timezone_name=None):
             elif key == '_ref':
                 cell = technical_link(value) if value else 'N/D'
             else:
-                rendered = public_value(value,key,timezone_name)
+                if key in TECHNICAL_ONLY_FIELDS and value is not None:
+                    rendered = 'Conteúdo técnico disponível em Ver detalhes'
+                else:
+                    rendered = public_value(value,key,timezone_name)
                 plain = json.dumps(rendered, ensure_ascii=False) if isinstance(rendered, (dict, list)) else str(rendered)
                 if len(plain) > 180:
                     cell = text(plain[:177].rstrip() + '…')
                     title_value = 'Conteúdo completo disponível em Ver detalhes'
                 else:
                     cell = text(rendered)
-                    title_value = value
-            if key in {'status', 'state', 'result', 'severity', 'priority', 'priority_class', '_ref'}:
-                title_value = value
+                    title_value = rendered
+            if key in {'status', 'state', 'result', 'severity', 'priority', 'priority_class'}:
+                title_value = public_value(value,key,timezone_name)
+            elif key == '_ref':
+                title_value = 'Abrir vínculo de rastreabilidade técnica'
             cells.append('<td title="' + text(title_value) + '">' + cell + '</td>')
         if has_details:
             trigger, dialog = _detail_dialog(caption, row, columns, index, timezone_name)

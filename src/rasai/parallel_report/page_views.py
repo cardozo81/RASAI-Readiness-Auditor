@@ -80,7 +80,10 @@ def editorial(page, records, costs, thresholds, governance=None):
                 html += ruler(metric_label(data,key,LABELS), data[key], 1 if key == 'apdex_score' else 100, proposal, scope, data['_ref'])
                 if page == 'indices' and key == 'value':
                     contributions = [r for r in rows(['score_contributions']) if r.get('score_id') == data.get('score_id')]
-                    html += local_table('Composição da dimensão', contributions, [('rule_id','Regra'),('result','Resultado'),('weight','Peso'),('result_factor','Fator'),('effective_contribution','Contribuição')])
+                    if contributions:
+                        html += local_table('Composição da dimensão', contributions, [('rule_id','Regra'),('result','Resultado'),('weight','Peso'),('result_factor','Fator'),('effective_contribution','Contribuição')])
+                    else:
+                        html += '<p class="rf">Decomposição de regras desta dimensão não disponível na fonte. O índice acima permanece medido quando possui valor persistido; nenhuma contribuição é inferida.</p>'
         html += '</div>'
     if page == 'index':
         exceptions = [r for r in rows(['scores']) if r.get('confidence') == 'LOW' or r.get('consolidation_status') == 'NOT_APPLICABLE']

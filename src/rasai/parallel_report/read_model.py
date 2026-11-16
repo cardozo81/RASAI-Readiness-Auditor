@@ -13,7 +13,8 @@ SEARCH_PAGE = '-'.join(SEARCH_PAGE_PARTS)
 PAGES = (
     ('index', 'Painel'), ('extracao', 'Extração'), ('descoberta', 'Descoberta e padrões'),
     ('indices', 'Índices'), ('conteudo', 'Conteúdo e acessibilidade'),
-    ('performance', 'Performance e experiência'), (SEARCH_PAGE, 'Search e GEO'),
+    ('performance', 'Performance e experiência'), ('rede', 'Rede e conectividade'),
+    (SEARCH_PAGE, 'Search e GEO'),
     ('seguranca', 'Segurança passiva'), ('plano', 'Plano de ação'), ('ia-custos', 'IA, custos e proveniência'),
 )
 
@@ -39,7 +40,7 @@ def destination(table):
         return 'conteudo'
     if table.startswith('audit'):
         return 'index'
-    return 'ia-custos'  # explicitly inventoried supplemental persisted family
+    return None  # inventoried as technical-only; never assign an unknown family by fallback
 
 
 def freeze(value):
@@ -67,7 +68,10 @@ class Record:
 
     @property
     def href(self):
-        return destination(self.table) + '.html#' + self.anchor
+        page = destination(self.table)
+        if page is not None:
+            return page + '.html#' + self.anchor
+        return 'anexos/' + sha256(self.table.encode()).hexdigest() + '.json'
 
 
 def build(tables, schema):

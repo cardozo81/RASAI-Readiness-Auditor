@@ -65,17 +65,52 @@ def test_origin_and_observation_in_human_record():
 
 def test_network_and_serp_do_not_borrow_apdex_or_search_universes(tmp_path, monkeypatch):
     from rasai.parallel_report import scope_context as context
-    monkeypatch.setattr(context, 'read_authorized_probes', lambda *_: [
-        {'metrics': {'dns_elapsed_ms': {'value': 0}, 'tls_handshake_ms': {'value': 13.4}}}])
+    monkeypatch.setattr(context, 'read_network_observations', lambda *_: [])
+    monkeypatch.setattr(context, 'read_authorized_probes', lambda *_: [{
+        'hostname': 'example.org',
+        'port': 443,
+        'capture_utc': '2026-11-15T12:00:00Z',
+        'measurement_origin': 'LOCAL_OPERATOR_PROCESS',
+        'metrics': {
+            'dns_resolution': {'state': 'COLLECTION_FAILED', 'error': 'DNS_NAME_RESOLUTION_FAILED'},
+            'dns_elapsed_ms': {'state': 'OBSERVED', 'value': 0, 'source': 'LOCAL_DNS_RESOLVER'},
+            'tcp_handshake_ms': {'state': 'NOT_OBSERVED', 'value': None, 'source': 'NO_TCP_TIMING_CAPTURE'},
+            'tls_handshake_ms': {'state': 'OBSERVED', 'value': 13.4, 'source': 'LOCAL_TLS_SOCKET'},
+            'traceroute': {'state': 'OBSERVED', 'value': {
+                'target_reached': False,
+                'method': 'WINDOWS_TRACERT',
+                'probe_protocol': 'ICMP',
+                'max_hops': 16,
+                'hops': [{
+                    'hop': 1, 'state': 'PUBLIC_HOP', 'public_ip': '8.8.8.8', 'rtt_ms': 12.3,
+                    'enrichment': {
+                        'asn': {'state': 'OBSERVED', 'value': {'number': 15169, 'organization': 'Google'}},
+                        'geoip': {'state': 'OBSERVED', 'value': {
+                            'latitude': -30.0, 'longitude': -51.0,
+                            'accuracy_radius_km': 20, 'source': 'MAXMIND_MMDB'}},
+                    },
+                }],
+            }},
+        },
+    }])
     tables = {'audits': [{'audit_id':'a'}], 'passive_security_runs':[{}],
               'passive_security_script_observations':[{},{}],
               'geo_observation_runs':[{'projection_json':{'source_count':8, 'descriptive_overlap':{'common_urls':0,'perplexity_denominator':8,'serp_denominator':3}}}]}
     body = scope_context(tmp_path,tables,'UTC',{})
-    assert 'Scripts observados na captura passiva</dt><dd>2' in body['performance']
-    assert 'DNS (ms)</dt><dd>0' in body['performance'] and 'TCP (ms)</dt><dd>N/D' in body['performance']
+    assert 'Scripts observados na captura passiva</dt><dd>2' in body['seguranca']
+    assert 'Scripts observados na captura passiva' not in body['performance']
+    assert 'Consulta DNS (ms)' in body['rede'] and '>0<' in body['rede']
+    assert 'Falha na coleta' in body['rede'] and 'Conexão TCP (ms)' in body['rede']
+    assert 'caminho completo não confirmado' in body['rede']
+    assert 'AS15169' in body['rede'] and 'precisão ±20 km' in body['rede']
+    assert 'Mapa geográfico consultivo' in body['rede']
+    assert 'data-map-layer' in body['rede']
+    assert 'network-context-modal' in body['rede']
+    assert 'report-catalog/network.html' not in body['rede']
+    assert '8.8.8.8' in body['rede'] and '12,3' in body['rede']
+    assert 'Consulta DNS (ms)' not in body['performance']
     assert 'URLs da SERP</dt><dd>3' in body[context.SEARCH_PAGE]
     assert 'URLs da Search API</dt><dd>8' in body[context.SEARCH_PAGE]
-
 
 def test_orphaned_governance_reference_keeps_one_destination(monkeypatch):
     from rasai import recommendation_governance_reporting as module
@@ -97,3 +132,200 @@ def test_contextual_index_links_to_review_entry():
     html = _v2_panel(dict(semantic_v2=overlay,captures=[]), 'index.html', private=False)
     assert "geo-content-review.html#contextual-content" in html
     assert "geo-content-review.html#contextual-semantic-v2" not in html
+
+
+def test_sensitive_cookie_fields_keep_safe_cross_references_and_redact_values():
+    from rasai.parallel_report.sanitization import sanitize
+    raw = {
+        'cookie_attribution_id': 'ATTR-0042',
+        'cookie_ref': 'ATTR-0042',
+        'cookie_name_display': 'SID',
+        'set_cookie_index': 0,
+        'cookie_value': 'private-session-value',
+        'authorization': 'Bearer private-secret',
+        'selector': '.sk-navigation-98765432109876',
+        'nested': '{"cookie_ref":"ATTR-0042","cookie_value":"PRIVATE"}',
+    }
+    out = sanitize(raw)
+    assert out['cookie_attribution_id'] == out['cookie_ref'] == 'ATTR-0042'
+    assert out['cookie_name_display'] == 'SID'
+    assert out['set_cookie_index'] == 0
+    assert out['selector'] == raw['selector']
+    assert out['cookie_value'] == out['authorization'] == '[REDACTED]'
+    assert out['nested']['cookie_ref'] == 'ATTR-0042'
+    assert out['nested']['cookie_value'] == '[REDACTED]'
+    dubious = sanitize({'cookie_ref': 'ghp_' + 'a' * 25, 'other': 'sk-' + 'b' * 24})
+    assert dubious['cookie_ref'].startswith('[REF-')
+    assert 'ghp_' not in str(dubious) and 'sk-' not in str(dubious)
+    assert sanitize({'set_cookie_index': '0'})['set_cookie_index'] == '[REDACTED]'
+
+
+def test_network_inventory_is_local_nonempty_and_sanitized(tmp_path, monkeypatch):
+    from collections import defaultdict
+    from rasai.parallel_report import scope_context as network
+    from rasai.parallel_report import catalog_context as catalog
+    from rasai.parallel_report.render import render
+    from rasai.parallel_report.cost_reconciliation import reconcile
+    from rasai.parallel_report.thresholds import load
+
+    monkeypatch.setattr(network, 'read_network_observations', lambda *_: [{
+        'audit_id': 'AUD-TEST', 'observation_id': 'NET-AUD-001',
+        'protocol': 'h2', 'secret': 'private-token-value',
+    }])
+    monkeypatch.setattr(network, 'read_authorized_probes', lambda *_: [])
+    monkeypatch.setattr(network, 'build_network_assessment', lambda *_: {
+        'analysis_method': 'DETERMINISTIC_PERSISTED_EVIDENCE',
+        'coverage': {'audit_captures': 1, 'authorized_probes': 0},
+        'findings': [],
+    })
+    html, _, inventory = network.network_context(tmp_path, 'AUD-TEST', 'UTC')
+    assert 'Captura passiva verificada 1 de 1' in inventory
+    assert 'NET-AUD-001' in inventory
+    assert 'private-token-value' not in inventory
+    pages = render((), defaultdict(list), {}, [], [], reconcile({}), {},
+                   load(), [], {'rede': html, 'rede:inventory': inventory})
+    rendered = pages['rede.html']
+    assert 'id="network-evidence-inventory"' in rendered
+    assert 'Captura passiva verificada 1 de 1' in rendered
+    assert 'private-token-value' not in rendered
+    assert 'network-context-modal' in rendered
+    assert 'href="#network-evidence-inventory"' in rendered
+    assert 'href="#network-map"' in rendered
+
+    monkeypatch.setattr(catalog, '_verified_links', lambda *_: set())
+    independent = catalog.catalog_context(tmp_path, 'logical', 'AUD-TEST', {})
+    assert 'data-modal="network-context-modal"' in independent['rede']
+    assert '../report-catalog/network.html' not in independent['rede']
+    monkeypatch.setattr(catalog, '_verified_links', lambda *_: {'network.html'})
+    optional = catalog.catalog_context(tmp_path, 'logical', 'AUD-TEST', {})
+    assert 'data-modal="network-context-modal"' in optional['rede']
+    assert '../report-catalog/network.html' not in optional['rede']
+    assert 'report-catalog' not in optional['rede']
+
+
+def test_network_inventory_explains_missing_measurements(tmp_path, monkeypatch):
+    from rasai.parallel_report import scope_context as network
+    monkeypatch.setattr(network, 'read_network_observations', lambda *_: [])
+    monkeypatch.setattr(network, 'read_authorized_probes', lambda *_: [])
+    monkeypatch.setattr(network, 'build_network_assessment', lambda *_: None)
+    _, _, inventory = network.network_context(tmp_path, 'AUD-TEST', 'UTC')
+    assert 'Nenhuma captura passiva ou sonda de rede verificável' in inventory
+    assert 'falha de conectividade' in inventory
+
+
+def test_catalog_html_does_not_supply_structured_facts(tmp_path, monkeypatch):
+    from rasai.parallel_report.catalog_context import catalog_context
+    from rasai.parallel_report import catalog_context as module
+    monkeypatch.setattr(module, '_verified_links', lambda *_: set())
+    source = {'audit_fulfillment_work_items': [{
+        'component': 'SEARCH', 'status': 'NOT_REQUESTED', 'required': 0,
+    }]}
+    first = catalog_context(tmp_path, 'digest', 'AUD-X', source)
+    (tmp_path / 'report-catalog').mkdir()
+    (tmp_path / 'report-catalog' / 'execution-evidence.html').write_text(
+        '<table><tr><td>FORGED_SUCCESS</td></tr></table>', encoding='utf-8')
+    second = catalog_context(tmp_path, 'digest', 'AUD-X', source)
+    assert first['index'] == second['index']
+    assert 'Pesquisa em mecanismos de busca' in second['index'] and 'FORGED_SUCCESS' not in second['index']
+    assert 'Não solicitado' in second['index']
+    assert '>SEARCH<' not in second['index'] and '>NOT_REQUESTED<' not in second['index']
+
+
+def test_sari_measured_score_without_breakdown_is_not_reported_as_unmeasured():
+    from rasai.parallel_report.page_views import editorial
+    from rasai.parallel_report.thresholds import load
+    data = {'scores': [{'score_id':'s-1', 'dimension':'OVERALL_READINESS',
+                        'value':89.8, 'confidence':'HIGH'}]}
+    records = build(data, {'scores': {'columns': list(data['scores'][0]),
+                                     'primary_key': ['score_id']}})
+    html = editorial('indices', records, {}, load())
+    assert 'Decomposição de regras desta dimensão não disponível' in html
+    assert 'O índice acima permanece medido' in html
+    assert '89,8' in html
+
+
+def test_action_plan_separates_governed_undecided_and_excluded():
+    decisions = [
+        dict(source_kind='DETERMINISTIC', source_id='ok', decision='ACCEPTED'),
+        dict(source_kind='DETERMINISTIC', source_id='deny', decision='REJECTED'),
+    ]
+    data = {'directed_analysis_actions': [
+        dict(action_id='1', title='Action-OK', source_kind='DETERMINISTIC', source_id='ok'),
+        dict(action_id='2', title='Action-PENDING', source_kind='DETERMINISTIC', source_id='pending'),
+        dict(action_id='3', title='Action-DENIED', source_kind='DETERMINISTIC', source_id='deny')],
+        'recommendation_governance': decisions}
+    html = render_plan(lambda names: [r for name in names for r in data.get(name, [])],
+                       'UTC', Governance(decisions))
+    approved = html.split('Plano aprovado pela governança', 1)[1].split('Recomendações técnicas sem aprovação', 1)[0]
+    pending = html.split('Recomendações técnicas sem aprovação', 1)[1].split('Decisões rejeitadas', 1)[0]
+    assert 'Action-OK' in approved and 'Action-PENDING' not in approved
+    assert 'Action-PENDING' in pending and 'Action-OK' not in pending
+    assert 'Action-DENIED' not in html
+    assert 'Ações direcionadas excluídas da execução' in html
+
+
+def test_persisted_strategic_synthesis_keeps_governance_classes():
+    from rasai.parallel_report.action_plan import strategic_context
+    import json
+    data = {
+        'directed_analysis_runs': [{
+            'status':'COMPLETE', 'provider':'Persisted', 'model':'Previous',
+            'strategic_summary_json': json.dumps({
+                'strengths':['Retenção comprovada no snapshot'],
+                'risks':['Risco condicional, verificar escopo']}),
+            'roadmap_json': json.dumps([
+                {'phase':'Fase 1', 'objective':'Conferir evidências', 'action_ids':['a','b']}]),
+        }],
+        'directed_analysis_actions': [
+            {'action_id':'a', 'source_kind':'DETERMINISTIC', 'source_id':'ok'},
+            {'action_id':'b', 'source_kind':'DETERMINISTIC', 'source_id':'pending'}],
+    }
+    decisions = [dict(source_kind='DETERMINISTIC', source_id='ok', decision='ACCEPTED')]
+    html = strategic_context(lambda names: [r for n in names for r in data.get(n, [])],
+                             Governance(decisions))
+    assert 'Retenção comprovada no snapshot' in html and 'Risco condicional' in html
+    assert 'Fase 1' in html and 'Aceitas pela governança' in html
+    assert 'Sem decisão ou pendentes' in html
+
+
+def test_editorial_verification_tasks_keep_source_and_validation(monkeypatch, tmp_path):
+    from rasai.parallel_report.scope_context import editorial_evidence
+    from rasai import contextual_advisory
+    monkeypatch.setattr(contextual_advisory, 'load_projection', lambda *_a, **_kw: {
+        'faq_aria_v3': {'counts': {}},
+        'semantic_v2': {'counts': {}},
+        'reverse_review': {
+            'counts': {'verification_tasks': 1},
+            'tasks': [{'task_id': 'T1', 'status': 'VALIDACAO_NECESSARIA',
+                       'title': 'Conferir alegação',
+                       'rationale': 'Alegação observada, não autenticada',
+                       'validation': 'Solicitar prova vigente',
+                       'evidence_sufficiency': 'INSUFICIENTE',
+                       'evidence_refs': [{'label':'H1', 'text':'Até 25',
+                                          'source_ref':'artifacts/page.html',
+                                          'source_sha256': 'a' * 64}]}],
+        },
+    })
+    html = editorial_evidence(tmp_path, {'page_snapshots':[{'rendered_artifact_ref':'artifacts/page.html'}]})
+    assert 'Conferir alegação' in html and 'Solicitar prova vigente' in html
+    assert 'Até 25' in html and 'artifacts/page.html' in html
+    assert 'Insuficiente' in html and '>INSUFICIENTE<' not in html
+
+
+def test_network_diagnosis_uses_persisted_assessor_not_html(monkeypatch, tmp_path):
+    from rasai.parallel_report import scope_context as ctx
+    monkeypatch.setattr(ctx, 'read_network_observations', lambda *_: [])
+    monkeypatch.setattr(ctx, 'read_authorized_probes', lambda *_: [])
+    monkeypatch.setattr(ctx, 'build_network_assessment', lambda *_: {
+        'analysis_method':'DETERMINISTIC_PERSISTED_EVIDENCE',
+        'confidence_scope':'LIMITED',
+        'confidence_explanation':'Uma única sessão',
+        'coverage': {'audit_captures':1, 'authorized_probes':0,
+                     'dns_samples':0, 'tcp_samples':0, 'tls_samples':0},
+        'findings': [{'title':'Escopo insuficiente', 'conclusion':'Sem causa atribuída',
+                      'confidence':'LOW', 'evidence_refs':[],
+                      'limitation':'Sem rota comprovada', 'recommendation':'Obter autorização',
+                      'validation':'Repetir medição autorizada'}]})
+    html, _, _ = ctx.network_context(tmp_path, 'AUD-X', 'UTC')
+    assert 'Escopo insuficiente' in html and 'Uma única sessão' in html
+    assert 'Sem rota comprovada' in html and 'Repetir medição autorizada' in html

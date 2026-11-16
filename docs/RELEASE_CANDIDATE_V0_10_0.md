@@ -1,8 +1,12 @@
 # Candidata 0.10.0 - gates de decisão
 
-**Estado: preparação, sem publicação.** Este checklist não autoriza merge,
-criação de tag, GitHub Release (inclusive draft) ou distribuição externa.
-A última release pública é `v0.9.2`.
+> **Registro histórico:** este checklist documenta o estado anterior à publicação.
+> A candidata foi publicada como `v0.10.0` em 15/11/2026. As condições abaixo
+> permanecem preservadas como evidência do gate de pré-publicação, não como estado atual.
+
+**Estado histórico deste checklist: preparação, sem publicação.** Nesta etapa, o
+checklist não autorizava merge, criação de tag, GitHub Release (inclusive draft)
+ou distribuição externa; a release pública então vigente era `v0.9.2`.
 
 ## Identidade e escopo
 

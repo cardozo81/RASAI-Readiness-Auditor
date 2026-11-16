@@ -1,88 +1,61 @@
-"""Project selected human-readable facts from the verified, same-audit technical report."""
+"""Optional catalog links and independent structured previews.
+
+Never obtain material facts from report-catalog HTML. SQLite/authorized sidecars
+are the source. Catalog package checks govern links only, not presentation facts.
+"""
 from collections import defaultdict
-from html.parser import HTMLParser
 import json
 
 from rasai.catalog_report_site import verify_catalog_report_package
 from rasai.catalog_source_dependencies import verify_source_dependencies
-from .components import text, technical_link
+from .components import table, text, technical_link
 from .read_model import SEARCH_PAGE
 from .sanitization import sanitize
 
-
-# Match fields, not row offsets. A changed or missing schema cannot be mislabelled.
-# The linked technical page retains every row, including any beyond the preview.
-TABLES = {
-    'execution-evidence': [
-        ('index', 'Estado funcional dos catálogos', ('Catálogo', 'Contexto', 'Selecionado', 'Estado funcional'), 10)],
-    'cat-05': [
-        ('index', 'Causas das limitações em pesquisa', ('Causa', 'Classe', 'Explicação técnica', 'Impacto negocial'), 8),
-        (SEARCH_PAGE, 'Cobertura por fonte de pesquisa', ('Capacidade / fonte', 'Configurado', 'Solicitado', 'Habilitado', 'Executado', 'Dados', 'Estado'), 8),
-        (SEARCH_PAGE, 'Cobertura do Common Crawl', ('Conjunto de dados', 'Método', 'Coletado em', 'Requisições', 'Registros', 'Sem captura', 'Erros'), 4),
-        ('performance', 'Histórico CrUX por origem e período', ('Dataset', 'Método', 'Coletado em', 'Período início', 'Período fim', 'Pontos'), 8)],
-    'cat-04': [
-        ('performance', 'Por que o campo recebeu esta avaliação', ('Métrica', 'p75 observado', 'Limite para Bom', 'Diagnóstico'), 3),
-        ('performance', 'Universo de campo por dispositivo', ('Fonte', 'Escopo', 'Dispositivo', 'Período observado', 'Alvo'), 8),
-        ('performance', 'Métricas de laboratório, campo e histórico', ('Indicador', 'Valor', 'Tipo'), 24)],
-    'ai-integrations': [
-        ('ia-custos', 'Resultado e fallback por finalidade', ('Tarefa / finalidade', 'Resultado final', 'Provedor efetivo', 'Leitura', 'Sequência de tentativas'), 10),
-        ('ia-custos', 'Prontidão antes de cada uso', ('Finalidade', 'Prontidão', 'Esperadas', 'Pendentes', 'Registrado em'), 8)],
-    'index': [
-        ('extracao', 'Arquitetura por captura', ('Snapshot', 'Página', 'Dispositivo', 'URL solicitada', 'URL final observada', 'Arquitetura observada', 'Declarada', 'Efetiva nesta análise', 'Fonte', 'Limite'), 4)],
-    'cat-10': [
-        ('seguranca', 'Alcance da observação passiva', ('Cobertura', 'Estado'), 20)],
+# Known source-table projections. Fields describe SQLite columns, not technical
+# HTML headings or row positions. Missing columns remain N/D, never synthesized.
+STRUCTURED = {
+    'index': (
+        ('Estado funcional persistido', 'audit_fulfillment_work_items',
+         (('component', 'Componente'), ('status', 'Estado'), ('required', 'Obrigatório')), 10, 'execution-evidence.html'),
+    ),
+    'extracao': (
+        ('Identidade das capturas', 'page_snapshots',
+         (('device', 'Dispositivo'), ('requested_url', 'URL solicitada'),
+          ('final_url', 'URL final'), ('captured_at', 'Instante')), 4, 'index.html'),
+    ),
+    SEARCH_PAGE: (
+        ('Cobertura observada de pesquisa', 'serp_observations',
+         (('query', 'Consulta'), ('engine', 'Mecanismo'), ('requested_depth', 'Profundidade'),
+          ('result_count', 'Resultados'), ('observation_status', 'Estado')), 8, 'cat-05.html'),
+    ),
+    'performance': (
+        ('Escopos de desempenho observados', 'web_performance_observations',
+         (('url', 'URL'), ('device', 'Dispositivo'), ('field_scope', 'Escopo de campo'),
+          ('performance_score', 'Índice laboratório'), ('lcp_p75_ms', 'LCP campo p75 (ms)')), 8, 'cat-04.html'),
+    ),
+    'ia-custos': (
+        ('Tentativas de IA persistidas', 'ai_provider_attempts',
+         (('provider', 'Provedor'), ('model', 'Modelo'), ('status', 'Estado'),
+          ('input_tokens', 'Tokens de entrada'), ('output_tokens', 'Tokens de saída')), 10, 'ai-integrations.html'),
+    ),
+    'seguranca': (
+        ('Alcance passivo registrado', 'passive_security_runs',
+         (('status', 'Estado'), ('pages_analyzed', 'Páginas'),
+          ('resources_count', 'Recursos'), ('findings_count', 'Achados')), 10, 'cat-10.html'),
+    ),
 }
 
 REFERENCES = {
     'indices': ('methodology', 'Método e versão das regras de pontuação'),
-    'descoberta': ('cat-01', 'Diagnóstico por ocorrência, documento e posição do validador W3C'),
-    'extracao': ('capture-context', 'Abrir a captura e sua prévia local'),
-    'ia-custos': ('metrics', 'Intervalos das tentativas, invólucros do pipeline e tempos HTTP'),
+    'descoberta': ('cat-01', 'Ocorrências e detalhes do validador técnico'),
+    'extracao': ('capture-context', 'Captura e prévia técnica local'),
+    'ia-custos': ('metrics', 'Telemetria e intervalos técnicos persistidos'),
 }
 
 
-class PublicTables(HTMLParser):
-    """Read only visible table cells; omit dialogs, controls and raw payloads."""
-    def __init__(self):
-        super().__init__()
-        self.tables = []
-        self.rows = self.row = self.cell = None
-        self.skip = []
-
-    def handle_starttag(self, tag, attrs):
-        if tag in {'dialog', 'script', 'style', 'button', 'pre'}:
-            self.skip.append(tag)
-        if self.skip:
-            return
-        if tag == 'table':
-            self.rows = []
-        elif tag == 'tr' and self.rows is not None:
-            self.row = []
-        elif tag in {'th', 'td'} and self.row is not None:
-            self.cell = []
-
-    def handle_data(self, data):
-        if self.cell is not None and not self.skip:
-            self.cell.append(data)
-
-    def handle_endtag(self, tag):
-        if self.skip:
-            if self.skip[-1] == tag:
-                self.skip.pop()
-            return
-        if tag in {'td', 'th'} and self.cell is not None:
-            self.row.append(' '.join(' '.join(self.cell).split()))
-            self.cell = None
-        elif tag == 'tr' and self.row is not None:
-            self.rows.append(self.row)
-            self.row = None
-        elif tag == 'table' and self.rows is not None:
-            if self.rows:
-                self.tables.append(self.rows)
-            self.rows = None
-
-
-def catalog_context(root, logical, audit_id):
+def _verified_links(root, logical, audit_id):
+    """Return validated optional destinations, never a fact source."""
     directory = root / 'report-catalog'
     try:
         manifest = json.loads((directory / 'manifest.json').read_text(encoding='utf-8'))
@@ -90,32 +63,52 @@ def catalog_context(root, logical, audit_id):
                 or manifest.get('audit_snapshot', {}).get('source_logical_sha256') != logical
                 or not verify_catalog_report_package(directory)[0]
                 or not verify_source_dependencies(root, manifest.get('source_dependencies'))[0]):
-            return {}
-    except (OSError, ValueError, TypeError, AttributeError):
-        return {}
-    files = {item['path'] for item in manifest['packaged_files']}
+            return set()
+        return {item['path'] for item in manifest['packaged_files']
+                if isinstance(item, dict) and isinstance(item.get('path'), str)}
+    except (OSError, ValueError, TypeError, AttributeError, KeyError):
+        return set()
+
+
+def catalog_context(root, logical, audit_id, tables=None):
+    """Build the same material preview whether the catalog exists or not.
+
+    A catalog is used *only* to determine availability of deep-dive hyperlinks.
+    The already-verified, same-audit SQLite rows are passed explicitly by the
+    presentation generator. Unknown families stay in the sanitized annex.
+    """
     sections = defaultdict(str)
-    for stem, specs in TABLES.items():
-        name = stem + '.html'
-        if name not in files:
-            continue
-        parser = PublicTables()
-        parser.feed((directory / name).read_text(encoding='utf-8'))
-        for page, title, fields, limit in specs:
-            for header, *rows in parser.tables:
-                if tuple(header[:len(fields)]) != fields:
-                    continue
-                visible = [row[:len(fields)] for row in rows if len(row) >= len(fields)]
-                if not visible:
-                    continue
-                head = ''.join('<th scope="col">' + text(field) + '</th>' for field in fields)
-                body = ''.join('<tr>' + ''.join('<td>' + text(sanitize(cell)) + '</td>' for cell in row) + '</tr>'
-                               for row in visible[:limit])
-                source = technical_link('../report-catalog/' + name, 'Abrir quadro técnico de origem')
-                sections[page] += (f'<details><summary>{text(title)}</summary><div class="tw"><table>'
-                                   f'<caption>{text(title)} · {min(limit, len(visible))} de {len(visible)} linhas</caption>'
-                                   f'<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>{source}</details>')
+    available = _verified_links(root, logical, audit_id)
+    for page, specs in STRUCTURED.items():
+        for title, source, fields, limit, technical_target in specs:
+            rows = (tables or {}).get(source, ())
+            if not rows:
+                continue
+            preview = [{**sanitize(row), '_source_table': source} for row in rows[:limit]]
+            sections[page] += ('<details><summary>' + text(title) + '</summary>'
+                               + '<p class="rf">Origem: evidências registradas na auditoria · ' + str(len(preview)) + ' de ' + str(len(rows))
+                               + ' registros; detalhe integral no inventário sanitizado.</p>'
+                               + table(title, preview, fields)
+                               + ('<p>' + technical_link('../report-catalog/' + technical_target,
+                                                        'Abrir aprofundamento técnico opcional') + '</p>'
+                                  if technical_target in available
+                                  else '<p class="rf">Aprofundamento técnico não incluído ou não verificável neste pacote.</p>')
+                               + '</details>')
+    if audit_id:
+        sections['rede'] += (
+            '<p><button type="button" class="modal-open" data-modal="network-context-modal" '
+            'aria-haspopup="dialog" aria-controls="network-context-modal">'
+            'Consultar detalhes da medição de rede</button></p>'
+        )
+    else:
+        sections['rede'] += '<p class="rf">Detalhes de rede indisponíveis: identidade da auditoria não comprovada.</p>'
     for page, (stem, title) in REFERENCES.items():
-        if stem + '.html' in files:
-            sections[page] += '<p>' + technical_link('../report-catalog/' + stem + '.html', title) + '</p>'
+        target = stem + '.html'
+        if target in available:
+            sections[page] += ('<p>' + technical_link('../report-catalog/' + target, title)
+                               + ' <span class="rf">(aprofundamento opcional; requer o pacote técnico junto da apresentação)</span></p>')
+        else:
+            sections[page] += ('<p class="rf">Aprofundamento técnico opcional (' + text(title)
+                               + ') indisponível neste pacote. A leitura executiva utiliza as fontes '
+                               'persistidas, independentemente do HTML técnico.</p>')
     return sections

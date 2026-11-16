@@ -6,10 +6,12 @@ on:
       - 'src/rasai/catalog_report_public_labels.py'
       - 'src/rasai/catalog_report_search_trust.py'
       - 'src/rasai/report_presentation.py'
+      - 'src/rasai/parallel_report/**'
       - 'src/rasai/catalog_report_analysis.py'
       - 'src/rasai/catalog_report_presentation.py'
       - 'src/rasai/public_language.py'
       - 'tests/test_report_humanization.py'
+      - 'tests/report_presentation/**'
       - '.github/workflows/report-humanization-targeted.yml'
   workflow_dispatch:
 
@@ -32,3 +34,5 @@ jobs:
           tests/test_report_humanization.py
           tests/test_report_presentation.py
           tests/test_runtime_intelligence.py
+          tests/report_presentation/test_parallel_report.py
+          tests/report_presentation/test_content_reconciliation.py

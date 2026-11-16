@@ -2,12 +2,27 @@
 import json
 import re
 from rasai.time_contract import presentation_timezone_for_audit, format_presentation_timestamp
+from rasai.public_language import component_label, scope_label, supplemental_public_label, safe_visible_fallback
+from rasai.catalog_report_public_labels import public_label as canonical_public_label
 
 FIELD_LABELS = {'status':'Estado','severity':'Criticidade','priority':'Prioridade','provider':'Provedor','model':'Modelo','source':'Origem','reference':'Referência','references':'Referências','scope':'Escopo','device':'Dispositivo','native_usage_quantity':'Requisições','input_tokens':'Tokens de entrada','output_tokens':'Tokens de saída','duration_ms':'Duração (ms)','created_at':'Criada em','started_at':'Iniciada em','completed_at':'Concluída em','captured_at':'Capturada em','collected_at':'Coletada em','executed_at':'Executada em','updated_at':'Atualizada em','finished_at':'Finalizada em'}
-STATUS_LABELS = {'SUCCESS':'Concluído','COMPLETE':'Concluído','COMPLETED':'Concluído','PASS':'Aprovado','PARTIAL':'Parcial','WARNING':'Atenção','FAILED':'Falhou','ERROR':'Falhou','FAIL':'Reprovado','BLOCKED':'Bloqueado','NOT_REQUESTED':'Não solicitado','NOT_APPLICABLE':'Não aplicável','SKIPPED':'Não executado','UNKNOWN':'Não determinado','CONSOLIDATED':'Consolidado','NOT_CONSOLIDATED':'Não consolidado','COMPLETE_WITH_LIMITATIONS':'Concluído com limitações','GOOD':'Bom','NEEDS_IMPROVEMENT':'Precisa melhorar','TOLERATING':'Tolerável','OBSERVED':'Observado','COHERENT':'Coerente','NOT_DETERMINABLE':'Não determinável','AVAILABLE':'Disponível','NOT_CONFIGURED':'Não configurado','DISABLED':'Desabilitado','NO_DATA':'Sem dados','ABSENT':'Ausente'}
+STATUS_LABELS = {'SUCCESS':'Concluído','COMPLETE':'Concluído','COMPLETED':'Concluído','PASS':'Aprovado','PARTIAL':'Parcial','WARNING':'Atenção','FAILED':'Falhou','ERROR':'Falhou','FAIL':'Reprovado','BLOCKED':'Bloqueado','NOT_OBSERVED':'Não observado','COLLECTION_FAILED':'Falha na coleta','INCONCLUSIVE':'Inconclusivo','NOT_REQUESTED':'Não solicitado','NOT_APPLICABLE':'Não aplicável','SKIPPED':'Não executado','UNKNOWN':'Não determinado','CONSOLIDATED':'Consolidado','NOT_CONSOLIDATED':'Não consolidado','COMPLETE_WITH_LIMITATIONS':'Concluído com limitações','GOOD':'Bom','NEEDS_IMPROVEMENT':'Precisa melhorar','TOLERATING':'Tolerável','OBSERVED':'Observado','COHERENT':'Coerente','NOT_DETERMINABLE':'Não determinável','AVAILABLE':'Disponível','NOT_CONFIGURED':'Não configurado','DISABLED':'Desabilitado','NO_DATA':'Sem dados','ABSENT':'Ausente'}
+STATUS_LABELS.update({
+    'UNAVAILABLE':'Indisponível', 'NOT_AVAILABLE':'Não disponível',
+    'REQUESTED_NOT_EXECUTED':'Solicitado, não executado',
+    'FAILED_RETRYABLE':'Falha recuperável', 'FAILED_PERMANENT':'Falha permanente',
+    'PENDING':'Pendente', 'RUNNING':'Em execução', 'IN_PROGRESS':'Em andamento',
+    'ACCEPTED':'Aceita', 'REJECTED':'Rejeitada', 'UNVERIFIED':'Não verificado',
+    'VALIDACAO_NECESSARIA':'Validação necessária',
+    'INSUFICIENTE':'Insuficiente', 'SUFICIENTE':'Suficiente',
+})
 STATUS_LABELS.update({'MISSING_PROPOSED':'Ausente — proposta disponível','MEASURED':'Medido','READY':'Pronto','RESPONSE':'Resposta','LIMITED_AVAILABILITY':'Disponibilidade limitada','NEWLY_AVAILABLE':'Disponível recentemente','WIDELY_AVAILABLE':'Amplamente disponível'})
 SEVERITY_LABELS = {'CRITICAL':'Crítica','HIGH':'Alta','MEDIUM':'Média','LOW':'Baixa','INFO':'Informativa','INFORMATIONAL':'Informativa'}
 PRIORITY_LABELS = {k:v for k,v in SEVERITY_LABELS.items() if k not in {'INFO','INFORMATIONAL'}}
+PRIORITY_LABELS.update({
+    'P0':'Prioridade 0 (crítica)', 'P1':'Prioridade 1 (alta)',
+    'P2':'Prioridade 2 (média)', 'P3':'Prioridade 3 (baixa)',
+})
 DEVICE_LABELS = {'MOBILE':'Móvel','DESKTOP':'Desktop','POPULATION':'Agregado de experiência','MIXED_DEVICE_POPULATION':'Agregado dos dispositivos configurados'}
 ORIGIN_LABELS = {'PRODUCT_PROPOSAL':'Proposta de produto','PERSISTED_CONTRACT':'Contrato persistido','PUBLIC_STANDARD':'Padrão público','DETERMINISTIC':'Regra determinística','CONTENT_AI':'IA de conteúdo','DEEP_ANALYSIS':'Análise aprofundada','JSONLD':'JSON-LD','SECURITY_REMEDIATION':'Remediação de segurança','EXTERNAL':'Externo','AUTO':'Automático','MIXED':'Misto'}
 VALUE_LABELS = {**STATUS_LABELS, **SEVERITY_LABELS, **DEVICE_LABELS, **ORIGIN_LABELS}
@@ -21,6 +36,124 @@ TYPED_LABELS = {
     'dimension': {'ACCESSIBILITY':'Acessibilidade','BEST_PRACTICES':'Boas práticas','CONTENT':'Conteúdo','EXPERIENCE':'Experiência','GEO_SEARCH_AI':'GEO, busca e IA','PERFORMANCE':'Desempenho','SECURITY':'Segurança','SEMANTICS':'Semântica','SEO':'SEO','STRUCTURED_DATA':'Dados estruturados','VULNERABILITIES':'Vulnerabilidades','YMYL':'YMYL'},
     'expected_gain': {'HIGH':'Alto','MEDIUM':'Médio','LOW':'Baixo'},
 }
+# Presentation-only interpretation of persisted enum domains.
+# Never replace arbitrary prose, IDs, URLs, selectors, code or source data.
+DIMENSION_LABELS = {
+    'OVERALL_READINESS':'Índice de Prontidão Search & IA (SARI)',
+    'DISCOVERY_ACCESS':'Acesso e descoberta', 'INDEXABILITY':'Indexabilidade',
+    'CONTENT_EXTRACTABILITY':'Extração de conteúdo',
+    'SEMANTIC_STRUCTURE':'Estrutura semântica', 'ENTITY_CLARITY':'Clareza de entidades',
+    'STRUCTURED_DATA':'Dados estruturados', 'ANSWERABILITY':'Capacidade de resposta',
+    'CITATION_READINESS':'Preparação para citação',
+    'EVIDENCE_TRUST':'Confiança na evidência', 'INTENT_COVERAGE':'Cobertura de intenção',
+    'CONTENT_VALUE':'Valor do conteúdo', 'SEO':'SEO', 'GEO_SEARCH_AI':'GEO, busca e IA',
+    'ACCESSIBILITY':'Acessibilidade', 'PERFORMANCE':'Desempenho',
+    'SECURITY':'Segurança', 'EXPERIENCE':'Experiência',
+}
+ENTITY_TYPE_LABELS = {
+    'ORGANIZATION':'Organização', 'PERSON':'Pessoa', 'PRODUCT':'Produto',
+    'SERVICE':'Serviço', 'PLACE':'Local', 'BRAND':'Marca',
+    'TOPIC':'Assunto', 'OTHER':'Outro tipo de entidade',
+}
+SCOPE_LABELS = {
+    'URL_SET':'Conjunto de URLs', 'DEVICE_SNAPSHOT':'Captura por dispositivo',
+    'SEARCH_QUERY':'Consulta de pesquisa', 'URL':'URL individual',
+    'ORIGIN':'Origem do site', 'SITE':'Site', 'PAGE':'Página',
+    'AUDIT':'Auditoria', 'GLOBAL':'Visão geral',
+    'FIELD':'Medição real de usuários', 'LAB':'Medição em laboratório',
+    'URL_LEVEL':'URL específica', 'ORIGIN_LEVEL':'Origem do site',
+}
+METHOD_LABELS = {
+    'DETERMINISTIC_PERSISTED_EVIDENCE':'Análise determinística de evidências registradas',
+    'DETERMINISTIC':'Análise baseada em regras, sem IA',
+    'PERSISTED_EVIDENCE':'Evidências já registradas',
+}
+CONFIDENCE_SCOPE_LABELS = {
+    'LIMITED':'Limitada às evidências disponíveis',
+    'LOCAL':'Limitada ao ambiente observado',
+    'INSUFFICIENT':'Evidência insuficiente para conclusão ampla',
+    'GLOBAL':'Abrangência global declarada',
+}
+PROVENANCE_LABELS = {
+    'LOCAL_DNS_RESOLVER':'Resolvedor DNS local',
+    'LOCAL_TLS_SOCKET':'Conexão TLS observada localmente',
+    'LOCAL_TCP_SOCKET':'Conexão TCP observada localmente',
+    'LOCAL_OPERATOR_PROCESS':'Sonda executada localmente com autorização',
+    'NO_DNS_CAPTURE':'DNS não medido separadamente na captura',
+    'NO_TCP_TIMING_CAPTURE':'Tempo de conexão TCP não medido separadamente',
+    'NO_TLS_TIMING_CAPTURE':'Tempo de negociação TLS não medido separadamente',
+    'NO_ACTIVE_PROBE':'Sonda complementar não realizada',
+    'NO_ENRICHMENT':'Geolocalização ou ASN não enriquecidos',
+    'LOCAL_MAXMIND_MMDB':'Base geográfica local',
+    'LOCAL_MMDB_CITY':'Base geográfica local',
+    'AUD_CAPTURE':'Captura registrada na auditoria',
+}
+FIELD_ENUM_LABELS = {
+    'dimension': DIMENSION_LABELS,
+    'provenance': PROVENANCE_LABELS,
+    'measurement_origin': PROVENANCE_LABELS,
+    'entity_type': ENTITY_TYPE_LABELS,
+    'scope': SCOPE_LABELS,
+    'field_scope': SCOPE_LABELS,
+    'url_scope': SCOPE_LABELS,
+    'analysis_method': METHOD_LABELS,
+    'confidence_scope': CONFIDENCE_SCOPE_LABELS,
+    'method': METHOD_LABELS,
+    'source_kind': ORIGIN_LABELS,
+    'origin_kind': ORIGIN_LABELS,
+    'source': {'AI':'IA', 'GSC':'Google Search Console',
+               'SERP':'Resultados de busca', 'EXTERNAL':'Fonte externa'},
+    'source_mode': {'AUTO':'Automático', 'MIXED':'Misto',
+                    'PERSISTED':'Dados já registrados', 'MANUAL':'Manual'},
+    'decision': {'ACCEPTED':'Aceita', 'REJECTED':'Rejeitada', 'PENDING':'Pendente'},
+    'required': {'1':'Sim', '0':'Não', 'TRUE':'Sim', 'FALSE':'Não'},
+}
+SEMANTIC_ENUM_FIELDS = ENUM_FIELDS | {
+    'entity_type', 'component', 'dimension', 'scope', 'scope_key', 'audit_mode',
+    'url_scope', 'analysis_method', 'confidence_scope', 'method',
+    'decision', 'required', 'domain', 'source', 'source_kind',
+    'source_mode', 'origin_kind', 'measurement_origin', 'purpose',
+    'error_scope', 'domain_status', 'service_state', 'event_state',
+    'rule_result', 'provider_state', 'hop_state', 'provenance',
+}
+TECHNICAL_ONLY_FIELDS = frozenset({
+    'projection_json', 'query_json', 'proposed_json', 'request_payload',
+    'response_payload', 'limitations_json', 'implementation_guidance_json',
+    'validation_steps_json', 'original_html', 'suggested_html',
+    'raw_payload', 'configuration_json',
+})
+MACHINE_TOKEN = re.compile(r'^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$')
+
+
+def typed_public_label(value, field):
+    """Interpret a known enum domain in pt-BR, without changing canonical data."""
+    if value is None:
+        return 'N/D'
+    if field == 'required' and type(value) is bool:
+        return 'Sim' if value else 'Não'
+    if field == 'required' and type(value) is int and value in (0, 1):
+        return 'Sim' if value == 1 else 'Não'
+    if not isinstance(value, str):
+        return value
+    token = value.upper()
+    if field == 'component':
+        return {'SEARCH': 'Pesquisa em mecanismos de busca'}.get(token) or component_label(value)
+    if field == 'scope_key':
+        return scope_label(value)
+    mapped = FIELD_ENUM_LABELS.get(field, {}).get(token)
+    if mapped is not None:
+        return mapped
+    if field == 'required':
+        return 'Não determinado'
+    generic = (SEVERITY_LABELS if field == 'severity'
+               else PRIORITY_LABELS if field in {'priority', 'priority_class'}
+               else VALUE_LABELS)
+    known = generic.get(token) or supplemental_public_label(value)
+    if known is None and MACHINE_TOKEN.fullmatch(value):
+        known = canonical_public_label(value)
+    if known is not None:
+        return known
+    return safe_visible_fallback(value) if MACHINE_TOKEN.fullmatch(value) else value
 
 
 def timezone_for_records(records):
@@ -64,11 +197,11 @@ def public_value(value, field=None, timezone_name=None):
     if type(value) is float:
         return str(value).replace('.',',')
     if field in TYPED_LABELS:
-        return TYPED_LABELS[field].get(str(value),value)
-    if field in ENUM_FIELDS:
-        token=str(value).upper()
-        labels=SEVERITY_LABELS if field=='severity' else (PRIORITY_LABELS if field in {'priority','priority_class'} else VALUE_LABELS)
-        return labels.get(token,value)
+        known = TYPED_LABELS[field].get(str(value))
+        if known is not None:
+            return known
+    if field in SEMANTIC_ENUM_FIELDS:
+        return typed_public_label(value, field)
     if field in {'estimated_cost','observed_cost','amount','percentage'} and isinstance(value,str) and re.fullmatch(r'-?\d+(?:\.\d+)?',value):
         return value.replace('.',',')
     return value
@@ -84,7 +217,7 @@ def chip_tone(value, field):
         return 'warn'
     if token == 'CRITICAL':
         return 'bad critical'
-    if token in {'FAILED','ERROR','FAIL','BLOCKED'}:
+    if token in {'FAILED','ERROR','FAIL','BLOCKED','COLLECTION_FAILED'}:
         return 'bad'
     return 'info' if token in {'INFO','INFORMATIONAL','EXTERNAL'} else 'none'
 
@@ -93,7 +226,7 @@ def metric_label(row,key,labels):
     if key=='agentic_browsing_score':
         return 'Lighthouse · Navegação por agentes'
     if key!='apdex_score':
-        return labels.get(row.get('dimension',key),row.get('dimension',key))
+        return labels.get(row.get('dimension',key), public_value(row.get('dimension',key), 'dimension'))
     family=row.get('_source_table')
     if family=='synthetic_apdex_summaries':
         return 'Apdex sintético de navegação'

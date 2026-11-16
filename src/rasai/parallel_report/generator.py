@@ -88,7 +88,7 @@ def _render_package(root, database, before, logical_before, output):
     timezone_name, _ = timezone_for_records(records)
     supplements = scope_context(root, tables, timezone_name, costs)
     audit = next(iter(tables.get('audits', ())), {})
-    for page, body in catalog_context(root, logical_before, audit.get('audit_id')).items():
+    for page, body in catalog_context(root, logical_before, audit.get('audit_id'), tables).items():
         supplements[page] += body
     pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
     for name, html in pages.items():
@@ -104,7 +104,61 @@ def _render_package(root, database, before, logical_before, output):
         name: ['-'.join(page['page_parts'])+'.html' if isinstance(page,dict) else page for page in pages]
         for name,pages in coverage_map['canonical_pages'].items()
     }
-    coverage_map['families'] = {table: {'page': destination(table) + '.html', 'row_count': len(rows), 'columns': schema[table]['columns']} for table, rows in tables.items()}
+    from .page_views import SECTIONS
+    from .catalog_context import STRUCTURED
+    from .governance import Governance
+    # A route is not automatically a summary, and a summary is not a decision.
+    editorial_fields = {}
+    for sections in SECTIONS.values():
+        for _, sources, fields in sections:
+            for source in sources:
+                editorial_fields.setdefault(source, set()).update(key for key, _ in fields)
+    for specs in STRUCTURED.values():
+        for _, source, fields, _, _ in specs:
+            editorial_fields.setdefault(source, set()).update(key for key, _ in fields)
+    editorial_fields.update({
+        'audits': {'audit_id', 'status', 'completion_status'},
+        'audit_targets': {'normalized_origin', 'input_url'},
+        'scores': {'value', 'coverage', 'confidence', 'dimension'},
+        'recommendation_governance': {'decision', 'source_id'},
+        'directed_analysis_actions': {'title', 'source_id', 'priority'},
+        'directed_analysis_runs': {'strategic_summary_json', 'roadmap_json', 'status'},
+    })
+    governance = Governance(tables.get('recommendation_governance', ()))
+    governed_families = {
+        'directed_analysis_actions', 'recommendations',
+        'improvement_intelligence_recommendations',
+        'content_remediation_suggestions', 'jsonld_remediation_suggestions',
+    }
+    family_coverage = {}
+    for source, rows in tables.items():
+        page = destination(source)
+        fields = editorial_fields.get(source, set())
+        has_summary = bool(rows and fields and any(
+            isinstance(row, dict) and any(row.get(field) is not None for field in fields)
+            for row in rows))
+        has_conclusion = (
+            source == 'scores' and any(row.get('value') is not None for row in rows)
+            or source == 'recommendation_governance' and any(
+                row.get('decision') in {'ACCEPTED', 'REJECTED'} for row in rows)
+            or source in governed_families and any(
+                governance.disposition(source, row) == 'Aceita pela governança'
+                for row in rows)
+        )
+        family_coverage[source] = {
+            'page': page + '.html' if page is not None else None,
+            'representation': 'editorial' if has_summary else (
+                'navigable-record' if page is not None else 'technical-only'),
+            'levels': {
+                'preserved_annex': True,
+                'navigable_record': page is not None and bool(rows),
+                'editorial_summary': has_summary,
+                'conclusion_or_decision_present': bool(has_conclusion),
+            },
+            'row_count': len(rows),
+            'columns': schema[source]['columns'],
+        }
+    coverage_map['families'] = family_coverage
     (output / 'assets' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
     generated = {p.relative_to(output).as_posix(): digest(p) for p in output.rglob('*') if p.is_file()}
     return {

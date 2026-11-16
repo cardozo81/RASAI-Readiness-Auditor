@@ -13,8 +13,8 @@ O gerador reaproveita um pacote íntegro com fontes e versão compatíveis. Quan
 precisa atualizá-lo, valida a árvore em staging antes de substituir a anterior.
 A mesma publicação migra as subpastas datadas das auditorias históricas.
 
-Abra `index.html` por `file://`. São dez páginas, anexos JSON sanitizados,
-assets locais, manifesto e mapa completo de cobertura. CSS/JS não usam rede.
+Abra `index.html` por `file://`. São onze páginas, anexos JSON sanitizados,
+assets locais, manifesto e mapa completo de cobertura. A página Rede e conectividade projeta somente observações persistidas/verificadas e mantém o aprofundamento no report-catalog. CSS/JS não usam rede.
 Não publica cópias executáveis do HTML auditado. Não execute o módulo sobre
 uma AUD que outro processo possa modificar durante a leitura.
 
@@ -52,3 +52,17 @@ O teste Chromium usa somente instalação existente. O manifesto não inclui
 hash de si mesmo para evitar autorreferência; registra hashes de todos os
 demais arquivos gerados. `source_writes=0` exclui somente a nova saída derivada.
 Nunca interpretar existência de relatório como homologação da auditoria.
+
+
+## Paridade semântica após a #710
+
+O HTML do `report-catalog` **não é fonte de fatos para este gerador**. Quadros executivos recebem registros diretamente de `audit.db` e sidecars verificados; o manifesto íntegro do catálogo é consultado somente para habilitar links técnicos de aprofundamento. Sem o catálogo, a apresentação deve continuar explicando os fatos materiais e informar que o destino opcional está indisponível; quando exportada isoladamente, links externos ao pacote exigem o catálogo contíguo e não devem ser usados para obter conclusões essenciais.
+
+O `coverage-map.json` versão **3** distingue anexo preservado, registro navegável, síntese editorial e conclusão/decisão; existência de tabela ou link não certifica autonomia executiva. Propostas sem decisão permanecem fora do plano aprovado. A projeção contextual SEO/GEO mantém hipóteses condicionais e estado de verificação; a consulta de rede reaproveita um avaliador determinístico sobre observações já persistidas. Geração não faz consultas de IA nem novas medições.
+
+O gerador interno `0.4.1` invalida pacotes de apresentação antigos da linha `0.4.0`; a versão do produto não muda. A homologação semântica da AUD real e o aceite visual continuam gates independentes do manifesto e do CI.
+
+
+### Vocabulário e rede independente (gerador 0.4.3)
+
+Todas as superfícies executivas usam rótulos pt-BR por campo, inclusive cabeçalhos, tabelas, chip, tooltip e modal. O JSON original e os IDs canônicos ficam sob seções declaradamente técnicas. O botão de rede abre modal local; o mapa SVG offline é exibido quando a sonda autorizada persistiu coordenadas válidas, ou há justificativa explícita de ausência. Não requer `report-catalog` para esta funcionalidade. A versão do gerador força atualizar os históricos sem recalcular pontuação ou realizar nova coleta.

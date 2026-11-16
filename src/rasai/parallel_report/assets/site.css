@@ -81,6 +81,10 @@ summary{overflow-wrap:anywhere} .record .org{max-width:none} .ruler .nt{font-siz
 .record{overflow-wrap:anywhere}
 
 
+/* Mapa de rede somente com coordenadas persistidas. Sem inline CSS (CSP offline). */
+#network-map .table-wrap{overflow-x:auto;margin:8px 0 14px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+#network-map svg.network-map-plot{display:block;width:100%;height:auto;max-width:100%;background:var(--card)}
+
 /* Detalhamento contextual: preserva a tabela editorial e mantém a proveniência disponível. */
 .modal-open,.modal-dismiss,.modal-close{font:inherit}
 .modal-open{display:inline-flex;align-items:center;justify-content:center;padding:5px 9px;border:1px solid var(--acc);border-radius:5px;background:transparent;color:var(--acc);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}

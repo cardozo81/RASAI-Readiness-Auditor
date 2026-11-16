@@ -1,6 +1,6 @@
 # Console interativo
 
-**Estado:** contrato vigente do runtime local. A última release pública é `v0.9.2`; a candidata `0.10.0` ainda não foi publicada.
+**Estado:** contrato vigente do runtime local. A release pública atual é `v0.10.0`, publicada em 15/11/2026.
 
 ## Inicialização
 
