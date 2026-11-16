@@ -118,7 +118,7 @@ def package_captures(root, snapshots, stage, source_inventory):
 def packaged_visual_files(manifest):
     """Strict, closed manifest allowlist for the screenshot package."""
     preview = manifest.get('visual_previews')
-    if not isinstance(preview, list) or len(preview) > len(preview) + MAX_CAPTURES:
+    if not isinstance(preview, list) or len(preview) > 10000:
         return None
     result = set()
     for item in preview:
@@ -135,3 +135,59 @@ def packaged_visual_files(manifest):
         elif state != 'NAO_DISPONIVEL' or location is not None:
             return None
     return result
+
+
+def capture_gallery_html(snapshots, previews, timezone_name):
+    """Always-visible screenshot gallery with an optional fullscreen-size dialog."""
+    from .components import text
+    from .presentation_labels import public_value
+
+    html = [
+        '<section class="capture-visual-section" aria-label="Prévia das páginas capturadas">',
+        '<h2>Prévia visual das páginas capturadas</h2>',
+        '<p class="rf">Imagens originais registradas na auditoria, por dispositivo. '
+        'Toque na imagem para ampliar. Nenhuma captura adicional é executada.</p>',
+    ]
+    if not snapshots:
+        html.append('<p class="callout">Nenhuma captura de página persistida.</p>')
+    for index, snapshot in enumerate(snapshots):
+        item = previews[index]
+        device = str(public_value(snapshot.get('device'), 'device', timezone_name))
+        timestamp = public_value(snapshot.get('captured_at'), 'captured_at', timezone_name)
+        address = snapshot.get('final_url') or snapshot.get('requested_url') or 'N/D'
+        image = item.get('local_path')
+        title = 'Captura ' + str(index + 1) + ' - ' + device
+        html.append('<figure class="capture-visual">')
+        html.append('<figcaption><strong>' + text(title) + '</strong>'
+                    '<span>' + text(timestamp) + '</span>'
+                    '<span>' + text(address) + '</span></figcaption>')
+        if item.get('status') != 'DISPONIVEL' or not image:
+            html.append('<p class="rf capture-unavailable">Imagem não disponível: '
+                        + text(item.get('reason') or 'evidência visual não persistida')
+                        + '</p></figure>')
+            continue
+        dialog_id = 'capture-image-' + str(index)
+        alt = 'Screenshot original da ' + title
+        html.extend([
+            '<button type="button" class="modal-open capture-image-button" '
+            'data-modal="' + dialog_id + '" aria-haspopup="dialog" '
+            'aria-controls="' + dialog_id + '" aria-label="Ampliar ' + text(title) + '">',
+            '<img class="capture-image-preview" src="' + text(image)
+            + '" alt="' + text(alt) + '" loading="lazy" decoding="async">',
+            '</button><p class="rf">Clique na imagem para ampliar. '
+            'SHA-256 do arquivo de origem: <code>' + text(item.get('sha256')) + '</code></p>',
+            '</figure>',
+            '<dialog class="detail-dialog capture-image-dialog" id="' + dialog_id
+            + '" aria-labelledby="' + dialog_id + '-title">',
+            '<div class="modal-head"><div><span class="modal-kicker">Captura original verificada</span>'
+            '<h2 id="' + dialog_id + '-title">' + text(title) + '</h2></div>',
+            '<button type="button" class="modal-close" data-modal-close '
+            'aria-label="Fechar imagem">×</button></div>',
+            '<div class="modal-body"><img src="' + text(image) + '" alt="' + text(alt)
+            + '"><p class="rf">' + text(timestamp) + ' - ' + text(address) + '</p></div>',
+            '<div class="modal-foot"><span class="rf">Imagem persistida, sem alteração.</span>'
+            '<button type="button" class="modal-dismiss" data-modal-close>'
+            'Fechar</button></div></dialog>',
+        ])
+    html.append('</section>')
+    return ''.join(html)
