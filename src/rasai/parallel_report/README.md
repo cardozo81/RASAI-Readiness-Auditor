@@ -61,3 +61,8 @@ O HTML do `report-catalog` **não é fonte de fatos para este gerador**. Quadros
 O `coverage-map.json` versão **3** distingue anexo preservado, registro navegável, síntese editorial e conclusão/decisão; existência de tabela ou link não certifica autonomia executiva. Propostas sem decisão permanecem fora do plano aprovado. A projeção contextual SEO/GEO mantém hipóteses condicionais e estado de verificação; a consulta de rede reaproveita um avaliador determinístico sobre observações já persistidas. Geração não faz consultas de IA nem novas medições.
 
 O gerador interno `0.4.1` invalida pacotes de apresentação antigos da linha `0.4.0`; a versão do produto não muda. A homologação semântica da AUD real e o aceite visual continuam gates independentes do manifesto e do CI.
+
+
+### Vocabulário e rede independente (gerador 0.4.3)
+
+Todas as superfícies executivas usam rótulos pt-BR por campo, inclusive cabeçalhos, tabelas, chip, tooltip e modal. O JSON original e os IDs canônicos ficam sob seções declaradamente técnicas. O botão de rede abre modal local; o mapa SVG offline é exibido quando a sonda autorizada persistiu coordenadas válidas, ou há justificativa explícita de ausência. Não requer `report-catalog` para esta funcionalidade. A versão do gerador força atualizar os históricos sem recalcular pontuação ou realizar nova coleta.
