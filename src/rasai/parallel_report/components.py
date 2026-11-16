@@ -114,7 +114,9 @@ def table(caption, rows, columns, timezone_name=None):
     if not rows:
         return '<p class="callout">Não medido — nenhum registro disponível para esta seção.</p>'
     has_details = any(
-        row.get('_ref') or any(not key.startswith('_') and key not in {name for name, _ in columns} for key in row)
+        row.get('_ref')
+        or any(not key.startswith('_') and key not in {name for name, _ in columns} for key in row)
+        or any(key in TECHNICAL_ONLY_FIELDS and row.get(key) is not None for key, _ in columns)
         for row in rows
     )
     headings = ''.join(f'<th scope="col">{text(FIELD_LABELS.get(key,label))}</th>' for key, label in columns)
