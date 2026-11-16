@@ -226,8 +226,9 @@ def test_catalog_html_does_not_supply_structured_facts(tmp_path, monkeypatch):
         '<table><tr><td>FORGED_SUCCESS</td></tr></table>', encoding='utf-8')
     second = catalog_context(tmp_path, 'digest', 'AUD-X', source)
     assert first['index'] == second['index']
-    assert 'SEARCH' in second['index'] and 'FORGED_SUCCESS' not in second['index']
-    assert 'NOT_REQUESTED' in second['index']
+    assert 'Pesquisa em mecanismos de busca' in second['index'] and 'FORGED_SUCCESS' not in second['index']
+    assert 'Não solicitado' in second['index']
+    assert '>SEARCH<' not in second['index'] and '>NOT_REQUESTED<' not in second['index']
 
 
 def test_sari_measured_score_without_breakdown_is_not_reported_as_unmeasured():
@@ -308,7 +309,7 @@ def test_editorial_verification_tasks_keep_source_and_validation(monkeypatch, tm
     html = editorial_evidence(tmp_path, {'page_snapshots':[{'rendered_artifact_ref':'artifacts/page.html'}]})
     assert 'Conferir alegação' in html and 'Solicitar prova vigente' in html
     assert 'Até 25' in html and 'artifacts/page.html' in html
-    assert 'INSUFICIENTE' in html
+    assert 'Insuficiente' in html and '>INSUFICIENTE<' not in html
 
 
 def test_network_diagnosis_uses_persisted_assessor_not_html(monkeypatch, tmp_path):
