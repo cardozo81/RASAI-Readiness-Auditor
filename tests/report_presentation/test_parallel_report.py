@@ -412,6 +412,25 @@ def test_historical_package_migrates_on_explicit_open(tmp_path, monkeypatch, ver
     assert inventory(root) == before
 
 
+def test_previous_generator_version_is_upgraded_from_history(tmp_path):
+    from rasai import console_artifacts
+    from rasai.parallel_report import __version__
+    from rasai.parallel_report.generator import generate
+
+    root = fixture(tmp_path / 'AUD-SYNTHETIC')
+    package = generate(root)
+    original = json.loads((package / '_geracao.json').read_text(encoding='utf-8'))
+    assert __version__ == '0.4.2'
+    original['generator_version'] = '0.4.1'
+    (package / '_geracao.json').write_text(json.dumps(original), encoding='utf-8')
+    assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()
+    reopened, outcome = console_artifacts.materialize_presentation_report_on_demand(root)
+    assert reopened == (package / 'index.html').resolve()
+    assert outcome == 'MIGRATED'
+    upgraded = json.loads((package / '_geracao.json').read_text(encoding='utf-8'))
+    assert upgraded['generator_version'] == __version__
+
+
 def test_corrupt_package_is_regenerated(tmp_path):
     root = fixture(tmp_path / 'AUD-SYNTHETIC')
     package = generate(root)
