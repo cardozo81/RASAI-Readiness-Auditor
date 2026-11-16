@@ -116,3 +116,39 @@ def test_capture_preview_button_opens_offline_modal(tmp_path):
             assert not modal.is_visible()
         assert not errors, errors
         browser.close()
+
+
+def test_screenshot_is_visible_before_click_and_enlarges_offline(tmp_path):
+    """The page itself shows the persisted screenshot; zoom is optional."""
+    from test_capture_gallery import _audit_with_screenshot
+
+    root, _ = _audit_with_screenshot(tmp_path)
+    output = generate(root)
+    with sync_playwright() as playwright:
+        if not Path(playwright.chromium.executable_path).exists():
+            pytest.skip('Existing Chromium unavailable; do not install')
+        browser = playwright.chromium.launch()
+        context = browser.new_context(offline=True)
+        requests, errors = [], []
+        context.route('**/*', lambda route: route.abort() if route.request.url.startswith(('http:', 'https:')) else route.continue_())
+        page = context.new_page()
+        page.on('request', lambda request: requests.append(request.url) if request.url.startswith(('http:', 'https:')) else None)
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        for width in (1440, 390):
+            page.set_viewport_size({'width': width, 'height': 900})
+            page.goto((output / 'extracao.html').as_uri())
+            screenshot = page.locator('img.capture-image-preview')
+            assert screenshot.count() == 1
+            assert screenshot.is_visible(), 'Screenshot must render in the HTML before opening any dialog'
+            assert screenshot.evaluate('(image) => image.complete && image.naturalWidth > 0')
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            button = page.get_by_role('button', name='Ampliar Captura 1 - Móvel')
+            button.click()
+            dialog = page.locator('dialog.capture-image-dialog[open]')
+            assert dialog.is_visible()
+            assert dialog.locator('img').evaluate('(image) => image.complete && image.naturalWidth > 0')
+            page.keyboard.press('Escape')
+            assert not dialog.is_visible()
+            assert screenshot.is_visible()
+        assert not requests and not errors, (requests, errors)
+        browser.close()
