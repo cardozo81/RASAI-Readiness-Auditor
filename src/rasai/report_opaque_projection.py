@@ -48,7 +48,7 @@ def project_opaque_fields(value: Any) -> Any:
     return projected
 
 
-def _project(value: Any) -> tuple[Any, bool]:
+def _project(value: Any, field: str = "") -> tuple[Any, bool]:
     if isinstance(value, Mapping):
         changed = False
         output = {}
@@ -57,7 +57,7 @@ def _project(value: Any) -> tuple[Any, bool]:
                 output[key] = opaque_metadata(item)
                 changed = True
             else:
-                output[key], edited = _project(item)
+                output[key], edited = _project(item, str(key).casefold())
                 changed |= edited
         return output, changed
     if isinstance(value, (list, tuple)):
@@ -76,8 +76,9 @@ def _project(value: Any) -> tuple[Any, bool]:
             # A valid JSON document mentioning this term in an unrelated text
             # field is not an encrypted_content field and must be preserved.
             return value, False
-        if has_opaque_marker(value):
-            # No parseable structured boundary: never distribute a suspected
-            # ciphertext payload in unstructured/free-form response text.
+        if has_opaque_marker(value) and field in {"", "request_payload", "response_payload", "raw_payload"}:
+            # Fail closed only at an opaque exchange boundary (or a direct
+            # unstructured root). An ordinary note mentioning this key is not
+            # evidence of ciphertext and must remain intact.
             return UNPARSEABLE_STATUS, True
     return value, False
