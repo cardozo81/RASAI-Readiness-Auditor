@@ -1,5 +1,6 @@
 """Operational action plan; exact canonical IDs, no title-based deduplication."""
 from collections import Counter
+import json
 from .components import text, kv, chip, origin, table, technical_link
 from .presentation_labels import public_value
 
@@ -35,6 +36,75 @@ def grouped_actions(rows):
     return sorted(groups.values(),key=lambda group:(rank.get(group[0].get('priority'),4),str(group[0].get('action_id',''))))
 
 
+def _persisted_json(value, expected):
+    if isinstance(value, expected):
+        return value
+    if isinstance(value, str) and len(value) <= 2_000_000:
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, expected) else None
+        except (ValueError, TypeError):
+            pass
+    return None
+
+
+def strategic_context(rows, governance):
+    """Advisory synthesis already persisted in audit.db; no fresh AI or HTML import."""
+    runs = rows(['directed_analysis_runs'])
+    if not runs:
+        return '<h2>Síntese estratégica</h2><p>N/D — análise direcionada não materializada para esta auditoria.</p>'
+    run = runs[0]
+    status = str(run.get('status') or 'N/D').upper()
+    html = '<h2>Síntese estratégica persistida</h2>' + kv([
+        ('Estado da análise', status), ('Provedor persistido', run.get('provider')),
+        ('Modelo persistido', run.get('model'))])
+    if status in {'DISABLED', 'NOT_REQUESTED', 'FAILED', 'BLOCKED'}:
+        return html + '<p>A síntese estratégica não está disponível neste estado. As ações técnicas seguem no inventário, sem interpretação inventada.</p>'
+    summary = _persisted_json(run.get('strategic_summary_json'), dict)
+    roadmap = _persisted_json(run.get('roadmap_json'), list)
+    if summary is None:
+        html += '<p>N/D — narrativa estratégica não materializada com contrato utilizável.</p>'
+    else:
+        for label, key in (
+                ('Pontos fortes', 'strengths'), ('Fragilidades', 'fragilities'),
+                ('Riscos', 'risks'), ('Oportunidades', 'opportunities'),
+                ('Evidência insuficiente', 'insufficient_evidence')):
+            items = summary.get(key)
+            if isinstance(items, list) and items:
+                html += '<h3>' + text(label) + '</h3><ul>'
+                html += ''.join('<li>' + text(item) + '</li>' for item in items[:30])
+                html += '</ul>'
+        if isinstance(summary.get('plan_overview'), str) and summary['plan_overview']:
+            html += '<p><strong>Encadeamento registrado:</strong> ' + text(summary['plan_overview']) + '</p>'
+    html += '<h2>Fases do roteiro persistido</h2>'
+    if not roadmap:
+        return html + '<p>N/D — sequência de fases não disponível; nenhuma ordem foi inferida.</p>'
+    by_id = {str(row.get('action_id')): row for row in rows(['directed_analysis_actions'])
+             if row.get('action_id') is not None}
+    html += '<p>Fases são síntese consultiva; somente decisões vinculadas autorizam ações do plano do cliente.</p>'
+    for index, phase in enumerate(roadmap):
+        if not isinstance(phase, dict):
+            continue
+        raw_ids = phase.get('action_ids')
+        ids = [str(x) for x in raw_ids if str(x) in by_id] if isinstance(raw_ids, list) else []
+        matched = [by_id[x] for x in dict.fromkeys(ids)]
+        accepted = sum(governance.disposition('directed_analysis_actions', a) == 'Aceita pela governança'
+                       for a in matched)
+        undecided = sum(governance.disposition('directed_analysis_actions', a)
+                        not in {'Aceita pela governança', 'Excluída do plano do cliente'}
+                        for a in matched)
+        rejected = len(matched) - accepted - undecided
+        html += ('<details><summary>' + text(phase.get('phase') or f'Fase {index + 1}')
+                 + '</summary>' + kv([
+                     ('Objetivo registrado', phase.get('objective')),
+                     ('Ações com ID persistido vinculado', len(matched)),
+                     ('Aceitas pela governança', accepted),
+                     ('Sem decisão ou pendentes', undecided),
+                     ('Rejeitadas / fora do plano', rejected)])
+                 + '</details>')
+    return html
+
+
 def render_plan(rows, timezone_name, governance):
     groups=grouped_actions(rows(['directed_analysis_actions']))
     priorities=Counter(group[0].get('priority') for group in groups)
@@ -45,6 +115,7 @@ def render_plan(rows, timezone_name, governance):
     html += kv([('Decisões aceitas', sum(d.get('decision') == 'ACCEPTED' for d in decisions) if decisions else None),
                 ('Decisões rejeitadas', sum(d.get('decision') == 'REJECTED' for d in decisions) if decisions else None)])
     html += '<p>Os IDs contam o inventário técnico. Apenas a decisão vinculada identifica uma ação aceita. Itens excluídos permanecem no detalhe técnico.</p>'
+    html += strategic_context(rows, governance)
     # Governance is a decision boundary, not a priority or source-kind heuristic.
     # Technical recommendations without a decision remain consultable but never
     # appear under the client's approved execution plan.
