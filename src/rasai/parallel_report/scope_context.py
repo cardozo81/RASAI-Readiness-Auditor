@@ -327,7 +327,11 @@ def network_context(root, audit_id, timezone_name):
              ('asn', 'ASN'), ('geoip', 'GeoIP aproximado')])
     # Reuse the established offline map with exactly the verified probe objects.
     # Missing coordinates produce an explicit explanation, never a synthetic route.
-    map_html = network_geographic_panel(probes)
+    map_probes = sanitize(probes)
+    for item in map_probes:
+        if isinstance(item, dict):
+            item['capture_utc'] = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
+    map_html = network_geographic_panel(map_probes)
     has_map = '<h2>Mapa geográfico consultivo</h2>' in map_html
     map_html = map_html.replace("<section class='panel'>",
                                 "<section class='panel' id='network-map'>", 1)
