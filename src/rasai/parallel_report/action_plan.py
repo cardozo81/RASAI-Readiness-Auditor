@@ -13,7 +13,7 @@ def content(value, field=None):
             items=[]
             for item in value:
                 if isinstance(item,dict) and set(item)<={'dimension','expected_gain'}:
-                    items.append('<li title="'+text(item)+'">'+text(public_value(item.get('dimension'),'dimension'))+' · Ganho esperado na fonte: '+text(public_value(item.get('expected_gain'),'expected_gain'))+'</li>')
+                    items.append('<li>'+text(public_value(item.get('dimension'),'dimension'))+' · Ganho esperado na fonte: '+text(public_value(item.get('expected_gain'),'expected_gain'))+'</li>')
                 else:
                     items.append('<li>'+text(item)+'</li>')
             return '<ul>'+''.join(items)+'</ul>'
@@ -56,7 +56,7 @@ def strategic_context(rows, governance):
     run = runs[0]
     status = str(run.get('status') or 'N/D').upper()
     html = '<h2>Síntese estratégica persistida</h2>' + kv([
-        ('Estado da análise', status), ('Provedor persistido', run.get('provider')),
+        ('Estado da análise', public_value(status,'status')), ('Provedor persistido', run.get('provider')),
         ('Modelo persistido', run.get('model'))])
     if status in {'DISABLED', 'NOT_REQUESTED', 'FAILED', 'BLOCKED'}:
         return html + '<p>A síntese estratégica não está disponível neste estado. As ações técnicas seguem no inventário, sem interpretação inventada.</p>'
@@ -152,7 +152,7 @@ def render_plan(rows, timezone_name, governance):
         return result
 
     html += action_section(accepted, 'Plano aprovado pela governança',
-                           'Somente ações com decisão ACCEPTED inequívoca e alvo do cliente. Prioridade não é aprovação.', 0)
+                           'Somente ações expressamente aceitas pela governança e direcionadas ao cliente. Prioridade não equivale a aprovação.', 0)
     html += action_section(undecided, 'Recomendações técnicas sem aprovação',
                            'Itens ainda não autorizados para execução. Exigem decisão do responsável antes de integrar o plano.', len(accepted))
     html += '<h2>Decisões rejeitadas ou fora do escopo do cliente</h2>'
