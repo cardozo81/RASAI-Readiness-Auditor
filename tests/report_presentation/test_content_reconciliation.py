@@ -103,6 +103,10 @@ def test_network_and_serp_do_not_borrow_apdex_or_search_universes(tmp_path, monk
     assert 'Falha na coleta' in body['rede'] and 'Conexão TCP (ms)' in body['rede']
     assert 'caminho completo não confirmado' in body['rede']
     assert 'AS15169' in body['rede'] and 'precisão ±20 km' in body['rede']
+    assert 'Mapa geográfico consultivo' in body['rede']
+    assert 'data-map-layer' in body['rede']
+    assert 'network-context-modal' in body['rede']
+    assert 'report-catalog/network.html' not in body['rede']
     assert '8.8.8.8' in body['rede'] and '12,3' in body['rede']
     assert 'Consulta DNS (ms)' not in body['performance']
     assert 'URLs da SERP</dt><dd>3' in body[context.SEARCH_PAGE]
@@ -184,16 +188,19 @@ def test_network_inventory_is_local_nonempty_and_sanitized(tmp_path, monkeypatch
     assert 'id="network-evidence-inventory"' in rendered
     assert 'Captura passiva verificada 1 de 1' in rendered
     assert 'private-token-value' not in rendered
+    assert 'network-context-modal' in rendered
+    assert 'href="#network-evidence-inventory"' in rendered
+    assert 'href="#network-map"' in rendered
 
     monkeypatch.setattr(catalog, '_verified_links', lambda *_: set())
     independent = catalog.catalog_context(tmp_path, 'logical', 'AUD-TEST', {})
-    assert 'href="#network-evidence-inventory"' in independent['rede']
+    assert 'data-modal="network-context-modal"' in independent['rede']
     assert '../report-catalog/network.html' not in independent['rede']
     monkeypatch.setattr(catalog, '_verified_links', lambda *_: {'network.html'})
     optional = catalog.catalog_context(tmp_path, 'logical', 'AUD-TEST', {})
-    assert 'href="#network-evidence-inventory"' in optional['rede']
-    assert 'href="../report-catalog/network.html"' in optional['rede']
-    assert 'Aprofundamento opcional de rede no report-catalog' in optional['rede']
+    assert 'data-modal="network-context-modal"' in optional['rede']
+    assert '../report-catalog/network.html' not in optional['rede']
+    assert 'report-catalog' not in optional['rede']
 
 
 def test_network_inventory_explains_missing_measurements(tmp_path, monkeypatch):
