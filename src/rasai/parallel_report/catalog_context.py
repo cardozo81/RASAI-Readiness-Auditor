@@ -18,7 +18,12 @@ STRUCTURED = {
     'extracao': (
         ('Identidade das capturas', 'page_snapshots',
          (('device', 'Dispositivo'), ('requested_url', 'URL solicitada'),
-          ('final_url', 'URL final'), ('captured_at', 'Instante')), 4, 'index.html'),
+          ('final_url', 'URL final'), ('captured_at', 'Instante'),
+          ('http_status', 'HTTP'), ('rendering_mode', 'Renderização'),
+          ('preview_browser', 'Navegador observado'),
+          ('preview_viewport', 'Área visível'),
+          ('preview_runtime_count', 'Ocorrências do navegador'),
+          ('preview_visual_ref', 'Referência da captura visual')), 4, 'index.html'),
     ),
     SEARCH_PAGE: (
         ('Cobertura observada de pesquisa', 'serp_observations',
@@ -50,6 +55,79 @@ REFERENCES = {
 }
 
 
+def _capture_preview(row):
+    """Read-only browser context from snapshot metadata, with explicit N/D.
+
+    Does not open visual evidence or guess missing browser/runtime measurements.
+    All original columns remain available in the local record inventory.
+    """
+    item = dict(row)
+    metadata = item.get('browser_metadata')
+    metadata = metadata if isinstance(metadata, dict) else {}
+    browser = metadata.get('browser_identity')
+    browser = browser if isinstance(browser, dict) else {}
+    profile = metadata.get('profile')
+    profile = profile if isinstance(profile, dict) else {}
+    viewport = profile.get('viewport')
+    viewport = viewport if isinstance(viewport, dict) else {}
+    visual = metadata.get('visual_snapshot')
+    visual = visual if isinstance(visual, dict) else {}
+    width = viewport.get('width', visual.get('viewport_width'))
+    height = viewport.get('height', visual.get('viewport_height'))
+    runtime = metadata.get('runtime_diagnostics')
+    runtime = runtime if isinstance(runtime, dict) else {}
+    occurrences = runtime.get('items')
+    item['preview_runtime_count'] = (
+        len([event for event in occurrences if isinstance(event, dict)])
+        if isinstance(occurrences, list) else 'N/D'
+    )
+    item['preview_viewport'] = (
+        str(width) + ' x ' + str(height)
+        if width is not None and height is not None else 'N/D'
+    )
+    channel = browser.get('channel') or 'Chrome'
+    version = browser.get('browser_version') or metadata.get('browser_version')
+    item['preview_browser'] = (
+        str(channel) + ((' ' + str(version)) if version else '')
+        if browser or version else 'N/D'
+    )
+    item['preview_visual_ref'] = metadata.get('visual_artifact_ref') or 'N/D'
+    return item
+
+
+def _runtime_rows(captures):
+    """Project captured browser diagnostics locally; no extra analysis/API."""
+    result = []
+    known = {
+        'CONSOLE_ERROR': 'Erro do console',
+        'CONSOLE_WARNING': 'Alerta do console',
+        'PAGE_ERROR': 'Erro de JavaScript',
+        'REQUEST_FAILED': 'Requisição com falha',
+        'HTTP_ERROR': 'Resposta HTTP com erro',
+    }
+    for capture in captures:
+        meta = capture.get('browser_metadata')
+        meta = meta if isinstance(meta, dict) else {}
+        runtime = meta.get('runtime_diagnostics')
+        runtime = runtime if isinstance(runtime, dict) else {}
+        items = runtime.get('items')
+        if not isinstance(items, list):
+            continue
+        for diagnostic in items:
+            if not isinstance(diagnostic, dict):
+                continue
+            result.append({
+                'device': capture.get('device'),
+                'snapshot_id': capture.get('snapshot_id'),
+                'type': known.get(str(diagnostic.get('type') or '').upper(),
+                                  'Diagnóstico de navegador não classificado'),
+                'message': diagnostic.get('message'),
+                'url': diagnostic.get('url'),
+                '_source_table': 'page_snapshots',
+            })
+    return result
+
+
 def _verified_links(root, logical, audit_id):
     """Compatibility with older tests; external catalog links are prohibited."""
     return set()
@@ -67,6 +145,8 @@ def catalog_context(root, logical, audit_id, tables=None, timezone_name=None):
             if not rows and page != 'extracao':
                 continue
             preview = [{**sanitize(row), '_source_table': source} for row in rows[:limit]]
+            if page == 'extracao':
+                preview = [_capture_preview(row) for row in preview]
             attrs = ' id="capture-preview"' if page == 'extracao' else ''
             sections[page] += (
                 '<details' + attrs + '><summary>' + text(title) + '</summary>'
@@ -79,6 +159,22 @@ def catalog_context(root, logical, audit_id, tables=None, timezone_name=None):
                   'Abrir inventário técnico completo nesta página</a></p>'
                 + '</details>'
             )
+    # The original technical capture link used to hide these facts in the
+    # catalog. Include the browser's persisted diagnostic events here instead.
+    capture_rows = [sanitize(row) for row in (tables or {}).get('page_snapshots', ())]
+    runtime_rows = _runtime_rows(capture_rows)
+    if runtime_rows:
+        sections['extracao'] += (
+            '<h2>Ocorrências registradas pelo navegador na captura</h2>'
+            + '<p class="rf">Eventos observados por captura; não representam '
+              'falhas universais nem medições adicionais.</p>'
+            + table('Diagnósticos do navegador', runtime_rows,
+                    [('device', 'Dispositivo'), ('snapshot_id', 'Captura'),
+                     ('type', 'Tipo'), ('message', 'Descrição'),
+                     ('url', 'Recurso / URL')], timezone_name=timezone_name)
+        )
+    else:
+        sections['extracao'] += '<p class="rf">Nenhum diagnóstico de navegador disponível para as capturas persistidas.</p>'
     if audit_id:
         sections['rede'] += (
             '<p><button type="button" class="modal-open" data-modal="network-context-modal" '
