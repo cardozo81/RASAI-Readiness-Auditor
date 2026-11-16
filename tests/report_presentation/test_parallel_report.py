@@ -612,7 +612,7 @@ def test_physical_file_groups_deduplicate_display_not_provenance(tmp_path):
     assert html.count('<summary>artifacts/secondary.html <span class="rf">(') == 1
     assert 'artifacts/page.html <span class="rf">(4 referências)</span>' in html
     assert 'artifacts/secondary.html <span class="rf">(2 referências)</span>' in html
-    ids = re.findall(r'id="physical-(\\d+)"', html)
+    ids = re.findall(r'id="physical-([0-9]+)"', html)
     assert sorted(int(n) for n in ids) == list(range(len(occurrences)))
     assert len(set(ids)) == len(occurrences)
     assert html.count('Voltar ao registro técnico de origem') == len(occurrences)
