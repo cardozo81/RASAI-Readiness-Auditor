@@ -50,8 +50,13 @@ def test_governance_conflict_excludes_client_card_preserves_distinct_count():
     data = {'directed_analysis_actions': [dict(action_id=i, title='Item '+i, source_kind='DEEP_ANALYSIS', source_id=i)
                                           for i in ('x','y','z')], 'recommendation_governance': decisions}
     html = render_plan(lambda names: [r for n in names for r in data.get(n, [])], 'UTC', Governance(decisions))
-    assert 'Item x' not in html and 'Item y' not in html
-    assert 'Item z' in html and 'id="action-card-0"' in html and 'action-card-1' not in html
+    # Excluded actions remain traceable in the historical occurrences disclosure,
+    # but cannot become a governed/executable client card.
+    assert 'Item x' in html and 'Item y' in html
+    approved = html.split('Plano aprovado pela governança', 1)[1].split('Recomendações técnicas sem aprovação', 1)[0]
+    pending = html.split('Recomendações técnicas sem aprovação', 1)[1].split('Decisões rejeitadas', 1)[0]
+    assert 'Item x' not in approved + pending and 'Item y' not in approved + pending
+    assert 'Item z' in pending and 'id="action-card-0"' in html and 'action-card-1' not in html
 
 
 def test_origin_and_observation_in_human_record():
@@ -260,7 +265,8 @@ def test_action_plan_separates_governed_undecided_and_excluded():
     pending = html.split('Recomendações técnicas sem aprovação', 1)[1].split('Decisões rejeitadas', 1)[0]
     assert 'Action-OK' in approved and 'Action-PENDING' not in approved
     assert 'Action-PENDING' in pending and 'Action-OK' not in pending
-    assert 'Action-DENIED' not in html
+    assert 'Action-DENIED' not in approved + pending
+    assert 'Action-DENIED' in html  # only historical, non-executable occurrence
     assert 'Ações direcionadas excluídas da execução' in html
 
 
