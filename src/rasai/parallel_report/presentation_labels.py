@@ -11,7 +11,7 @@ STATUS_LABELS.update({
     'UNAVAILABLE':'Indisponível', 'NOT_AVAILABLE':'Não disponível',
     'REQUESTED_NOT_EXECUTED':'Solicitado, não executado',
     'FAILED_RETRYABLE':'Falha recuperável', 'FAILED_PERMANENT':'Falha permanente',
-    'PENDING':'Pendente', 'RUNNING':'Em execução', 'IN_PROGRESS':'Em andamento',
+    'PENDING':'Pendente', 'FINAL':'Final', 'RUNNING':'Em execução', 'IN_PROGRESS':'Em andamento',
     'ACCEPTED':'Aceita', 'REJECTED':'Rejeitada', 'UNVERIFIED':'Não verificado',
     'VALIDACAO_NECESSARIA':'Validação necessária',
     'INSUFICIENTE':'Insuficiente', 'SUFICIENTE':'Suficiente',
