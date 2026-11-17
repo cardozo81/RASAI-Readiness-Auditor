@@ -25,6 +25,14 @@ def destination(table):
         # Route its one historically technical-only record to the local
         # index evidence inventory without inventing an executive conclusion.
         return 'index'
+    if table in {'audit_targets', 'audit_input_summary', 'audit_input_urls'}:
+        # Input provenance belongs with extraction, not the executive dashboard.
+        return 'extracao'
+    if table.startswith(('audit_fulfillment_', 'audit_reprocess_',
+                         'audit_execution_')):
+        # Operational ledgers belong to the provenance page. The dashboard
+        # retains its concise, source-backed status and historical overview.
+        return 'ia-custos'
     if table in {'scores', 'score_contributions', 'rule_executions'}:
         return 'indices'
     if table.startswith(('passive_security',)):
