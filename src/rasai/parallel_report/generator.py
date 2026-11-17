@@ -134,9 +134,9 @@ def _render_package(root, database, before, logical_before, output):
     (output / 'assets' / 'evidence-coverage.json').write_text(
         json.dumps(coverage_receipt, ensure_ascii=False, indent=2), encoding='utf-8')
     pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
-    from rasai.report_presentation import humanize_report_html
+    from rasai.report_presentation import humanize_module_references_html
     for name, html in pages.items():
-        html = humanize_report_html(html, page_name=name)
+        html = humanize_module_references_html(html)
         # Only visible copy is humanized; SQLite and annex JSON remain exact.
         # retain the precise persisted bytes and any original punctuation.
         (output / name).write_text(html.replace('\u2014', '-'), encoding='utf-8')
