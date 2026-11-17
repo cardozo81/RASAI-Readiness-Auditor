@@ -465,10 +465,14 @@ def build_execution_context(tables, coverage_receipt, timezone_name=None):
                          ('completed_at', 'Fim'), ('note', 'Nota'),
                          ('selected_items', 'Itens selecionados')])
                     archived = len(tables.get('audit_reprocess_derived_archive') or ())
-                    archive_name = table_annex_filename('audit_reprocess_derived_archive')
-                    html += ('<p>Registros derivados arquivados: ' + text(archived) +
-                             ' · <a class="tech-link" href="anexos/' + archive_name +
-                             '">Detalhe integral do histórico arquivado</a></p></details>')
+                    if 'audit_reprocess_derived_archive' in tables:
+                        archive_name = table_annex_filename('audit_reprocess_derived_archive')
+                        html += ('<p>Registros derivados arquivados: ' + text(archived) +
+                                 ' · <a class="tech-link" href="anexos/' + archive_name +
+                                 '">Detalhe integral do histórico arquivado</a></p></details>')
+                    else:
+                        html += ('<p>Registros derivados arquivados: N/D - fonte de '
+                                 'histórico arquivado não presente nesta auditoria.</p></details>')
 
         elif contract is None:
             html += '<p class="callout w">Critérios de execução não disponíveis. Não inferir conclusão, falha ou solicitação com base apenas em tabelas vazias.</p>'
