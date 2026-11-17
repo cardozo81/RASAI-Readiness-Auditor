@@ -307,7 +307,8 @@ def _decision_summaries(page, rows):
                 '<p class="callout w">Na comparação financeira, o valor apresentado como '
                 'custo técnico conciliado pode incluir estimativas de tentativas sem '
                 'telemetria monetária do provedor. Não constitui faturamento comprovado. '
-                'Valor ausente não equivale a zero; execução parcial não estabelece custo final.</p>'
+                'Valor ausente não equivale a zero; mesmo valor observado igual a zero '
+                'não significa custo final. Execução parcial não comprova fechamento financeiro.</p>'
                 + table('Comparação financeira, respeitando a cobertura',
                         result, [('currency', 'Moeda'), ('forecast', 'Previsão anterior'),
                                  ('reconciled', 'Custo técnico conciliado'),
