@@ -114,7 +114,8 @@ def crux_history(root, tables, inventory):
                     metric=metric, unit='fração' if metric == 'cumulative_layout_shift' else 'ms',
                     periods=len(series), first_start=series[0][0], first_end=series[0][1],
                     first_p75=series[0][2], last_start=series[-1][0], last_end=series[-1][1],
-                    last_p75=series[-1][2], dataset_ids=sorted({p['dataset_id'] for p in points})))
+                    last_p75=series[-1][2], dataset_ids=sorted({p['dataset_id'] for p in points}),
+                    series=[dict(period_start=a,period_end=b,p75=v) for a,b,v in series]))
     except (OSError, ValueError, sqlite3.Error):
         result['state'] = 'PROJECTION_ERROR'
         result['limitations'].append('HISTORY_SIDECAR_UNAVAILABLE_OR_INVALID')

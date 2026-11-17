@@ -192,6 +192,11 @@ def summaries(root, tables, inventory, records, capture):
              ('last_start','Início da última janela'), ('last_end','Fim da última janela'), ('last_p75','Último p75')])
     else:
         body += '<p>Sem série temporal comparável comprovada nos sidecars disponíveis.</p>'
+    for index, group in enumerate(history['groups'],1):
+        body += '<details><summary>'+text('Janelas de campo · '+str(group['metric'])+' · '+str(group['form_factor'] or 'Sem filtro de dispositivo'))+'</summary>'
+        body += table('CrUX · série '+str(index), group['series'],
+                      [('period_start','Início da janela'),('period_end','Fim da janela'),('p75','p75 ('+group['unit']+')')],full_text=True)
+        body += '</details>'
     body += ('<p>Janelas CrUX podem se sobrepor; diferenças não demonstram tendência ou causalidade. '
              'Campo, laboratório e simulação são medições independentes. Não são combinados em score.</p>')
     emit('performance', 'Histórico de campo com proveniência', (), body,
@@ -204,15 +209,21 @@ def summaries(root, tables, inventory, records, capture):
     for page, _ in PAGES:
         projected = set(n for t in topics[page] if t['state'] == 'PRESENT_SUMMARIZED' for n in t['families'])
         specs = [(title, names, fields) for title,names,fields in SECTIONS.get(page, ()) if page != 'plano']
-        specs += [(title, [name], fields) for title,name,fields,_,_ in STRUCTURED.get(page, ())]
         for title, families, fields in specs:
             actual = [n for n in families if any(any(r.get(k) is not None for k,_ in fields)
                        for r in tables.get(n, ()))]
             if actual:
-                topics[page].append(dict(topic=title, families=actual, state='PRESENT_SUMMARIZED',
+                topics[page].append(dict(topic=title, families=actual, state='PRESENT_FIELD_PROJECTION',
+                    displayed_fields=[k for k,_ in fields],
                     sources=[dict(table=n, href=r.href, record_id=dict(r.identity)) for n in actual for r in by_table[n]],
                     limitation='FIELD_PROJECTION_NOT_EXECUTIVE_COMPLETENESS'))
                 projected.update(actual)
+        for title,name,fields,limit,_ in STRUCTURED.get(page, ()):
+            if tables.get(name):
+                topics[page].append(dict(topic=title, families=[name], state='PRESENT_PREVIEW',
+                    available_records=len(tables[name]), preview_records=min(limit,len(tables[name])),
+                    displayed_fields=[k for k,_ in fields], adequate_representation_certified=False,
+                    sources=[dict(table=name, href=r.href, record_id=dict(r.identity)) for r in by_table[name][:limit]]))
         # Explicitly account for already-present aggregate summaries, with source-backed applicability.
         aggregate = {'indices': ('rule_executions', 'scores'), 'seguranca': ('passive_security_resources', 'passive_security_integrations'),
                      'ia-custos': ('console_cost_forecast_outcomes',)}.get(page, ())

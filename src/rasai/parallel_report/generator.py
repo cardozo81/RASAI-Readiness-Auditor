@@ -92,6 +92,11 @@ def _render_package(root, database, before, logical_before, output):
     capture_projection = project_capture(root, tables, before)
     supplements = scope_context(root, tables, timezone_name, costs, capture_projection)
     summary_html, editorial_receipt = summaries(root, tables, before, records, capture_projection)
+    from .analytical_views import build_analytical_views
+    analytical_html, analytical_receipt = build_analytical_views(tables, records, schema, timezone_name)
+    editorial_receipt['analytical'] = analytical_receipt
+    for page, body in analytical_html.items():
+        summary_html[page] += body
     if (capture_projection['state'] == 'SOURCE_INTEGRITY_MISMATCH'
             or editorial_receipt['history_state'] == 'SOURCE_INTEGRITY_MISMATCH'
             or editorial_receipt['overview_state'] == 'SOURCE_INTEGRITY_MISMATCH'):
@@ -195,6 +200,12 @@ def _render_package(root, database, before, logical_before, output):
             entry['representation'] = 'editorial' if summarized else 'navigable-record'
             entry['editorial_uses'] = [dict(page=p, topic=t['topic'], state=t['state']) for p,t in uses]
     coverage_map['editorial'] = editorial_receipt
+    for page, families in analytical_receipt.items():
+        for source, scope in families.items():
+            entry = family_coverage[source]
+            entry['analytical_projection'] = scope
+            entry['adequate_representation_certified'] = False
+            entry['levels']['analytical_field_projection'] = bool(scope['direct_fields'])
     (output / 'assets' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
     generated = {p.relative_to(output).as_posix(): digest(p) for p in output.rglob('*') if p.is_file()}
     return {
