@@ -56,6 +56,19 @@ def validate_package(output):
     manifest=json.loads((output/'_geracao.json').read_text(encoding='utf-8'))
     for name, expected in manifest['sha256_per_file'].items():
         if digest(output/name) != expected: raise ValueError('generated file digest mismatch')
+    if manifest.get('annex_contract') != 'CONTENT_SHA256_V1':
+        raise ValueError('current presentation must use content-addressed annexes')
+    if set(manifest.get('table_annexes', {})) != set(manifest['tables_read']):
+        raise ValueError('table-annex mapping incomplete')
+    for table, filename in manifest['table_annexes'].items():
+        path=output/'anexos'/filename
+        if not path.is_file() or digest(path)!=filename[:-5]:
+            raise ValueError('table annex address mismatch: '+table)
+    for name in ('coverage-map.json','evidence-coverage.json'):
+        if not (output/'anexos'/'dados-de-apoio'/name).is_file():
+            raise ValueError('missing support receipt: '+name)
+        if (output/'assets'/name).exists():
+            raise ValueError('legacy support receipt path is forbidden: '+name)
     docs={p.name:Document(p.read_text(encoding='utf-8')) for p in output.glob('*.html')}
     if len(docs)!=11: raise ValueError('expected eleven HTML pages')
     links=0
@@ -92,10 +105,27 @@ def compare_reports(previous, output):
             removed_sections=list((Counter(prior.headings)-Counter(doc.headings)).elements()) if prior else [],
         )
         if prior and prior.records-doc.records: raise ValueError('record anchor regression')
-    annexes={p.name:digest(p) for p in (previous/'anexos').glob('*.json')}
-    if any(not (output/'anexos'/n).is_file() or digest(output/'anexos'/n)!=h for n,h in annexes.items()):
-        raise ValueError('untransformed annex regression')
-    return dict(pages=comparison, untransformed_annexes_preserved=len(annexes))
+    # P11: legacy table-name digests change to content-derived filenames.
+    # Preserve the original sanitized records by table identity; do NOT require
+    # deprecated URLs to remain in the newly published package.
+    new_manifest=json.loads((output/'_geracao.json').read_text(encoding='utf-8'))
+    names=new_manifest['table_annexes']
+    legacy={sha256(table.encode()).hexdigest()+'.json':table for table in names}
+    preserved, migrated=0,0
+    for file in (previous/'anexos').glob('*.json'):
+        if file.name in legacy:
+            table=legacy[file.name]
+            new_file=output/'anexos'/names[table]
+            if not new_file.is_file() or json.loads(file.read_text(encoding='utf-8')) != json.loads(new_file.read_text(encoding='utf-8')):
+                raise ValueError('table annex semantic regression: '+table)
+            migrated+=1
+        else:
+            new_file=output/'anexos'/file.name
+            if not new_file.is_file() or digest(new_file)!=digest(file):
+                raise ValueError('payload annex regression: '+file.name)
+            preserved+=1
+    return dict(pages=comparison, legacy_table_annexes_migrated=migrated,
+                content_annexes_preserved=preserved)
 
 
 def browser_check(output, destination):
@@ -193,7 +223,7 @@ def main():
         expected=sum(len(rows) for n,rows in tables.items() if destination(n) is not None)
         if checks['records']!=expected: raise ValueError('record coverage mismatch')
         comparison=compare_reports(backup,output) if backup.exists() else None
-        receipt=json.loads((output/'assets/evidence-coverage.json').read_text(encoding='utf-8'))
+        receipt=json.loads((output/'anexos/dados-de-apoio/evidence-coverage.json').read_text(encoding='utf-8'))
         report=dict(generator_version=manifest['generator_version'],source_db_sha256=before['audit.db'],
             sqlite_integrity=integrity,sqlite_tables=len(tables),sqlite_rows=sum(map(len,tables.values())),
             checks=checks,comparison=comparison,editorial=receipt['editorial'],
