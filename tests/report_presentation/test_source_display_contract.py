@@ -233,3 +233,44 @@ def test_panel_has_source_links_and_technical_ledgers_remain_in_origin_pages():
     assert 'record-' + sha256(json.dumps(['audit_reprocess_runs', 0],
                     sort_keys=True).encode()).hexdigest()[:24] in pages['ia-custos.html']
     assert 'RPR-X' not in pages['index.html'].split('Inventário integral de registros e anexos', 1)[-1]
+
+
+def test_historical_record_relocation_is_not_data_loss(tmp_path):
+    """P9: a migrated audit-ledger record retains its identity on its new page."""
+    from scripts.presentation_acceptance import compare_reports
+
+    previous = tmp_path / 'legacy'
+    current = tmp_path / 'current'
+    (previous / 'anexos').mkdir(parents=True)
+    current.mkdir()
+    (previous / 'index.html').write_text(
+        '<div class="record" id="record-abc">Old location</div>', encoding='utf-8')
+    (current / 'index.html').write_text('<h1>Painel</h1>', encoding='utf-8')
+    (current / 'ia-custos.html').write_text(
+        '<div class="record" id="record-abc">New location</div>', encoding='utf-8')
+    (current / '_geracao.json').write_text(
+        json.dumps({'table_annexes': {}}), encoding='utf-8')
+
+    result = compare_reports(previous, current)
+    assert result['record_identities_lost'] == 0
+    assert result['old_records'] == result['new_records'] == 1
+    assert result['relocated_record_anchors'] == {
+        'record-abc': {'before': 'index.html', 'after': 'ia-custos.html'}}
+    assert result['pages']['index.html']['missing_record_anchors'] == []
+
+
+def test_historical_record_disappearance_remains_blocking(tmp_path):
+    """P9: a missing record identity must still refuse publication acceptance."""
+    import pytest
+    from scripts.presentation_acceptance import compare_reports
+
+    previous = tmp_path / 'legacy'
+    current = tmp_path / 'current'
+    (previous / 'anexos').mkdir(parents=True)
+    current.mkdir()
+    (previous / 'index.html').write_text(
+        '<div class="record" id="record-lost">Old row</div>', encoding='utf-8')
+    (current / 'index.html').write_text('<h1>Painel</h1>', encoding='utf-8')
+
+    with pytest.raises(ValueError, match='record identity regression: 1 missing anchors'):
+        compare_reports(previous, current)
