@@ -151,7 +151,7 @@ def _source_rows(root, tables):
         available = (str(counts[name]) + ' registro(s) de observabilidade'
                      if counts is not None and counts[name]
                      else 'Sem registros de resultado'
-                     if counts is not None else 'N/D — sem inventário legível')
+                     if counts is not None else 'N/D — inventário externo indisponível')
         output.append({
             'source': name,
             'enabled': 'Habilitada' if flag is True else
