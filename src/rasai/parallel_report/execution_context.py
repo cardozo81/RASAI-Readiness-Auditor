@@ -271,9 +271,13 @@ def _decision_summaries(page, rows):
                                 if type(estimate) in (int, float) else 'N/D',
                     'observed': public_value(observed, 'observed_cost')
                                 if type(observed) in (int, float) else 'N/D',
-                    'status': 'Não comparável' if status == 'NÃO COMPARÁVEL'
+                    'comparability': 'Não comparável' if status in {'NÃO COMPARÁVEL', 'NOT_COMPARABLE'}
                               else ('Disponível para análise' if status in
                                     {'COMPARAVEL','COMPARÁVEL'} else 'Estado não classificado'),
+                    'range': ' a '.join(str(public_value(row.get(k), 'estimated_cost'))
+                                       for k in ('likely_low', 'likely_high')),
+                    'basis': 'Histórico local de auditorias' if row.get('source') == 'local-audit-history'
+                             else 'Consultar proveniência no registro técnico',
                 })
             output += (
                 '<h2>Previsão versus execução registrada</h2>'
@@ -284,7 +288,11 @@ def _decision_summaries(page, rows):
                 + table('Comparação financeira, respeitando a cobertura',
                         result, [('currency','Moeda'),('forecast','Previsão'),
                                  ('observed','Observado até o momento'),
-                                 ('status','Comparabilidade')])
+                                 ('comparability','Comparabilidade'), ('range','Faixa provável na moeda indicada'),
+                                 ('basis','Origem da previsão')])
+                + '<p class="rf">A faixa provável e o cenário P90 são referências históricas, '
+                  'não garantias ou limites contratuais. O custo parcial registrado não '
+                  'comprova fatura, quitação ou custo total da auditoria.</p>'
             )
     return output
 
@@ -398,6 +406,8 @@ def build_execution_context(tables, coverage_receipt):
                     html += '<p class="callout w">Consolidação não elegível segundo o contrato persistido. Resultados parciais continuam disponíveis, mas não compõem conclusão consolidada.</p>'
         elif contract is None:
             html += '<p class="callout w">Contrato de execução não disponível. Não inferir conclusão, falha ou solicitação com base apenas em tabelas vazias.</p>'
+        if page == 'ia-custos':
+            html += _decision_summaries(page, tables)
         if values:
             html += table(
                 'Requisitos associados a esta página', values,
@@ -408,7 +418,8 @@ def build_execution_context(tables, coverage_receipt):
             html += '<p class="rf">Nenhum requisito do contrato foi associado diretamente a esta seção.</p>'
         for note in notes:
             html += '<p class="callout w">' + text(note) + '</p>'
-        html += _decision_summaries(page, tables)
+        if page != 'ia-custos':
+            html += _decision_summaries(page, tables)
         html += '</section>'
         supplemental[page + ':execution'] = html
     return supplemental, records

@@ -365,7 +365,7 @@ def test_architecture_overview_missing_source_never_invents(monkeypatch,tmp_path
 def test_architecture_source_is_included_only_on_extraction(monkeypatch,tmp_path):
     from rasai.parallel_report import scope_context as context
     monkeypatch.setattr(context,'architecture_context',lambda *_:'<h2>Arquitetura identificada na captura</h2>')
-    monkeypatch.setattr(context,'network_context',lambda *_:('',[],'')) 
+    monkeypatch.setattr(context,'network_context',lambda *_, **kwargs:('',[],''))
     inputs={'audits':[{'audit_id':'AUD-X'}]}
     pages=context.scope_context(tmp_path, inputs, 'UTC',{})
     assert 'Arquitetura identificada na captura' in pages['extracao']

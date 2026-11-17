@@ -44,6 +44,24 @@ FIELDS = {
  'console_cost_forecast_outcomes': 'currency expected_cost actual_cost status relation likely_low likely_high potential forecast_pages actual_pages confidence unpriced_ai_attempts source notes',
 }
 TITLES = {
+ 'audit_execution_configurations':'Configuração registrada da execução',
+ 'audit_input_summary':'Resumo das URLs fornecidas', 'audit_input_urls':'URLs fornecidas',
+ 'audit_fulfillment_attempts':'Tentativas das etapas da auditoria',
+ 'audit_execution_sessions':'Sessões da execução', 'audit_fulfillment_work_items':'Requisitos e pendências da execução',
+ 'console_execution_projections':'Previsão operacional registrada', 'pages':'Páginas descobertas',
+ 'page_snapshots':'Contexto das capturas registradas', 'element_observations':'Elementos observados na captura',
+ 'standards_service_runs':'Execuções dos serviços de validação', 'm24_runs':'Execução da análise de descoberta',
+ 'm24_ai_results':'Estado da IA na análise de descoberta',
+ 'synthetic_apdex_runs':'Configuração e cobertura da navegação sintética',
+ 'synthetic_apdex_acquisitions':'Capturas utilizadas na navegação sintética',
+ 'synthetic_apdex_acquisition_runs':'Reutilização das capturas de navegação',
+ 'synthetic_ux_apdex_runs':'Configuração e cobertura da experiência sintética',
+ 'web_performance_attempts':'Tentativas de medição de desempenho',
+ 'web_performance_runs':'Cobertura das medições de desempenho',
+ 'lighthouse_execution_profiles':'Ambiente das medições Lighthouse',
+ 'serp_observations':'Contexto e cobertura da busca observada',
+ 'serp_evidence_provenance':'Origem temporal das evidências de busca',
+ 'passive_security_integrations':'Integrações observadas na captura',
  'rule_executions':'Critérios e resultados de cada regra executada',
  'serp_results':'Títulos e trechos dos resultados orgânicos observados',
  'standards_metric_observations':'Métricas e funcionalidades por ferramenta',
@@ -121,7 +139,7 @@ def build_analytical_views(tables, records, schema, timezone_name):
         # Existing table/filter/sort/modal components; no new visual system.
         rendered[page] += '<section data-analytical-family="'+text(name)+'"><h2>'+text(title)+'</h2>'
         rendered[page] += '<p class="rf">Todos os '+text(len(entries))+' registros desta fonte, nos campos indicados. Dados persistidos, sem nova classificação ou conclusão. Campos estruturados não interpretados permanecem no vínculo de evidência.</p>'
-        rendered[page] += table(title, entries, [(k,k.replace('_',' ')) for k in available]+[('_ref','Evidência')],
+        rendered[page] += table(title, entries, [(k,'Motivo' if k == 'reason' else k.replace('_',' ')) for k in available]+[('_ref','Evidência')],
                                 timezone_name=timezone_name, full_text=True)
         rendered[page] += '</section>'
     return rendered, receipt

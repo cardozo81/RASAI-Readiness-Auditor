@@ -95,6 +95,20 @@ def _render_package(root, database, before, logical_before, output):
     from .analytical_views import build_analytical_views
     analytical_html, analytical_receipt = build_analytical_views(tables, records, schema, timezone_name)
     editorial_receipt['analytical'] = analytical_receipt
+    # A family may have analytical fields even when it has no executive
+    # interpretation. Preserve the legacy receipt state and add the precise
+    # representation level instead of calling every routed family technical-only.
+    for page, topics in editorial_receipt['pages'].items():
+        for topic in topics:
+            scopes = [analytical_receipt.get(page, {}).get(name, {})
+                      for name in topic.get('families', ())]
+            has_fields = any(scope.get('direct_fields') for scope in scopes)
+            topic['representation_level'] = (
+                'PRESENT_EXECUTIVE_SUMMARY' if topic['state'] == 'PRESENT_SUMMARIZED'
+                else 'PRESENT_ANALYTICAL_FIELDS' if has_fields
+                else 'NOT_EXECUTED' if topic['state'] == 'PROCESSING_NOT_EXECUTED'
+                else 'TECHNICAL_DETAIL_ONLY' if topic['state'] == 'PRESENT_TECHNICAL_ONLY'
+                else topic['state'])
     for page, body in analytical_html.items():
         summary_html[page] += body
     if (capture_projection['state'] == 'SOURCE_INTEGRITY_MISMATCH'

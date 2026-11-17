@@ -8,6 +8,7 @@ from .components import kv, table, text
 from .governance import Governance
 from .history_projection import crux_history
 from .read_model import PAGES, SEARCH_PAGE, destination, thaw
+from .presentation_labels import public_value
 
 
 def summaries(root, tables, inventory, records, capture):
@@ -47,8 +48,17 @@ def summaries(root, tables, inventory, records, capture):
                  [dict(category=k, quantity=v) for k, v in sorted(categories.items())],
                  [('category', 'Categoria de origem'), ('quantity', 'Achados')]) if categories else ''))
     for page in ('index', 'plano'):
+        body = finding_body
+        if page == 'plano' and findings:
+            material = [{**r, '_ref': by_table['findings'][i].href}
+                        for i, r in enumerate(findings)]
+            body += '<p>Material de análise disponível; nenhuma recomendação, prioridade ou aprovação é criada a partir destes achados.</p>'
+            body += table('Achados técnicos informativos — não constituem plano de ação', material,
+                          [('title','Título registrado'), ('category','Categoria'), ('status','Estado'),
+                           ('source','Origem'), ('evidence_ids','Evidências persistidas'),
+                           ('_ref','Registro e limitações da fonte')], full_text=True)
         emit(page, 'Achados e decisões registradas',
-             ('findings', 'directed_analysis_actions', 'recommendation_governance'), finding_body,
+             ('findings', 'directed_analysis_actions', 'recommendation_governance'), body,
              limitation='FINDINGS_DO_NOT_AUTHORIZE_ACTIONS')
 
     elements = safe.get('element_observations', ())
@@ -96,7 +106,9 @@ def summaries(root, tables, inventory, records, capture):
         for sidecar in capture.get('sources', ()):
             if sidecar.get('field') not in {'main_content_ref', 'structured_data_ref'}:
                 continue
-            body += kv([('Sidecar', sidecar.get('field')), ('Estado do sidecar', state_label(sidecar.get('state'))),
+            body += kv([('Fonte complementar', {'main_content_ref':'Texto principal extraído',
+                                               'structured_data_ref':'Dados estruturados extraídos'}.get(sidecar.get('field'))),
+                        ('Estado do sidecar', state_label(sidecar.get('state'))),
                         ('Fonte do sidecar', sidecar.get('reference')), ('SHA-256 do sidecar', sidecar.get('sha256')),
                         ('Caracteres no texto extraído', sidecar.get('characters')),
                         ('Trecho do texto extraído (até 600 caracteres)', sidecar.get('excerpt')),
@@ -112,7 +124,7 @@ def summaries(root, tables, inventory, records, capture):
     grouped = Counter((str(r.get('source') or 'N/D'), str(r.get('scope') or 'N/D'),
                        str(r.get('state') or 'N/D')) for r in metrics)
     body = table('Cobertura das métricas por origem e escopo', [
-        dict(tool=a, scope=b, execution=c, quantity=n) for (a,b,c),n in sorted(grouped.items())],
+        dict(tool=a, scope=b, execution=public_value(c, 'status'), quantity=n) for (a,b,c),n in sorted(grouped.items())],
         [('tool','Ferramenta/origem'), ('scope','Escopo'), ('execution','Estado persistido'), ('quantity','Métricas')])
     occurrences = Counter()
     for row in metrics:
@@ -125,7 +137,8 @@ def summaries(root, tables, inventory, records, capture):
                     occurrences[key] += 1
     if occurrences:
         body += table('Ocorrências de validação agrupadas', [
-            dict(tool=a, collection=b, kind=c, subtype=d, message=e, quantity=n)
+            dict(tool=a, collection={'messages':'Mensagens','error_details':'Erros','warning_details':'Avisos'}.get(b,b),
+                 kind=c, subtype=d, message=e, quantity=n)
             for (a,b,c,d,e),n in sorted(occurrences.items(), key=lambda x:str(x[0]))],
             [('tool','Ferramenta'), ('collection','Coleção de origem'), ('kind','Tipo persistido'),
              ('subtype','Subtipo persistido'), ('message','Mensagem registrada'), ('quantity','Ocorrências')])
@@ -137,7 +150,7 @@ def summaries(root, tables, inventory, records, capture):
     body = ''
     for row in analyses:
         status = row.get('comparison_status')
-        body += kv([('Estado persistido da comparação', status), ('Candidatos', row.get('candidate_count')),
+        body += kv([('Estado persistido da comparação', public_value(status, 'comparison_status')), ('Candidatos', row.get('candidate_count')),
                     ('Páginas de concorrentes comparadas em conteúdo', row.get('observed_competitor_pages'))])
         if status == 'CUSTOMER_CONTENT_NOT_COMPARABLE':
             body += ('<p class="callout w">O conteúdo capturado do alvo não permitiu comparação. '

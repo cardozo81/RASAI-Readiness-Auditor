@@ -13,7 +13,7 @@ from rasai.network_map import network_geographic_panel
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
-from .components import kv, table, text
+from .components import kv, table, text, technical_link
 from .presentation_labels import public_value, presentation_timestamps
 from .read_model import SEARCH_PAGE
 from .sanitization import sanitize
@@ -210,12 +210,12 @@ def _network_metric_rows(observations, probes, timezone_name):
         metrics = item.get('metrics') if isinstance(item, dict) else None
         if not isinstance(metrics, dict):
             continue
-        context = str(item.get('device') or ('Captura ' + str(index)))
+        context = str(public_value(item.get('device'), 'device') if item.get('device') else ('Captura ' + str(index)))
         stamp = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
         for key, label in _NETWORK_METRICS:
             metric = metrics.get(key)
             if not isinstance(metric, dict):
-                continue
+                metric = {'state':'NOT_OBSERVED'}
             rows.append({
                 'origin': 'Captura persistida da AUD',
                 'context': context,
@@ -226,6 +226,8 @@ def _network_metric_rows(observations, probes, timezone_name):
                 'value': _network_value(key, metric),
                 'provenance': public_value(metric.get('source') or item.get('measurement_origin'), 'provenance'),
                 'reason': _network_reason(metric),
+                'method': public_value(item.get('method'), 'method'),
+                '_ref': '#network-passive-' + str(index),
             })
     for index, item in enumerate(probes, 1):
         metrics = item.get('metrics') if isinstance(item, dict) else None
@@ -238,7 +240,7 @@ def _network_metric_rows(observations, probes, timezone_name):
         for key, label in _NETWORK_METRICS:
             metric = metrics.get(key)
             if not isinstance(metric, dict):
-                continue
+                metric = {'state':'NOT_OBSERVED'}
             rows.append({
                 'origin': 'Sonda complementar autorizada',
                 'context': context,
@@ -249,13 +251,22 @@ def _network_metric_rows(observations, probes, timezone_name):
                 'value': _network_value(key, metric),
                 'provenance': public_value(metric.get('source') or item.get('measurement_origin'), 'provenance'),
                 'reason': _network_reason(metric),
+                'method': public_value((metric.get('value') or {}).get('method')
+                          if key == 'traceroute' and isinstance(metric.get('value'), dict)
+                          else item.get('method'), 'method'),
+                '_ref': '#network-probe-' + str(index),
             })
+    # ICMP traceroute responses are not a persisted standalone ping measurement.
+    rows.append({'indicator':'Ping / ICMP independente', 'state':'Sem fonte persistida',
+                 'value':None, 'reason':'Nenhum resultado de ping verificável nos contratos de rede lidos. Saltos de traceroute não equivalem a ping.',
+                 'origin':'Inventário das fontes verificadas', 'method':'N/D',
+                 '_ref':'#network-evidence-inventory'})
     return sanitize(rows)
 
 
 def _network_hop_rows(probes, timezone_name):
     rows = []
-    for item in probes:
+    for index, item in enumerate(probes, 1):
         metrics = item.get('metrics') if isinstance(item, dict) else None
         trace = metrics.get('traceroute') if isinstance(metrics, dict) else None
         value = trace.get('value') if isinstance(trace, dict) and trace.get('state') == 'OBSERVED' else None
@@ -277,6 +288,9 @@ def _network_hop_rows(probes, timezone_name):
                 'rtt_samples': hop.get('rtt_samples_ms'),
                 'asn': _network_value('asn', enrichment.get('asn')),
                 'geoip': _network_value('geoip', enrichment.get('geoip')),
+                'method': public_value(value.get('method'), 'method'),
+                'protocol': value.get('probe_protocol'),
+                '_ref': '#network-probe-' + str(index),
             })
     return sanitize(rows)
 
@@ -323,7 +337,7 @@ def _network_series_rows(probes, timezone_name):
     return sanitize(output)
 
 
-def network_context(root, audit_id, timezone_name):
+def network_context(root, audit_id, timezone_name, *, primary=None):
     if not audit_id:
         return ('<p class="callout">Identidade da AUD indisponível; dados de rede permanecem N/D.</p>',
                 [], '<p class="callout">Sem Audit ID verificável; inventário de rede indisponível.</p>')
@@ -380,12 +394,46 @@ def network_context(root, audit_id, timezone_name):
                  'ausente, despacho não concluído ou execução não materializada; '
                  'nenhuma rota ou localização é inferida.</p>')
 
+    connections = []
+    for kind, entries in (('passive', observations), ('probe', probes)):
+        for index, item in enumerate(entries, 1):
+            metrics = item.get('metrics') if isinstance(item.get('metrics'), dict) else {}
+            connections.append({
+                'remote_ip': _network_value('connected_public_ip', metrics.get('connected_public_ip')),
+                'target': item.get('target_host') or item.get('hostname'),
+                'device': item.get('device'), 'captured_at': item.get('capture_utc'),
+                'http': _network_value('http_protocol', metrics.get('http_protocol')),
+                'tls': _network_value('tls_protocol', metrics.get('tls_protocol')),
+                'method': public_value(item.get('method'), 'method'),
+                'observation': item.get('observation_id') or item.get('series_id'),
+                'sha256': item.get('sha256'),
+                'provenance': (metrics.get('connected_public_ip') or {}).get('source') or item.get('measurement_origin'),
+                '_ref': '#network-' + kind + '-' + str(index),
+            })
+    connection_html = '<h2>Conexões e cronologia verificadas</h2>'
+    connection_html += '<p>O IP é o peer remoto observado, não o IP do usuário. O instante indica a captura; não mede latência ou RTT. Cada linha conserva sua própria origem.</p>'
+    for connection in sanitize(connections):
+        connection_html += kv([
+            (label, public_value(connection.get(key), key, timezone_name)) for key, label in (
+                ('remote_ip','IP remoto'),('target','Destino'),('device','Dispositivo'),
+                ('captured_at','Instante da captura'),('http','Protocolo HTTP'),('tls','Versão TLS'),
+                ('method','Método'),('provenance','Fonte'),('observation','Identificação da observação'),
+                ('sha256','SHA-256 da projeção verificada'))])
+        connection_html += '<p>' + technical_link(connection['_ref'], 'Consultar evidência desta conexão') + '</p>'
+    if not connections:
+        connection_html += '<p>N/D — nenhuma conexão verificável nas fontes disponíveis.</p>'
+    if primary is None:
+        html += connection_html
+    else:
+        primary['rede:primary'] = connection_html
+
     metric_rows = _network_metric_rows(observations, probes, timezone_name)
     html += '<h2>Indicadores observados</h2>' + table(
-        'Rede · fatos persistidos por origem', metric_rows,
+        'Rede · matriz de métodos, medições e disponibilidade', metric_rows,
         [('origin', 'Origem'), ('context', 'Contexto'), ('target', 'Destino'),
          ('captured_at', 'Instante'), ('indicator', 'Indicador'), ('state', 'Estado'),
-         ('value', 'Valor'), ('provenance', 'Fonte'), ('reason', 'Motivo / limite')])
+         ('value', 'Valor'), ('method','Método'), ('provenance', 'Fonte'),
+         ('reason', 'Motivo / limite'),('_ref','Evidência')])
     hop_rows = _network_hop_rows(probes, timezone_name)
     if hop_rows:
         html += '<h2>Etapas conhecidas do caminho</h2>' + table(
@@ -393,7 +441,8 @@ def network_context(root, audit_id, timezone_name):
             [('captured_at', 'Instante'), ('target', 'Destino'), ('hop', 'Salto'),
              ('hop_state', 'Situação'), ('public_ip', 'Endereço público'),
              ('rtt_ms', 'RTT (ms)'), ('rtt_samples', 'Amostras RTT'),
-             ('asn', 'ASN'), ('geoip', 'GeoIP aproximado')])
+             ('asn', 'ASN'), ('geoip', 'GeoIP aproximado'),
+             ('method','Método'),('protocol','Protocolo'),('_ref','Evidência')])
     history = _network_series_rows(probes, timezone_name)
     if history:
         html += (
@@ -492,13 +541,13 @@ def network_context(root, audit_id, timezone_name):
         'autorizadas. Os registros abaixo são sanitizados para apresentação; '
         'não representam novas medições nem substituem os artefatos originais.</p>'
     )
-    for label, entries in (
-        ('Captura passiva verificada', observations),
-        ('Sonda complementar autorizada', probes),
+    for kind, label, entries in (
+        ('passive', 'Captura passiva verificada', observations),
+        ('probe', 'Sonda complementar autorizada', probes),
     ):
         for position, row in enumerate(entries, 1):
             inventory += (
-                '<details><summary>' + text(label) + ' ' + str(position)
+                '<details id="network-' + kind + '-' + str(position) + '"><summary>' + text(label) + ' ' + str(position)
                 + ' de ' + str(len(entries)) + '</summary><pre>'
                 + text(json.dumps(presentation_timestamps(sanitize(row), timezone_name), ensure_ascii=False, indent=2, default=str))
                 + '</pre></details>'
@@ -545,7 +594,7 @@ def scope_context(root, raw_tables, timezone_name, costs, capture_projection=Non
     for run in tables.get('perplexity_search_runs', ()):
         events.append(('Consulta Search API', local(run.get('started_at'))))
     result['extracao'] += architecture_context(root, audit.get('audit_id'), timezone_name)
-    network_html, network_events, network_inventory = network_context(root, audit.get('audit_id'), timezone_name)
+    network_html, network_events, network_inventory = network_context(root, audit.get('audit_id'), timezone_name, primary=result)
     result['rede'] += network_html
     result['rede:inventory'] = network_inventory
     events.extend(network_events)

@@ -177,9 +177,13 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         # Visual capture evidence is visible in HTML immediately, not hidden in
         # technical tables or available only via a modal.
         body = ((supplements or {}).get('extracao:visual', '') if page == 'extracao' else '')
+        body += (supplements or {}).get(page + ':primary', '')
+        if page == 'plano':
+            body += editorial(page, records, costs, thresholds, governance=governance)
         body += (supplements or {}).get(page + ':execution', '')
         body += (supplements or {}).get(page + ':coverage', '')
-        body += editorial(page, records, costs, thresholds, governance=governance)
+        if page != 'plano':
+            body += editorial(page, records, costs, thresholds, governance=governance)
         body += (supplements or {}).get(page, '')
         if page == 'extracao':
             body += '<span id="capture-counts"></span><h2>Contagens derivadas da captura</h2><p>Palavras são tokens de texto no HTML renderizado, excluídos script e style. O contador não testa visibilidade CSS. A comparação competitiva pode usar outro documento e método.</p>' + table('Calculado no relatório', calculated, [('source','Fonte'),('sha256','SHA-256'),('words','Palavras'),('links','Links'),('images','Imagens'),('algorithm_version','Algoritmo')])
