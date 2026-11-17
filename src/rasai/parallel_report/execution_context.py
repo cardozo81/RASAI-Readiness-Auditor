@@ -50,6 +50,7 @@ CONTRACT_STATES = {
     'FAILED': 'Falhou',
     'PENDING': 'Pendente',
     'PRELIMINARY': 'Preliminar',
+    'FINAL': 'Final',
     'CONSOLIDATED': 'Consolidado',
     'NOT_CONSOLIDATED': 'Não consolidado',
 }
@@ -258,41 +259,65 @@ def _decision_summaries(page, rows):
             if isinstance(r, dict)
         ]
         if forecasts:
+            attempts = [
+                r for family in ('ai_provider_attempts', 'content_remediation_attempts')
+                for r in rows.get(family, ())
+                if isinstance(r, dict)
+            ]
             result = []
             for row in forecasts:
                 currency = row.get('currency')
-                currency = currency if currency in {'BRL','USD','EUR'} else 'N/D'
-                observed = row.get('actual_cost')
+                currency = currency if currency in {'BRL', 'USD', 'EUR'} else 'N/D'
                 estimate = row.get('expected_cost')
-                status = str(row.get('status') or 'N/D')
+                reconciled = row.get('actual_cost')
+                status = str(row.get('status') or '').strip().upper()
+                financial_class = {
+                    'CRÍTICO': 'Crítico',
+                    'CRITICO': 'Crítico',
+                    'NOT_COMPARABLE': 'Não comparável',
+                    'NÃO COMPARÁVEL': 'Não comparável',
+                    'COMPARAVEL': 'Comparável',
+                    'COMPARÁVEL': 'Comparável',
+                }.get(status, 'Estado não classificado')
+                # Attempt telemetry and the forecast's reconciled technical amount
+                # are different contracts. Never promote an estimate to billing.
+                telemetry = [
+                    attempt for attempt in attempts
+                    if attempt.get('observed_cost') is not None
+                    and type(attempt.get('observed_cost')) in (int, float)
+                    and attempt.get('observed_cost_currency') == currency
+                ]
                 result.append({
                     'currency': currency,
                     'forecast': public_value(estimate, 'estimated_cost')
                                 if type(estimate) in (int, float) else 'N/D',
-                    'observed': public_value(observed, 'observed_cost')
-                                if type(observed) in (int, float) else 'N/D',
-                    'comparability': 'Não comparável' if status in {'NÃO COMPARÁVEL', 'NOT_COMPARABLE'}
-                              else ('Disponível para análise' if status in
-                                    {'COMPARAVEL','COMPARÁVEL'} else 'Estado não classificado'),
-                    'range': ' a '.join(str(public_value(row.get(k), 'estimated_cost'))
-                                       for k in ('likely_low', 'likely_high')),
+                    'reconciled': public_value(reconciled, 'amount')
+                                  if type(reconciled) in (int, float) else 'N/D',
+                    'telemetry': (str(len(telemetry)) + ' tentativa(s) com valor observado'
+                                  if telemetry else 'N/D — sem telemetria monetária nesta moeda'),
+                    'classification': financial_class,
+                    'range': (' a '.join(public_value(row.get(k), 'estimated_cost')
+                                        if type(row.get(k)) in (int, float) else 'N/D'
+                                        for k in ('likely_low', 'likely_high'))),
                     'basis': 'Histórico local de auditorias' if row.get('source') == 'local-audit-history'
                              else 'Consultar proveniência no registro técnico',
                 })
             output += (
                 '<h2>Previsão versus execução registrada</h2>'
-                '<p class="callout w">Estimativa e valor observado nesta AUD são '
-                'fontes distintas. Quando o contrato de execução está incompleto, '
-                'um valor observado igual a zero não significa custo final '
-                'ou cobrança total igual a zero.</p>'
+                '<p class="callout w">O valor realocado na comparação financeira como '
+                'custo técnico conciliado pode incluir estimativas de tentativas sem '
+                'telemetria monetária do provedor. Não constitui faturamento comprovado. '
+                'Valor ausente não equivale a zero; execução parcial não estabelece custo final.</p>'
                 + table('Comparação financeira, respeitando a cobertura',
-                        result, [('currency','Moeda'),('forecast','Previsão'),
-                                 ('observed','Observado até o momento'),
-                                 ('comparability','Comparabilidade'), ('range','Faixa provável na moeda indicada'),
-                                 ('basis','Origem da previsão')])
+                        result, [('currency', 'Moeda'), ('forecast', 'Previsão anterior'),
+                                 ('reconciled', 'Custo técnico conciliado'),
+                                 ('telemetry', 'Telemetria monetária observada'),
+                                 ('classification', 'Classificação financeira persistida'),
+                                 ('range', 'Faixa provável na moeda indicada'),
+                                 ('basis', 'Origem da previsão')])
                 + '<p class="rf">A faixa provável e o cenário P90 são referências históricas, '
-                  'não garantias ou limites contratuais. O custo parcial registrado não '
-                  'comprova fatura, quitação ou custo total da auditoria.</p>'
+                  'não garantias ou limites contratuais. O total conciliado pode combinar '
+                  'parcelas estimadas e observadas, sem equivaler à cobrança real.</p>'
             )
     return output
 
