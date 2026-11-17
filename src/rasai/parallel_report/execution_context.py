@@ -304,7 +304,7 @@ def _decision_summaries(page, rows):
                 })
             output += (
                 '<h2>Previsão versus execução registrada</h2>'
-                '<p class="callout w">O valor realocado na comparação financeira como '
+                '<p class="callout w">Na comparação financeira, o valor apresentado como '
                 'custo técnico conciliado pode incluir estimativas de tentativas sem '
                 'telemetria monetária do provedor. Não constitui faturamento comprovado. '
                 'Valor ausente não equivale a zero; execução parcial não estabelece custo final.</p>'
