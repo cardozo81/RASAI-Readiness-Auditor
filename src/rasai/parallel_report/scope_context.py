@@ -638,7 +638,7 @@ def scope_context(root, raw_tables, timezone_name, costs, capture_projection=Non
         for field, label in [('input_tokens','Entrada'), ('cached_input_tokens','Entrada em cache'), ('output_tokens','Saída'), ('reasoning_tokens','Raciocínio'), ('total_tokens','Total')]:
             subtotal, count = known_token_subtotal(attempts, field)
             pairs.append((f'Tokens · {label} ({count}/{len(attempts)} com valor)', subtotal))
-        pairs.append(('Tentativas com custo conciliado / total', f"{sum(e.get('amount') is not None for e in costs['entries'])}/{costs['attempt_count']}"))
+        pairs.append(('Tentativas com valor monetário estimado ou observado / total', f"{sum(e.get('amount') is not None for e in costs['entries'])}/{costs['attempt_count']}"))
         result['ia-custos'] += '<p>A duração por tentativa mede uma chamada. Etapas de execução, esperas e requisições HTTP podem se sobrepor; seus intervalos não devem ser somados como duração da auditoria.</p>'
         result['ia-custos'] += subsection('Consumo conhecido e cobertura', pairs, 'Cache integra a entrada. Raciocínio integra a saída. Valores ausentes permanecem desconhecidos.')
     if 'passive_security_findings' in tables and tables.get('passive_security_runs'):
