@@ -84,7 +84,7 @@ def editorial_evidence(root, tables, projection=None):
     html += '<p>Tarefas de validação sustentadas pelo material de captura, não defeitos SEO/GEO comprovados. SPA, FAQ pós-interação, visibilidade e intenção permanecem condicionais.</p>'
     if not isinstance(tasks, list) or not tasks:
         return overview + html + '<p>N/D — nenhuma tarefa de verificação sustentada nesta captura.</p></section>'
-    html += '<p>' + text(len(tasks)) + ' tarefa(s) no contrato de revisão da captura.</p>'
+    html += '<p>' + text(len(tasks)) + ' tarefa(s) na revisão registrada da captura.</p>'
     for item in tasks[:64]:
         if not isinstance(item, dict):
             continue
@@ -113,7 +113,7 @@ def editorial_evidence(root, tables, projection=None):
             ])
         html += '</details>'
     if len(tasks) > 64:
-        html += '<p>Exibidas 64 verificações de ' + text(len(tasks)) + '; restante permanece no contrato técnico.</p>'
+        html += '<p>Exibidas 64 verificações de ' + text(len(tasks)) + '; restante permanece no registro técnico.</p>'
     return overview + html + '</section>'
 
 
@@ -258,7 +258,7 @@ def _network_metric_rows(observations, probes, timezone_name):
             })
     # ICMP traceroute responses are not a persisted standalone ping measurement.
     rows.append({'indicator':'Ping / ICMP independente', 'state':'Sem fonte persistida',
-                 'value':None, 'reason':'Nenhum resultado de ping verificável nos contratos de rede lidos. Saltos de traceroute não equivalem a ping.',
+                 'value':None, 'reason':'Nenhum resultado de ping verificável nos registros de rede consultados. Saltos de traceroute não equivalem a ping.',
                  'origin':'Inventário das fontes verificadas', 'method':'N/D',
                  '_ref':'#network-evidence-inventory'})
     return sanitize(rows)
