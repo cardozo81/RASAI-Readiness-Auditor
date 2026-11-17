@@ -8,7 +8,7 @@ Untrusted error text and configuration are deliberately not displayed.
 from __future__ import annotations
 
 from collections import Counter
-from hashlib import sha256
+from .annex_payloads import table_annex_filename
 import json
 
 from .components import text, kv, table
@@ -160,7 +160,7 @@ def _notes(page, rows, network):
     return notes
 
 
-def _decision_summaries(page, rows):
+def _decision_summaries(page, rows, timezone_name=None):
     """Concise facts for decisions, not a copy of technical rows or new scores."""
     output = ''
     if page == 'indices':
@@ -290,7 +290,7 @@ def _decision_summaries(page, rows):
                     and attempt.get('observed_cost_currency') == currency
                 ]
                 result.append({
-                    'cutoff': row.get('evaluated_at'),
+                    'cutoff': public_value(row.get('evaluated_at'), 'evaluated_at', timezone_name),
                     'currency': currency,
                     'forecast': public_value(estimate, 'estimated_cost')
                                 if type(estimate) in (int, float) else 'N/D',
@@ -325,7 +325,7 @@ def _decision_summaries(page, rows):
     return output
 
 
-def build_execution_context(tables, coverage_receipt):
+def build_execution_context(tables, coverage_receipt, timezone_name=None):
     """Return (HTML by page, structured public operational receipt).
 
     Both artifacts consume the same immutable source rows; no SQL, HTTP, IA,
@@ -465,7 +465,7 @@ def build_execution_context(tables, coverage_receipt):
                          ('completed_at', 'Fim'), ('note', 'Nota'),
                          ('selected_items', 'Itens selecionados')])
                     archived = len(tables.get('audit_reprocess_derived_archive') or ())
-                    archive_name = sha256('audit_reprocess_derived_archive'.encode()).hexdigest() + '.json'
+                    archive_name = table_annex_filename('audit_reprocess_derived_archive')
                     html += ('<p>Registros derivados arquivados: ' + text(archived) +
                              ' · <a class="tech-link" href="anexos/' + archive_name +
                              '">Detalhe integral do histórico arquivado</a></p></details>')
@@ -473,7 +473,7 @@ def build_execution_context(tables, coverage_receipt):
         elif contract is None:
             html += '<p class="callout w">Critérios de execução não disponíveis. Não inferir conclusão, falha ou solicitação com base apenas em tabelas vazias.</p>'
         if page == 'ia-custos':
-            html += _decision_summaries(page, tables)
+            html += _decision_summaries(page, tables, timezone_name)
         if values:
             html += table(
                 'Requisitos associados a esta página', values,
@@ -485,7 +485,7 @@ def build_execution_context(tables, coverage_receipt):
         for note in notes:
             html += '<p class="callout w">' + text(note) + '</p>'
         if page != 'ia-custos':
-            html += _decision_summaries(page, tables)
+            html += _decision_summaries(page, tables, timezone_name)
         html += '</section>'
         supplemental[page + ':execution'] = html
     return supplemental, records

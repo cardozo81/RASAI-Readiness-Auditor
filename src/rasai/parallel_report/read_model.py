@@ -78,16 +78,17 @@ class Record:
     anchor: str
     identity: tuple
     data: object
+    annex_filename: str | None = None
 
     @property
     def href(self):
         page = destination(self.table)
         if page is not None:
             return page + '.html#' + self.anchor
-        return 'anexos/' + sha256(self.table.encode()).hexdigest() + '.json'
+        return 'anexos/' + (self.annex_filename or sha256(self.table.encode()).hexdigest() + '.json')
 
 
-def build(tables, schema):
+def build(tables, schema, table_annexes=None):
     records = []
     for table, rows in sorted(tables.items()):
         for ordinal, row in enumerate(rows):
@@ -95,5 +96,6 @@ def build(tables, schema):
             identity = tuple((key, row.get(key)) for key in keys)
             seed = json.dumps([table, identity if identity else ordinal], default=str, sort_keys=True)
             anchor = 'record-' + sha256(seed.encode()).hexdigest()[:24]
-            records.append(Record(table, anchor, identity, freeze(sanitize(row))))
+            records.append(Record(table, anchor, identity, freeze(sanitize(row)),
+                                  (table_annexes or {}).get(table)))
     return tuple(records)

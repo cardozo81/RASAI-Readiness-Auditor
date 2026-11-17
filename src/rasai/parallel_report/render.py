@@ -8,7 +8,7 @@ from .coverage import display, state
 from .read_model import PAGES, destination, thaw, SEARCH_PAGE
 from .templates import label as public_label
 from .presentation_labels import public_value, timezone_for_records, metric_label, presentation_timestamps
-from .annex_payloads import register_payload
+from .annex_payloads import register_payload, table_annex_filename
 
 
 def esc(value):
@@ -287,7 +287,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
             body += '<p class="callout">Nenhuma família de registros do audit.db foi roteada para esta página.</p>'
         for table_name in routed_tables:
             items = [r for r in records if r.table == table_name]
-            body += f'<details id="source-{sha256(table_name.encode()).hexdigest()[:12]}"><summary>{esc(public_label(table_name))} · {len(items)} registros</summary><a class="tech-link" href="anexos/{sha256(table_name.encode()).hexdigest()}.json">Abrir anexo sanitizado integral</a>'
+            body += f'<details id="source-{sha256(table_name.encode()).hexdigest()[:12]}"><summary>{esc(public_label(table_name))} · {len(items)} registros</summary><a class="tech-link" href="anexos/{table_annex_filename(table_name)}">Abrir anexo sanitizado integral</a>'
             body += ''.join(record_html(record, links, physical.get(record.href, ()), timezone_name, governance, lookup) for record in items) + '</details>'
         body += '</details><details><summary>Limitações, cobertura e conferência de paridade</summary>' + payload({'missing_data':missing,'parity':parity}) + '</details>'
         audit_id = tables.get('audits',[{}])[0].get('audit_id') if tables.get('audits') else None

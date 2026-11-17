@@ -101,14 +101,32 @@ A página `rede.html` sempre apresenta o mapa-múndi offline Natural Earth. Na a
 
 ### Comprovação de cobertura em todas as 11 páginas (gerador 0.4.12)
 
-Cada HTML apresenta um painel local `Evidências materializadas nesta página` que deriva diretamente de tabelas persistidas e, em `rede.html`, de sidecars validados ou fallback SQLite autenticado. O painel informa **contagens por tema** e distingue ausência de registros de resultado negativo. Em Segurança, recursos do navegador são identificados como **telemetria**, não vulnerabilidades. Em Plano, não há geração de ações sem decisão/registro; a governança original permanece. As linhas detalhadas continuam acessíveis pelo inventário técnico da própria página; nenhum conjunto é copiado/duplicado nas sínteses. `assets/evidence-coverage.json` traz 11 recibos estruturados com estado por página e declaração explícita de que contagem técnica **não certifica completude editorial**; o arquivo integra o manifesto e seu hash de publicação. A tabela operacional `console_execution_projections`, quando presente, passa a ter inventário local no Painel em vez de apenas anexo técnico. Não há links externos ou dependência do catálogo. Toda ausência é declarada, jamais materializada por IA ou coleta silenciosa.
+Cada HTML apresenta um painel local `Evidências materializadas nesta página` que deriva diretamente de tabelas persistidas e, em `rede.html`, de sidecars validados ou fallback SQLite autenticado. O painel informa **contagens por tema** e distingue ausência de registros de resultado negativo. Em Segurança, recursos do navegador são identificados como **telemetria**, não vulnerabilidades. Em Plano, não há geração de ações sem decisão/registro; a governança original permanece. As linhas detalhadas continuam acessíveis pelo inventário técnico da própria página; nenhum conjunto é copiado/duplicado nas sínteses. `anexos/dados-de-apoio/evidence-coverage.json` traz 11 recibos estruturados com estado por página e declaração explícita de que contagem técnica **não certifica completude editorial**; o arquivo integra o manifesto e seu hash de publicação. A tabela operacional `console_execution_projections`, quando presente, passa a ter inventário local no Painel em vez de apenas anexo técnico. Não há links externos ou dependência do catálogo. Toda ausência é declarada, jamais materializada por IA ou coleta silenciosa.
 
 
 ### Estados operacionais por página e lacunas reais (gerador 0.4.13)
 
 Cada uma das onze páginas agora apresenta **Situação da execução e limites dos resultados**, separada da contagem de evidências. A origem é exclusivamente o contrato `audit_fulfillment_contracts` e os itens `audit_fulfillment_work_items` persistidos na mesma AUD; os motivos são traduzidos apenas para códigos canônicos conhecidos. `REQUESTED_NOT_EXECUTED`, `NOT_CONFIGURED`, `SUCCESS`, `NOT_REQUESTED` e ausência de requisito são estados distintos; nenhum é confundido com resultado negativo de medição. A capa comunica requisitos atendidos, pendentes, bloqueados, pontuação pendente e elegibilidade de consolidação. Índices separam 27 regras de scores não consolidados; segurança separa recursos da captura de uma execução formal; plano distingue ações não materializadas de ações recusadas; IA e custos distingue previsão de consumo observado; SERP não presume Perplexity ou citação generativa. Uma causa só é atribuída quando `last_error_code` a comprova, sem renderizar mensagens de erro livres ou segredos.
 
-O recibo estruturado `assets/evidence-coverage.json` ganha o objeto `execution`, com estado por página e indicação explícita de que não certifica completude de coleta. Não são adicionados arquivos à publicação. O gerador permanece determinístico, sem coleta, IA, rede, alterações no banco, pontuação, catálogo ou CSS/UX. Corrigida também uma ocorrência de nomenclatura obsoleta nos identificadores internos do inventário, preservando o destino HTML canônico.
+O recibo estruturado `anexos/dados-de-apoio/evidence-coverage.json` ganha o objeto `execution`, com estado por página e indicação explícita de que não certifica completude de coleta. Não são adicionados arquivos à publicação. O gerador permanece determinístico, sem coleta, IA, rede, alterações no banco, pontuação, catálogo ou CSS/UX. Corrigida também uma ocorrência de nomenclatura obsoleta nos identificadores internos do inventário, preservando o destino HTML canônico.
 
 
 Dentro do mesmo quadro operacional da v0.4.13, os detalhes editoriais adicionais são **agregações determinísticas das fontes já persistidas**, nunca reclassificações: `indices.html` apresenta a distribuição dos 27 resultados de regras, sem fabricar índice geral; `seguranca.html` resume tipos e partes dos 87 recursos, além do estado individual das cinco integrações, sem chamar recursos de vulnerabilidades; `ia-custos.html` explicita previsão, valor parcial observado e comparabilidade do registro financeiro, sem sugerir custo final quando a AUD permanece parcial. Os anexos e os inventários de origem continuam intocados e com a mesma identidade; a síntese não repete cada ocorrência.
+
+
+### Contrato 0.4.20 — anexos endereçados por conteúdo (P11/P12)
+
+Cada família de tabela persistida tem uma entrada em `_geracao.json.table_annexes`,
+associando o nome da tabela ao arquivo `anexos/<SHA-256-dos-bytes-UTF-8>.json`.
+O conteúdo é sanitizado e serializado uma única vez, de modo determinístico;
+tabelas com bytes idênticos compartilham o arquivo sem perder seu mapeamento.
+Os anexos técnicos estruturados da apresentação continuam sob `anexos/`.
+
+Os recibos `coverage-map.json` e `evidence-coverage.json` agora pertencem a
+`anexos/dados-de-apoio/`, não a `assets/`. Os bytes desses recibos não são
+reescritos pela migração de caminho; o manifesto registra seu SHA-256 efetivo.
+O contrato `CONTENT_SHA256_V1` é obrigatório em pacotes novos; layouts antigos
+só são reconhecidos quando a leitura de histórico explicitamente permite legado.
+Nenhuma operação regrava `audit.db`, `report-catalog` ou a evidência de origem.
+A formatação temporal da projeção financeira usa o timezone da apresentação,
+sem modificar timestamps persistidos nem arquivos JSON anexos.

@@ -60,7 +60,9 @@ def generate(audit_dir):
 
 def _render_package(root, database, before, logical_before, output):
     tables, schema = read_database(database)
-    records = build(tables, schema)
+    from .annex_payloads import build_table_annexes, use_table_annexes, collect_payloads
+    table_annexes, table_payloads = build_table_annexes(tables)
+    records = build(tables, schema, table_annexes)
     links, ambiguous = link_records(records)
     evidence, calculated = references(tables, root)
     costs, parity = reconcile(tables), compare(tables, root)
@@ -77,6 +79,7 @@ def _render_package(root, database, before, logical_before, output):
         value['generated_at'] = generated_at
     (output / 'assets').mkdir()
     (output / 'anexos').mkdir()
+    (output / 'anexos' / 'dados-de-apoio').mkdir()
     assets = Path(__file__).parent / 'assets'
     for name in ('site.css', 'app.js', 'thresholds.json'):
         (output / 'assets' / name).write_bytes((assets / name).read_bytes())
@@ -88,8 +91,7 @@ def _render_package(root, database, before, logical_before, output):
     from .capture_projection import project_capture
     from .executive_evidence import summaries
     capture_projection = project_capture(root, tables, before)
-    from .annex_payloads import collect_payloads
-    with collect_payloads() as payload_annexes:
+    with collect_payloads() as payload_annexes, use_table_annexes(table_annexes):
         supplements = scope_context(root, tables, timezone_name, costs, capture_projection)
         summary_html, editorial_receipt = summaries(root, tables, before, records, capture_projection)
         from .analytical_views import build_analytical_views
@@ -127,14 +129,17 @@ def _render_package(root, database, before, logical_before, output):
         coverage_html, coverage_receipt = build_coverage(root, audit.get('audit_id'), tables)
         supplements.update(coverage_html)
         from .execution_context import build_execution_context
-        execution_html, execution_receipt = build_execution_context(tables, coverage_receipt)
+        execution_html, execution_receipt = build_execution_context(tables, coverage_receipt, timezone_name)
         supplements.update(execution_html)
         coverage_receipt['execution'] = execution_receipt
         coverage_receipt['editorial'] = editorial_receipt
-        (output / 'assets' / 'evidence-coverage.json').write_text(
+        (output / 'anexos' / 'dados-de-apoio' / 'evidence-coverage.json').write_text(
             json.dumps(coverage_receipt, ensure_ascii=False, indent=2), encoding='utf-8')
         pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
     for filename, content in payload_annexes.items():
+        prior = table_payloads.get(filename)
+        if prior is not None and prior != content:
+            raise RuntimeError('SHA-256 annex namespace collision')
         (output / 'anexos' / filename).write_bytes(content)
     from rasai.report_presentation import humanize_module_references_html
     for name, html in pages.items():
@@ -142,10 +147,8 @@ def _render_package(root, database, before, logical_before, output):
         # Only visible copy is humanized; SQLite and annex JSON remain exact.
         # retain the precise persisted bytes and any original punctuation.
         (output / name).write_text(html.replace('\u2014', '-'), encoding='utf-8')
-    from hashlib import sha256
-    for table, rows in tables.items():
-        filename = sha256(table.encode()).hexdigest() + '.json'
-        (output / 'anexos' / filename).write_text(json.dumps(sanitize(rows), ensure_ascii=False, indent=2), encoding='utf-8')
+    for filename, content in table_payloads.items():
+        (output / 'anexos' / filename).write_bytes(content)
     coverage_map = json.loads((assets / 'coverage-map.json').read_text(encoding='utf-8'))
     # The source template can describe a technical filename as topic components.
     # Emit the same canonical_pages file contract, with resolved HTML filenames.
@@ -224,7 +227,7 @@ def _render_package(root, database, before, logical_before, output):
             entry['analytical_projection'] = scope
             entry['adequate_representation_certified'] = False
             entry['levels']['analytical_field_projection'] = bool(scope['direct_fields'])
-    (output / 'assets' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
+    (output / 'anexos' / 'dados-de-apoio' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
     generated = {p.relative_to(output).as_posix(): digest(p) for p in output.rglob('*') if p.is_file()}
     return {
         'contract': CONTRACT, 'version': 1, 'generator_version': __version__,
@@ -234,6 +237,7 @@ def _render_package(root, database, before, logical_before, output):
         'source_db_logical_sha256': logical_before,
         'source_tree_digest_before': tree_digest(before),
         'source_inventory': before, 'tables_read': list(tables),
+        'annex_contract': 'CONTENT_SHA256_V1', 'table_annexes': table_annexes,
         'columns_read': {name: item['columns'] for name, item in schema.items()},
         'artifacts_read': sanitize(evidence), 'calculated_values': sanitize(calculated),
         'warnings': costs['warnings'] + [f'Ambiguous identifier values: {ambiguous}', 'HTML parity and visual human acceptance not certified', 'Credentials are redacted; sanitized payload is not the literal source'],
