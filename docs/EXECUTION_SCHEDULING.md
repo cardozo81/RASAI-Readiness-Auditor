@@ -1,6 +1,6 @@
 # Execução externa e agendamento
 
-**Estado:** contrato vigente de execução local e agendamento; `v0.5.0` é a baseline pública atual.
+**Estado:** contrato vigente de execução local na `main`; release pública atual: [`v0.10.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0). `v0.5.0` é referência histórica, não a release atual.
 
 Este documento descreve como transformar a configuração resolvida no console em um comando reproduzível para execução manual ou agendada, sem alterar o motor de auditoria, reprocessamento ou consolidação.
 
@@ -259,7 +259,7 @@ Também pode ser usado:
 
 ### Testar antes de agendar
 
-Copie o comando Windows e execute em um `cmd.exe` novo usando a mesma conta que executará a tarefa.
+O modo Windows da ação `M. Ver linha de comando` gera sintaxe de **`cmd.exe`/`.cmd`**, não PowerShell. Antes de reproduzir ou agendar, confira especialmente URLs e argumentos contendo `&`, `|`, `^`, `%`, `!` ou aspas: o escape de metacaracteres está em correção na [issue #713](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/713), portanto a linha gerada ainda não comprova reprodução fiel nesses casos. Depois de conferir e corrigir manualmente o quoting quando necessário, teste em um `cmd.exe` novo usando a mesma conta que executará a tarefa. Não execute cegamente comandos copiados do log.
 
 Valide:
 
