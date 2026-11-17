@@ -130,7 +130,7 @@ def compare_reports(previous, output):
 
 def browser_check(output, destination):
     from playwright.sync_api import sync_playwright
-    result=dict(status='PASS',viewports=[1440,390],pages=0,requests=0,javascript_errors=0)
+    result=dict(status='PASS',viewports=[390,1440,2560],pages=0,requests=0,javascript_errors=0)
     with sync_playwright() as p:
         if not Path(p.chromium.executable_path).is_file():
             return dict(status='NOT_EXECUTED',reason='CHROMIUM_UNAVAILABLE')
@@ -150,8 +150,8 @@ def browser_check(output, destination):
                 page.locator('#expand').click()
                 assert page.locator('details:not([open])').count()==0
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'),source.name
-                if page.locator('.modal-open:not(.capture-image-button)').count():
-                    page.locator('.modal-open:not(.capture-image-button)').first.click()
+                if page.locator('.modal-open:not(.capture-image-button):visible').count():
+                    page.locator('.modal-open:not(.capture-image-button):visible').first.click()
                     assert page.locator('dialog[open]').is_visible()
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'),source.name
                     page.keyboard.press('Escape')
