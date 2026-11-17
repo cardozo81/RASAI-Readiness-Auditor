@@ -432,7 +432,7 @@ def build_execution_context(tables, coverage_receipt):
                 ])
                 if contract.get('consolidation_eligible') is not True and contract.get('consolidation_eligible') != 1:
                     html += '<p class="callout w">Consolidação não elegível segundo os critérios de conclusão registrados. Resultados parciais continuam disponíveis, mas não compõem conclusão consolidada.</p>'
-        reprocess = [
+                reprocess = [
                     run for run in tables.get('audit_reprocess_runs', ())
                     if isinstance(run, dict)
                 ]
