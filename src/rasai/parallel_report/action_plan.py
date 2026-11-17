@@ -167,7 +167,7 @@ def render_plan(rows, timezone_name, governance):
     html += '<p class="rf">Prioridade do plano direcionado (Alta/Média/Baixa): hierarquia independente da prioridade do motor. Todas as ocorrências são preservadas, sem fusão por título.</p>'
     for title, entries in sorted(title_groups.items()):
         html += '<details><summary>' + text(title) + ' · ' + str(len(entries)) + ' ocorrência(s)</summary>'
-        html += table('Registros integrais por título', entries, [
+        html += table('Registros integrais por título: ' + title, entries, [
             ('action_id', 'ID'), ('title', 'Título'), ('priority', 'Prioridade do plano direcionado'),
             ('source_id', 'Origem'), ('effort', 'Esforço'), ('_ref', 'Detalhe persistido')
         ], timezone_name)
