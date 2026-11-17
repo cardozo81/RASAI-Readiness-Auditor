@@ -75,7 +75,7 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
             names = manifest.get('table_annexes')
             if (not isinstance(names, dict) or set(names) != set(manifest['tables_read'])
                     or any(not isinstance(name, str)
-                           or not re.fullmatch(r'[0-9a-f]{64}\\.json', name)
+                           or not re.fullmatch(r'[0-9a-f]{64}\.json', name)
                            for name in names.values())):
                 return None
             required.update('anexos/' + name for name in names.values())
