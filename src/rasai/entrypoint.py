@@ -107,6 +107,45 @@ def _blocking_catalog_report_errors(renderer_errors: Sequence[str]) -> tuple[str
     )
 
 
+def _final_report_publication_gate(*, audit_id: str, workspace: object) -> tuple[str, ...]:
+    """Validate both reports against the state remaining after post-seal writers.
+
+    This gate reads persisted sources only. A changed sidecar triggers at most
+    a read-only catalog refresh; presentation generation is deterministic and
+    never calls collectors, scoring, HTTP or AI.
+    """
+    from rasai.catalog_report_site import catalog_report_is_fresh
+    from rasai.console_artifacts import presentation_report_entrypoint
+    from rasai.parallel_report.generator import generate
+    from rasai.report_completion import (
+        _verified_preliminary_catalog, materialize_catalog_report_projection,
+    )
+
+    problems: list[str] = []
+    try:
+        if not (catalog_report_is_fresh(audit_id=audit_id, workspace=workspace)
+                or _verified_preliminary_catalog(workspace)):
+            outcome = materialize_catalog_report_projection(
+                audit_id=audit_id, workspace=workspace, read_only=True,
+            )
+            if outcome.renderer_errors:
+                problems.append("report-catalog:refresh-failed")
+        if not (catalog_report_is_fresh(audit_id=audit_id, workspace=workspace)
+                or _verified_preliminary_catalog(workspace)):
+            problems.append("report-catalog:stale-or-unavailable")
+    except Exception as exc:
+        problems.append("report-catalog:" + type(exc).__name__)
+
+    # Keep this attempt independent of catalog publication failure.
+    try:
+        entry = (Path(generate(workspace.root)) / "index.html").resolve()
+        if presentation_report_entrypoint(Path(workspace.root)) != entry:
+            problems.append("report-presentation:integrity-or-freshness")
+    except Exception as exc:
+        problems.append("report-presentation:" + type(exc).__name__)
+    return tuple(problems)
+
+
 def _run_audit_and_finalize(effective: list[str]) -> int:
     from rasai.ai_execution_state import consume_all_ai_executions
     from rasai.audit_resume_runtime import finish_execution_session, start_execution_session
@@ -317,7 +356,22 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
     except (OSError, ValueError, TypeError):
         _LOGGER.warning("Optional post-AUD network complement unavailable")
 
+    final_publication_errors = _final_report_publication_gate(
+        audit_id=result.audit_id, workspace=workspace,
+    )
+    if final_publication_errors:
+        _LOGGER.error(
+            "Final derived report publication failed: %s",
+            "; ".join(final_publication_errors),
+        )
+        print(
+            "Relatórios: PUBLICAÇÃO INCOMPLETA - catálogo e apresentação "
+            "verificados separadamente; fontes persistidas preservadas."
+        )
+        return _REPORT_PROJECTION_INCOMPLETE_EXIT
+
     print("Report-catalog: materializado e validado contra o audit.db final.")
+    print("Report-presentation: materializado e validado contra a fonte persistida final.")
     if renderer_errors:
         print(
             "Finalização: houve diagnóstico reparável em processamento derivado; "

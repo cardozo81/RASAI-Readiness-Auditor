@@ -35,9 +35,12 @@ def relevant_sources(inventory, evidence):
     # if it was actually referenced as evidence by the presentation.
     referenced = {str(item.get('reference', '')).replace('\\', '/').removeprefix('./')
                   for item in evidence if isinstance(item, dict)}
+    # The catalog is a sibling *derived* HTML package, never a source of
+    # facts for the standalone presentation. Do not invalidate a verified
+    # presentation merely because the catalog was rebuilt or failed to publish.
     return {name: value for name, value in inventory.items()
-            if name != 'audit.db' and (name in referenced or name == 'report-catalog/integrity/audit-snapshot.db'
-                or not name.startswith(('logs/', 'report-catalog/')))}
+            if name != 'audit.db' and not name.startswith('report-catalog/')
+            and (name in referenced or not name.startswith('logs/'))}
 
 
 def compatible_manifest(directory, source, logical, *, historical_version=False):
@@ -58,10 +61,6 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
         if (manifest.get('source_tree_digest_before') != recorded_digest
                 or manifest.get('source_tree_digest_after') != recorded_digest):
             return None
-        catalog_manifest = 'report-catalog/manifest.json'
-        if manifest.get('generator_version') in {__version__, '0.3.0'} and (catalog_manifest in recorded or catalog_manifest in source):
-            if tree_digest(recorded, 'report-catalog/') != tree_digest(source, 'report-catalog/'):
-                return None
         evidence = manifest['artifacts_read']
         if relevant_sources(recorded, evidence) != relevant_sources(source, evidence):
             return None
