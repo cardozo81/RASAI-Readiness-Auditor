@@ -122,3 +122,22 @@ def test_absent_observability_does_not_infer_execution_failure_or_zero(tmp_path)
     assert 'Falha registrada' not in html
     assert 'N/D' in html
     assert 'Não há dependência do relatório de catálogo' in html
+
+
+
+def test_financial_critical_label_is_typed_only_in_financial_projection():
+    from rasai.parallel_report.analytical_views import build_analytical_views
+    from rasai.parallel_report.read_model import build
+    tables = {'console_cost_forecast_outcomes': [{
+        'currency': 'USD', 'status': 'CRÍTICO',
+        'expected_cost': 0.0411926, 'actual_cost': 0.68212442,
+    }]}
+    schema = {'console_cost_forecast_outcomes': {
+        'columns': list(tables['console_cost_forecast_outcomes'][0]),
+        'primary_key': [],
+    }}
+    records = build(tables, schema)
+    html, receipt = build_analytical_views(tables, records, schema, 'UTC')
+    assert 'Crítico' in html['ia-custos']
+    assert receipt['ia-custos.html']['console_cost_forecast_outcomes']['records_available'] == 1
+    assert records[0].data['status'] == 'CRÍTICO'  # immutable original record
