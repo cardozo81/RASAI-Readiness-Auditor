@@ -54,7 +54,7 @@ def editorial(page, records, costs, thresholds, governance=None):
         if page != 'index':
             html += '<h2>Indicadores independentes e escopos</h2>'
         html += '<div>' if page == 'indices' else '<div class="grid">'
-        for data in sorted(rows(['scores','web_performance_observations','synthetic_apdex_summaries','synthetic_ux_apdex_summaries','synthetic_population_apdex_summaries']), key=lambda r: r.get('dimension') != 'OVERALL_READINESS'):
+        for data in sorted(rows(['scores','web_performance_observations','synthetic_apdex_summaries','synthetic_ux_apdex_summaries']), key=lambda r: r.get('dimension') != 'OVERALL_READINESS'):
             for key in ('value','performance_score','accessibility_score','best_practices_score','seo_score','agentic_browsing_score','apdex_score'):
                 if page == 'index' and key == 'value' and data.get('dimension') != 'OVERALL_READINESS':
                     continue
@@ -85,6 +85,34 @@ def editorial(page, records, costs, thresholds, governance=None):
                     else:
                         html += '<p class="rf">Decomposição de regras desta dimensão não disponível na fonte. O índice acima permanece medido quando possui valor persistido; nenhuma contribuição é inferida.</p>'
         html += '</div>'
+        if page == 'performance' and rows(['synthetic_population_apdex_summaries']):
+            populations = rows(['synthetic_population_apdex_summaries'])
+            mobile = rows(['synthetic_ux_apdex_summaries'])
+            html += '<h2>Dados de suporte da população</h2>'
+            for item in populations:
+                matched = any(
+                    row.get('device') == 'MOBILE' and
+                    row.get('apdex_score') == item.get('apdex_score') and
+                    row.get('valid_samples') == item.get('valid_samples')
+                    for row in mobile
+                )
+                mix = item.get('device_mix') or item.get('device_mix_json')
+                if isinstance(mix, str):
+                    try:
+                        import json
+                        mix = json.loads(mix)
+                    except (TypeError, ValueError):
+                        mix = None
+                mobile_only = (isinstance(mix, dict) and len(mix) == 1 and
+                               mix.get('MOBILE') == 100.0)
+                if matched and mobile_only:
+                    html += '<p>População (mix 100% móvel): mesma medição que Móvel. '
+                    html += '<a class="tech-link" href="' + text(item['_ref']) + '">Detalhe da população</a></p>'
+                else:
+                    html += '<p>Registro populacional persistido; equivalência com a medição móvel não demonstrada.</p>'
+                    html += local_table('População: dados de suporte', [item], [
+                        ('device', 'Dispositivo'), ('apdex_score', 'Apdex'),
+                        ('valid_samples', 'Amostras válidas'), ('device_mix', 'Mix de dispositivos')])
     if page == 'index':
         exceptions = [r for r in rows(['scores']) if r.get('confidence') == 'LOW' or r.get('consolidation_status') == 'NOT_APPLICABLE']
         if exceptions:
