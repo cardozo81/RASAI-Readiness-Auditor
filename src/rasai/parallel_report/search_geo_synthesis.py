@@ -81,8 +81,12 @@ def _sidecar(root):
             "SELECT name FROM sqlite_master WHERE type='table'")}
         if 'datasets' not in tables:
             return None, 'Banco de observabilidade sem inventário de datasets'
+        dataset_columns = {column[1] for column in connection.execute('PRAGMA table_info(datasets)')}
+        fields = ['dataset_id', 'source_type', 'metadata', 'artifact_path']
+        if 'artifact_sha256' in dataset_columns:
+            fields.append('artifact_sha256')
         datasets = [dict(row) for row in connection.execute(
-            'SELECT dataset_id, source_type, metadata, artifact_path, artifact_sha256 FROM datasets')]
+            'SELECT ' + ', '.join(fields) + ' FROM datasets')]
         counts = {}
         for source, (prefix, _) in _EXTERNAL_SOURCES.items():
             ids = [row['dataset_id'] for row in datasets
