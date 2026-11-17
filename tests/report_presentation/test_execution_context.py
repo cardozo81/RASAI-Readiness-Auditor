@@ -262,7 +262,7 @@ def test_financial_forecast_critical_classification_keeps_estimates_distinct():
     assert 'Instantâneo do console na data indicada' in body
     assert 'N/D — sem telemetria monetária nesta moeda' in body
     assert 'Observado até o momento' not in body
-    assert 'faturamento comprovado' in body
+    assert 'Não constitui custo final nem cobrança observada pelo provedor' in body
     rows['ai_provider_attempts'][0]['observed_cost'] = 0
     rows['ai_provider_attempts'][0]['observed_cost_currency'] = 'USD'
     with_telemetry, _ = build_execution_context(rows, receipt_with_network())
