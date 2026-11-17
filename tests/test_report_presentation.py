@@ -248,7 +248,7 @@ def test_module_names_are_humanized_in_visible_report_copy_only():
         "<p>A classificação M6 foi persistida.</p>"
         "<p>Configuração M25 persistida; M18/M20 e M21/M22.</p>"
         "<p>Captura M3 incompleta; Arquitetura M6 observada.</p>"
-        "<p>M23 e M25 são apurações independentes.</p>"
+        "<p>Apdex M23 e Apdex M25 são apurações independentes.</p>"
         "<pre>Classificação M6 persistida; M25; M18/M20</pre>"
         "<code>M24</code>"
         "<p>Produto M25 industrial observado na página.</p>"
@@ -269,7 +269,7 @@ def test_module_names_are_humanized_in_visible_report_copy_only():
     assert "Produto M25 industrial observado na página." in once
     assert "Modelo M6 comercial auditado." in once
     assert "href='relatorio-M6.html' data-origin='M25'" in once
-    assert "Detalhe análise de arquitetura da aplicação" in once
+    assert "Detalhe da análise de arquitetura" in once
     assert humanize_report_html(once, page_name="cat-07.html") == once
 
 
@@ -280,11 +280,13 @@ def test_module_copy_does_not_rewrite_canonical_ids_or_product_models():
         "<p>Identificador M24-TECHNICAL-001</p>"
         "<p>Produto M18 industrial; modelo M25 validado.</p>"
         "<p>Projeto M6 auditado.</p>"
+        "<p>Galaxy M25 e Série M6 são modelos citados na página.</p>"
         "<div data-code='M6'>Classificação M6 persistida</div>"
     )
     readable = humanize_report_html(html, page_name="cat-01.html")
     assert "M24-TECHNICAL-001" in readable
     assert "Produto M18 industrial; modelo M25 validado." in readable
     assert "Projeto M6 auditado." in readable
+    assert "Galaxy M25 e Série M6 são modelos citados na página." in readable
     assert "data-code='M6'" in readable
     assert "Classificação arquitetural registrada na auditoria" in readable
