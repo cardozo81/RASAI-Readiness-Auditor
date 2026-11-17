@@ -73,8 +73,17 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
                                                           'coverage-map.json', 'evidence-coverage.json'))
         required.update('anexos/' + sha256(table.encode()).hexdigest() + '.json'
                         for table in manifest['tables_read'])
+        payload_annexes = manifest.get('payload_annexes', ())
+        if not isinstance(payload_annexes, list) or any(
+            not isinstance(name, str) or not re.fullmatch(r'[0-9a-f]{64}\\.json', name)
+            for name in payload_annexes
+        ):
+            return None
+        required.update('anexos/' + name for name in payload_annexes)
         hashes = manifest['sha256_per_file']
         if set(hashes) != required or set(manifest['generated_files']) != required:
+            return None
+        if any(hashes['anexos/' + name] != name[:-5] for name in payload_annexes):
             return None
         if all(digest(confined(directory, name)) == hashes[name] for name in required):
             return manifest
