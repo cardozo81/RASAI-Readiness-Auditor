@@ -31,7 +31,7 @@ def kv(pairs):
 def technical_link(href, label='Abrir registro técnico'):
     if not href:
         return ''
-    return f'<a class="tech-link" href="{text(href)}">{text(label)}</a>'
+    return f'<a class="tech-link" href="{text(href)}" aria-label="{text("Detalhe: " + label + " · " + str(href))}">{text(label)}</a>'
 
 
 def _ruler_band(value, proposal):
@@ -77,7 +77,9 @@ def _detail_title(row, index):
         value = row.get(key)
         if value not in (None, ''):
             return str(public_value(value, key))
-    return f'Registro {index + 1}'
+    source = str(row.get('_source_table') or 'Registro persistido')
+    identifier = str(row.get('_ref') or '').split('#')[-1]
+    return source + (' · ' + identifier if identifier else ' · entrada ' + str(index + 1))
 
 
 def _detail_dialog(caption, row, columns, index, timezone_name=None):
@@ -117,7 +119,7 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
     dialog = ''.join([
         f'<dialog class="detail-dialog" id="{dialog_id}" aria-labelledby="{title_id}">',
         '<div class="modal-head"><div><span class="modal-kicker">' + text(caption) + '</span>',
-        f'<h2 id="{title_id}">{text(title)}</h2></div>',
+        f'<h2 id="{title_id}">{text(title)}</h2><span class="modal-kicker">Registro {index + 1}</span></div>',
         '<button type="button" class="modal-close" data-modal-close aria-label="Fechar detalhes">×</button></div>',
         '<div class="modal-body">' + summary,
         '<details class="in"><summary>Dados técnicos originais (rastreabilidade)</summary><p class="rf">Horários exibidos no fuso da auditoria; valores originais permanecem nos anexos.</p>'
