@@ -684,6 +684,11 @@ _MODULE_LABELS = {
     "M23": "Apdex de navegação",
     "M24": "remediação técnica por IA",
     "M25": "Apdex de experiência",
+    "M26": "visibilidade observada em respostas de IA",
+    "M14": "vínculo de evidências",
+    "M15": "apresentação de relatórios",
+    "M16": "análise de causas",
+    "M17": "precisão das recomendações",
 }
 _MODULE_PHRASES = (
     ("Classificação M6 persistida", "Classificação arquitetural registrada na auditoria"),
@@ -697,6 +702,12 @@ _MODULE_PHRASES = (
     ("M21/M23", "Web Performance e Apdex de navegação"),
     ("M23/M25", "Apdex de navegação e experiência"),
     ("M3/M6", "captura e análise de arquitetura"),
+    ("Apdex M23", "Apdex de navegação"),
+    ("Apdex M25", "Apdex de experiência"),
+    ("Detalhe M6", "Detalhe da análise de arquitetura"),
+    ("o M25 não executa", "o Apdex de experiência não executa"),
+    ("o M25.", "o Apdex de experiência."),
+    ("pelo M25", "pelo Apdex de experiência"),
 )
 _MODULE_CODE_RE = re.compile(
     r"(?<![A-Za-z0-9_/-])M(?:[1-9]|[1-9][0-9])(?![A-Za-z0-9_/-])"
@@ -720,12 +731,11 @@ def _humanize_internal_module_copy(visible: str) -> str:
         preceding = visible[max(0, match.start() - 72):match.start()]
         if _MODULE_LITERAL_MODEL_RE.search(preceding):
             return match.group(0)
-        # Unrecognized module codes have no documented semantic title. Avoid
-        # inventing one, except where nearby wording proves an internal module.
-        return _MODULE_LABELS.get(
-            match.group(0),
-            "etapa técnica da auditoria" if _MODULE_NAMED_CONTEXT_RE.search(preceding) else match.group(0),
-        )
+        # A bare M-number may be a product model (e.g. "Galaxy M25"), not a
+        # RASAi module. Only translate it with explicit editorial context.
+        if not _MODULE_NAMED_CONTEXT_RE.search(preceding):
+            return match.group(0)
+        return _MODULE_LABELS.get(match.group(0), "etapa técnica da auditoria")
 
     return _MODULE_CODE_RE.sub(substitute, visible)
 
