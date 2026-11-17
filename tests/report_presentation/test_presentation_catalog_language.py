@@ -50,7 +50,7 @@ def test_presentation_replaces_every_known_catalog_reference_in_editorial_prose(
     )
     once = humanize_module_references_html(html)
     assert "conteúdo, semântica e dados estruturados" in once
-    assert "Search & AI Intelligence" in once
+    assert "inteligência de busca e IA" in once
     assert "Apdex de experiência" in once
     assert "fundamentos técnicos e descoberta" in once
     assert "segurança passiva" in once
@@ -115,7 +115,7 @@ def test_new_independent_presentation_plan_hides_catalog_ids_without_source_chan
         assert not re.search(r"\bCAT-(?:0[1-9]|10)\b", editorial), page.name
 
     plan = (package / "plano.html").read_text(encoding="utf-8")
-    assert "Revisar conteúdo, semântica e dados estruturados e Search & AI Intelligence" in plan
+    assert "Revisar conteúdo, semântica e dados estruturados e inteligência de busca e IA" in plan
     assert "Confirmar fundamentos técnicos e descoberta antes de remediações" in plan
     assert 'CAT-03' in (root / "audit.db").read_bytes().decode("latin-1")
     manifest = json.loads((package / "_geracao.json").read_text(encoding="utf-8"))
