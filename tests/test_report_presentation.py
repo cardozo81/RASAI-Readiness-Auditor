@@ -231,7 +231,7 @@ def test_humanization_hides_user_facing_module_names_but_keeps_raw_evidence():
         "<a data-source='M6'>Detalhe M6</a>"
     )
     rendered = humanize_report_html(html, page_name="cat-01.html")
-    assert "captura principal incompleta" in rendered
+    assert "Captura principal incompleta" in rendered
     assert "Análise de arquitetura da aplicação observada" in rendered
     assert "ausência observada de robots.txt" in rendered
     assert "Análise semântica por IA · contrato 22, versão 1" in rendered
