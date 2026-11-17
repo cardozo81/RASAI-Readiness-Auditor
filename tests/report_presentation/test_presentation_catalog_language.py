@@ -122,3 +122,25 @@ def test_new_independent_presentation_plan_hides_catalog_ids_without_source_chan
     manifest = json.loads((package / "_geracao.json").read_text(encoding="utf-8"))
     assert manifest["integrity"] == "PASS"
     assert manifest["source_db_logical_sha256"]
+
+
+def test_presentation_source_vocabulary_is_readable_without_rewriting_vendor_names():
+    raw = (
+        "<p>M2 physical HTTP acquisition persisted as page_snapshots.browser_metadata.raw_http</p>"
+        "<p>RASAi RuleExecutions</p><p>RASAi discovery provenance</p>"
+        "<p>Search Intelligence SERP observations</p>"
+        "<p>Search Intelligence explicit relevance judgments</p>"
+        "<p>OPEN-WEB-METRICS-001</p>"
+        "<p>MDN HTTP Observatory; W3C CSS Validation Service</p>"
+        "<pre>M2 physical HTTP acquisition persisted as page_snapshots.browser_metadata.raw_http</pre>"
+    )
+    shown = humanize_module_references_html(raw)
+    assert "Coleta HTTP realizada pelo RASAi" in shown
+    assert "Execução das regras de auditoria do RASAi" in shown
+    assert "Evidências de descoberta coletadas pelo RASAi" in shown
+    assert "Resultados de busca observados" in shown
+    assert "Avaliações explícitas de relevância em resultados de busca" in shown
+    assert "Referência técnica de métricas abertas da web" in shown
+    assert "MDN HTTP Observatory; W3C CSS Validation Service" in shown
+    assert "<pre>M2 physical HTTP acquisition persisted as page_snapshots.browser_metadata.raw_http</pre>" in shown
+    assert shown == humanize_module_references_html(shown)
