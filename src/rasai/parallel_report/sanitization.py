@@ -14,7 +14,7 @@ SAFE_COOKIE_METADATA = frozenset({'cookie_attribution_id', 'cookie_ref', 'cookie
 SELECTOR_FIELDS = frozenset({'selector', 'css_selector', 'element_selector'})
 CSS_IDENT = re.compile(r'^[.#][A-Za-z_][A-Za-z0-9_-]*(?:[.#][A-Za-z_][A-Za-z0-9_-]*)*$')
 HTML_CLASS_ATTR = re.compile(r"""\bclass\s*=\s*(["'])([^"']*)\1""", re.I)
-CSS_QUALIFIED = re.compile(r'(?<![A-Za-z0-9_-])[.#]sk-[A-Za-z0-9_-]+')
+CSS_QUALIFIED = re.compile(r'[.#]sk-[A-Za-z0-9_-]+')
 CREDENTIAL_PREFIXES = ('sk-proj-', 'sk-test-', 'sk-live-')
 
 
