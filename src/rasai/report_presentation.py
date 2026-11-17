@@ -740,6 +740,23 @@ def _humanize_internal_module_copy(visible: str) -> str:
     return _MODULE_CODE_RE.sub(substitute, visible)
 
 
+# Descriptions stored in technical source fields may be shown as tool names in
+# the presentation. Translate recognized RASAi-owned phrases *only* in visible
+# editorial copy. Official third-party product names remain literal.
+_PRESENTATION_INTERNAL_SOURCE_PHRASES = (
+    ("M2 physical HTTP acquisition persisted as page_snapshots.browser_metadata.raw_http",
+     "Coleta HTTP realizada pelo RASAi"),
+    ("RASAi RuleExecutions", "Execução das regras de auditoria do RASAi"),
+    ("RASAi discovery provenance", "Evidências de descoberta coletadas pelo RASAi"),
+    ("Search Intelligence SERP observations", "Resultados de busca observados"),
+    ("Search Intelligence explicit relevance judgments",
+     "Avaliações explícitas de relevância em resultados de busca"),
+    ("Search Intelligence relevance judgments",
+     "Avaliações de relevância em resultados de busca"),
+    ("OPEN-WEB-METRICS-001", "Referência técnica de métricas abertas da web"),
+)
+
+
 # CAT-* are stable catalog identifiers, not meaningful labels for an executive
 # reader. This presentation-only vocabulary deliberately does not change the
 # canonical catalog report, persisted provenance, annexes or technical links.
@@ -780,6 +797,8 @@ def _humanize_presentation_catalog_copy(visible: str) -> str:
         "Critério de avaliação de ",
         visible,
     )
+    for original, readable in _PRESENTATION_INTERNAL_SOURCE_PHRASES:
+        visible = visible.replace(original, readable)
     visible = _PRESENTATION_CATALOG_GROUP_RE.sub(grouped, visible)
     return _PRESENTATION_CATALOG_REF_RE.sub(
         lambda match: _PRESENTATION_CATALOG_LABELS[match.group(0).upper()],
