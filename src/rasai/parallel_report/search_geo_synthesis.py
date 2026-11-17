@@ -142,10 +142,8 @@ def _source_rows(root, tables):
             execution = 'Não comprovada pelos registros disponíveis'
         elif flag is False:
             execution = 'Desabilitada'
-        elif datasets is not None:
-            execution = 'Não solicitada'
         else:
-            execution = 'N/D — inventário externo indisponível'
+            execution = 'N/D — solicitação não comprovada'
         available = (str(counts[name]) + ' registro(s) de observabilidade'
                      if counts is not None and counts[name]
                      else 'Sem registros de resultado'
@@ -155,7 +153,7 @@ def _source_rows(root, tables):
             'enabled': 'Habilitada' if flag is True else
                        'Desabilitada' if flag is False else 'Não documentada',
             'request': 'Solicitada' if requested else
-                       'Não solicitada' if datasets is not None or flag is False
+                       'Não solicitada' if flag is False
                        else 'N/D — solicitação não comprovada',
             'execution': execution,
             'data': available,
