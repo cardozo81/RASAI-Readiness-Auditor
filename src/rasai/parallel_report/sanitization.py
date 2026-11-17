@@ -69,6 +69,23 @@ def _text(value, selector=False):
 
 def sanitize(value, key=''):
     field = str(key).lower()
+    if field == 'identifiers_json':
+        # Never project a non-public platform identifier as clear text, even
+        # inside an exported annex or an HTML modal. Preserve its stored hash.
+        try:
+            parsed = json.loads(value) if isinstance(value, str) else value
+        except (ValueError, TypeError):
+            parsed = value
+        if isinstance(parsed, list):
+            filtered = []
+            for identifier in parsed:
+                if (isinstance(identifier, dict) and
+                        identifier.get('identifier_class') != 'PUBLIC_IDENTIFIER'):
+                    identifier = {name: data for name, data in identifier.items()
+                                  if name not in {'identifier_display', 'identifier',
+                                                  'identifier_value', 'raw'}}
+                filtered.append(sanitize(identifier))
+            return filtered
     if field == 'encrypted_content':
         return opaque_metadata(value)
     if field in SAFE_COOKIE_METADATA:
