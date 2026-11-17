@@ -44,6 +44,7 @@ def test_presentation_replaces_every_known_catalog_reference_in_editorial_prose(
         for i in range(1, 11)
     ) + (
         "<p>Revisar CAT-03/CAT-05 antes do plano.</p>"
+        "<p>Revisar CAT-03/05 nos critérios de execução.</p>"
         "<p>Verificar CAT-01 e CAT-07.</p>"
         "<p>CAT-03 não equivale a CAT-05.</p>"
     )
