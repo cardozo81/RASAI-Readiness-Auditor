@@ -47,6 +47,7 @@ def test_presentation_replaces_every_known_catalog_reference_in_editorial_prose(
         "<p>Revisar CAT-03/05 nos critérios de execução.</p>"
         "<p>Verificar CAT-01 e CAT-07.</p>"
         "<p>CAT-03 não equivale a CAT-05.</p>"
+        "<p>CAT-03. CAT-04, CAT-05: três áreas distintas.</p>"
     )
     once = humanize_module_references_html(html)
     assert "conteúdo, semântica e dados estruturados" in once
