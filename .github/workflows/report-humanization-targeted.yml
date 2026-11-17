@@ -36,5 +36,6 @@ jobs:
           tests/test_runtime_intelligence.py
           tests/report_presentation/test_parallel_report.py
           tests/report_presentation/test_presentation_catalog_language.py
+          tests/report_presentation/test_theme_persistence.py
           tests/report_presentation/test_editorial.py
           tests/report_presentation/test_content_reconciliation.py
