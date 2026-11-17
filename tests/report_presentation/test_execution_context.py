@@ -210,6 +210,59 @@ def test_forecast_with_incomplete_execution_does_not_claim_final_spend():
     assert 'Previsão versus execução registrada' in ai
     assert 'Não comparável' in ai
     assert '0,0411926' in ai
-    assert 'Observado até o momento' in ai
+    assert 'Custo técnico conciliado' in ai
+    assert 'Telemetria monetária observada' in ai
     assert 'não significa custo final' in ai
     assert 'unsafe source text' not in ai
+
+
+
+def test_final_contract_states_are_read_without_promoting_partial_status():
+    rows = sample_partial_contract()
+    rows['audit_fulfillment_contracts'] = [{
+        'processing_status': 'COMPLETE', 'score_status': 'FINAL',
+        'report_status': 'FINAL', 'consolidation_eligible': 1,
+        'successful_items': 15, 'required_items': 15,
+        'pending_items': 0, 'blocked_items': 0,
+    }]
+    body, _ = build_execution_context(rows, receipt_with_network())
+    panel = body['index:execution']
+    assert 'Concluída' in panel
+    assert panel.count('Final') >= 2
+    assert 'Estado não classificado' not in panel
+    assert 'Consolidação não elegível' not in panel
+    partial, _ = build_execution_context(sample_partial_contract(), receipt_with_network())
+    assert 'Preliminar' in partial['index:execution']
+    assert 'Pendente' in partial['index:execution']
+    assert 'Final' not in partial['index:execution']
+
+
+def test_financial_forecast_critical_classification_keeps_estimates_distinct():
+    rows = sample_partial_contract()
+    rows['audit_fulfillment_contracts'][0].update({
+        'processing_status': 'COMPLETE', 'score_status': 'FINAL',
+        'report_status': 'FINAL', 'consolidation_eligible': 1,
+    })
+    rows['console_cost_forecast_outcomes'] = [{
+        'currency': 'USD', 'expected_cost': 0.0411926,
+        'actual_cost': 0.68212442, 'status': 'CRÍTICO',
+        'likely_low': 0.03, 'likely_high': 0.09,
+        'source': 'local-audit-history',
+    }]
+    rows['ai_provider_attempts'] = [
+        {'attempt_id': 'a1', 'estimated_cost': 0.68212442,
+         'observed_cost': None, 'cost_currency': 'USD'},
+    ]
+    html, _ = build_execution_context(rows, receipt_with_network())
+    body = html['ia-custos:execution']
+    assert '0,0411926' in body
+    assert '0,68212442' in body
+    assert 'Crítico' in body
+    assert 'Custo técnico conciliado' in body
+    assert 'N/D — sem telemetria monetária nesta moeda' in body
+    assert 'Observado até o momento' not in body
+    assert 'faturamento comprovado' in body
+    rows['ai_provider_attempts'][0]['observed_cost'] = 0
+    rows['ai_provider_attempts'][0]['observed_cost_currency'] = 'USD'
+    with_telemetry, _ = build_execution_context(rows, receipt_with_network())
+    assert '1 tentativa(s) com valor observado' in with_telemetry['ia-custos:execution']
