@@ -325,3 +325,125 @@ def test_export_rejects_legacy_source_without_logical_equivalence(tmp_path: Path
     path.write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ValueError, match="equivalência lógica"):
         export_public_catalog(root, tmp_path / "blocked.zip")
+
+
+def _append_fixture_pages(root: Path, pages: dict[str, str]) -> None:
+    """Extend the synthetic canonical package with new manifest-checked pages."""
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for name, html in pages.items():
+        data = html.encode("utf-8")
+        (root / name).write_bytes(data)
+        manifest["packaged_files"].append({
+            "path": name, "sha256": digest(data), "size_bytes": len(data),
+        })
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def test_explicit_partial_review_withholds_sensitive_page_without_leaking_source(
+    tmp_path: Path,
+) -> None:
+    initial = (
+        '<!doctype html><html><body><h1 id="overview">Resumo</h1>'
+        '<a href="details.html#item-1">Detalhes</a>'
+        '<a href="ai-integrations.html#private-panel">IA</a></body></html>'
+    )
+    root = catalog_fixture(tmp_path, html=initial)
+    _append_fixture_pages(root, {
+        "ai-integrations.html": '<html><body><h1 id="private-panel">'
+        'encrypted_content: opaque payload, not for export</h1></body></html>',
+    })
+    source_before = {
+        p.relative_to(root).as_posix(): digest(p.read_bytes())
+        for p in root.rglob("*") if p.is_file()
+    }
+    with pytest.raises(ValueError, match="sensível"):
+        export_public_catalog(root, tmp_path / "strict-refused.zip")
+    candidate = export_public_catalog(
+        root, tmp_path / "partial-review.zip", withhold_unsafe_pages=True,
+    )
+    assert verify_public_catalog_export(candidate) == (True, ())
+    assert "encrypted_content" not in candidate.read_bytes().decode("latin-1")
+    with ZipFile(candidate) as z:
+        receipt = json.loads(z.read(MANIFEST))
+        assert receipt["export_mode"] == "withheld-pages-review-only"
+        assert receipt["withheld_pages"] == ["ai-integrations.html"]
+        page = z.read("ai-integrations.html").decode("utf-8")
+        assert "Conteúdo não incluído" in page
+        assert 'id="private-panel"' in page
+        assert "opaque payload" not in page
+        assert "ai-integrations.html#private-panel" in z.read("index.html").decode("utf-8")
+    source_after = {
+        p.relative_to(root).as_posix(): digest(p.read_bytes())
+        for p in root.rglob("*") if p.is_file()
+    }
+    assert source_after == source_before
+
+
+def test_partial_review_withholds_five_unexportable_pages_and_preserves_navigation(
+    tmp_path: Path,
+) -> None:
+    root = catalog_fixture(tmp_path)
+    # Mirrors the five structural/privacy categories observed in a real AUD;
+    # no real AUD data is committed in fixtures or transmitted to CI.
+    _append_fixture_pages(root, {
+        "ai-integrations.html": "<html><body>encrypted_content</body></html>",
+        "capture-context.html": _with_trusted_script(
+            '<html><body><a href="../private/record.html">Private</a></body></html>'
+        ),
+        "cat-08.html": _with_trusted_script(
+            '<html><body><script>runUnknownCode()</script></body></html>'
+        ),
+        "directed-analysis.html": _with_trusted_script(
+            '<html><body><a href="details.html#unknown-anchor">Bad anchor</a></body></html>'
+        ),
+        "network.html": _with_trusted_script(
+            '<html><body><svg><circle r="1"></circle></svg></body></html>'
+        ),
+    })
+    target = export_public_catalog(
+        root, tmp_path / "partial.zip", withhold_unsafe_pages=True,
+    )
+    assert verify_public_catalog_export(target) == (True, ())
+    with ZipFile(target) as z:
+        receipt = json.loads(z.read(MANIFEST))
+        assert receipt["withheld_pages"] == sorted([
+            "ai-integrations.html", "capture-context.html", "cat-08.html",
+            "directed-analysis.html", "network.html",
+        ])
+        assert receipt["forensic_equivalence"] is False
+        for name in receipt["withheld_pages"]:
+            replacement = z.read(name)
+            assert b"ConteÃºdo nÃ£o incluÃ­do" in replacement
+            assert b"encrypted_content" not in replacement
+            assert b"runUnknownCode" not in replacement
+            assert b"../private/" not in replacement
+        assert z.read("index.html") == (root / "index.html").read_bytes()
+
+
+def test_partial_profile_keeps_index_and_css_fail_closed(tmp_path: Path) -> None:
+    root = catalog_fixture(
+        tmp_path,
+        html='<html><body>encrypted_content</body></html>',
+    )
+    with pytest.raises(ValueError, match="sensível"):
+        export_public_catalog(
+            root, tmp_path / "blocked-index.zip", withhold_unsafe_pages=True,
+        )
+    assert not (tmp_path / "blocked-index.zip").exists()
+
+
+def test_partial_profile_rejects_more_than_five_withheld_pages(tmp_path: Path) -> None:
+    root = catalog_fixture(tmp_path)
+    _append_fixture_pages(root, {
+        name: "<html><body>encrypted_content</body></html>"
+        for name in (
+            "ai-integrations.html", "capture-context.html", "cat-08.html",
+            "directed-analysis.html", "network.html", "geo.html",
+        )
+    })
+    with pytest.raises(ValueError, match="excessivamente incompleto"):
+        export_public_catalog(
+            root, tmp_path / "blocked-many.zip", withhold_unsafe_pages=True,
+        )
+    assert not (tmp_path / "blocked-many.zip").exists()
