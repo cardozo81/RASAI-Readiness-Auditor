@@ -740,8 +740,48 @@ def _humanize_internal_module_copy(visible: str) -> str:
     return _MODULE_CODE_RE.sub(substitute, visible)
 
 
+# CAT-* are stable catalog identifiers, not meaningful labels for an executive
+# reader. This presentation-only vocabulary deliberately does not change the
+# canonical catalog report, persisted provenance, annexes or technical links.
+_PRESENTATION_CATALOG_LABELS = {
+    "CAT-01": "fundamentos técnicos e descoberta",
+    "CAT-02": "acessibilidade",
+    "CAT-03": "conteúdo, semântica e dados estruturados",
+    "CAT-04": "Web Performance",
+    "CAT-05": "Search & AI Intelligence",
+    "CAT-06": "Apdex de navegação",
+    "CAT-07": "Apdex de experiência",
+    "CAT-08": "análise profunda e melhorias",
+    "CAT-09": "remediações",
+    "CAT-10": "segurança passiva",
+}
+_PRESENTATION_CATALOG_REF_RE = re.compile(
+    r"(?<![A-Za-z0-9_./-])CAT-(?:0[1-9]|10)(?![A-Za-z0-9_./-])",
+    re.IGNORECASE,
+)
+_PRESENTATION_CATALOG_GROUP_RE = re.compile(
+    r"(?<![A-Za-z0-9_./-])CAT-(?P<first>0[1-9]|10)/(?P<second>0[1-9]|10)"
+    r"(?![A-Za-z0-9_./-])",
+    re.IGNORECASE,
+)
+
+
+def _humanize_presentation_catalog_copy(visible: str) -> str:
+    """Translate only well-known catalog IDs in presentation editorial copy."""
+    def grouped(match: re.Match[str]) -> str:
+        first = _PRESENTATION_CATALOG_LABELS["CAT-" + match.group("first")]
+        second = _PRESENTATION_CATALOG_LABELS["CAT-" + match.group("second")]
+        return first + " e " + second
+
+    visible = _PRESENTATION_CATALOG_GROUP_RE.sub(grouped, visible)
+    return _PRESENTATION_CATALOG_REF_RE.sub(
+        lambda match: _PRESENTATION_CATALOG_LABELS[match.group(0).upper()],
+        visible,
+    )
+
+
 def humanize_module_references_html(html: str) -> str:
-    """Humanize only module names in visible editorial text.
+    """Humanize internal module and catalog references in visible editorial text.
 
     The independent presentation already owns its timestamps, enums and
     formatting. Reusing the broader report humanizer here would unintentionally
@@ -766,7 +806,11 @@ def humanize_module_references_html(html: str) -> str:
         for position, fragment in enumerate(pieces):
             # Preserve escaped DOM snippets, including text between tag pairs.
             literal = position % 2 == 1 or 0 < position < len(pieces) - 1
-            result.append(fragment if literal else _humanize_internal_module_copy(fragment))
+            result.append(
+                fragment if literal else _humanize_presentation_catalog_copy(
+                    _humanize_internal_module_copy(fragment)
+                )
+            )
     return "".join(result)
 
 
