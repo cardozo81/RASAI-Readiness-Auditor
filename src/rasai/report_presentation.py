@@ -773,6 +773,13 @@ def _humanize_presentation_catalog_copy(visible: str) -> str:
         second = _PRESENTATION_CATALOG_LABELS["CAT-" + match.group("second")]
         return first + " e " + second
 
+    # "Contrato CAT-##" is a persisted technical marker, not a contractual
+    # obligation. In customer copy, describe the evaluated domain instead.
+    visible = re.sub(
+        r"(?i)\\bContrato\\s+(?=CAT-(?:0[1-9]|10)\\b)",
+        "Critério de avaliação de ",
+        visible,
+    )
     visible = _PRESENTATION_CATALOG_GROUP_RE.sub(grouped, visible)
     return _PRESENTATION_CATALOG_REF_RE.sub(
         lambda match: _PRESENTATION_CATALOG_LABELS[match.group(0).upper()],
@@ -793,9 +800,9 @@ def humanize_module_references_html(html: str) -> str:
     blocked_depth = 0
     for part in parts:
         if part.startswith("<"):
-            if re.match(r"<(?:script|style|pre|code)\b", part, flags=re.IGNORECASE):
+            if re.match(r"<(?:script|style|pre|code|blockquote|q|samp|textarea)\b", part, flags=re.IGNORECASE):
                 blocked_depth += 1
-            elif re.match(r"</(?:script|style|pre|code)\b", part, flags=re.IGNORECASE):
+            elif re.match(r"</(?:script|style|pre|code|blockquote|q|samp|textarea)\b", part, flags=re.IGNORECASE):
                 blocked_depth = max(0, blocked_depth - 1)
             result.append(part)
             continue
