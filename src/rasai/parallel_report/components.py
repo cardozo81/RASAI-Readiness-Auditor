@@ -34,6 +34,25 @@ def technical_link(href, label='Abrir registro técnico'):
     return f'<a class="tech-link" href="{text(href)}">{text(label)}</a>'
 
 
+def _ruler_band(value, proposal):
+    """Visible qualitative band from the already-versioned display contract."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
+        return 'N/D — sem valor medido'
+    if not proposal:
+        return 'Sem faixa textual definida no contrato'
+    metric = proposal.get('metric_id')
+    thresholds = proposal.get('thresholds') or []
+    index = sum(value >= threshold for threshold in thresholds)
+    if metric == 'APDEX_RESULT_PERSISTED_CONTRACT' and len(thresholds) == 2:
+        return ('Ruim', 'Regular', 'Bom')[index]
+    if metric == 'LIGHTHOUSE_CATEGORY_PERSISTED_CONTRACT' and len(thresholds) == 2:
+        return ('Ruim', 'Precisa melhorar', 'Bom')[index]
+    if metric == 'SARI_PRESENTATION_PROPOSAL' and len(thresholds) == 3:
+        return ('Abaixo do mínimo proposto', 'Mínimo proposto',
+                'Ideal proposto', 'Ótimo proposto')[index] + ' · Proposta não aprovada'
+    return 'Sem faixa textual definida no contrato'
+
+
 def ruler(label, value, maximum=100, proposal=None, scope=None, href=None):
     valid = isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
     position = min(100, max(0, value / maximum * 100)) if valid else None
@@ -50,7 +69,7 @@ def ruler(label, value, maximum=100, proposal=None, scope=None, href=None):
     display_value = (format(value, '.2f').rstrip('0').rstrip('.').replace('.', ',') if valid else text(value))
     title = text(label)
     technical = ('<p class="rf">' + technical_link(href) + '</p>') if href else ''
-    return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{text(ORIGIN_LABELS.get(reference, reference))}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)} · {text(ORIGIN_LABELS.get(reference, reference))}</div><div class="rf">{text(scope)}</div><details class="in"><summary>Detalhes técnicos da faixa e limites</summary>{text(note)}<p><code>{text(reference)}</code></p>{technical}</details></div>'
+    return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{text(_ruler_band(value, proposal))}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)} · {text(ORIGIN_LABELS.get(reference, reference))}</div><div class="rf">{text(scope)}</div><details class="in"><summary>Detalhes técnicos da faixa e limites</summary>{text(note)}<p><code>{text(reference)}</code></p>{technical}</details></div>'
 
 
 def _detail_title(row, index):
