@@ -20,6 +20,7 @@ from rasai.document_advisory import _inventory, _plain
 from rasai.parallel_report.artifact_reader import digest, inventory
 from rasai.parallel_report.generator import generate
 from rasai.parallel_report.sqlite_reader import read_database
+from rasai.parallel_report.sanitization import sanitize
 
 
 class Document(HTMLParser):
@@ -217,6 +218,15 @@ def main():
     try:
         output=generate(copy)
         manifest,docs,checks=validate_package(output)
+        # Reconcile every table with its exact sanitized UTF-8 annex bytes,
+        # not just a row count or a digest provided by the same manifest.
+        for table,rows in tables.items():
+            expected=json.dumps(sanitize(rows),ensure_ascii=False,indent=2).encode('utf-8')
+            actual=(output/'anexos'/manifest['table_annexes'][table]).read_bytes()
+            if actual!=expected:
+                raise ValueError('source-to-annex parity mismatch: '+table)
+        checks['table_families_reconciled']=len(tables)
+        checks['unique_table_annexes']=len(set(manifest['table_annexes'].values()))
         if inventory(copy)!=baseline or read_database(copy/'audit.db')!=(tables,schema):
             raise ValueError('source bytes or row identity changed')
         from rasai.parallel_report.read_model import destination
