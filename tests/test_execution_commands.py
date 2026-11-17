@@ -279,3 +279,47 @@ def test_reprocess_and_consolidation_keep_selection_and_ai_flags(tmp_path: Path)
     assert "--ai-provider" in cons.argv
     assert "--ai-model" in cons.argv
     assert "--ai-reasoning" in cons.argv
+
+
+def test_m_menu_uses_selected_shell_for_clipboard(monkeypatch, tmp_path: Path) -> None:
+    plan = commands.CommandPlan(
+        "AUDITORIA",
+        ("python", "-m", "rasai", "audit", "https://example.test/?a=1&b=2"),
+        (commands.EnvValue("OPENAI_API_KEY", None, True),),
+    )
+    blocks = {platform: commands.render(plan, platform)
+              for platform in commands.PLATFORMS}
+    monkeypatch.setattr(commands, "_os", lambda: "windows")
+    choices = iter(["1", "C", "2", "C", "V"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(choices))
+    copied: list[str] = []
+    monkeypatch.setattr(commands, "_copy", lambda value: copied.append(value) or True)
+    commands._menu(blocks, tmp_path / "history.log", None, "EXTERNAL COMMAND")
+    assert len(copied) == 2
+    assert '"https://example.test/?a=1&b=2"' in copied[0]
+    assert "& 'python' '-m' 'rasai'" in copied[1]
+    assert "**********" not in copied[0] + copied[1]
+    assert "OPENAI_API_KEY" not in copied[0] + copied[1]
+    assert " && " not in copied[1]
+
+
+def test_historical_commands_show_original_blocks_without_session_rebuild(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    plan = commands.CommandPlan(
+        "REPROCESSAMENTO", ("python", "-m", "rasai", "reprocess", "AUD-ORIGINAL",
+                           "--item", "CAT-08", "--no-use-ai"),
+        (), "EXECUTADO",
+    )
+    commands.record(plan, tmp_path, "AUD-ORIGINAL", append=False)
+    observed: list[dict[str, str]] = []
+    monkeypatch.setattr(
+        commands, "_menu",
+        lambda blocks, _path, _root, _title: observed.append(dict(blocks)),
+    )
+    assert commands.show_logged(tmp_path, "AUD-ORIGINAL") is True
+    assert len(observed) == 1
+    assert "powershell" in observed[0]
+    assert "AUD-ORIGINAL" in observed[0]["powershell"]
+    assert "--no-use-ai" in observed[0]["windows"]
+    assert "PLANEJADO" not in observed[0]["windows"]
