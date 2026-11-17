@@ -69,7 +69,7 @@ def test_presentation_keeps_technical_contract_literals_and_external_identifiers
         "<span>CAT-99 é uma referência desconhecida.</span>"
     )
     readable = humanize_module_references_html(html)
-    assert "Contrato conteúdo, semântica e dados estruturados registrado" in readable
+    assert "Critério de avaliação de conteúdo, semântica e dados estruturados registrado" in readable
     assert "href='cat-03.html' data-catalog='CAT-05'" in readable
     assert "<pre>{\"catalog_id\": \"CAT-03\", \"contract\": \"CAT-05\"}</pre>" in readable
     assert "<code>CAT-06</code>" in readable
