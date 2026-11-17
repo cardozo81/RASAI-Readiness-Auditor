@@ -573,7 +573,8 @@ def scope_context(root, raw_tables, timezone_name, costs, capture_projection=Non
     audit = next(iter(tables.get('audits', ())), {})
     local = lambda stamp: public_value(stamp, 'captured_at', timezone_name)
     from .search_geo_synthesis import render_search_geo_synthesis
-    result[SEARCH_PAGE] = render_search_geo_synthesis(root, raw_tables) + search_context(root, tables)
+    result[SEARCH_PAGE + ':primary'] = render_search_geo_synthesis(root, raw_tables)
+    result[SEARCH_PAGE] = search_context(root, tables)
     review_html = editorial_evidence(root, tables, capture_projection)
     result['conteudo'] = review_html
     if review_html:
