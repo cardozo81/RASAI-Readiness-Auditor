@@ -1,4 +1,4 @@
-"""Read-only Search/GEO synthesis over persisted audit and observability evidence.
+"""Read-only Search e GEO synthesis over persisted audit and observability evidence.
 
 A missing observability sidecar never becomes evidence that a provider failed,
 was disabled, or returned zero results. No provider calls, scores or inferences.
@@ -208,11 +208,11 @@ def _competitive_summary(tables):
     ]
 
 
-def render_search_geo_synthesis(root, tables):
+def render_search_visibility_synthesis(root, tables):
     """Contextual sections only; full source records remain in technical inventory."""
     html = (
-        '<section class="search-geo-synthesis">'
-        '<h2>Fontes Search/GEO e seus estados registrados</h2>'
+        '<section class="search-visibility-synthesis">'
+        '<h2>Fontes Search e GEO e seus estados registrados</h2>'
         '<p class="rf">Habilitação, solicitação, execução, resultado e '
         'disponibilidade de observabilidade são dimensões diferentes. '
         'Falha externa não é ausência de configuração; ausência de sidecar '

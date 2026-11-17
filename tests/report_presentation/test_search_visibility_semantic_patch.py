@@ -1,10 +1,10 @@
-"""Focused regressions for read-only Search/GEO and context-aware sanitization."""
+"""Focused regressions for read-only Search e GEO and context-aware sanitization."""
 import json
 import sqlite3
 
 from rasai.observability.store import observability_database_path
 from rasai.parallel_report.sanitization import sanitize
-from rasai.parallel_report.search_geo_synthesis import render_search_geo_synthesis
+from rasai.parallel_report.search_visibility_synthesis import render_search_visibility_synthesis
 
 
 def test_css_class_identifiers_survive_without_leaking_secret_shapes():
@@ -47,7 +47,7 @@ def _external_source_fixture(root):
     return db
 
 
-def test_search_geo_integrations_use_persisted_failure_and_disabled_configuration(tmp_path):
+def test_search_visibility_integrations_use_persisted_failure_and_disabled_configuration(tmp_path):
     source = _external_source_fixture(tmp_path)
     before = source.read_bytes()
     tables = {
@@ -59,7 +59,7 @@ def test_search_geo_integrations_use_persisted_failure_and_disabled_configuratio
             }),
         }],
     }
-    html = render_search_geo_synthesis(tmp_path, tables)
+    html = render_search_visibility_synthesis(tmp_path, tables)
     assert 'Common Crawl' in html
     assert 'Executada com erro registrado' in html
     assert 'Google Search Console' in html and 'Microsoft Clarity' in html
@@ -104,7 +104,7 @@ def test_competitive_summary_keeps_provenance_and_mismatched_universes_separate(
             'evidence_sha256': 'b' * 64,
         }],
     }
-    html = render_search_geo_synthesis(tmp_path, data)
+    html = render_search_visibility_synthesis(tmp_path, data)
     assert 'Resultados SERP normalizados' in html
     assert 'P-1' in html
     assert 'artifacts/competitive.json' in html
@@ -117,7 +117,7 @@ def test_competitive_summary_keeps_provenance_and_mismatched_universes_separate(
 
 
 def test_absent_observability_does_not_infer_execution_failure_or_zero(tmp_path):
-    html = render_search_geo_synthesis(tmp_path, {})
+    html = render_search_visibility_synthesis(tmp_path, {})
     assert 'inventário externo indisponível' in html
     assert 'Falha registrada' not in html
     assert 'N/D' in html
@@ -144,12 +144,12 @@ def test_financial_critical_label_is_typed_only_in_financial_projection():
 
 
 
-def test_search_geo_integration_artifact_has_identity_and_hash(tmp_path):
+def test_search_visibility_integration_artifact_has_identity_and_hash(tmp_path):
     source = _external_source_fixture(tmp_path)
     with sqlite3.connect(source) as connection:
         connection.execute('ALTER TABLE datasets ADD COLUMN artifact_sha256 TEXT')
         connection.execute('UPDATE datasets SET artifact_sha256 = ?', ('c' * 64,))
-    html = render_search_geo_synthesis(tmp_path, {})
+    html = render_search_visibility_synthesis(tmp_path, {})
     assert 'cc-1' in html
     assert 'artifacts/cc.json' in html
     assert 'c' * 64 in html
