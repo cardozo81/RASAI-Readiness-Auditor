@@ -28,6 +28,8 @@ MANIFEST = "export-manifest.json"
 _ALLOWED = frozenset({".html", ".css", ".txt", ".md", ".json"})
 _MAX_FILE = 32 * 1024 * 1024
 _MAX_TOTAL = 256 * 1024 * 1024
+_MAX_WITHHELD_PAGES = 5
+_SAFE_ANCHOR = re.compile(r"[A-Za-z][A-Za-z0-9_.:-]{0,127}\Z")
 _EMAIL = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I)
 _DOCUMENT_ID = re.compile(r"\b(?:\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b")
 _OPAQUE_FIELD = re.compile(r"(?i)\b(?:encrypted_content|private_key|access_token|refresh_token)\b")
@@ -202,6 +204,130 @@ def _validate_links(contents: Mapping[str, bytes], text: Mapping[str, str]) -> N
             checked = _local_ref(path, "css", "url", match.group(2))
             if checked is not None and checked[0] not in contents:
                 raise ValueError("exportação recusada: recurso CSS local ausente")
+
+
+
+def _withheld_page(anchors: set[str]) -> bytes:
+    """Inert replacement: never copy original page content into the candidate."""
+    from html import escape
+    from rasai.catalog_report_style import _JS as trusted_script
+
+    safe = sorted(anchors)
+    if any(not _SAFE_ANCHOR.fullmatch(anchor) for anchor in safe):
+        raise ValueError("exportação recusada: âncora não publicável")
+    markers = "".join(
+        '<span id="' + escape(fragment, quote=True) + '"></span>' for fragment in safe
+    )
+    html = (
+        "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<title>Conteúdo não incluído na exportação</title></head><body>"
+        "<main id='report-main'><h1>Conteúdo não incluído na exportação</h1>"
+        "<p>Esta página permanece exclusivamente no relatório interno. "
+        "A exportação é parcial e exige revisão de privacidade antes de qualquer distribuição.</p>"
+        + markers + "</main><script>" + trusted_script + "</script></body></html>"
+    )
+    return html.encode("utf-8")
+
+
+def _withhold_unexportable_pages(
+    contents: dict[str, bytes],
+    text: dict[str, str],
+    initially_withheld: set[str],
+) -> tuple[list[str], dict[str, bytes], dict[str, str]]:
+    """Explicit review-only profile, retaining unsafe pages only in the source.
+
+    Never export their original bytes. A bounded number of canonical,
+    non-index pages are replaced by visibly unavailable placeholders.
+    """
+    from rasai.catalog_report_contract import CATALOG_REPORT_FILENAMES
+    from rasai.catalog_report_style import _JS as trusted_script
+
+    allowed = set(CATALOG_REPORT_FILENAMES) - {"index.html"}
+    withheld: set[str] = set()
+
+    def quarantine(name: str) -> None:
+        if name not in allowed:
+            raise ValueError("exportação recusada: recurso não substituível")
+        withheld.add(name)
+        if len(withheld) > _MAX_WITHHELD_PAGES:
+            raise ValueError("exportação recusada: relatório externo excessivamente incompleto")
+
+    for name in initially_withheld:
+        quarantine(name)
+    parsers: dict[str, _References] = {}
+    for name, body in text.items():
+        if not name.endswith(".html") or name in withheld:
+            continue
+        parser = _References()
+        try:
+            parser.feed(body)
+            parser.close()
+            valid_script = (
+                parser._script_parts is None
+                and parser._style_parts is None
+                and [part.replace("\r\n", "\n") for part in parser.scripts] == [trusted_script]
+            )
+        except ValueError:
+            valid_script = False
+        if not valid_script:
+            quarantine(name)
+        else:
+            parsers[name] = parser
+
+    changed = True
+    while changed:
+        changed = False
+        for name, parser in list(parsers.items()):
+            if name in withheld:
+                continue
+            refs = list(parser.refs)
+            for style in parser.style_blocks:
+                if _CSS_IMPORT.search(style):
+                    quarantine(name)
+                    changed = True
+                    break
+                refs.extend(
+                    ("style", "url", match.group(2))
+                    for match in _CSS_URL.finditer(style)
+                )
+            if name in withheld:
+                continue
+            for tag, attribute, reference in refs:
+                try:
+                    checked = _local_ref(name, tag, attribute, reference)
+                    if checked is None:
+                        continue
+                    target, fragment = checked
+                    if target not in contents:
+                        raise ValueError("referência ausente no pacote")
+                    if fragment and target in parsers and target not in withheld:
+                        if fragment not in parsers[target].ids:
+                            raise ValueError("âncora de destino ausente")
+                except ValueError:
+                    quarantine(name)
+                    changed = True
+                    break
+
+    # The only target anchors made available for withheld pages are requested
+    # by non-withheld HTML that has passed both the data and parser gates.
+    wanted: dict[str, set[str]] = {name: set() for name in withheld}
+    for name, parser in parsers.items():
+        if name in withheld:
+            continue
+        for tag, attribute, reference in parser.refs:
+            checked = _local_ref(name, tag, attribute, reference)
+            if checked is None:
+                continue
+            target, fragment = checked
+            if fragment and target in withheld:
+                wanted[target].add(fragment)
+    for name in sorted(withheld):
+        data = _withheld_page(wanted[name])
+        contents[name] = data
+        text[name] = data.decode("utf-8")
+    _validate_links(contents, text)
+    return sorted(withheld), contents, text
 
 
 def _inventory(root: Path) -> dict[str, bytes]:
