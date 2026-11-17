@@ -199,6 +199,17 @@ def test_real_windows_cmd_roundtrip(tmp_path: Path, args: tuple[str, ...], env_v
                    check=True, cwd=tmp_path, timeout=30)
     actual = json.loads(result.read_text(encoding="utf-8"))
     assert actual == {"argv": list(args), "env": env_value}
+    # Also paste into a live cmd.exe stdin, not only .cmd/scheduler.
+    result.unlink()
+    interactive = subprocess.run(
+        ["cmd.exe", "/q", "/d", "/v:off"],
+        input=command + "\r\nexit\r\n", text=True,
+        capture_output=True, cwd=tmp_path, timeout=30,
+    )
+    assert interactive.returncode == 0, interactive.stderr
+    assert json.loads(result.read_text(encoding="utf-8")) == {
+        "argv": list(args), "env": env_value,
+    }
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="PowerShell Windows não disponível")
