@@ -90,8 +90,18 @@ def test_competitive_summary_keeps_provenance_and_mismatched_universes_separate(
             }),
         }],
         'serp_competitive_ai_analyses': [{
-            'status': 'SUCCESS', 'provider': 'synthetic',
+            'observation_id': 'SERP-1',
+            'state': 'SUCCESS', 'provider': 'synthetic',
             'model': 'synthetic', 'summary': 'Proposta consultiva não aprovada.',
+            'opportunity_count': 1,
+            'opportunities_json': json.dumps([{
+                'title': 'Avaliar cobertura da consulta',
+                'priority': 'MEDIUM',
+                'recommendation': 'Conferir a intenção antes da revisão.',
+                'evidence_ids': ['CE-CUSTOMER', 'CE-COMP-001'],
+            }]),
+            'evidence_ref': 'artifacts/competitive-ai.json',
+            'evidence_sha256': 'b' * 64,
         }],
     }
     html = render_search_geo_synthesis(tmp_path, data)
@@ -101,6 +111,8 @@ def test_competitive_summary_keeps_provenance_and_mismatched_universes_separate(
     assert 'Proposta consultiva não aprovada.' in html
     assert 'não constitui ação aprovada' in html
     assert 'citação generativa' in html
+    assert 'Avaliar cobertura da consulta' in html
+    assert 'CE-CUSTOMER, CE-COMP-001' in html
     assert 'report-catalog/' not in html
 
 
