@@ -211,9 +211,9 @@ def test_forecast_with_incomplete_execution_does_not_claim_final_spend():
     assert 'Previsão versus execução registrada' in ai
     assert 'Não comparável' in ai
     assert '0,0411926' in ai
-    assert 'Custo técnico conciliado' in ai
+    assert 'Instantâneo do console na data indicada' in ai
     assert 'Telemetria monetária observada' in ai
-    assert 'não significa custo final' in ai
+    assert 'Não constitui custo final' in ai
     assert 'unsafe source text' not in ai
 
 
@@ -259,7 +259,7 @@ def test_financial_forecast_critical_classification_keeps_estimates_distinct():
     assert '0,0411926' in body
     assert '0,68212442' in body
     assert 'Crítico' in body
-    assert 'Custo técnico conciliado' in body
+    assert 'Instantâneo do console na data indicada' in body
     assert 'N/D — sem telemetria monetária nesta moeda' in body
     assert 'Observado até o momento' not in body
     assert 'faturamento comprovado' in body
