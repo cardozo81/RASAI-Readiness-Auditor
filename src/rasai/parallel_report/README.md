@@ -114,7 +114,7 @@ O recibo estruturado `anexos/dados-de-apoio/evidence-coverage.json` ganha o obje
 Dentro do mesmo quadro operacional da v0.4.13, os detalhes editoriais adicionais são **agregações determinísticas das fontes já persistidas**, nunca reclassificações: `indices.html` apresenta a distribuição dos 27 resultados de regras, sem fabricar índice geral; `seguranca.html` resume tipos e partes dos 87 recursos, além do estado individual das cinco integrações, sem chamar recursos de vulnerabilidades; `ia-custos.html` explicita previsão, valor parcial observado e comparabilidade do registro financeiro, sem sugerir custo final quando a AUD permanece parcial. Os anexos e os inventários de origem continuam intocados e com a mesma identidade; a síntese não repete cada ocorrência.
 
 
-### Contrato 0.4.20 — anexos endereçados por conteúdo (P11/P12)
+### Contrato 0.4.20 - anexos endereçados por conteúdo (P11/P12)
 
 Cada família de tabela persistida tem uma entrada em `_geracao.json.table_annexes`,
 associando o nome da tabela ao arquivo `anexos/<SHA-256-dos-bytes-UTF-8>.json`.
