@@ -180,7 +180,9 @@ def test_integration(tmp_path, monkeypatch, complete):
     manifest = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
     assert manifest['page_count'] == 11
     assert manifest['source_tree_digest_before'] == manifest['source_tree_digest_after']
-    assert manifest['parity_differences']['comparisons']['scores']['status'] == 'PASS'
+    assert manifest['parity_differences']['comparisons']['scores']['status'] == 'NOT_VERIFIED'
+    assert manifest['parity_differences']['reference'] == 'audit.db'
+    assert 'report-catalog' not in (output / '_geracao.json').read_text(encoding='utf-8')
     assert manifest['external_requests'] == manifest['ai_calls'] == manifest['source_writes'] == 0
     coverage = json.loads((output / 'assets' / 'coverage-map.json').read_text(encoding='utf-8'))
     if complete:
