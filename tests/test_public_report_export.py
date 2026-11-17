@@ -281,3 +281,33 @@ def test_export_verifier_rejects_zip_appended_overlay(tmp_path: Path) -> None:
     with exported.open("ab") as handle:
         handle.write(b"overlay bytes not present in the ZIP inventory")
     assert verify_public_catalog_export(exported)[0] is False
+
+
+def test_export_from_real_catalog_renderer_with_synthetic_audit(tmp_path: Path) -> None:
+    """Prove integration with the current canonical 21-page renderer, offline."""
+    from rasai.audit_configuration_reuse import configuration_hash
+    from rasai.catalog_report_site import materialize_catalog_report_site
+    from tests.test_catalog_report_site import AUDIT_ID, _workspace
+
+    workspace, _noncatalog = _workspace(tmp_path)
+    # That upstream test deliberately injects a secret-shaped config in order
+    # to test redaction. Use an untainted config for this public-export fixture.
+    with sqlite3.connect(workspace.database) as connection:
+        config = json.loads(connection.execute(
+            "SELECT configuration_json FROM audit_execution_configurations WHERE audit_id=?",
+            (AUDIT_ID,),
+        ).fetchone()[0])
+        config["settings"]["environment"].pop("RASAI_OPENAI_API_KEY", None)
+        connection.execute(
+            "UPDATE audit_execution_configurations SET configuration_json=?, configuration_hash=? "
+            "WHERE audit_id=?",
+            (json.dumps(config, ensure_ascii=False), configuration_hash(config), AUDIT_ID),
+        )
+    index = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace)
+    from rasai.catalog_report_site import verify_catalog_report_package
+    assert verify_catalog_report_package(index.parent)[0] is True
+    artifact = export_public_catalog(index.parent, tmp_path / "candidate.zip")
+    assert verify_public_catalog_export(artifact) == (True, ())
+    with ZipFile(artifact) as archive:
+        assert len([name for name in archive.namelist() if name.endswith(".html")]) >= 20
+        assert "integrity/audit-snapshot.db" not in archive.namelist()
