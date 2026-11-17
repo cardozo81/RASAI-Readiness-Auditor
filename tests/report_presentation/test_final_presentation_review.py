@@ -101,7 +101,7 @@ def test_forecast_zero_partial_and_no_attempts_never_become_final_spend():
                    'execução parcial', 'Pesquisa Perplexity: nenhuma execução registrada',
                    'Recorded Search provider'):
         assert phrase in visible
-    assert 'não significa custo final' in visible
+    assert 'Não constitui custo final' in visible
     assert 'Tokens de entrada</dt><dd>0' not in body
     assert 'Custo por chamada' not in body  # no repeated empty telemetry panels
 
