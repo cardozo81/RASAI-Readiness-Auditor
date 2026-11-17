@@ -2,8 +2,8 @@
 
 **RASAi** (Readiness Assessment for Search & AI) avalia a prontidão técnica e semântica de sites para mecanismos de busca e sistemas de IA. Combina coleta de evidências, avaliação reproduzível, relatórios HTML e recomendações rastreáveis. Não promete ranking, tráfego, conversões ou citações em respostas generativas.
 
-**Release pública:** [`v0.10.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0), publicada em 15/11/2026.  
-**Versão declarada no código de `main`:** `0.10.0`; a branch de desenvolvimento pode conter correções posteriores à tag publicada. Consulte as [notas da release](docs/RELEASE_NOTES_V0_10_0.md).
+**Pacote Python (última release publicada):** [`v0.10.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0), publicada em 15/11/2026; confira [a release mais recente](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest).  
+**Pacote Python (versão no código-fonte):** `0.10.0` na `main`; a branch de desenvolvimento pode conter correções posteriores à tag publicada. Consulte as [notas da release](docs/RELEASE_NOTES_V0_10_0.md).
 **Índice público:** `SARI-001` (Search & AI Readiness Index)  
 **Método de pontuação:** versão pública `001`; contrato atual `SCORE-GEO-005`. Auditorias históricas preservam `SCORE-GEO-004`.
 
