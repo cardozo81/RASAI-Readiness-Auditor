@@ -75,7 +75,7 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
                         for table in manifest['tables_read'])
         payload_annexes = manifest.get('payload_annexes', ())
         if not isinstance(payload_annexes, list) or any(
-            not isinstance(name, str) or not re.fullmatch(r'[0-9a-f]{64}\\.json', name)
+            not isinstance(name, str) or not re.fullmatch(r'[0-9a-f]{64}\.json', name)
             for name in payload_annexes
         ):
             return None
