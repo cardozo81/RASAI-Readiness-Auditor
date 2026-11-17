@@ -37,7 +37,20 @@ def shell(page, title, body, audit_id=None):
 <div class="shell"><article><h1>{esc(title)}</h1><p class="lead">Análise dos fatos persistidos, com evidências, escopos e limitações. Sem nova coleta ou recálculo de score.</p>{body}<footer>Projeção derivada offline. Ausência não é zero. Sugestões de IA dependem de revisão humana.</footer></article><div class="rail"><b>Nesta página</b>{rail}</div></div></main></body></html>'''
 
 
-def record_html(record, links, physical_links=(), timezone_name=None, governance=None):
+def _record_link_name(href, lookup):
+    target = lookup.get(href)
+    if target is None:
+        return 'Detalhe: referência ' + href
+    data = thaw(target.data)
+    name = next((str(data[key]) for key in
+                 ('title', 'label', 'rule_id', 'metric_id', 'dimension', 'name', 'action_id')
+                 if data.get(key) not in (None, '')), target.table)
+    dimension = str(data.get('dimension') or data.get('device') or '')
+    return 'Detalhe: ' + target.table + ' · ' + name + (
+        ' · ' + dimension if dimension else '') + ' · ' + target.anchor
+
+
+def record_html(record, links, physical_links=(), timezone_name=None, governance=None, lookup=None):
     data = thaw(record.data)
     title = next((data[k] for k in ('title', 'label', 'dimension', 'metric_id', 'rule_id') if data.get(k) is not None), None)
     if title is None:
@@ -68,8 +81,18 @@ def record_html(record, links, physical_links=(), timezone_name=None, governance
     if record.table == 'recommendation_governance':
         summary += ''.join(f'<dt>{esc(label)}</dt><dd>{esc(value)}</dd>' for label, value in (
             ('Decisão', data.get('decision')), ('Alvo', data.get('target_class')), ('Motivo', data.get('rejection_reason'))))
-    refs = ''.join(f'<a class="tech-link" href="{esc(target)}">Abrir registro técnico relacionado {i + 1}</a> ' for i, target in enumerate(links[record.href]))
-    refs += ''.join(f'<a class="tech-link" href="extracao.html#physical-{index}">Abrir evidência física</a> ' for index in physical_links)
+    lookup = lookup or {}
+    refs = ''.join(
+        f'<a class="tech-link" href="{esc(target)}" '
+        f'aria-label="{esc(_record_link_name(target, lookup))}">'
+        f'{esc(_record_link_name(target, lookup))}</a> '
+        for target in links[record.href]
+    )
+    refs += ''.join(
+        f'<a class="tech-link" href="extracao.html#physical-{index}" '
+        f'aria-label="Detalhe: evidência física {index + 1}">Abrir evidência física {index + 1}</a> '
+        for index in physical_links
+    )
     return f'<div class="record" id="{record.anchor}"><h3>{esc(title)}</h3><p class="org">{esc(origin)}</p><p>{esc(status)}</p><dl>{summary}</dl><details><summary>Dados persistidos e proveniência (datas no fuso da auditoria)</summary>{payload(presentation_timestamps(data, timezone_name))}<p>ID de apresentação: {record.anchor}</p></details><nav aria-label="Referências bidirecionais">{refs}</nav></div>'
 
 
@@ -173,6 +196,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         item['source_href'] = source.href
         physical.setdefault(source.href, []).append(index)
     governance = Governance(tables.get('recommendation_governance', ()))
+    lookup = {record.href: record for record in records}
     for page, title in PAGES:
         # Visual capture evidence is visible in HTML immediately, not hidden in
         # technical tables or available only via a modal.
@@ -208,7 +232,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         for table_name in routed_tables:
             items = [r for r in records if r.table == table_name]
             body += f'<details><summary>{esc(public_label(table_name))} · {len(items)} registros</summary><a class="tech-link" href="anexos/{sha256(table_name.encode()).hexdigest()}.json">Abrir anexo sanitizado integral</a>'
-            body += ''.join(record_html(record, links, physical.get(record.href, ()), timezone_name, governance) for record in items) + '</details>'
+            body += ''.join(record_html(record, links, physical.get(record.href, ()), timezone_name, governance, lookup) for record in items) + '</details>'
         body += '</details><details><summary>Limitações, cobertura e conferência de paridade</summary>' + payload({'missing_data':missing,'parity':parity}) + '</details>'
         audit_id = tables.get('audits',[{}])[0].get('audit_id') if tables.get('audits') else None
         output[page+'.html'] = shell(page,title,body,audit_id)
