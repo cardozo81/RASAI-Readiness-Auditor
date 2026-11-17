@@ -82,7 +82,7 @@ def _sidecar(root):
         if 'datasets' not in tables:
             return None, 'Banco de observabilidade sem inventário de datasets'
         datasets = [dict(row) for row in connection.execute(
-            'SELECT dataset_id, source_type, metadata, artifact_path FROM datasets')]
+            'SELECT dataset_id, source_type, metadata, artifact_path, artifact_sha256 FROM datasets')]
         counts = {}
         for source, (prefix, _) in _EXTERNAL_SOURCES.items():
             ids = [row['dataset_id'] for row in datasets
@@ -160,6 +160,9 @@ def _source_rows(root, tables):
             'origin': (str(len(source)) + ' dataset(s) persistido(s)'
                        + ('; ' + str(len(work)) + ' serviço(s)' if work else '')
                        if source or work else 'Sem dataset/serviço verificável'),
+            'dataset_id': source[-1].get('dataset_id') if source else None,
+            'artifact_ref': source[-1].get('artifact_path') if source else None,
+            'artifact_sha256': source[-1].get('artifact_sha256') if source else None,
         })
     if sidecar_error:
         output.append({
@@ -211,10 +214,13 @@ def render_search_geo_synthesis(root, tables):
         'Falha externa não é ausência de configuração; ausência de sidecar '
         'não comprova execução, falha ou resultado zero.</p>'
     )
-    html += table('Estados das integrações', _source_rows(root, tables),
+    html += table('Estados das integrações', sanitize(_source_rows(root, tables)),
                   [('source', 'Integração'), ('enabled', 'Habilitação'),
                    ('request', 'Solicitação'), ('execution', 'Execução'),
-                   ('data', 'Dados'), ('origin', 'Proveniência')])
+                   ('data', 'Dados'), ('origin', 'Proveniência'),
+                   ('dataset_id', 'Dataset da última evidência'),
+                   ('artifact_ref', 'Arquivo de origem'),
+                   ('artifact_sha256', 'SHA-256 da origem')])
     source_status = []
     for name, family in [('SERP', 'serp_observations'),
                          ('Perplexity / Search API', 'perplexity_search_runs'),
