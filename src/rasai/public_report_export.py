@@ -25,7 +25,7 @@ from rasai.secret_safety import detect_secret_exposures
 
 CONTRACT = "RASAI-PUBLIC-CATALOG-EXPORT-001"
 MANIFEST = "export-manifest.json"
-_ALLOWED = frozenset({".html", ".css", ".js", ".txt", ".md", ".json"})
+_ALLOWED = frozenset({".html", ".css", ".txt", ".md", ".json"})
 _MAX_FILE = 32 * 1024 * 1024
 _MAX_TOTAL = 256 * 1024 * 1024
 _EMAIL = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I)
@@ -78,22 +78,60 @@ class _References(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.ids: set[str] = set()
         self.refs: list[tuple[str, str, str]] = []
+        self.scripts: list[str] = []
+        self._script_parts: list[str] | None = None
+        self._style_parts: list[str] | None = None
+        self.style_blocks: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         fields = dict(attrs)
+        if len(fields) != len(attrs) or any(
+            key.startswith("on") or key in {"srcdoc", "nonce"}
+            for key, _value in attrs
+        ):
+            raise ValueError("exportação recusada: atributo de execução ou repetido")
+        if tag == "script":
+            if self._script_parts is not None or attrs:
+                raise ValueError("exportação recusada: script dinâmico ou aninhado")
+            self._script_parts = []
+        if tag == "style":
+            if self._style_parts is not None or attrs:
+                raise ValueError("exportação recusada: estilo dinâmico")
+            self._style_parts = []
         if fields.get("id"):
             self.ids.add(str(fields["id"]))
         if "srcset" in fields or (tag == "meta" and
                                  str(fields.get("http-equiv") or "").casefold() == "refresh"):
             raise ValueError("exportação recusada: navegação automática ou srcset não verificado")
-        if tag in {"iframe", "object", "embed", "base"}:
-            raise ValueError("exportação recusada: recurso embutido não suportado")
-        for key in ("href", "src", "poster", "action"):
+        if tag in {"iframe", "object", "embed", "base", "svg", "math", "form"}:
+            raise ValueError("exportação recusada: recurso embutido ou formulário não suportado")
+        for key in ("href", "src", "poster", "action", "formaction", "xlink:href"):
             if fields.get(key):
                 self.refs.append((tag, key, str(fields[key])))
         if fields.get("style"):
-            for css_match in _CSS_URL.finditer(str(fields["style"])):
+            inline_style = str(fields["style"])
+            if _CSS_IMPORT.search(inline_style):
+                raise ValueError("exportação recusada: importação CSS inline")
+            for css_match in _CSS_URL.finditer(inline_style):
                 self.refs.append(("style", "url", css_match.group(2)))
+
+    def handle_data(self, data: str) -> None:
+        if self._script_parts is not None:
+            self._script_parts.append(data)
+        if self._style_parts is not None:
+            self._style_parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "script":
+            if self._script_parts is None:
+                raise ValueError("exportação recusada: fechamento de script inválido")
+            self.scripts.append("".join(self._script_parts))
+            self._script_parts = None
+        if tag == "style":
+            if self._style_parts is None:
+                raise ValueError("exportação recusada: fechamento de estilo inválido")
+            self.style_blocks.append("".join(self._style_parts))
+            self._style_parts = None
 
 
 def _local_ref(source: str, tag: str, attribute: str, ref: str) -> tuple[str, str] | None:
@@ -121,15 +159,28 @@ def _local_ref(source: str, tag: str, attribute: str, ref: str) -> tuple[str, st
 
 def _validate_links(contents: Mapping[str, bytes], text: Mapping[str, str]) -> None:
     html: dict[str, _References] = {}
+    from rasai.catalog_report_style import _JS as _TRUSTED_UI_SCRIPT
+
     for path, body in text.items():
         if path.casefold().endswith(".html"):
             parser = _References()
             parser.feed(body)
             parser.close()
+            if parser._script_parts is not None or parser._style_parts is not None:
+                raise ValueError("exportação recusada: script/estilo não fechado")
+            if parser.scripts != [_TRUSTED_UI_SCRIPT]:
+                # Every catalog page contains exactly the canonical, offline
+                # navigation/dialog helper. Reject extra or modified code.
+                raise ValueError("exportação recusada: script fora do contrato do relatório")
             html[path] = parser
     if "index.html" not in html:
         raise ValueError("exportação recusada: index.html ausente")
     for path, parser in html.items():
+        for style_block in parser.style_blocks:
+            if _CSS_IMPORT.search(style_block):
+                raise ValueError("exportação recusada: importação CSS incorporada")
+            for match in _CSS_URL.finditer(style_block):
+                parser.refs.append(("style", "url", match.group(2)))
         for tag, attribute, ref in parser.refs:
             checked = _local_ref(path, tag, attribute, ref)
             if checked is None:
@@ -238,6 +289,24 @@ def _prepare(root: Path) -> tuple[dict[str, bytes], dict]:
     return contents, receipt
 
 
+def _canonical_zip(contents: Mapping[str, bytes], receipt: Mapping[str, object]) -> bytes:
+    buffer = io.BytesIO()
+    with ZipFile(buffer, "w", compression=ZIP_DEFLATED, compresslevel=6) as archive:
+        for name, data in sorted(contents.items()):
+            entry = ZipInfo(name, (1980, 1, 1, 0, 0, 0))
+            entry.compress_type = ZIP_DEFLATED
+            entry.external_attr = 0o644 << 16
+            archive.writestr(entry, data)
+        entry = ZipInfo(MANIFEST, (1980, 1, 1, 0, 0, 0))
+        entry.compress_type = ZIP_DEFLATED
+        entry.external_attr = 0o644 << 16
+        archive.writestr(
+            entry,
+            (json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
+        )
+    return buffer.getvalue()
+
+
 def verify_public_catalog_export(zip_path: str | Path) -> tuple[bool, tuple[str, ...]]:
     """Verify a candidate using only its own archive, inventory and content."""
     try:
@@ -283,6 +352,10 @@ def verify_public_catalog_export(zip_path: str | Path) -> tuple[bool, tuple[str,
                 contents[name] = data
                 text[name] = _scan(name, data)
             _validate_links(contents, text)
+            # Exact canonical bytes also reject ZIP comments, arbitrary stubs,
+            # overlays, extra metadata, nonstandard order and hidden trailing data.
+            if Path(zip_path).read_bytes() != _canonical_zip(contents, manifest):
+                raise ValueError("estrutura ZIP não canônica")
         return True, ()
     except (OSError, ValueError, UnicodeDecodeError, BadZipFile, KeyError, TypeError,
             RuntimeError) as error:
@@ -305,34 +378,24 @@ def export_public_catalog(report_dir: str | Path, destination: str | Path) -> Pa
     for name, data in contents.items():
         if (source / name).read_bytes() != data:
             raise ValueError("origem modificada durante exportação")
-    buffer = io.BytesIO()
-    with ZipFile(buffer, "w", compression=ZIP_DEFLATED, compresslevel=6) as archive:
-        for name, data in sorted(contents.items()):
-            entry = ZipInfo(name, (1980, 1, 1, 0, 0, 0))
-            entry.compress_type = ZIP_DEFLATED
-            entry.external_attr = 0o644 << 16
-            archive.writestr(entry, data)
-        entry = ZipInfo(MANIFEST, (1980, 1, 1, 0, 0, 0))
-        entry.compress_type = ZIP_DEFLATED
-        entry.external_attr = 0o644 << 16
-        archive.writestr(
-            entry, (json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
-        )
+    package_bytes = _canonical_zip(contents, receipt)
     temporary: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
             mode="wb", suffix=".tmp", prefix=".rasai-public-", dir=output.parent, delete=False
         ) as handle:
             temporary = Path(handle.name)
-            handle.write(buffer.getvalue())
+            handle.write(package_bytes)
             handle.flush()
             os.fsync(handle.fileno())
         ok, errors = verify_public_catalog_export(temporary)
         if not ok:
             raise ValueError("falha na validação do ZIP gerado: " + "; ".join(errors))
-        if output.exists() or output.is_symlink():
-            raise FileExistsError("destino apareceu durante exportação")
-        temporary.rename(output)
+        # Atomic create-if-absent in the same directory. In particular this
+        # must not replace a target created by another process (POSIX rename
+        # would silently overwrite in that race).
+        os.link(temporary, output)
+        temporary.unlink()
         temporary = None
         return output
     finally:
