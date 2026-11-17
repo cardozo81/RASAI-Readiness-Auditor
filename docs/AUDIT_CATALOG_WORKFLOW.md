@@ -1,6 +1,6 @@
 # Catálogo de auditoria e plano de execução do console
 
-**Estado:** contrato vigente do console/runtime local; `v0.5.0` é a baseline pública atual.
+**Estado:** contrato vigente do console/runtime local na `main`; release pública atual: [`v0.10.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0). `v0.5.0` é referência histórica, não a release atual.
 
 Este documento define a taxonomia usada por `INÍCIO > PREPARAR AUDITORIA`, a persistência do plano da próxima execução e sua projeção posterior nos relatórios HTML. A composição é **console-first** e não redefine scoring, collectors, fulfillment, routing de IA, retries, quarentena, metodologia, reprocessamento ou contratos do core.
 
