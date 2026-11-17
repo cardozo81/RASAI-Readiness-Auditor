@@ -314,7 +314,7 @@ def render_search_geo_synthesis(root, tables):
                        ('provider', 'Provedor'), ('model', 'Modelo'),
                        ('summary', 'Síntese consultiva'),
                        ('opportunity_count', 'Propostas declaradas'),
-                       ('reference', 'Artefato'), ('sha', 'SHA-256')])
+                       ('reference', 'Artefato'), ('sha', 'SHA-256')], full_text=True)
     if opportunities:
         # The full list is still available in the canonical row and annex;
         # this is an editorial preview in persisted order, not a new ranking.
@@ -325,7 +325,7 @@ def render_search_geo_synthesis(root, tables):
                       [('observation', 'Observação'), ('title', 'Proposta'),
                        ('priority', 'Prioridade declarada pela fonte'),
                        ('proposal', 'Recomendação consultiva'),
-                       ('evidence', 'IDs de evidência'), ('reference', 'Artefato')])
+                       ('evidence', 'IDs de evidência'), ('reference', 'Artefato')], full_text=True)
     html += (
         '<p class="rf">Registros completos, limitações metodológicas, IDs '
         'e anexos permanecem no inventário técnico desta própria página. '
