@@ -251,6 +251,28 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
             body += '<p class="callout w">Laboratório, campo e amostras sintéticas são universos independentes. Sem série temporal comparável persistida, nenhum gráfico histórico é fabricado.</p>'
         if page == SEARCH_PAGE:
             body += '<p class="callout w">Busca não equivale a citação. Posição não prova causalidade. Consulta, idioma, mercado, dispositivo e instante delimitam a amostra.</p>'
+        if page == 'index':
+            routed = [(name, destination(name), len(items))
+                      for name, items in sorted(tables.items())
+                      if destination(name) is not None]
+            body += (
+                '<h2>Fontes e localização dos registros</h2>'
+                '<p class="rf">Cada fonte persistida permanece disponível na página '
+                'temática de origem. O Painel apresenta o contexto e as contagens, '
+                'não replica o inventário técnico completo de outras páginas.</p>'
+                '<div class="tw"><table><caption>Fontes da auditoria</caption>'
+                '<thead><tr><th scope="col">Fonte</th><th scope="col">Registros</th>'
+                '<th scope="col">Abrir na página de origem</th></tr></thead><tbody>'
+            )
+            for name, destination_page, count in routed:
+                target = (destination_page + '.html#source-' +
+                          sha256(name.encode()).hexdigest()[:12])
+                body += ('<tr><td>' + esc(public_label(name)) + '</td><td>' +
+                         str(count) + '</td><td><a class="tech-link" href="' +
+                         esc(target) + '" aria-label="Detalhe: ' +
+                         esc(public_label(name)) + ' · ' + esc(destination_page) +
+                         '">Abrir registros da fonte</a></td></tr>')
+            body += '</tbody></table></div>'
         inventory_anchor = ' id="network-evidence-inventory"' if page == 'rede' else ''
         body += '<h2>Evidências e detalhe técnico</h2><details' + inventory_anchor + '><summary>Inventário integral de registros e anexos</summary><span id="presentation-records"></span>'
         if page == 'rede':
@@ -265,7 +287,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
             body += '<p class="callout">Nenhuma família de registros do audit.db foi roteada para esta página.</p>'
         for table_name in routed_tables:
             items = [r for r in records if r.table == table_name]
-            body += f'<details><summary>{esc(public_label(table_name))} · {len(items)} registros</summary><a class="tech-link" href="anexos/{sha256(table_name.encode()).hexdigest()}.json">Abrir anexo sanitizado integral</a>'
+            body += f'<details id="source-{sha256(table_name.encode()).hexdigest()[:12]}"><summary>{esc(public_label(table_name))} · {len(items)} registros</summary><a class="tech-link" href="anexos/{sha256(table_name.encode()).hexdigest()}.json">Abrir anexo sanitizado integral</a>'
             body += ''.join(record_html(record, links, physical.get(record.href, ()), timezone_name, governance, lookup) for record in items) + '</details>'
         body += '</details><details><summary>Limitações, cobertura e conferência de paridade</summary>' + payload({'missing_data':missing,'parity':parity}) + '</details>'
         audit_id = tables.get('audits',[{}])[0].get('audit_id') if tables.get('audits') else None
