@@ -168,7 +168,10 @@ def _validate_links(contents: Mapping[str, bytes], text: Mapping[str, str]) -> N
             parser.close()
             if parser._script_parts is not None or parser._style_parts is not None:
                 raise ValueError("exportação recusada: script/estilo não fechado")
-            if parser.scripts != [_TRUSTED_UI_SCRIPT]:
+            # Catalogs normally write LF explicitly. A preexisting canonical
+            # Windows report may instead carry CRLF inside this same script;
+            # normalize only its line breaks for the trust comparison.
+            if [script.replace("\r\n", "\n") for script in parser.scripts] != [_TRUSTED_UI_SCRIPT]:
                 # Every catalog page contains exactly the canonical, offline
                 # navigation/dialog helper. Reject extra or modified code.
                 raise ValueError("exportação recusada: script fora do contrato do relatório")
