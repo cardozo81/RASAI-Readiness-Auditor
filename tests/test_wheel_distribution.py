@@ -128,7 +128,10 @@ try:
             for name in ('index','extracao','rede','ia-custos'):
                 page.goto((output/(name+'.html')).as_uri())
                 assert page.locator('nav[aria-label="Páginas"] a').count()==11
-                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+                fits = page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+                if not fits:
+                    offenders = page.evaluate("() => [...document.querySelectorAll('*')].filter(e => e.getBoundingClientRect().right > innerWidth + 1 && getComputedStyle(e).display !== 'none').slice(0, 8).map(e => ({tag:e.tagName, cls:e.className, id:e.id, right:Math.round(e.getBoundingClientRect().right), width:Math.round(e.getBoundingClientRect().width), text:e.textContent.slice(0,60)}))")
+                    raise AssertionError('Horizontal overflow in ' + name + ' at ' + str(width) + 'px: ' + repr(offenders))
                 page.locator('#expand').click()
                 assert page.locator('details:not([open])').count()==0
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
