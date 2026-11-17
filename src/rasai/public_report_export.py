@@ -552,10 +552,18 @@ def export_public_catalog(
     if output.exists() or output.is_symlink() or output.resolve().is_relative_to(source):
         raise ValueError("destino já existe ou pertence à origem")
     contents, receipt = _prepare(source, withhold_unsafe_pages=withhold_unsafe_pages)
-    # A source change between validation and ZIP assembly must not be ignored.
+    # The source remains the authority. Review-only placeholders intentionally
+    # differ from source pages, so verify the *whole canonical source package*
+    # again rather than confusing the derived public view with the originals.
     for name, data in contents.items():
+        if name in receipt["withheld_pages"]:
+            continue
         if (source / name).read_bytes() != data:
             raise ValueError("origem modificada durante exportação")
+    from rasai.catalog_report_site import verify_catalog_report_package
+    source_ok, _source_errors = verify_catalog_report_package(source)
+    if not source_ok or _digest((source / "manifest.json").read_bytes()) != receipt["source_manifest_sha256"]:
+        raise ValueError("origem alterada durante exportação")
     package_bytes = _canonical_zip(contents, receipt)
     temporary: Path | None = None
     try:
