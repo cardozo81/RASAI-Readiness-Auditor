@@ -17,7 +17,7 @@ SECTIONS = {
  SEARCH_PAGE: [('Busca observada — SERP',['serp_observations'], [('query','Consulta'),('engine','Mecanismo'),('language','Idioma'),('country','Mercado'),('device','Dispositivo'),('collected_at','Instante'),('result_count','Resultados'),('requested_depth','Profundidade consultada'),('customer_position','Posição do alvo'),('domain_status','Alvo no recorte'),('observation_status','Estado')]), ('Concorrência observada na busca',['serp_competitive_results'], [('position','Posição'),('domain','Domínio'),('url','URL'),('classification','Tipo de resultado'),('reason','Motivo da classificação'),('eligible_for_content_comparison','Comparação de conteúdo elegível'),('selected_for_content_comparison','Selecionado para comparação')]), ('Pesquisa externa — Perplexity',['perplexity_search_runs'], [('query_json','Consulta'),('status','Estado'),('native_usage_quantity','Requests'),('started_at','Instante')]), ('GEO e evidências contextuais',['geo_observation_runs','serp_competitive_ai_analyses'], [('contract_version','Contrato'),('summary','Síntese'),('projection_json','Projeção persistida'),('state','Estado')])],
  'seguranca': [('Cobertura da análise passiva',['passive_security_runs'], [('status','Estado'),('pages_analyzed','Páginas'),('resources_count','Recursos'),('findings_count','Achados'),('limitations_json','Limitações')]), ('Achados e remediação',['passive_security_findings'], [('title','Achado'),('severity','Severidade'),('url_scope','Escopo'),('description','Observado'),('remediation','Remediação'),('validation','Como validar')])],
  'plano': [('Ações por prioridade',['directed_analysis_actions'], [('priority','Prioridade'),('title','Ação'),('effort','Esforço'),('source_kind','Origem'),('implementation_guidance_json','Como implementar'),('validation_steps_json','Como validar')]), ('Correções técnicas propostas',['improvement_intelligence_recommendations'], [('title','Correção'),('selector','Elemento'),('original_html','Atual persistido'),('suggested_html','Sugerido — não aprovado'),('verification','Como validar')]), ('Textos sugeridos por IA',['content_remediation_suggestions'], [('target_location','Alvo'),('objective','Objetivo'),('proposed_text','Sugerido — não aprovado'),('review_note','Revisão humana')])],
- 'ia-custos': [('Custo por chamada',['ai_provider_attempts','content_remediation_attempts'], [('provider','Provedor'),('model','Modelo'),('status','Estado'),('input_tokens','Tokens entrada'),('output_tokens','Tokens saída'),('estimated_cost','Estimado'),('cost_currency','Moeda da estimativa'),('observed_cost','Observado'),('observed_cost_currency','Moeda observada'),('started_at','Início da tentativa'),('finished_at','Fim da tentativa'),('duration_ms','Duração ms')]), ('Entradas e saídas completas',['ai_exchange_log'], [('purpose','Finalidade'),('provider','Provedor'),('model','Modelo'),('outcome','Estado'),('request_payload','Entrada sanitizada'),('response_payload','Saída sanitizada')]), ('Proveniência e execução',['ai_tasks'], [('purpose','Finalidade'),('status','Estado'),('prompt_version','Versão do prompt'),('semantic_contract_version','Versão da especificação técnica')])],
+ 'ia-custos': [('Custo por chamada',['ai_provider_attempts','content_remediation_attempts'], [('provider','Provedor'),('model','Modelo'),('status','Estado'),('input_tokens','Tokens entrada'),('output_tokens','Tokens saída'),('estimated_cost','Estimado'),('cost_currency','Moeda da estimativa'),('observed_cost','Observado'),('observed_cost_currency','Moeda observada'),('started_at','Início da tentativa'),('finished_at','Fim da tentativa'),('duration_ms','Duração ms'),('operation','Operação'),('error_code','Código do erro'),('fallback_reason','Motivo do fallback'),('request_message_summary','Resumo da requisição')]), ('Entradas e saídas completas',['ai_exchange_log'], [('purpose','Finalidade'),('provider','Provedor'),('model','Modelo'),('outcome','Estado'),('request_payload','Entrada sanitizada'),('response_payload','Saída sanitizada')]), ('Proveniência e execução',['ai_tasks'], [('purpose','Finalidade'),('status','Estado'),('prompt_version','Versão do prompt'),('semantic_contract_version','Versão da especificação técnica')])],
 }
 
 
@@ -238,6 +238,18 @@ def editorial(page, records, costs, thresholds, governance=None):
     if page == 'plano':
         from .action_plan import render_plan
         html += render_plan(rows, timezone_name, governance)
+    if page == 'ia-custos':
+        attempts = rows(['ai_provider_attempts'])
+        if attempts:
+            by_status = Counter(str(row.get('status') or 'N/D') for row in attempts)
+            by_error = Counter(str(row.get('error_code') or 'Sem código') for row in attempts)
+            html += '<h2>Resultados das tentativas de IA</h2>'
+            html += local_table('Contagens por status persistido', [
+                {'status': name, 'count': amount} for name, amount in sorted(by_status.items())
+            ], [('status', 'Estado'), ('count', 'Tentativas')])
+            html += local_table('Contagens por categoria de erro', [
+                {'error_code': name, 'count': amount} for name, amount in sorted(by_error.items())
+            ], [('error_code', 'Código'), ('count', 'Tentativas')])
     for title, names, columns in ([] if page == 'plano' else SECTIONS.get(page, [])):
         if page == 'ia-custos' and not rows(names):
             continue  # absence is explained above; populated telemetry retains its full tables
