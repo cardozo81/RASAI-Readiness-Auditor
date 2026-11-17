@@ -410,13 +410,13 @@ def build_execution_context(tables, coverage_receipt):
         html = (
             '<section class="execution-context" data-execution-page="' + text(page) + '">'
             '<h2>Situação da execução e limites dos resultados</h2>'
-            '<p class="rf">Estados derivados do contrato e dos requisitos registrados '
+            '<p class="rf">Estados derivados dos critérios de execução e dos requisitos registrados '
             'nesta auditoria. Etapa concluída não garante que todos os '
             'provedores ou análises complementares tenham produzido resultados.</p>'
         )
         if page == 'index':
             if contract is None:
-                html += '<p class="callout w">Contrato de cumprimento não materializado. O status do banco, isoladamente, não comprova conclusão.</p>'
+                html += '<p class="callout w">Critérios de conclusão da auditoria não registrados. O status do banco, isoladamente, não comprova conclusão.</p>'
             else:
                 html += kv([
                     ('Processamento', _state(contract.get('processing_status'))),
@@ -429,9 +429,9 @@ def build_execution_context(tables, coverage_receipt):
                     ('Requisitos bloqueados', contract.get('blocked_items')),
                 ])
                 if contract.get('consolidation_eligible') is not True and contract.get('consolidation_eligible') != 1:
-                    html += '<p class="callout w">Consolidação não elegível segundo o contrato persistido. Resultados parciais continuam disponíveis, mas não compõem conclusão consolidada.</p>'
+                    html += '<p class="callout w">Consolidação não elegível segundo os critérios de conclusão registrados. Resultados parciais continuam disponíveis, mas não compõem conclusão consolidada.</p>'
         elif contract is None:
-            html += '<p class="callout w">Contrato de execução não disponível. Não inferir conclusão, falha ou solicitação com base apenas em tabelas vazias.</p>'
+            html += '<p class="callout w">Critérios de execução não disponíveis. Não inferir conclusão, falha ou solicitação com base apenas em tabelas vazias.</p>'
         if page == 'ia-custos':
             html += _decision_summaries(page, tables)
         if values:
@@ -441,7 +441,7 @@ def build_execution_context(tables, coverage_receipt):
                  ('attempts', 'Tentativas'), ('cause', 'Motivo comprovado')],
             )
         elif page != 'index':
-            html += '<p class="rf">Nenhum requisito do contrato foi associado diretamente a esta seção.</p>'
+            html += '<p class="rf">Nenhum requisito de execução foi associado diretamente a esta seção.</p>'
         for note in notes:
             html += '<p class="callout w">' + text(note) + '</p>'
         if page != 'ia-custos':
