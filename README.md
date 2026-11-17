@@ -2,8 +2,8 @@
 
 **RASAi** (Readiness Assessment for Search & AI) avalia a prontidão técnica e semântica de sites para mecanismos de busca e sistemas de IA. Combina coleta de evidências, avaliação reproduzível, relatórios HTML e recomendações rastreáveis. Não promete ranking, tráfego, conversões ou citações em respostas generativas.
 
-**Pacote Python (última release publicada):** [consultar no GitHub](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest)  
-**Pacote Python (versão no código-fonte):** `0.10.0` - [notas da candidata](docs/RELEASE_NOTES_V0_10_0.md), ainda não publicada. A última release pública permanece `v0.9.2`; verifique a tag/release no GitHub.
+**Pacote Python (última release publicada):** [`v0.10.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0), publicada em 15/11/2026; confira [a release mais recente](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest).  
+**Pacote Python (versão no código-fonte):** `0.10.0` na `main`; a branch de desenvolvimento pode conter correções posteriores à tag publicada. Consulte as [notas da release](docs/RELEASE_NOTES_V0_10_0.md).
 **Índice público:** `SARI-001` (Search & AI Readiness Index)  
 **Método de pontuação:** versão pública `001`; contrato atual `SCORE-GEO-005`. Auditorias históricas preservam `SCORE-GEO-004`.
 
@@ -52,7 +52,7 @@ rasai audit https://example.com --device-context mobile --ai-provider none
 
 Para escolher outro dispositivo, use `--device-context desktop`. O console oferece fluxo interativo de configuração, autorização de etapas e acompanhamento de custos.
 
-A CLI documenta os demais comandos e parâmetros: [Referência CLI](docs/CLI_REFERENCE.md).
+A CLI documenta os demais comandos e parâmetros: [Referência CLI](docs/CLI_REFERENCE.md). Os exemplos `powershell` acima são **chamadas diretas à CLI**; já a ação `M. Ver linha de comando` do console gera atualmente um bloco Windows para **`cmd.exe`/`.cmd`**, não um script PowerShell. A fidelidade de argumentos com metacaracteres ainda é tratada na [issue #713](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/713); consulte [execução externa e agendamento](docs/EXECUTION_SCHEDULING.md).
 
 ## Resultados e integridade
 
@@ -65,6 +65,8 @@ A CLI documenta os demais comandos e parâmetros: [Referência CLI](docs/CLI_REF
 | Reanálise consultiva pós-AUD | `audits/.rasai-ai-reanalyses/AUD-*/`, pacotes derivados independentes |
 
 O `audit.db` e seus artefatos são a fonte de evidência. Relatórios são projeções, não realizam coleta durante a renderização e não devem substituir medições indisponíveis por resultados estimados. Os estados `N/D`, parcial e não comparável são preservados quando aplicáveis.
+
+**Distribuição externa:** o ZIP canônico do `report-catalog` pode conter `integrity/audit-snapshot.db` e evidências restritas. **Não distribua esse pacote integral externamente** enquanto não houver um exportador público verificado; a separação está acompanhada na [issue #717](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/717).
 
 **Reanálise offline de AUD encerrada**, sem chamar provedores nem alterar a auditoria original:
 

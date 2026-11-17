@@ -55,7 +55,7 @@ O contrato de novas AUDs single-URL persiste a capability técnica `declared_sin
 
 ## Índice e Método de Pontuação de Prontidão
 
-**Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001**, é o índice apresentado ao usuário; `SARI-001` é o identificador metodológico técnico. O **Método de Pontuação de Prontidão**, versão pública **001**, é a metodologia vigente; `SCORE-GEO-004` permanece como contrato técnico.
+**Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001**, é o índice apresentado ao usuário; `SARI-001` é o identificador metodológico técnico. O **Método de Pontuação de Prontidão**, versão pública **001**, é a metodologia vigente; `SCORE-GEO-005` é o contrato técnico atual para novas auditorias, enquanto `SCORE-GEO-004` permanece preservado para observações históricas.
 
 Inspeção local do contrato:
 
