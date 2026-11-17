@@ -26,7 +26,8 @@ LABELS = {
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 # Percent/delayed expansion, caret and embedded double quote semantics vary
 # between interactive cmd.exe and batch files; use a lossless transport.
-_CMD_UNSAFE = re.compile(r'[%!^"\r\n]')
+_CMD_UNSAFE = re.compile(r'[%!^"\r\n]|[^\x00-\x7F]')
+_PS_NATIVE_UNSAFE = re.compile(r'["\r\n]')
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,7 +241,23 @@ def render(plan: CommandPlan, target: str) -> str:
                   for item in plan.environment if item.secret]
         lines += [f"$env:{name} = {_powershell_quote(value)}"
                   for name, value in safe_env.items()]
-        lines += ["& " + " ".join(_powershell_quote(v) for v in (exe, *plan.argv[1:]))]
+        if any(_PS_NATIVE_UNSAFE.search(v) or v.endswith("\\") for v in plan.argv[1:]):
+            # PowerShell 5.1 native-command parsing eats embedded double quotes
+            # even inside PS single-quoted literals. Transport only argv with
+            # the same non-executable base64 JSON, preserving real subprocess
+            # argv across Windows PowerShell 5.1 and PS 7.
+            lines += ["# PowerShell 5.1: argv transportado sem parsing nativo de aspas."]
+            payload = base64.urlsafe_b64encode(json.dumps(
+                list(plan.argv[1:]), ensure_ascii=True, separators=(",", ":"),
+            ).encode("ascii")).decode("ascii")
+            code = (
+                "import base64,json,subprocess,sys;"
+                "a=json.loads(base64.urlsafe_b64decode('"+payload+"'));"
+                "sys.exit(subprocess.call([sys.executable]+a))"
+            )
+            lines += ["& " + " ".join(_powershell_quote(v) for v in (exe, "-c", code))]
+        else:
+            lines += ["& " + " ".join(_powershell_quote(v) for v in (exe, *plan.argv[1:]))]
         return "\n".join(lines)
     lines = [
         "# Shell: POSIX sh (Linux/macOS).",
