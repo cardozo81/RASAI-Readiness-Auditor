@@ -420,7 +420,7 @@ def test_previous_generator_version_is_upgraded_from_history(tmp_path):
     root = fixture(tmp_path / 'AUD-SYNTHETIC')
     package = generate(root)
     original = json.loads((package / '_geracao.json').read_text(encoding='utf-8'))
-    assert __version__ == '0.4.8'
+    assert __version__ == '0.4.18'
     original['generator_version'] = '0.4.3'
     (package / '_geracao.json').write_text(json.dumps(original), encoding='utf-8')
     assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()
@@ -440,6 +440,24 @@ def test_corrupt_package_is_regenerated(tmp_path):
     assert presentation_report_entrypoint(root) is None
     assert generate(root) == package
     assert digest(page) == previous
+
+
+def test_catalog_rebuild_does_not_invalidate_independent_presentation(tmp_path, monkeypatch):
+    from rasai.parallel_report import generator
+
+    root = fixture(tmp_path / 'AUD-SYNTHETIC')
+    package = generate(root)
+    first = (package / '_geracao.json').read_bytes()
+    assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()
+
+    # The catalog is only a derived sibling, not a presentation source.
+    (root / 'report-catalog' / 'integrity' / 'audit-snapshot.db').unlink()
+    (root / 'report-catalog' / 'index.html').write_text('new catalog output', encoding='utf-8')
+    assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()
+
+    monkeypatch.setattr(generator, 'render', lambda *_: pytest.fail('catalog-only refresh re-rendered presentation'))
+    assert generate(root) == package
+    assert (package / '_geracao.json').read_bytes() == first
 
 
 def test_presentation_freshness_uses_logical_sqlite_digest(tmp_path):
@@ -564,3 +582,201 @@ def test_encrypted_response_not_distributed_in_offline_html_or_annex(tmp_path, m
     annex = json.loads((output / 'anexos' / annex_name).read_text(encoding='utf-8'))
     assert annex[0]['response_payload']['output'][0]['encrypted_content']['status'] == OPAQUE_STATUS
     assert sha256((root / 'audit.db').read_bytes()).hexdigest() == original_digest
+
+
+def test_partial_audit_standalone_presentation_without_catalog_package(tmp_path):
+    """Published HTML cannot require a catalog report or a completed audit."""
+    from shutil import rmtree
+    from rasai.console_artifacts import materialize_presentation_report_on_demand
+    root = fixture(tmp_path / 'AUD-SYNTHETIC', complete=False)
+    with sqlite3.connect(root / 'audit.db') as db:
+        db.execute('UPDATE audits SET status=?', ('PARTIAL_RETRYABLE',))
+    rmtree(root / 'report-catalog')
+    before = inventory(root)
+    report, status = materialize_presentation_report_on_demand(root)
+    assert status == 'MATERIALIZED'
+    assert report == (root / 'report-presentation' / 'index.html').resolve()
+    assert report.is_file()
+    assert inventory(root) == before
+    assert 'N/D' in (report.parent / 'extracao.html').read_text(encoding='utf-8')
+
+
+def test_physical_file_groups_deduplicate_display_not_provenance(tmp_path):
+    """Every physical-N link must survive deduplicating the visible path list."""
+    import re
+    from rasai.parallel_report.evidence_index import references
+    from rasai.parallel_report.sqlite_reader import read_database
+
+    root = fixture(tmp_path / 'AUD-SYNTHETIC')
+    (root / 'artifacts' / 'secondary.html').write_text(
+        '<p>Outra evidência</p>', encoding='utf-8'
+    )
+    with sqlite3.connect(root / 'audit.db') as db:
+        db.execute("INSERT INTO evidence VALUES ('ev-2','artifacts/page.html','segundo')")
+        db.execute("INSERT INTO evidence VALUES ('ev-3','artifacts/page.html','terceiro')")
+        db.execute("INSERT INTO evidence VALUES ('ev-4','artifacts/secondary.html','outro')")
+        db.execute("INSERT INTO evidence VALUES ('ev-5','artifacts/secondary.html','outro')")
+    tables, _ = read_database(root / 'audit.db')
+    occurrences, _ = references(tables, root)
+    assert len(occurrences) == 6
+    assert len({r['reference'] for r in occurrences}) == 2
+    before = inventory(root)
+
+    presentation = generate(root)
+    html = (presentation / 'extracao.html').read_text(encoding='utf-8')
+    assert 'Arquivos referenciados: 2 caminho(s) único(s) - 6 referência(s) persistida(s).' in html
+    assert html.count('class="physical-file-group"') == 2
+    assert html.count('<summary>artifacts/page.html <span class="rf">(') == 1
+    assert html.count('<summary>artifacts/secondary.html <span class="rf">(') == 1
+    assert 'artifacts/page.html <span class="rf">(4 referências)</span>' in html
+    assert 'artifacts/secondary.html <span class="rf">(2 referências)</span>' in html
+    ids = re.findall(r'id="physical-([0-9]+)"', html)
+    assert sorted(int(n) for n in ids) == list(range(len(occurrences)))
+    assert len(set(ids)) == len(occurrences)
+    assert html.count('Voltar ao registro técnico de origem') == len(occurrences)
+    for index, item in enumerate(occurrences):
+        # The canonical raw identity and all original source links remain.
+        assert f'href="extracao.html#physical-{index}"' in ''.join(
+            file.read_text(encoding='utf-8')
+            for file in presentation.glob('*.html')
+        )
+    assert inventory(root) == before
+    assert generate(root) == presentation
+    assert presentation_report_entrypoint(root) == (presentation / 'index.html').resolve()
+
+
+def test_grouped_evidence_keeps_missing_and_conflicting_hash_separate(tmp_path):
+    """A missing file must not be silently treated as a verified physical file."""
+    from rasai.parallel_report.render import grouped_physical_references
+    evidence = [
+        {'reference': 'artifacts/missing.png', 'table': 'evidence',
+         'field': 'artifact_reference', 'row_index': 0, 'coverage': 'Parcial',
+         'source_href': 'extracao.html#record-a'},
+        {'reference': 'artifacts/missing.png', 'table': 'evidence',
+         'field': 'artifact_reference', 'row_index': 1, 'coverage': 'Parcial',
+         'source_href': 'extracao.html#record-b'},
+        {'reference': 'artifacts/a.png', 'table': 'evidence',
+         'field': 'artifact_reference', 'row_index': 2, 'sha256': 'a'*64,
+         'source_href': 'extracao.html#record-c'},
+        {'reference': 'artifacts/a.png', 'table': 'evidence',
+         'field': 'artifact_reference', 'row_index': 3, 'sha256': 'b'*64,
+         'source_href': 'extracao.html#record-d'},
+    ]
+    html = grouped_physical_references(evidence, None)
+    assert html.count('class="physical-file-group"') == 2
+    assert 'SHA-256: N/D' in html
+    assert 'Hashes divergentes' in html
+    assert all(f'id="physical-{i}"' in html for i in range(4))
+    assert html.count('Proveniência completa') == 4
+
+
+def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path):
+    """Page creation + row preservation + evidence disclosures are distinct checks."""
+    from shutil import rmtree
+    from rasai.parallel_report.read_model import PAGES
+    from rasai.parallel_report.artifact_reader import inventory
+    root = fixture(tmp_path / 'AUD-EVIDENCE-RECEIPT')
+    rmtree(root / 'report-catalog')
+    with sqlite3.connect(root / 'audit.db') as db:
+        db.execute("CREATE TABLE console_execution_projections (id INTEGER PRIMARY KEY, state TEXT)")
+        db.execute("INSERT INTO console_execution_projections VALUES(1,'PARTIAL')")
+        db.execute("CREATE TABLE passive_security_resource_observations "
+                   "(id INTEGER PRIMARY KEY, resource_type TEXT)")
+        db.execute("INSERT INTO passive_security_resource_observations VALUES (1,'script')")
+    before = inventory(root)
+    output = generate(root)
+    receipt = json.loads((output / 'assets' / 'evidence-coverage.json').read_text(encoding='utf-8'))
+    manifest = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
+    assert receipt['measurement'] == 'PERSISTED_ROWS_AND_VERIFIED_SIDECARS_ONLY'
+    assert receipt['certifies_editorial_completeness'] is False
+    assert len(receipt['pages']) == len(PAGES) == 11
+    for page, _ in PAGES:
+        filename = page + '.html'
+        html = (output / filename).read_text(encoding='utf-8')
+        assert html.count('data-evidence-page="' + page + '"') == 1
+        assert 'Evidências materializadas nesta página' in html
+        assert 'A ausência de registro não comprova ausência de problemas.' in html
+        assert 'href="#presentation-records"' in html
+        import re
+        hrefs = re.findall(r'<a\\b[^>]*\\bhref=["\\\']([^"\\\']+)', html)
+        assert all('report-catalog' not in target for target in hrefs)
+        assert filename in receipt['pages']
+    assert receipt['pages']['seguranca.html']['sqlite_record_count'] == 1
+    security = (output / 'seguranca.html').read_text(encoding='utf-8')
+    assert 'Demais registros técnicos de segurança (não são achados)' in security
+    assert 'recursos e integrações capturados não constituem' in security
+    assert receipt['non_routed'] == {'private_payload': 1}
+    assert 'PRIVATE_VALUE' not in json.dumps(receipt)
+    assert receipt['pages']['plano.html']['evidence_state'] == 'COM_REGISTROS_PERSISTIDOS'
+    assert receipt['pages']['index.html']['sqlite_record_count'] == 2
+    assert 'Projeções operacionais do console' in (output / 'index.html').read_text(encoding='utf-8')
+    assert 'assets/evidence-coverage.json' in manifest['generated_files']
+    assert manifest['source_writes'] is False or manifest['source_writes'] == 0
+    assert inventory(root) == before
+    assert generate(root) == output
+
+
+def test_coverage_receipt_does_not_claim_completed_pipeline_for_empty_topic(tmp_path, monkeypatch):
+    """Validated network fallback and missing plan are not a fabricated decision."""
+    from rasai.parallel_report import evidence_coverage as mod
+    monkeypatch.setattr(mod, 'read_network_observations', lambda *_: [])
+    monkeypatch.setattr(mod, 'read_authorized_probes', lambda *_: [])
+    monkeypatch.setattr(mod, 'snapshots_from_audit', lambda *_: [{'snapshot_id':'a'}])
+    (tmp_path / 'audit.db').touch()
+    html, receipt = mod.build_coverage(tmp_path,'AUD-TEST',{
+        'audits':[{'audit_id':'AUD-TEST','status':'FAILED'}],
+        'passive_security_resource_observations': [{} for _ in range(87)],
+        'console_execution_projections':[{'status':'PARTIAL'}],
+    })
+    assert receipt['pages']['rede.html']['verified_network_observations'] == 1
+    assert receipt['pages']['rede.html']['verified_network_probes'] == 0
+    assert receipt['pages']['plano.html']['evidence_state'] == 'SEM_REGISTROS_NAS_FONTES_DESTA_PAGINA'
+    assert receipt['pages']['seguranca.html']['sqlite_record_count'] == 87
+    assert '87' in html['seguranca:coverage']
+    assert 'não comprova ausência de problemas' in html['plano:coverage']
+    assert 'Nenhum registro verificável' in html['plano:coverage']
+    assert '1' in html['rede:coverage']
+    assert 'não comprova ausência de problemas' in html['rede:coverage']
+
+
+def test_evidence_coverage_excludes_unknown_tables_from_claims_and_reports_them(tmp_path, monkeypatch):
+    from rasai.parallel_report import evidence_coverage as mod
+    monkeypatch.setattr(mod,'_network_counts',lambda *_: {
+        'passive':0,'probes':0,'sidecar_invalid':True})
+    pages, receipt=mod.build_coverage(tmp_path,'AUD-TEST',{
+        'audits':[{'audit_id':'AUD-TEST'}],
+        'opaque_future_table':[{'secret':'should-not-print'}],
+    })
+    assert receipt['non_routed'] == {'opaque_future_table':1}
+    assert 'should-not-print' not in repr(receipt)
+    assert 'should-not-print' not in ''.join(pages.values())
+    assert 'Pacote passivo presente, porém não validado' in pages['rede:coverage']
+
+
+def test_presentation_generator_humanizes_editorial_module_labels(tmp_path, monkeypatch):
+    from rasai.parallel_report import generator as pipeline
+
+    root = fixture(tmp_path / 'audit')
+    before = inventory(root)
+    original_render = pipeline.render
+
+    def add_editorial_labels(*args, **kwargs):
+        pages = original_render(*args, **kwargs)
+        pages['index.html'] = pages['index.html'].replace(
+            '</article>',
+            '<h2>Classificação M6 persistida</h2>'
+            '<p>Configuração M25 persistida.</p>'
+            '<pre>Classificação M6 persistida</pre></article>',
+            1,
+        )
+        return pages
+
+    monkeypatch.setattr(pipeline, 'render', add_editorial_labels)
+    output = pipeline.generate(root)
+    html = (output / 'index.html').read_text(encoding='utf-8')
+    assert '<h2>Classificação arquitetural registrada na auditoria</h2>' in html
+    assert 'Configuração do Apdex de experiência persistida' in html
+    assert '<pre>Classificação M6 persistida</pre>' in html
+    assert before == inventory(root)
+    manifest = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
+    assert digest(output / 'index.html') == manifest['sha256_per_file']['index.html']

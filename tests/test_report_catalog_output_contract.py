@@ -98,3 +98,25 @@ def test_read_only_catalog_projection_does_not_generate_presentation_report(
 
     assert result.renderer_errors == ()
     assert calls == []
+
+
+def test_partial_catalog_error_does_not_block_independent_presentation(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """Partial AUDs may contain a verified technical catalog that is not fresh."""
+    workspace = AuditWorkspace.create(tmp_path, "AUD-PARTIAL-PRESENTATION")
+    from rasai import catalog_report_site
+    from rasai.parallel_report import generator as parallel_generator
+
+    calls: list[str] = []
+    def broken_catalog(*, audit_id, workspace):
+        calls.append("catalog")
+        raise RuntimeError("catalog stale for this partial run")
+    monkeypatch.setattr(catalog_report_site, "materialize_catalog_report_site", broken_catalog)
+    monkeypatch.setattr(parallel_generator, "generate",
+                        lambda root: calls.append("presentation") or (Path(root) / "report-presentation"))
+    result = report_completion.materialize_catalog_report_projection(
+        audit_id=workspace.root.name, workspace=workspace, read_only=False
+    )
+    assert any("catalog-report" in err for err in result.renderer_errors)
+    assert calls == ["catalog", "presentation"]

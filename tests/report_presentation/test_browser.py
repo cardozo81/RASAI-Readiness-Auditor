@@ -29,8 +29,14 @@ def test_browser_offline(tmp_path):
                 page.goto(path.as_uri())
                 assert page.locator('nav[aria-label="Páginas"] a').count() == 11
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), path.name
+                # The theme is persisted across pages. A click must invert the
+                # *current* effective choice, not always force dark mode.
+                was_dark = page.evaluate('''() => document.body.classList.contains("dark") ||
+                    (!document.body.classList.contains("light") &&
+                     matchMedia("(prefers-color-scheme: dark)").matches)''')
                 page.locator('#theme').click()
-                assert page.locator('body').evaluate('(e) => e.classList.contains("dark")')
+                assert page.locator('body').evaluate('(e) => e.classList.contains("dark")') is (not was_dark)
+                assert page.locator('body').evaluate('(e) => e.classList.contains("light")') is was_dark
                 page.locator('#expand').click()
                 assert page.locator('details:not([open])').count() == 0
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (path.name,'expanded')
@@ -69,6 +75,21 @@ def test_browser_offline(tmp_path):
         assert page.evaluate('getComputedStyle(document.activeElement).outlineStyle') != 'none'
         page.emulate_media(media='print')
         page.pdf(path=str(tmp_path / 'smoke-a4.pdf'), format='A4')
+        # Real file:// navigation must retain the selected theme across pages.
+        page.emulate_media(media='screen')
+        page.goto((output / 'index.html').as_uri())
+        was_dark = page.evaluate('''() => document.body.classList.contains("dark") ||
+            (!document.body.classList.contains("light") &&
+             matchMedia("(prefers-color-scheme: dark)").matches)''')
+        page.locator('#theme').click()
+        selected_dark = not was_dark
+        plan_link = page.locator('nav[aria-label="Páginas"] a[href*="plano.html"]')
+        assert plan_link.count() == 1
+        assert 'rasai_theme=' in plan_link.get_attribute('href')
+        plan_link.click()
+        assert 'plano.html' in page.url
+        assert page.locator('body').evaluate('(e) => e.classList.contains("dark")') is selected_dark
+        assert page.locator('body').evaluate('(e) => e.classList.contains("light")') is (not selected_dark)
         assert not requests and not errors
         browser.close()
 

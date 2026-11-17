@@ -20,6 +20,11 @@ PAGES = (
 
 
 def destination(table):
+    if table == 'console_execution_projections':
+        # Operational projection, not a score or a security finding.
+        # Route its one historically technical-only record to the local
+        # index evidence inventory without inventing an executive conclusion.
+        return 'index'
     if table in {'scores', 'score_contributions', 'rule_executions'}:
         return 'indices'
     if table.startswith(('passive_security',)):

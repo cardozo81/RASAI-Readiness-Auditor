@@ -70,75 +70,39 @@ def _presentation_package(workspace: Path | None) -> tuple[Path, bool] | None:
 def materialize_presentation_report_on_demand(
     workspace: Path | None,
 ) -> tuple[Path | None, str]:
-    """Resolve the canonical presentation, publishing only on explicit open."""
+    """Open or generate an independent, verified presentation from sealed AUD data.
+
+    The catalog HTML is a separate visual projection, never a prerequisite for
+    report-presentation. A PARTIAL_RETRYABLE audit is eligible: unavailable
+    metrics remain N/D and the report does not imply execution completion.
+    The standalone generator guards SQLite quiescence, inventories the source,
+    checks integrity, and publishes only its own derived report tree.
+    """
     if workspace is None:
         return None, "workspace da auditoria indisponível"
     package = _presentation_package(workspace)
-    if package is not None:
-        existing, migrate = package
-        if not migrate:
-            return existing, "EXISTING"
-        from rasai.parallel_report.generator import generate
-        try:
-            # This also migrates dated trees and upgrades older renderers.
-            # The generator reuses a valid canonical package in place.
-            return generate(workspace) / "index.html", "MIGRATED"
-        except Exception as exc:
-            return None, f"publicação da apresentação falhou ({type(exc).__name__})"
-    if report_entrypoint(workspace) is None:
-        return None, "relatório canônico ausente ou inválido"
-    database = workspace / "audit.db"
-    if not database.is_file() or database.is_symlink():
-        return None, "audit.db ausente ou inseguro"
+    if package is not None and not package[1]:
+        return package[0], "EXISTING"
+
+    from rasai.parallel_report.generator import generate
+
     try:
-        from rasai.catalog_report_site import (
-            _sqlite_logical_digest,
-            catalog_report_is_fresh,
-        )
-        from rasai.persistence import AuditWorkspace
-
-        canonical_workspace = AuditWorkspace.open(workspace)
-        logical_before = _sqlite_logical_digest(database)
-        canonical_fresh = catalog_report_is_fresh(
-            audit_id=workspace.name,
-            workspace=canonical_workspace,
-        )
-        if not canonical_fresh:
-            from rasai import entrypoint
-            from rasai.report_completion import materialize_catalog_report_projection
-            from rasai.report_rematerialization import _check_composition, _forbid_network
-
-            entrypoint._install_audit_runtime()
-            _check_composition()
-            with _forbid_network():
-                replay = materialize_catalog_report_projection(
-                    audit_id=workspace.name,
-                    workspace=canonical_workspace,
-                    read_only=True,
-                )
-            logical_after_replay = _sqlite_logical_digest(database)
-            if logical_after_replay != logical_before:
-                return None, "rematerialização read-only alterou o audit.db"
-            if replay.renderer_errors:
-                return None, "não foi possível rematerializar o relatório canônico em modo read-only"
-            if not catalog_report_is_fresh(
-                audit_id=workspace.name,
-                workspace=canonical_workspace,
-            ):
-                return None, "relatório canônico permaneceu desatualizado após rematerialização read-only"
-
-        from rasai.parallel_report.generator import generate
-
-        generate(workspace)
-        logical_after_generation = _sqlite_logical_digest(database)
-        if logical_after_generation != logical_before:
-            return None, "geração da apresentação alterou o audit.db"
+        # No canonical catalog freshness gate, no replay, no AI/HTTP, and no
+        # audit.db/score mutation; only the presentation tree may be written.
+        generated = generate(workspace) / "index.html"
     except Exception as exc:
-        return None, f"geração da apresentação falhou ({type(exc).__name__})"
-    generated = presentation_report_entrypoint(workspace)
-    if generated is None:
+        return None, (
+            "geração independente da apresentação falhou "
+            f"({type(exc).__name__}); verifique integridade da AUD e "
+            "eventuais arquivos SQLite ativos"
+        )
+
+    # The manifest must match the persisted inputs and the exact generator
+    # version. Never open partially published or unverified HTML.
+    verified = presentation_report_entrypoint(workspace)
+    if verified is None or verified != generated.resolve():
         return None, "apresentação gerada não passou no gate de integridade/freshness"
-    return generated, "MATERIALIZED"
+    return verified, "MIGRATED" if package is not None else "MATERIALIZED"
 
 
 # The post-AUD network sidecar runs independently of the sealed AUD. A

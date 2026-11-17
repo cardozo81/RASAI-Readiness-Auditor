@@ -63,7 +63,7 @@ def strategic_context(rows, governance):
     summary = _persisted_json(run.get('strategic_summary_json'), dict)
     roadmap = _persisted_json(run.get('roadmap_json'), list)
     if summary is None:
-        html += '<p>N/D — narrativa estratégica não materializada com contrato utilizável.</p>'
+        html += '<p>N/D — narrativa estratégica não disponível em formato verificável.</p>'
     else:
         for label, key in (
                 ('Pontos fortes', 'strengths'), ('Fragilidades', 'fragilities'),
@@ -106,6 +106,24 @@ def strategic_context(rows, governance):
 
 
 def render_plan(rows, timezone_name, governance):
+    if not rows(['directed_analysis_runs', 'directed_analysis_actions',
+                 'recommendations', 'improvement_intelligence_recommendations',
+                 'content_remediation_suggestions', 'recommendation_governance']):
+        partial = any(r.get('processing_status') == 'PARTIAL_RETRYABLE'
+                      for r in rows(['audit_fulfillment_contracts']))
+        heading = ('Plano de ação não produzido nesta auditoria parcial' if partial
+                   else 'Plano de ação não materializado nas fontes disponíveis')
+        return ('<h2>' + heading + '</h2>'
+                '<p class="callout w">Não há ações propostas ou aprovadas registradas. '
+                'Os estados e motivos comprovados das análises constam na situação '
+                'da execução. Achados técnicos são material informativo para '
+                'análise; não autorizam execução nem estabelecem prioridades.</p>'
+                + kv([('Ações propostas registradas', 0), ('Ações aprovadas registradas', 0)])
+                + '<details><summary>Como interpretar aprovação e ausência de plano</summary>'
+                '<p>Recomendações e textos sugeridos precisam de decisão de governança '
+                'vinculada para integrar o plano aprovado. Não executado, não configurado '
+                'e não aprovado são condições distintas. Nenhuma decisão foi inferida. '
+                'O inventário técnico integral permanece acessível nesta apresentação.</p></details>')
     groups=grouped_actions(rows(['directed_analysis_actions']))
     priorities=Counter(group[0].get('priority') for group in groups)
     html='<h2>Visão geral</h2>'+origin('Calculado no relatório')

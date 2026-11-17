@@ -78,3 +78,37 @@ O controle **Captura e prévia técnica local** abre explicitamente um `dialog` 
 ### Captura visual diretamente no HTML (gerador 0.4.8)
 
 Em `extracao.html`, **Prévia visual das páginas capturadas** fica visível na página, com imagens separadas por snapshot/dispositivo e ampliação opcional em modal. Não exige clicar para ver a miniatura e não depende de `report-catalog`. O screenshot é uma cópia byte a byte do raster original persistido (PNG/JPEG/WebP): somente referências confinadas, assinatura compatível, limite de tamanho, inventário original e SHA-256 pré/pós cópia são aceitos. Imagens ausentes ou inseguras são sinalizadas N/D, nunca inventadas. O manifesto e o verificador incluem hashes de todos os recursos visuais; nenhuma publicação é considerada íntegra se falta ou diverge um deles. A aparência segue o CSS e o modal existentes, sem redesenho geral. **Screenshots podem conter conteúdo sensível e o pacote com imagens permanece confidencial até avaliação específica para distribuição externa.**
+
+
+### Arquivos físicos consolidados na extração (gerador 0.4.9)
+
+A seção **Arquivos e referências físicas** de `extracao.html` apresenta cada caminho persistido **uma única vez**, com contagem de referências e SHA-256 (quando verificável). Ao expandir o arquivo, as observações originais permanecem individualmente acessíveis, incluindo origem, tabela/campo, trecho, cobertura e proveniência completa. Os identificadores e links existentes `#physical-N` não mudam: cada referência continua endereçável, inclusive quando o mesmo screenshot é referenciado por várias observações. Hashes divergentes e arquivos ausentes permanecem explicitamente sinalizados. É uma alteração apenas do HTML derivado; SQLite, evidências, captura, pontuação, catálogo, sanitização e IA não são alterados. A versão 0.4.9 força reconstrução de apresentações anteriores somente quando o operador chama o gerador.
+
+
+### Cobertura de arquitetura e rede (gerador 0.4.10)
+
+`extracao.html` apresenta agora um quadro executivo por captura com a **classificação arquitetural M6 efetivamente persistida**, estado de verificação RAW, contagens observacionais de recursos e hipóteses explicitamente não confirmadas quando a classe permanece `UNKNOWN`. A projeção reutiliza `read_architecture_audit_facts` sobre `audit.db`/artefatos da mesma AUD; não lê HTML técnico, não reclassifica SPA/SSR, não injeta IA ou altera coletores. IP, rota, ASN e GeoIP ficam exclusivamente em `rede.html`, com vínculo local dentro da apresentação.
+
+`rede.html` distingue IP público **observado passivamente** de IP observado em sonda, rastreamento efetivamente persistido e causa operacional **não comprovada** na ausência do sidecar. Exibe histórico comparável somente para duas ou mais sondagens verificadas do mesmo host/porta, sem inferir causalidade ou topologia. Mapa, hops e GeoIP permanecem condicionais a coordenadas/saltos verificados. Nenhum link do HTML aponta para `report-catalog/`; o catálogo tem vida visual independente.
+
+`0.4.10` invalida apenas manifestos anteriores de `report-presentation`, permitindo rematerialização deliberada, sem tocar em `audit.db`, `report-catalog` ou evidências-fonte.
+
+
+### Mapa-múndi sem geolocalização comprovada (v0.4.11)
+
+A página `rede.html` sempre apresenta o mapa-múndi offline Natural Earth. Na ausência de coordenadas GeoIP persistidas, o mapa é explicitamente rotulado como **cartografia de contexto sem pontos**, mesmo quando um IP público do servidor remoto foi observado passivamente. Um endereço IP isolado não fornece latitude/longitude e não identifica o IP de origem do usuário. O contexto visual não afirma geolocalização, localização física do servidor ou percurso. Quando sondas verificadas trazem coordenadas, a visualização anterior com marcadores, proveniência, raios de precisão e saltos comprovados permanece intacta. Nenhuma chamada HTTP, enriquecimento externo, coleta ou leitura do catálogo técnico ocorre no renderizador; os 11 HTMLs continuam offline.
+
+
+### Comprovação de cobertura em todas as 11 páginas (gerador 0.4.12)
+
+Cada HTML apresenta um painel local `Evidências materializadas nesta página` que deriva diretamente de tabelas persistidas e, em `rede.html`, de sidecars validados ou fallback SQLite autenticado. O painel informa **contagens por tema** e distingue ausência de registros de resultado negativo. Em Segurança, recursos do navegador são identificados como **telemetria**, não vulnerabilidades. Em Plano, não há geração de ações sem decisão/registro; a governança original permanece. As linhas detalhadas continuam acessíveis pelo inventário técnico da própria página; nenhum conjunto é copiado/duplicado nas sínteses. `assets/evidence-coverage.json` traz 11 recibos estruturados com estado por página e declaração explícita de que contagem técnica **não certifica completude editorial**; o arquivo integra o manifesto e seu hash de publicação. A tabela operacional `console_execution_projections`, quando presente, passa a ter inventário local no Painel em vez de apenas anexo técnico. Não há links externos ou dependência do catálogo. Toda ausência é declarada, jamais materializada por IA ou coleta silenciosa.
+
+
+### Estados operacionais por página e lacunas reais (gerador 0.4.13)
+
+Cada uma das onze páginas agora apresenta **Situação da execução e limites dos resultados**, separada da contagem de evidências. A origem é exclusivamente o contrato `audit_fulfillment_contracts` e os itens `audit_fulfillment_work_items` persistidos na mesma AUD; os motivos são traduzidos apenas para códigos canônicos conhecidos. `REQUESTED_NOT_EXECUTED`, `NOT_CONFIGURED`, `SUCCESS`, `NOT_REQUESTED` e ausência de requisito são estados distintos; nenhum é confundido com resultado negativo de medição. A capa comunica requisitos atendidos, pendentes, bloqueados, pontuação pendente e elegibilidade de consolidação. Índices separam 27 regras de scores não consolidados; segurança separa recursos da captura de uma execução formal; plano distingue ações não materializadas de ações recusadas; IA e custos distingue previsão de consumo observado; SERP não presume Perplexity ou citação generativa. Uma causa só é atribuída quando `last_error_code` a comprova, sem renderizar mensagens de erro livres ou segredos.
+
+O recibo estruturado `assets/evidence-coverage.json` ganha o objeto `execution`, com estado por página e indicação explícita de que não certifica completude de coleta. Não são adicionados arquivos à publicação. O gerador permanece determinístico, sem coleta, IA, rede, alterações no banco, pontuação, catálogo ou CSS/UX. Corrigida também uma ocorrência de nomenclatura obsoleta nos identificadores internos do inventário, preservando o destino HTML canônico.
+
+
+Dentro do mesmo quadro operacional da v0.4.13, os detalhes editoriais adicionais são **agregações determinísticas das fontes já persistidas**, nunca reclassificações: `indices.html` apresenta a distribuição dos 27 resultados de regras, sem fabricar índice geral; `seguranca.html` resume tipos e partes dos 87 recursos, além do estado individual das cinco integrações, sem chamar recursos de vulnerabilidades; `ia-custos.html` explicita previsão, valor parcial observado e comparabilidade do registro financeiro, sem sugerir custo final quando a AUD permanece parcial. Os anexos e os inventários de origem continuam intocados e com a mesma identidade; a síntese não repete cada ocorrência.

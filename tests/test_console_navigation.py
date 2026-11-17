@@ -282,181 +282,56 @@ def test_final_selected_audit_menu_can_open_catalog_report(monkeypatch, tmp_path
 
 
 
-def test_materialize_presentation_report_on_demand_requires_canonical_and_revalidates(
-    monkeypatch, tmp_path: Path
-) -> None:
-    from rasai import console_artifacts
-
+def _minimal_presentation_workspace(tmp_path: Path) -> Path:
     import sqlite3
-
-    workspace = tmp_path / "AUD-HISTORICAL-MATERIALIZE"
-    workspace.mkdir()
-    (workspace / "artifacts").mkdir()
-    with sqlite3.connect(workspace / "audit.db") as connection:
-        connection.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY)")
-        connection.execute(
-            "INSERT INTO audits VALUES (?)",
-            (workspace.name,),
-        )
-    canonical = workspace / "report-catalog" / "index.html"
-    canonical.parent.mkdir()
-    canonical.write_text("<html></html>", encoding="utf-8")
-    generated = workspace / "report-presentation" / "index.html"
-
-    monkeypatch.setattr(console_artifacts, "_presentation_package", lambda current: None)
-    monkeypatch.setattr(
-        console_artifacts,
-        "presentation_report_entrypoint",
-        lambda current: generated,
+    root = tmp_path / "AUD-SYNTHETIC"
+    (root / "artifacts").mkdir(parents=True)
+    (root / "artifacts" / "page.html").write_text(
+        "<html lang='pt-BR'><p>Captura persistida</p></html>", encoding="utf-8"
     )
-    monkeypatch.setattr(
-        console_artifacts,
-        "report_entrypoint",
-        lambda current: canonical,
-    )
-    monkeypatch.setattr(
-        "rasai.catalog_report_site.catalog_report_is_fresh",
-        lambda **kwargs: True,
-    )
-    calls: list[Path] = []
-    monkeypatch.setattr(
-        "rasai.parallel_report.generator.generate",
-        lambda current: calls.append(Path(current)) or generated.parent,
-    )
-
-    report, status = console_artifacts.materialize_presentation_report_on_demand(workspace)
-
-    assert report == generated
-    assert status == "MATERIALIZED"
-    assert calls == [workspace]
+    with sqlite3.connect(root / "audit.db") as db:
+        db.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY, status TEXT)")
+        db.execute("INSERT INTO audits VALUES (?,?)", (root.name, "PARTIAL_RETRYABLE"))
+        db.execute("CREATE TABLE page_snapshots(snapshot_id TEXT PRIMARY KEY, rendered_artifact_ref TEXT)")
+        db.execute("INSERT INTO page_snapshots VALUES (?,?)", ("snapshot-1", "artifacts/page.html"))
+    return root
 
 
-
-
-def test_materialize_presentation_report_on_demand_refreshes_stale_canonical_read_only(
+def test_presentation_on_demand_no_catalog_and_no_canonical_replay(
     monkeypatch, tmp_path: Path
 ) -> None:
     from rasai import console_artifacts
+    from rasai.parallel_report.artifact_reader import inventory
 
-    workspace = tmp_path / "AUD-HISTORICAL-STALE-CANONICAL"
-    workspace.mkdir()
-    (workspace / "artifacts").mkdir()
-    (workspace / "audit.db").write_bytes(b"placeholder")
-    canonical = workspace / "report-catalog" / "index.html"
-    canonical.parent.mkdir()
-    canonical.write_text("<html></html>", encoding="utf-8")
-    generated = workspace / "report-presentation" / "index.html"
-
-    monkeypatch.setattr(console_artifacts, "_presentation_package", lambda current: None)
-    monkeypatch.setattr(
-        console_artifacts,
-        "presentation_report_entrypoint",
-        lambda current: generated,
+    root = _minimal_presentation_workspace(tmp_path)
+    before = inventory(root)
+    from rasai import catalog_report_site, report_completion
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Opening presentation must not replay the catalog")
+    monkeypatch.setattr(catalog_report_site, "catalog_report_is_fresh", forbidden)
+    monkeypatch.setattr(report_completion, "materialize_catalog_report_projection", forbidden)
+    monkeypatch.setattr(console_artifacts, "report_entrypoint", forbidden)
+    report, status = console_artifacts.materialize_presentation_report_on_demand(root)
+    assert (report, status) == (
+        (root / "report-presentation" / "index.html").resolve(), "MATERIALIZED"
     )
-    monkeypatch.setattr(
-        console_artifacts,
-        "report_entrypoint",
-        lambda current: canonical,
-    )
-    monkeypatch.setattr(
-        "rasai.catalog_report_site._sqlite_logical_digest",
-        lambda current: "logical-stable",
-    )
-    freshness = iter([False, True])
-    monkeypatch.setattr(
-        "rasai.catalog_report_site.catalog_report_is_fresh",
-        lambda **kwargs: next(freshness),
-    )
-
-    runtime_steps: list[str] = []
-    monkeypatch.setattr(
-        "rasai.entrypoint._install_audit_runtime",
-        lambda: runtime_steps.append("install"),
-    )
-    monkeypatch.setattr(
-        "rasai.report_rematerialization._check_composition",
-        lambda: runtime_steps.append("check"),
-    )
-
-    replay_calls = []
-
-    def replay(*, audit_id, workspace, read_only):
-        replay_calls.append((audit_id, workspace.root, read_only))
-        return SimpleNamespace(renderer_errors=())
-
-    monkeypatch.setattr(
-        "rasai.report_completion.materialize_catalog_report_projection",
-        replay,
-    )
-    generated_calls: list[Path] = []
-    monkeypatch.setattr(
-        "rasai.parallel_report.generator.generate",
-        lambda current: generated_calls.append(Path(current)) or generated.parent,
-    )
-
-    report, status = console_artifacts.materialize_presentation_report_on_demand(workspace)
-
-    assert report == generated
-    assert status == "MATERIALIZED"
-    assert runtime_steps == ["install", "check"]
-    assert replay_calls == [(workspace.name, workspace, True)]
-    assert generated_calls == [workspace]
+    assert report.is_file()
+    assert inventory(root) == before
+    assert console_artifacts.presentation_report_entrypoint(root) == report
+    again, again_status = console_artifacts.materialize_presentation_report_on_demand(root)
+    assert (again, again_status) == (report, "EXISTING")
 
 
-def test_materialize_presentation_report_on_demand_aborts_if_read_only_replay_mutates_db(
+def test_presentation_on_demand_rejects_active_sqlite_without_catalog_replay(
     monkeypatch, tmp_path: Path
 ) -> None:
     from rasai import console_artifacts
-
-    workspace = tmp_path / "AUD-HISTORICAL-REPLAY-MUTATION"
-    workspace.mkdir()
-    (workspace / "artifacts").mkdir()
-    (workspace / "audit.db").write_bytes(b"placeholder")
-    canonical = workspace / "report-catalog" / "index.html"
-    canonical.parent.mkdir()
-    canonical.write_text("<html></html>", encoding="utf-8")
-
-    monkeypatch.setattr(
-        console_artifacts,
-        "presentation_report_entrypoint",
-        lambda current: None,
-    )
-    monkeypatch.setattr(
-        console_artifacts,
-        "report_entrypoint",
-        lambda current: canonical,
-    )
-    logical = iter(["before", "after"])
-    monkeypatch.setattr(
-        "rasai.catalog_report_site._sqlite_logical_digest",
-        lambda current: next(logical),
-    )
-    monkeypatch.setattr(
-        "rasai.catalog_report_site.catalog_report_is_fresh",
-        lambda **kwargs: False,
-    )
-    monkeypatch.setattr(
-        "rasai.entrypoint._install_audit_runtime",
-        lambda: None,
-    )
-    monkeypatch.setattr(
-        "rasai.report_rematerialization._check_composition",
-        lambda: None,
-    )
-    monkeypatch.setattr(
-        "rasai.report_completion.materialize_catalog_report_projection",
-        lambda **kwargs: SimpleNamespace(renderer_errors=()),
-    )
-
-    def forbidden(current):
-        raise AssertionError("presentation generation must not run after DB mutation")
-
-    monkeypatch.setattr("rasai.parallel_report.generator.generate", forbidden)
-
-    report, status = console_artifacts.materialize_presentation_report_on_demand(workspace)
-
+    root = _minimal_presentation_workspace(tmp_path)
+    (root / "audit.db-wal").touch()
+    report, status = console_artifacts.materialize_presentation_report_on_demand(root)
     assert report is None
-    assert status == "rematerialização read-only alterou o audit.db"
+    assert "ValueError" in status
+    assert not (root / "report-presentation").exists()
 
 
 def test_historical_complete_audit_offers_presentation_generation_only_on_open(
@@ -469,6 +344,10 @@ def test_historical_complete_audit_offers_presentation_generation_only_on_open(
     audit_id = "AUD-HISTORICAL-PRESENTATION"
     audit_root = tmp_path / audit_id
     audit_root.mkdir()
+    # A real historical AUD has source evidence and a persisted audit.db.
+    # Keep the fixture representative of the new generation eligibility gate.
+    (audit_root / "audit.db").write_bytes(b"fixture - not read by mocked opener")
+    (audit_root / "artifacts").mkdir()
     report = audit_root / "report-catalog" / "index.html"
     report.parent.mkdir()
     report.write_text("<html></html>", encoding="utf-8")
@@ -498,6 +377,10 @@ def test_historical_complete_audit_offers_presentation_generation_only_on_open(
         "_configuration_reuse_status",
         lambda current_state, current_id: (True, "snapshot canônico íntegro"),
     )
+    # Catalog extension is unrelated to opening the presentation. Mock only
+    # this catalog-menu read because the fixture DB is not a real audit schema.
+    monkeypatch.setattr("rasai.console_audit_catalog_extension.availability",
+                        lambda *_: (False, "not configured"))
     monkeypatch.setattr("rasai.console_artifacts.report_entrypoint", lambda workspace: report)
     monkeypatch.setattr(
         "rasai.console_artifacts.presentation_report_entrypoint",
@@ -536,6 +419,10 @@ def test_historical_complete_audit_navigation_does_not_materialize_presentation(
     audit_id = "AUD-HISTORICAL-NO-WRITE"
     audit_root = tmp_path / audit_id
     audit_root.mkdir()
+    # A real historical AUD has source evidence and a persisted audit.db.
+    # Keep the fixture representative of the new generation eligibility gate.
+    (audit_root / "audit.db").write_bytes(b"fixture - not read by mocked opener")
+    (audit_root / "artifacts").mkdir()
     report = audit_root / "report-catalog" / "index.html"
     report.parent.mkdir()
     report.write_text("<html></html>", encoding="utf-8")
@@ -562,6 +449,10 @@ def test_historical_complete_audit_navigation_does_not_materialize_presentation(
         "_configuration_reuse_status",
         lambda current_state, current_id: (True, "snapshot canônico íntegro"),
     )
+    # Catalog extension is unrelated to opening the presentation. Mock only
+    # this catalog-menu read because the fixture DB is not a real audit schema.
+    monkeypatch.setattr("rasai.console_audit_catalog_extension.availability",
+                        lambda *_: (False, "not configured"))
     monkeypatch.setattr("rasai.console_artifacts.report_entrypoint", lambda workspace: report)
     monkeypatch.setattr(
         "rasai.console_artifacts.presentation_report_entrypoint",
@@ -582,6 +473,32 @@ def test_historical_complete_audit_navigation_does_not_materialize_presentation(
 
     assert "A. Abrir relatório de apresentação [GERAR AO ABRIR]" in output.getvalue()
 
+
+
+def test_historical_complete_audit_without_db_is_not_marked_generatable(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Never promise a usable presentation without audit evidence sources."""
+    from rasai import console_usability_refinements as usability
+
+    console = _console()
+    state = _state(tmp_path)
+    audit_id = "AUD-HISTORICAL-MISSING-DATABASE"
+    audit_root = tmp_path / audit_id
+    audit_root.mkdir()
+    report = audit_root / "report-catalog" / "index.html"
+    report.parent.mkdir()
+    report.write_text("<html>catalog</html>", encoding="utf-8")
+    monkeypatch.setattr(
+        usability, "_safe_summary",
+        lambda *_: {"processing_status": "COMPLETE"},
+    )
+    monkeypatch.setattr("rasai.console_artifacts.report_entrypoint", lambda _: report)
+    monkeypatch.setattr("rasai.console_artifacts.presentation_report_entrypoint", lambda _: None)
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "V")
+    with redirect_stdout(StringIO()) as output:
+        assert usability._selected_audit_menu(console, state, audit_id) is False
+    assert "A. Abrir relatório de apresentação [INDISPONÍVEL]" in output.getvalue()
 
 def test_root_launcher_bootstraps_and_executes_installed_console() -> None:
     root = Path(__file__).resolve().parents[1]

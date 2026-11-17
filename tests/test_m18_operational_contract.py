@@ -5,6 +5,7 @@ from pathlib import Path
 import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
+from tests.sqlite_fixture_resources import finalize_sqlite_fixture_cycles
 from unittest.mock import patch
 
 from rasai.acquisition import HttpClient
@@ -72,7 +73,7 @@ class M18OperationalContractTests(unittest.TestCase):
         # making the assertion nondeterministic, doing so could perform paid
         # external calls during an ordinary local unit-test run.
         with patch.dict(os.environ, {"OPENAI_API_KEY": ""}, clear=False):
-            with _server() as origin, TemporaryDirectory() as directory:
+            with _server() as origin, TemporaryDirectory() as directory, finalize_sqlite_fixture_cycles():
                 html = """<!doctype html><html lang='pt-BR'><head><title>Sem token</title></head>
 <body><main><h1>Sem token</h1><p>Fixture para validar estado operacional sem credencial.</p></main></body></html>"""
                 provider = OpenAIProvider(api_key="")

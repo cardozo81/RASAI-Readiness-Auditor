@@ -290,8 +290,8 @@ def test_persisted_strategic_synthesis_keeps_governance_classes():
 
 def test_editorial_verification_tasks_keep_source_and_validation(monkeypatch, tmp_path):
     from rasai.parallel_report.scope_context import editorial_evidence
-    from rasai import contextual_advisory
-    monkeypatch.setattr(contextual_advisory, 'load_projection', lambda *_a, **_kw: {
+    projection = {
+        'state': 'AVAILABLE',
         'faq_aria_v3': {'counts': {}},
         'semantic_v2': {'counts': {}},
         'reverse_review': {
@@ -305,8 +305,8 @@ def test_editorial_verification_tasks_keep_source_and_validation(monkeypatch, tm
                                           'source_ref':'artifacts/page.html',
                                           'source_sha256': 'a' * 64}]}],
         },
-    })
-    html = editorial_evidence(tmp_path, {'page_snapshots':[{'rendered_artifact_ref':'artifacts/page.html'}]})
+    }
+    html = editorial_evidence(tmp_path, {'page_snapshots':[{'rendered_artifact_ref':'artifacts/page.html'}]}, projection)
     assert 'Conferir alegação' in html and 'Solicitar prova vigente' in html
     assert 'Até 25' in html and 'artifacts/page.html' in html
     assert 'Insuficiente' in html and '>INSUFICIENTE<' not in html
@@ -329,3 +329,136 @@ def test_network_diagnosis_uses_persisted_assessor_not_html(monkeypatch, tmp_pat
     html, _, _ = ctx.network_context(tmp_path, 'AUD-X', 'UTC')
     assert 'Escopo insuficiente' in html and 'Uma única sessão' in html
     assert 'Sem rota comprovada' in html and 'Repetir medição autorizada' in html
+
+
+def test_architecture_overview_is_bound_to_observation_not_inferred(monkeypatch, tmp_path):
+    from rasai.parallel_report import architecture_context as ac
+    (tmp_path / 'audit.db').write_bytes(b'dummy-read-only-db')
+    fake = [{
+        'snapshot_id':'SNP-01','device':'MOBILE','captured_at':'2026-11-16T12:50:00+00:00',
+        'observed_architecture':'UNKNOWN', 'raw_verified_against_capture_digest':True,
+        'hypothesis':{'candidate':'CSR_SPA','confidence':'LOW'},
+        'network_facts':{'dom_count':87,'response_count':9,'main_response_security':{
+            'remote_public_peer_ip':'8.8.8.8'}},
+        'runtime_script_resources_count':5,
+    }]
+    monkeypatch.setattr(ac, 'read_architecture_audit_facts', lambda *_: fake)
+    html=ac.architecture_context(tmp_path,'AUD-TEST','America/Sao_Paulo')
+    assert 'Arquitetura identificada na captura' in html
+    assert 'Não determinada' in html
+    assert 'Hipótese não confirmada: SPA renderizada no cliente' in html
+    assert '>87<' in html
+    assert 'Recursos declarados' in html
+    assert '8.8.8.8' not in html
+    assert 'report-catalog/' not in html
+    assert 'href="rede.html"' in html
+
+
+def test_architecture_overview_missing_source_never_invents(monkeypatch,tmp_path):
+    from rasai.parallel_report import architecture_context as ac
+    assert 'Banco original indisponível' in ac.architecture_context(tmp_path,'AUD-X','UTC')
+    (tmp_path/'audit.db').touch()
+    monkeypatch.setattr(ac,'read_architecture_audit_facts',lambda *_: [])
+    assert 'Nenhuma classificação arquitetural verificável' in ac.architecture_context(tmp_path,'AUD-X','UTC')
+
+
+def test_architecture_source_is_included_only_on_extraction(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as context
+    monkeypatch.setattr(context,'architecture_context',lambda *_:'<h2>Arquitetura identificada na captura</h2>')
+    monkeypatch.setattr(context,'network_context',lambda *_, **kwargs:('',[],''))
+    inputs={'audits':[{'audit_id':'AUD-X'}]}
+    pages=context.scope_context(tmp_path, inputs, 'UTC',{})
+    assert 'Arquitetura identificada na captura' in pages['extracao']
+    for page in ('rede','index','performance','seguranca'):
+        assert 'Arquitetura identificada na captura' not in pages[page]
+
+
+def test_network_independent_passive_ip_without_probe_has_explicit_limit(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as network
+    monkeypatch.setattr(network,'read_network_observations',lambda *_:[{
+        'metrics':{'connected_public_ip':{'state':'OBSERVED','value':'8.8.8.8'}},
+        'capture_utc':'2026-11-16T12:00:00Z','device':'MOBILE',
+    }])
+    monkeypatch.setattr(network,'read_authorized_probes',lambda *_:[])
+    monkeypatch.setattr(network,'build_network_assessment',lambda *_:None)
+    html,_,_=network.network_context(tmp_path,'AUD-X','UTC')
+    assert 'IP público observado</dt><dd>1 captura(s) passiva(s); 0 sonda(s) complementar(es)' in html
+    assert 'Origem da ausência de sonda</dt><dd>Não comprovada pelos registros desta AUD' in html
+    assert '8.8.8.8' in html
+    assert 'Rastreamentos registrados</dt><dd>0</dd>' in html
+    assert 'network-map' in html
+    assert 'report-catalog/' not in html
+
+
+def test_network_temporal_comparison_uses_only_same_verified_host_port(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as network
+    probes=[
+      dict(hostname='site.example.org',port=443,capture_utc=t,
+           state='SUCCESS',
+           metrics={'dns_resolution':{'state':'OBSERVED'},
+                    'tcp_handshake_ms':{'state':'OBSERVED'},
+                    'tls_handshake_ms':{'state':'OBSERVED'},
+                    'traceroute':{'state':'NOT_OBSERVED'}})
+      for t in ('2026-11-15T12:00:00Z','2026-11-16T12:00:00Z')
+    ]
+    probes.append(dict(hostname='other.example.org',port=443,capture_utc='2026-11-15T12:00:00Z'))
+    monkeypatch.setattr(network,'read_network_observations',lambda *_:[])
+    monkeypatch.setattr(network,'read_authorized_probes',lambda *_:probes)
+    monkeypatch.setattr(network,'build_network_assessment',lambda *_:None)
+    html,_,_=network.network_context(tmp_path,'AUD-X','UTC')
+    assert 'Histórico comparável de sondagens' in html
+    assert html.count('site.example.org') >= 2
+    assert 'Medições autorizadas por instante' in html
+    assert 'other.example.org' not in html.split('Histórico comparável de sondagens')[1].split('Mapa')[0]
+    assert 'Nenhuma rota' not in html
+
+
+def test_network_world_basemap_visible_with_passive_peer_without_geoip(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as network
+    monkeypatch.setattr(network, 'read_network_observations', lambda *_: [{
+        'metrics':{'connected_public_ip':{'state':'OBSERVED','value':'8.8.8.8'},
+                   'geoip': {'state':'NOT_OBSERVED','value':None}},
+        'capture_utc':'2026-11-16T12:00:00Z', 'device':'MOBILE',
+    }])
+    monkeypatch.setattr(network,'read_authorized_probes',lambda *_:[])
+    monkeypatch.setattr(network,'build_network_assessment',lambda *_:None)
+    html, _, _=network.network_context(tmp_path,'AUD-X','UTC')
+    assert 'Mapa geográfico consultivo' in html
+    assert 'data-map-state="unlocated"' in html
+    assert 'data-map-layer=\'land\'' in html
+    assert '<svg class="network-map-plot"' in html
+    assert '<circle' not in html
+    assert "data-map-layer='logical-sequence'" not in html
+    assert '8.8.8.8' in html  # present in the network data table, not projected onto map
+    assert 'não identifica o IP de origem do usuário' in html
+    assert 'Mapa base disponível sem pontos' in html
+    assert 'report-catalog/' not in html
+
+
+def test_network_basemap_without_passive_observation_is_context_not_geo_claim(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as network
+    monkeypatch.setattr(network,'read_network_observations',lambda *_:[])
+    monkeypatch.setattr(network,'read_authorized_probes',lambda *_:[])
+    monkeypatch.setattr(network,'build_network_assessment',lambda *_:None)
+    html, _, _=network.network_context(tmp_path,'AUD-X','UTC')
+    assert 'data-map-state="unlocated"' in html
+    assert '<svg class="network-map-plot"' in html
+    assert '<circle' not in html
+    assert 'Nenhum IP público com geolocalização verificável' in html
+
+
+def test_verified_geoip_keeps_existing_map_with_exactly_one_marker(monkeypatch,tmp_path):
+    from rasai.parallel_report import scope_context as network
+    geo={'state':'OBSERVED','value':{'latitude':-30.1,'longitude':-51.2,
+         'accuracy_radius_km':100,'source':'LOCAL_MMDB_CITY'}}
+    monkeypatch.setattr(network,'read_network_observations',lambda *_:[])
+    monkeypatch.setattr(network,'read_authorized_probes',lambda *_:[
+        {'hostname':'example.org','capture_utc':'2026-11-16T12:00:00Z',
+         'metrics':{'geoip':geo}}
+    ])
+    monkeypatch.setattr(network,'build_network_assessment',lambda *_:None)
+    html, _, _=network.network_context(tmp_path,'AUD-X','UTC')
+    assert 'data-map-state="unlocated"' not in html
+    assert html.count('<circle') == 1
+    assert 'data-map-layer=\'land\'' in html
+    assert 'Mapa geográfico aproximado disponível' in html

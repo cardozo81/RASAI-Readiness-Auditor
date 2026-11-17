@@ -40,7 +40,7 @@ def test_apdex_sources():
 
 
 def test_ruler_origin():
-    for key,label in [('value','Proposta de produto'),('performance_score','Contrato persistido'),('apdex_score','Contrato persistido')]:
+    for key,label in [('value','Proposta de produto'),('performance_score','Critério de medição registrado'),('apdex_score','Critério de medição registrado')]:
         html=ruler(key,.5,proposal=_metric_proposal(key,load()),href='#technical-record')
         assert label in html
         assert '<strong><a ' not in html

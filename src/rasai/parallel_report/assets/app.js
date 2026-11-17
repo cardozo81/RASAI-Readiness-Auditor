@@ -13,7 +13,52 @@ const links=$('.rail a');if(links.length&&'IntersectionObserver'in window){const
 // Bind finite normalized widths without inline script or stylesheet attributes.
 document.querySelectorAll('[data-width]').forEach(e=>{const n=Number(e.dataset.width);if(Number.isFinite(n))e.style.width=Math.max(0,Math.min(100,n))+'%'});
 document.querySelectorAll('.mk[data-position]').forEach(e=>{const n=Number(e.dataset.position);if(Number.isFinite(n))e.style.left=Math.max(0,Math.min(100,n))+'%'});
-document.querySelector('#theme')?.addEventListener('click',()=>{const dark=document.body.classList.contains('dark')||(!document.body.classList.contains('light')&&matchMedia('(prefers-color-scheme:dark)').matches);document.body.classList.toggle('dark',!dark);document.body.classList.toggle('light',dark)});
+// Persist the reader's choice throughout the 11 HTML pages, including file://.
+// Browser localStorage under file:// is implementation-dependent: the URL
+// parameter is the authoritative handoff for navigation inside this report.
+(function(){
+  const key='rasai.report-presentation.theme';
+  const param='rasai_theme';
+  const valid=value=>value==='dark'||value==='light';
+  const root=new URL('.',location.href);
+  const chosen=new URL(location.href).searchParams.get(param);
+  let stored=null;
+  try{stored=localStorage.getItem(key)}catch(_){/* file:// may deny storage */}
+  function rewriteLocalLinks(theme){
+    document.querySelectorAll('a[href]').forEach(link=>{
+      const raw=link.getAttribute('href');
+      if(!raw||raw.startsWith('#'))return;
+      let target;
+      try{target=new URL(raw,location.href)}catch(_){return}
+      if(target.protocol!==root.protocol||target.host!==root.host
+          ||!target.pathname.startsWith(root.pathname))return;
+      const file=target.pathname.slice(root.pathname.length);
+      // Never modify cross-report links, asset paths, hashes or evidence URLs.
+      if(!/^[^/]+\.html?$/i.test(file))return;
+      target.searchParams.set(param,theme);
+      link.href=target.href;
+    });
+  }
+  function apply(theme){
+    document.body.classList.toggle('dark',theme==='dark');
+    document.body.classList.toggle('light',theme==='light');
+    try{localStorage.setItem(key,theme)}catch(_){/* optional preference */}
+    try{
+      const here=new URL(location.href);
+      here.searchParams.set(param,theme);
+      history.replaceState(history.state,'',here.href);
+    }catch(_){/* file:// history policy differs between browsers */}
+    rewriteLocalLinks(theme);
+  }
+  if(valid(chosen))apply(chosen);
+  else if(valid(stored))apply(stored);
+  document.querySelector('#theme')?.addEventListener('click',()=>{
+    const systemDark=window.matchMedia?.('(prefers-color-scheme: dark)').matches??false;
+    const isDark=document.body.classList.contains('dark')
+      ||(!document.body.classList.contains('light')&&systemDark);
+    apply(isDark?'light':'dark');
+  });
+})();
 function reveal(){const target=document.getElementById(decodeURIComponent(location.hash.slice(1)));if(!target)return;for(let p=target.parentElement;p;p=p.parentElement){if(p.tagName==='DETAILS')p.open=true}if(target.tagName==='DETAILS')target.open=true;target.scrollIntoView()}
 window.addEventListener('hashchange',reveal);reveal();
 let printState=[];window.addEventListener('beforeprint',()=>{printState=[...document.querySelectorAll('details')].map(d=>[d,d.open]);printState.forEach(([d])=>d.open=true)});window.addEventListener('afterprint',()=>printState.forEach(([d,open])=>d.open=open));

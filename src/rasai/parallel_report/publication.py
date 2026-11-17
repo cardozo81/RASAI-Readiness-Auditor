@@ -35,9 +35,12 @@ def relevant_sources(inventory, evidence):
     # if it was actually referenced as evidence by the presentation.
     referenced = {str(item.get('reference', '')).replace('\\', '/').removeprefix('./')
                   for item in evidence if isinstance(item, dict)}
+    # The catalog is a sibling *derived* HTML package, never a source of
+    # facts for the standalone presentation. Do not invalidate a verified
+    # presentation merely because the catalog was rebuilt or failed to publish.
     return {name: value for name, value in inventory.items()
-            if name != 'audit.db' and (name in referenced or name == 'report-catalog/integrity/audit-snapshot.db'
-                or not name.startswith(('logs/', 'report-catalog/')))}
+            if name != 'audit.db' and not name.startswith('report-catalog/')
+            and (name in referenced or not name.startswith('logs/'))}
 
 
 def compatible_manifest(directory, source, logical, *, historical_version=False):
@@ -45,7 +48,7 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
     try:
         path = confined(directory, MANIFEST)
         manifest = json.loads(path.read_text(encoding='utf-8'))
-        versions = (__version__, '0.4.3', '0.4.2', '0.4.1', '0.3.0', '0.2.0', '0.1.0') if historical_version else (__version__,)
+        versions = (__version__, '0.4.17', '0.4.16', '0.4.3', '0.4.2', '0.4.1', '0.3.0', '0.2.0', '0.1.0') if historical_version else (__version__,)
         if not isinstance(manifest, dict) or (
             manifest.get('contract') != CONTRACT or manifest.get('version') != 1
             or manifest.get('generator_version') not in versions
@@ -58,10 +61,6 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
         if (manifest.get('source_tree_digest_before') != recorded_digest
                 or manifest.get('source_tree_digest_after') != recorded_digest):
             return None
-        catalog_manifest = 'report-catalog/manifest.json'
-        if manifest.get('generator_version') in {__version__, '0.3.0'} and (catalog_manifest in recorded or catalog_manifest in source):
-            if tree_digest(recorded, 'report-catalog/') != tree_digest(source, 'report-catalog/'):
-                return None
         evidence = manifest['artifacts_read']
         if relevant_sources(recorded, evidence) != relevant_sources(source, evidence):
             return None
@@ -70,7 +69,8 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
             return None
         required = {name + '.html' for name, _ in PAGES}
         required.update(visual_files)
-        required.update('assets/' + name for name in ('site.css', 'app.js', 'thresholds.json', 'coverage-map.json'))
+        required.update('assets/' + name for name in ('site.css', 'app.js', 'thresholds.json',
+                                                          'coverage-map.json', 'evidence-coverage.json'))
         required.update('anexos/' + sha256(table.encode()).hexdigest() + '.json'
                         for table in manifest['tables_read'])
         hashes = manifest['sha256_per_file']

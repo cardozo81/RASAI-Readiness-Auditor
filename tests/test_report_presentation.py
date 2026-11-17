@@ -231,10 +231,84 @@ def test_humanization_hides_user_facing_module_names_but_keeps_raw_evidence():
         "<a data-source='M6'>Detalhe M6</a>"
     )
     rendered = humanize_report_html(html, page_name="cat-01.html")
-    assert "captura principal incompleta" in rendered
-    assert "análise de arquitetura da aplicação observada" in rendered
+    assert "Captura principal incompleta" in rendered
+    assert "Análise de arquitetura da aplicação observada" in rendered
     assert "ausência observada de robots.txt" in rendered
     assert "Análise semântica por IA · contrato 22, versão 1" in rendered
     assert "<pre>M6 M18-SEMANTIC-22-v1</pre>" in rendered
     assert "<code>M3</code>" in rendered
     assert "data-source='M6'" in rendered
+
+
+def test_module_names_are_humanized_in_visible_report_copy_only():
+    from rasai.report_presentation import humanize_report_html
+
+    html = (
+        "<h2>Classificação M6 persistida</h2>"
+        "<p>A classificação M6 foi persistida.</p>"
+        "<p>Configuração M25 persistida; M18/M20 e M21/M22.</p>"
+        "<p>Captura M3 incompleta; Arquitetura M6 observada.</p>"
+        "<p>Apdex M23 e Apdex M25 são apurações independentes.</p>"
+        "<pre>Classificação M6 persistida; M25; M18/M20</pre>"
+        "<code>M24</code>"
+        "<p>Produto M25 industrial observado na página.</p>"
+        "<p>Modelo M6 comercial auditado.</p>"
+        "<a href='relatorio-M6.html' data-origin='M25'>Detalhe M6</a>"
+    )
+    once = humanize_report_html(html, page_name="cat-07.html")
+    assert "<h2>Classificação arquitetural registrada na auditoria</h2>" in once
+    assert "A classificação arquitetural observada foi persistida." in once
+    assert "Configuração do Apdex de experiência persistida" in once
+    assert "análise semântica e remediação textual por IA" in once
+    assert "Web Performance e acessibilidade" in once
+    assert "Captura principal incompleta" in once
+    assert "Análise de arquitetura da aplicação observada" in once
+    assert "Apdex de navegação e Apdex de experiência são apurações independentes" in once
+    assert "<pre>Classificação M6 persistida; M25; M18/M20</pre>" in once
+    assert "<code>M24</code>" in once
+    assert "Produto M25 industrial observado na página." in once
+    assert "Modelo M6 comercial auditado." in once
+    assert "href='relatorio-M6.html' data-origin='M25'" in once
+    assert "Detalhe da análise de arquitetura" in once
+    assert humanize_report_html(once, page_name="cat-07.html") == once
+
+
+def test_module_copy_does_not_rewrite_canonical_ids_or_product_models():
+    from rasai.report_presentation import humanize_report_html
+
+    html = (
+        "<p>Identificador M24-TECHNICAL-001</p>"
+        "<p>Produto M18 industrial; modelo M25 validado.</p>"
+        "<p>Projeto M6 auditado.</p>"
+        "<p>Galaxy M25 e Série M6 são modelos citados na página.</p>"
+        "<div data-code='M6'>Classificação M6 persistida</div>"
+    )
+    readable = humanize_report_html(html, page_name="cat-01.html")
+    assert "M24-TECHNICAL-001" in readable
+    assert "Produto M18 industrial; modelo M25 validado." in readable
+    assert "Projeto M6 auditado." in readable
+    assert "Galaxy M25 e Série M6 são modelos citados na página." in readable
+    assert "data-code='M6'" in readable
+    assert "Classificação arquitetural registrada na auditoria" in readable
+
+
+def test_independent_presentation_module_humanization_preserves_other_semantics():
+    from rasai.report_presentation import humanize_module_references_html
+
+    html = (
+        "<p>Classificação M6 persistida.</p>"
+        "<p>2026-11-17T14:53:41Z e UNAVAILABLE são valores da projeção.</p>"
+        "<pre>Classificação M6 persistida</pre>"
+        "<code>M25</code>"
+        "<div data-source='M6'>Produto Galaxy M25 e Série M6.</div>"
+        "&lt;div data-code=&quot;M6&quot;&gt;M25&lt;/div&gt;"
+    )
+    rendered = humanize_module_references_html(html)
+    assert "Classificação arquitetural registrada na auditoria." in rendered
+    assert "2026-11-17T14:53:41Z e UNAVAILABLE" in rendered
+    assert "<pre>Classificação M6 persistida</pre>" in rendered
+    assert "<code>M25</code>" in rendered
+    assert "data-source='M6'" in rendered
+    assert "Produto Galaxy M25 e Série M6." in rendered
+    assert "&lt;div data-code=&quot;M6&quot;&gt;M25&lt;/div&gt;" in rendered
+    assert rendered == humanize_module_references_html(rendered)

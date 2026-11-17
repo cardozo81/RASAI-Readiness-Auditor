@@ -671,6 +671,175 @@ def fractional_confidence_percentage(value: object) -> str:
         return "N/D"
 
 
+# Editorial module labels belong to the final HTML, not to persisted evidence.
+# Never rewrite technical payloads, HTML attributes, or source product names.
+_MODULE_LABELS = {
+    "M2": "descoberta e aquisição inicial",
+    "M3": "captura principal",
+    "M6": "análise de arquitetura da aplicação",
+    "M18": "análise semântica por IA",
+    "M20": "remediação textual por IA",
+    "M21": "coleta de Web Performance",
+    "M22": "avaliação de acessibilidade",
+    "M23": "Apdex de navegação",
+    "M24": "remediação técnica por IA",
+    "M25": "Apdex de experiência",
+    "M26": "visibilidade observada em respostas de IA",
+    "M14": "vínculo de evidências",
+    "M15": "apresentação de relatórios",
+    "M16": "análise de causas",
+    "M17": "precisão das recomendações",
+}
+_MODULE_PHRASES = (
+    ("Classificação M6 persistida", "Classificação arquitetural registrada na auditoria"),
+    ("Classificação M6", "Classificação arquitetural observada"),
+    ("classificação M6", "classificação arquitetural observada"),
+    ("Captura M3", "Captura principal"),
+    ("Arquitetura M6", "Análise de arquitetura da aplicação"),
+    ("Configuração M25", "Configuração do Apdex de experiência"),
+    ("M18/M20", "análise semântica e remediação textual por IA"),
+    ("M21/M22", "Web Performance e acessibilidade"),
+    ("M21/M23", "Web Performance e Apdex de navegação"),
+    ("M23/M25", "Apdex de navegação e experiência"),
+    ("M3/M6", "captura e análise de arquitetura"),
+    ("Apdex M23", "Apdex de navegação"),
+    ("Apdex M25", "Apdex de experiência"),
+    ("Detalhe M6", "Detalhe da análise de arquitetura"),
+    ("o M25 não executa", "o Apdex de experiência não executa"),
+    ("o M25.", "o Apdex de experiência."),
+    ("pelo M25", "pelo Apdex de experiência"),
+)
+_MODULE_CODE_RE = re.compile(
+    r"(?<![A-Za-z0-9_/-])M(?:[1-9]|[1-9][0-9])(?![A-Za-z0-9_/-])"
+)
+_MODULE_LITERAL_MODEL_RE = re.compile(
+    r"\b(?:produto|modelo|sku|código comercial|referência comercial|projeto)\s*$",
+    flags=re.IGNORECASE,
+)
+_MODULE_NAMED_CONTEXT_RE = re.compile(
+    r"\b(?:módulo|motor|etapa|medição|classificação|arquitetura|captura|apdex|relatório|configuração)\s*$",
+    flags=re.IGNORECASE,
+)
+
+
+def _humanize_internal_module_copy(visible: str) -> str:
+    """Convert internal module references while preserving third-party literals."""
+    for internal, readable in _MODULE_PHRASES:
+        visible = visible.replace(internal, readable)
+
+    def substitute(match: re.Match[str]) -> str:
+        preceding = visible[max(0, match.start() - 72):match.start()]
+        if _MODULE_LITERAL_MODEL_RE.search(preceding):
+            return match.group(0)
+        # A bare M-number may be a product model (e.g. "Galaxy M25"), not a
+        # RASAi module. Only translate it with explicit editorial context.
+        if not _MODULE_NAMED_CONTEXT_RE.search(preceding):
+            return match.group(0)
+        return _MODULE_LABELS.get(match.group(0), "etapa técnica da auditoria")
+
+    return _MODULE_CODE_RE.sub(substitute, visible)
+
+
+# Descriptions stored in technical source fields may be shown as tool names in
+# the presentation. Translate recognized RASAi-owned phrases *only* in visible
+# editorial copy. Official third-party product names remain literal.
+_PRESENTATION_INTERNAL_SOURCE_PHRASES = (
+    ("M2 physical HTTP acquisition persisted as page_snapshots.browser_metadata.raw_http",
+     "Coleta HTTP realizada pelo RASAi"),
+    ("RASAi RuleExecutions", "Execução das regras de auditoria do RASAi"),
+    ("RASAi discovery provenance", "Evidências de descoberta coletadas pelo RASAi"),
+    ("Search Intelligence SERP observations", "Resultados de busca observados"),
+    ("Search Intelligence explicit relevance judgments",
+     "Avaliações explícitas de relevância em resultados de busca"),
+    ("Search Intelligence relevance judgments",
+     "Avaliações de relevância em resultados de busca"),
+    ("OPEN-WEB-METRICS-001", "Referência técnica de métricas abertas da web"),
+)
+
+
+# CAT-* are stable catalog identifiers, not meaningful labels for an executive
+# reader. This presentation-only vocabulary deliberately does not change the
+# canonical catalog report, persisted provenance, annexes or technical links.
+_PRESENTATION_CATALOG_LABELS = {
+    "CAT-01": "fundamentos técnicos e descoberta",
+    "CAT-02": "acessibilidade",
+    "CAT-03": "conteúdo, semântica e dados estruturados",
+    "CAT-04": "desempenho web",
+    "CAT-05": "inteligência de busca e IA",
+    "CAT-06": "Apdex de navegação",
+    "CAT-07": "Apdex de experiência",
+    "CAT-08": "análise profunda e melhorias",
+    "CAT-09": "remediações",
+    "CAT-10": "segurança passiva",
+}
+_PRESENTATION_CATALOG_REF_RE = re.compile(
+    r"(?<![A-Za-z0-9_./-])CAT-(?:0[1-9]|10)(?![A-Za-z0-9_/-]|\.[A-Za-z0-9])",
+    re.IGNORECASE,
+)
+_PRESENTATION_CATALOG_GROUP_RE = re.compile(
+    r"(?<![A-Za-z0-9_./-])CAT-(?P<first>0[1-9]|10)/(?:CAT-)?(?P<second>0[1-9]|10)"
+    r"(?![A-Za-z0-9_/-]|\.[A-Za-z0-9])",
+    re.IGNORECASE,
+)
+
+
+def _humanize_presentation_catalog_copy(visible: str) -> str:
+    """Translate only well-known catalog IDs in presentation editorial copy."""
+    def grouped(match: re.Match[str]) -> str:
+        first = _PRESENTATION_CATALOG_LABELS["CAT-" + match.group("first")]
+        second = _PRESENTATION_CATALOG_LABELS["CAT-" + match.group("second")]
+        return first + " e " + second
+
+    # "Contrato CAT-##" is a persisted technical marker, not a contractual
+    # obligation. In customer copy, describe the evaluated domain instead.
+    visible = re.sub(
+        r"(?i)\bContrato\s+(?=CAT-(?:0[1-9]|10)\b)",
+        "Critério de avaliação de ",
+        visible,
+    )
+    for original, readable in _PRESENTATION_INTERNAL_SOURCE_PHRASES:
+        visible = visible.replace(original, readable)
+    visible = _PRESENTATION_CATALOG_GROUP_RE.sub(grouped, visible)
+    return _PRESENTATION_CATALOG_REF_RE.sub(
+        lambda match: _PRESENTATION_CATALOG_LABELS[match.group(0).upper()],
+        visible,
+    )
+
+
+def humanize_module_references_html(html: str) -> str:
+    """Humanize internal module and catalog references in visible editorial text.
+
+    The independent presentation already owns its timestamps, enums and
+    formatting. Reusing the broader report humanizer here would unintentionally
+    change those semantics. Literal HTML, code, technical annexes and escaped
+    captured DOM are deliberately untouched.
+    """
+    parts = _TAG_SPLIT_RE.split(html)
+    result: list[str] = []
+    blocked_depth = 0
+    for part in parts:
+        if part.startswith("<"):
+            if re.match(r"<(?:script|style|pre|code|blockquote|q|samp|textarea)\b", part, flags=re.IGNORECASE):
+                blocked_depth += 1
+            elif re.match(r"</(?:script|style|pre|code|blockquote|q|samp|textarea)\b", part, flags=re.IGNORECASE):
+                blocked_depth = max(0, blocked_depth - 1)
+            result.append(part)
+            continue
+        if blocked_depth:
+            result.append(part)
+            continue
+        pieces = _ESCAPED_DOM_TAG_RE.split(part)
+        for position, fragment in enumerate(pieces):
+            # Preserve escaped DOM snippets, including text between tag pairs.
+            literal = position % 2 == 1 or 0 < position < len(pieces) - 1
+            result.append(
+                fragment if literal else _humanize_presentation_catalog_copy(
+                    _humanize_internal_module_copy(fragment)
+                )
+            )
+    return "".join(result)
+
+
 def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
     """Humanize visible report values without mutating persisted or code content.
 
@@ -739,14 +908,7 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
                 ("M20-CONTENT-REMEDIATION-v3", "Remediação editorial por IA · versão 3"),
             ):
                 visible = visible.replace(original, readable)
-            visible = re.sub(
-                r"(?<![A-Za-z0-9_])M(?:3|6)(?![A-Za-z0-9_])",
-                lambda match: {
-                    "M3": "captura principal",
-                    "M6": "análise de arquitetura da aplicação",
-                }[match.group(0)],
-                visible,
-            )
+            visible = _humanize_internal_module_copy(visible)
             visible = _standalone_concept_label(visible, page_name=page_name)
             output.append(_PUBLIC_TOKEN_RE.sub(_public_token_replacement, visible))
     return _VISIBLE_VALUE_RE.sub(isolated, "".join(output))

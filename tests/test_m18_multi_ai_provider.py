@@ -9,6 +9,7 @@ from email.message import Message
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from tests.sqlite_fixture_resources import finalize_sqlite_fixture_cycles
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 
@@ -323,7 +324,7 @@ class M18ProviderTests(unittest.TestCase):
         self.assertEqual(len(provider.attempt_history()), 2)
 
     def test_run_audit_persists_attempts_and_materializes_ai_telemetry_page(self) -> None:
-        with _server() as origin, TemporaryDirectory() as directory:
+        with _server() as origin, TemporaryDirectory() as directory, finalize_sqlite_fixture_cycles():
             html = f"""<!doctype html><html lang='pt-BR'><head><title>Guia M18</title>
 <meta name='description' content='Guia técnico.'><link rel='canonical' href='{origin}/'>
 <script type='application/ld+json'>{{"@context":"https://schema.org","@type":"Article","headline":"Guia M18"}}</script>

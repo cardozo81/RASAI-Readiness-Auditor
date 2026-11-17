@@ -110,7 +110,7 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
     return trigger, dialog
 
 
-def table(caption, rows, columns, timezone_name=None):
+def table(caption, rows, columns, timezone_name=None, *, full_text=False):
     if not rows:
         return '<p class="callout">Não medido — nenhum registro disponível para esta seção.</p>'
     has_details = any(
@@ -138,7 +138,7 @@ def table(caption, rows, columns, timezone_name=None):
                 else:
                     rendered = public_value(value,key,timezone_name)
                 plain = json.dumps(rendered, ensure_ascii=False) if isinstance(rendered, (dict, list)) else str(rendered)
-                if len(plain) > 180:
+                if len(plain) > 180 and not full_text:
                     cell = text(plain[:177].rstrip() + '…')
                     title_value = 'Conteúdo completo disponível em Ver detalhes'
                 else:

@@ -6,6 +6,7 @@ from rasai.catalog_report_public_labels import public_label
 from datetime import datetime, timezone
 import hashlib
 import json
+import logging
 from pathlib import Path
 import shutil
 import sqlite3
@@ -681,6 +682,46 @@ def _discard_tree(path: Path) -> None:
         except OSError:pass
 
 
+def _promote_verified_catalog_staging(*, staging: Path, report_dir: Path, audit_id: str, workspace: Any) -> None:
+    """Promote a validated catalog; recover from Windows staging handle denial.
+
+    A verified, never-opened copy is used only for WinError 5/32 on the
+    staging directory rename. A second denial is a real publication failure.
+    The caller retains its previous catalog in quarantine until verification.
+    """
+    try:
+        staging.replace(report_dir)
+        return
+    except PermissionError as exc:
+        if getattr(exc, "winerror", None) not in (5, 32):
+            raise
+
+    ready = staging.with_name(staging.name + "-ready")
+    if ready.exists() or ready.is_symlink():
+        raise FileExistsError("catalog publication copy path already exists")
+    try:
+        shutil.copytree(staging, ready, symlinks=False)
+        # Reject a damaged or changed clone, not merely a plausible index.html.
+        staged_manifest = (staging / "manifest.json").read_bytes()
+        ready_manifest = (ready / "manifest.json").read_bytes()
+        if (staged_manifest != ready_manifest
+                or _packaged_file_records(staging) != _packaged_file_records(ready)):
+            raise RuntimeError("catalog publication copy diverged from verified staging")
+        valid, errors = verify_catalog_report_package(ready)
+        if not valid or not catalog_report_is_fresh(
+            audit_id=audit_id, workspace=workspace, report_dir=ready,
+        ):
+            raise RuntimeError(
+                "catalog publication copy failed integrity/freshness: "
+                + "; ".join(errors)
+            )
+        if report_dir.exists() or report_dir.is_symlink():
+            raise FileExistsError("catalog destination appeared during promotion")
+        ready.replace(report_dir)
+    finally:
+        _discard_tree(ready)
+
+
 def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     """Build a final, fresh and self-verifiable ``report-catalog/`` tree."""
     from rasai.ai_dependency_reporting import install as install_ai_dependency_reporting
@@ -721,9 +762,7 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     quarantine=root/f".{CATALOG_REPORT_DIR}.stale-{token}"
     before=_source_fingerprint(database)
 
-    if report_dir.exists() or report_dir.is_symlink():
-        report_dir.replace(quarantine)
-
+    previous_moved = False
     dependency_token=begin_source_dependency_capture(root)
     try:
         css_dir=staging/"css"
@@ -892,34 +931,58 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
                 "catalog report source dependency changed before promotion: "
                 +" ; ".join(dependency_errors)
             )
-        staging.replace(report_dir)
+        # Keep the prior valid package available during the entire build.
+        # Move it aside only once the new package has passed all gates.
+        if report_dir.exists() or report_dir.is_symlink():
+            report_dir.replace(quarantine)
+            previous_moved = True
+        _promote_verified_catalog_staging(
+            staging=staging, report_dir=report_dir,
+            audit_id=audit_id, workspace=workspace,
+        )
     except Exception:
         end_source_dependency_capture(dependency_token)
         _discard_tree(staging)
-        # Roll back to the existing published package. An optional network
-        # projection must not delete a previously published report.
-        _discard_tree(report_dir)
-        # Never restore a stale package. A previously published catalog may
-        # return only if manifest, original AUD state and sidecars still agree.
-        if (quarantine.is_dir() and not quarantine.is_symlink()
-                and catalog_report_is_fresh(
-                    audit_id=audit_id, workspace=workspace, report_dir=quarantine,
-                )):
-            quarantine.replace(report_dir)
-        else:
-            _discard_tree(quarantine)
+        # Do not delete an untouched prior report when rendering fails.
+        # When promotion was attempted, restore only a still-fresh predecessor.
+        # Retain an obsolete predecessor in quarantine on failure for recovery.
+        if previous_moved:
+            _discard_tree(report_dir)
+            if (quarantine.is_dir() and not quarantine.is_symlink()
+                    and catalog_report_is_fresh(
+                        audit_id=audit_id, workspace=workspace, report_dir=quarantine,
+                    )):
+                quarantine.replace(report_dir)
+        elif report_dir.exists() or report_dir.is_symlink():
+            # The earlier package remained visible throughout rendering. If
+            # optional evidence changed, it is now stale and must not retain
+            # the public entrypoint; retain the bytes in quarantine instead.
+            try:
+                still_fresh = catalog_report_is_fresh(
+                    audit_id=audit_id, workspace=workspace, report_dir=report_dir,
+                )
+            except (OSError, ValueError, RuntimeError, sqlite3.Error):
+                still_fresh = False
+            if not still_fresh:
+                try:
+                    report_dir.replace(quarantine)
+                except OSError as quarantine_error:
+                    logging.getLogger(__name__).warning(
+                        "Stale catalog could not be quarantined: %s",
+                        type(quarantine_error).__name__,
+                    )
+                    # The independent integrity/freshness gate still rejects
+                    # this stale visible package; do not mask the original error.
         raise
 
     end_source_dependency_capture(dependency_token)
     if not catalog_report_is_fresh(audit_id=audit_id,workspace=workspace):
         _discard_tree(report_dir)
-        if (quarantine.is_dir() and not quarantine.is_symlink()
+        if (previous_moved and quarantine.is_dir() and not quarantine.is_symlink()
                 and catalog_report_is_fresh(
                     audit_id=audit_id, workspace=workspace, report_dir=quarantine,
                 )):
             quarantine.replace(report_dir)
-        else:
-            _discard_tree(quarantine)
         raise RuntimeError("catalog report freshness/integrity verification failed after promotion")
     _discard_tree(quarantine)
     return report_dir/"index.html"

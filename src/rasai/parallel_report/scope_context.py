@@ -13,10 +13,12 @@ from rasai.network_map import network_geographic_panel
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
-from .components import kv, table, text
+from .components import kv, table, text, technical_link
 from .presentation_labels import public_value, presentation_timestamps
 from .read_model import SEARCH_PAGE
 from .sanitization import sanitize
+from .architecture_context import architecture_context
+from .network_basemap import unlocated_world_map
 
 
 def subsection(title, pairs, note=''):
@@ -55,15 +57,18 @@ def search_context(root, tables):
     return html
 
 
-def editorial_evidence(root, tables):
-    from rasai.contextual_advisory import load_projection
-    snapshots = tables.get('page_snapshots', ())
-    if not any(r.get('rendered_artifact_ref') or r.get('raw_artifact_ref') for r in snapshots):
-        return ''
-    try:
-        projection = load_projection(root, ai='none')
-    except (OSError, ValueError, sqlite3.Error):
-        return '<p>Qualificação editorial da captura indisponível (N/D).</p>'
+def editorial_evidence(root, tables, projection=None):
+    if projection is None:
+        from .artifact_reader import inventory
+        from .capture_projection import project_capture
+        projection = project_capture(root, tables, inventory(root))
+    state = projection.get('state', 'PROJECTION_ERROR')
+    if state not in {'AVAILABLE', 'PARTIAL'}:
+        from .capture_projection import state_label
+        return ('<h2>Qualificação estrutural da captura</h2>'
+                + kv([('Estado', state_label(state))])
+                + '<p>Não foi possível qualificar esta fonte. A ausência de projeção '
+                  'não demonstra ausência de conteúdo ou problemas.</p>')
     faq = projection.get('faq_aria_v3', {}).get('counts', {})
     semantic = projection.get('semantic_v2', {}).get('counts', {})
     review = projection.get('reverse_review', {}).get('counts', {})
@@ -79,7 +84,7 @@ def editorial_evidence(root, tables):
     html += '<p>Tarefas de validação sustentadas pelo material de captura, não defeitos SEO/GEO comprovados. SPA, FAQ pós-interação, visibilidade e intenção permanecem condicionais.</p>'
     if not isinstance(tasks, list) or not tasks:
         return overview + html + '<p>N/D — nenhuma tarefa de verificação sustentada nesta captura.</p></section>'
-    html += '<p>' + text(len(tasks)) + ' tarefa(s) no contrato de revisão da captura.</p>'
+    html += '<p>' + text(len(tasks)) + ' tarefa(s) na revisão registrada da captura.</p>'
     for item in tasks[:64]:
         if not isinstance(item, dict):
             continue
@@ -108,7 +113,7 @@ def editorial_evidence(root, tables):
             ])
         html += '</details>'
     if len(tasks) > 64:
-        html += '<p>Exibidas 64 verificações de ' + text(len(tasks)) + '; restante permanece no contrato técnico.</p>'
+        html += '<p>Exibidas 64 verificações de ' + text(len(tasks)) + '; restante permanece no registro técnico.</p>'
     return overview + html + '</section>'
 
 
@@ -205,12 +210,12 @@ def _network_metric_rows(observations, probes, timezone_name):
         metrics = item.get('metrics') if isinstance(item, dict) else None
         if not isinstance(metrics, dict):
             continue
-        context = str(item.get('device') or ('Captura ' + str(index)))
+        context = str(public_value(item.get('device'), 'device') if item.get('device') else ('Captura ' + str(index)))
         stamp = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
         for key, label in _NETWORK_METRICS:
             metric = metrics.get(key)
             if not isinstance(metric, dict):
-                continue
+                metric = {'state':'NOT_OBSERVED'}
             rows.append({
                 'origin': 'Captura persistida da AUD',
                 'context': context,
@@ -221,6 +226,8 @@ def _network_metric_rows(observations, probes, timezone_name):
                 'value': _network_value(key, metric),
                 'provenance': public_value(metric.get('source') or item.get('measurement_origin'), 'provenance'),
                 'reason': _network_reason(metric),
+                'method': public_value(item.get('method'), 'method'),
+                '_ref': '#network-passive-' + str(index),
             })
     for index, item in enumerate(probes, 1):
         metrics = item.get('metrics') if isinstance(item, dict) else None
@@ -233,7 +240,7 @@ def _network_metric_rows(observations, probes, timezone_name):
         for key, label in _NETWORK_METRICS:
             metric = metrics.get(key)
             if not isinstance(metric, dict):
-                continue
+                metric = {'state':'NOT_OBSERVED'}
             rows.append({
                 'origin': 'Sonda complementar autorizada',
                 'context': context,
@@ -244,13 +251,22 @@ def _network_metric_rows(observations, probes, timezone_name):
                 'value': _network_value(key, metric),
                 'provenance': public_value(metric.get('source') or item.get('measurement_origin'), 'provenance'),
                 'reason': _network_reason(metric),
+                'method': public_value((metric.get('value') or {}).get('method')
+                          if key == 'traceroute' and isinstance(metric.get('value'), dict)
+                          else item.get('method'), 'method'),
+                '_ref': '#network-probe-' + str(index),
             })
+    # ICMP traceroute responses are not a persisted standalone ping measurement.
+    rows.append({'indicator':'Ping / ICMP independente', 'state':'Sem fonte persistida',
+                 'value':None, 'reason':'Nenhum resultado de ping verificável nos registros de rede consultados. Saltos de traceroute não equivalem a ping.',
+                 'origin':'Inventário das fontes verificadas', 'method':'N/D',
+                 '_ref':'#network-evidence-inventory'})
     return sanitize(rows)
 
 
 def _network_hop_rows(probes, timezone_name):
     rows = []
-    for item in probes:
+    for index, item in enumerate(probes, 1):
         metrics = item.get('metrics') if isinstance(item, dict) else None
         trace = metrics.get('traceroute') if isinstance(metrics, dict) else None
         value = trace.get('value') if isinstance(trace, dict) and trace.get('state') == 'OBSERVED' else None
@@ -272,11 +288,56 @@ def _network_hop_rows(probes, timezone_name):
                 'rtt_samples': hop.get('rtt_samples_ms'),
                 'asn': _network_value('asn', enrichment.get('asn')),
                 'geoip': _network_value('geoip', enrichment.get('geoip')),
+                'method': public_value(value.get('method'), 'method'),
+                'protocol': value.get('probe_protocol'),
+                '_ref': '#network-probe-' + str(index),
             })
     return sanitize(rows)
 
 
-def network_context(root, audit_id, timezone_name):
+
+def _network_series_rows(probes, timezone_name):
+    """Summarize only comparable observations, never synthesize a network route."""
+    from collections import Counter
+    eligible = [
+        item for item in probes
+        if isinstance(item, dict)
+        and isinstance(item.get('hostname'), str)
+        and item.get('port') in (80, 443)
+        and isinstance(item.get('capture_utc'), str)
+    ]
+    counts = Counter((item['hostname'], item['port']) for item in eligible)
+    if not any(n >= 2 for n in counts.values()):
+        return []
+    output = []
+    for item in sorted(eligible, key=lambda x: (x['hostname'], x['port'], x['capture_utc'])):
+        if counts[(item['hostname'], item['port'])] < 2:
+            continue
+        metrics = item.get('metrics')
+        metrics = metrics if isinstance(metrics, dict) else {}
+        trace = metrics.get('traceroute')
+        trace = trace if isinstance(trace, dict) else {}
+        observed_trace = trace.get('value') if trace.get('state') == 'OBSERVED' else None
+        output.append({
+            'host': item['hostname'], 'port': item['port'],
+            'captured_at': public_value(item['capture_utc'], 'captured_at', timezone_name),
+            'state': item.get('state'),
+            'dns_state': (metrics.get('dns_resolution') or {}).get('state')
+            if isinstance(metrics.get('dns_resolution'), dict) else None,
+            'tcp_state': (metrics.get('tcp_handshake_ms') or {}).get('state')
+            if isinstance(metrics.get('tcp_handshake_ms'), dict) else None,
+            'tls_state': (metrics.get('tls_handshake_ms') or {}).get('state')
+            if isinstance(metrics.get('tls_handshake_ms'), dict) else None,
+            'trace_state': trace.get('state'),
+            'target_reached': (
+                'Sim' if observed_trace.get('target_reached') is True
+                else 'Não confirmado'
+            ) if isinstance(observed_trace, dict) else 'N/D',
+        })
+    return sanitize(output)
+
+
+def network_context(root, audit_id, timezone_name, *, primary=None):
     if not audit_id:
         return ('<p class="callout">Identidade da AUD indisponível; dados de rede permanecem N/D.</p>',
                 [], '<p class="callout">Sem Audit ID verificável; inventário de rede indisponível.</p>')
@@ -295,11 +356,29 @@ def network_context(root, audit_id, timezone_name):
                public_value(item.get('capture_utc'), 'captured_at', timezone_name))
               for item in probes]
 
+    def _observed_ip(item):
+        metric = (item.get('metrics') or {}).get('connected_public_ip') if isinstance(item, dict) else None
+        return isinstance(metric, dict) and metric.get('state') == 'OBSERVED' and bool(metric.get('value'))
+
+    passive_ip_count = sum(_observed_ip(item) for item in observations)
+    probe_ip_count = sum(_observed_ip(item) for item in probes)
+    trace_count = sum(
+        isinstance(item.get('metrics'), dict)
+        and isinstance(item['metrics'].get('traceroute'), dict)
+        and item['metrics']['traceroute'].get('state') == 'OBSERVED'
+        for item in probes if isinstance(item, dict)
+    )
     html = '<h2>Escopo e proveniência de rede</h2>' + kv([
         ('Capturas passivas verificadas', len(observations)),
         ('Sondas complementares autorizadas', len(probes)),
+        ('IP público observado', str(passive_ip_count) + ' captura(s) passiva(s); '
+         + str(probe_ip_count) + ' sonda(s) complementar(es)'),
+        ('Rastreamentos registrados', trace_count),
+        ('Origem da ausência de sonda',
+         'Não comprovada pelos registros desta AUD' if not probes else
+         'Há pacotes verificados; consultar estados de cada indicador'),
         ('Regra de interpretação', 'ausência de medição não é falha de conectividade'),
-        ('Mapa e rota visual', 'apresentado nesta página quando houver coordenadas verificáveis'),
+        ('Mapa e rota visual', 'mapa base sempre exibido; somente fontes com GeoIP verificado geram pontos'),
     ])
     html += ('<p class="callout w">Captura do navegador e sonda complementar são observações independentes, '
              'potencialmente feitas em instantes e ambientes diferentes. IP, rota e tempos não são inferidos entre elas.</p>')
@@ -309,14 +388,52 @@ def network_context(root, audit_id, timezone_name):
     if not observations:
         html += '<p>Captura passiva de rede verificável indisponível (N/D).</p>'
     if not probes:
-        html += '<p>Sonda complementar verificável indisponível (N/D). Isso não demonstra falha de conectividade.</p>'
+        html += ('<p>Sonda complementar verificável indisponível (N/D). '
+                 'Isso não demonstra falha de conectividade. Sem um pacote '
+                 'persistido, a apresentação não pode distinguir autorização '
+                 'ausente, despacho não concluído ou execução não materializada; '
+                 'nenhuma rota ou localização é inferida.</p>')
+
+    connections = []
+    for kind, entries in (('passive', observations), ('probe', probes)):
+        for index, item in enumerate(entries, 1):
+            metrics = item.get('metrics') if isinstance(item.get('metrics'), dict) else {}
+            connections.append({
+                'remote_ip': _network_value('connected_public_ip', metrics.get('connected_public_ip')),
+                'target': item.get('target_host') or item.get('hostname'),
+                'device': item.get('device'), 'captured_at': item.get('capture_utc'),
+                'http': _network_value('http_protocol', metrics.get('http_protocol')),
+                'tls': _network_value('tls_protocol', metrics.get('tls_protocol')),
+                'method': public_value(item.get('method'), 'method'),
+                'observation': item.get('observation_id') or item.get('series_id'),
+                'sha256': item.get('sha256'),
+                'provenance': (metrics.get('connected_public_ip') or {}).get('source') or item.get('measurement_origin'),
+                '_ref': '#network-' + kind + '-' + str(index),
+            })
+    connection_html = '<h2>Conexões e cronologia verificadas</h2>'
+    connection_html += '<p>O IP é o peer remoto observado, não o IP do usuário. O instante indica a captura; não mede latência ou RTT. Cada linha conserva sua própria origem.</p>'
+    for connection in sanitize(connections):
+        connection_html += kv([
+            (label, public_value(connection.get(key), key, timezone_name)) for key, label in (
+                ('remote_ip','IP remoto'),('target','Destino'),('device','Dispositivo'),
+                ('captured_at','Instante da captura'),('http','Protocolo HTTP'),('tls','Versão TLS'),
+                ('method','Método'),('provenance','Fonte'),('observation','Identificação da observação'),
+                ('sha256','SHA-256 da projeção verificada'))])
+        connection_html += '<p>' + technical_link(connection['_ref'], 'Consultar evidência desta conexão') + '</p>'
+    if not connections:
+        connection_html += '<p>N/D — nenhuma conexão verificável nas fontes disponíveis.</p>'
+    if primary is None:
+        html += connection_html
+    else:
+        primary['rede:primary'] = connection_html
 
     metric_rows = _network_metric_rows(observations, probes, timezone_name)
     html += '<h2>Indicadores observados</h2>' + table(
-        'Rede · fatos persistidos por origem', metric_rows,
+        'Rede · matriz de métodos, medições e disponibilidade', metric_rows,
         [('origin', 'Origem'), ('context', 'Contexto'), ('target', 'Destino'),
          ('captured_at', 'Instante'), ('indicator', 'Indicador'), ('state', 'Estado'),
-         ('value', 'Valor'), ('provenance', 'Fonte'), ('reason', 'Motivo / limite')])
+         ('value', 'Valor'), ('method','Método'), ('provenance', 'Fonte'),
+         ('reason', 'Motivo / limite'),('_ref','Evidência')])
     hop_rows = _network_hop_rows(probes, timezone_name)
     if hop_rows:
         html += '<h2>Etapas conhecidas do caminho</h2>' + table(
@@ -324,7 +441,22 @@ def network_context(root, audit_id, timezone_name):
             [('captured_at', 'Instante'), ('target', 'Destino'), ('hop', 'Salto'),
              ('hop_state', 'Situação'), ('public_ip', 'Endereço público'),
              ('rtt_ms', 'RTT (ms)'), ('rtt_samples', 'Amostras RTT'),
-             ('asn', 'ASN'), ('geoip', 'GeoIP aproximado')])
+             ('asn', 'ASN'), ('geoip', 'GeoIP aproximado'),
+             ('method','Método'),('protocol','Protocolo'),('_ref','Evidência')])
+    history = _network_series_rows(probes, timezone_name)
+    if history:
+        html += (
+            '<h2>Histórico comparável de sondagens</h2>'
+            '<p class="rf">Comparação somente entre medições do mesmo host e porta. '
+            'Estados e instantes são os persistidos; mudanças não demonstram '
+            'tendência, causalidade, disponibilidade global ou mesma rota física.</p>'
+            + table('Medições autorizadas por instante', history, [
+                ('host', 'Destino'), ('port', 'Porta'), ('captured_at', 'Instante'),
+                ('state', 'Estado da medição'), ('dns_state', 'DNS'),
+                ('tcp_state', 'TCP'), ('tls_state', 'TLS'),
+                ('trace_state', 'Traceroute'), ('target_reached', 'Alcançou destino'),
+            ])
+        )
     # Reuse the established offline map with exactly the verified probe objects.
     # Missing coordinates produce an explicit explanation, never a synthetic route.
     map_probes = sanitize(probes)
@@ -332,13 +464,18 @@ def network_context(root, audit_id, timezone_name):
         if isinstance(item, dict):
             item['capture_utc'] = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
     map_html = network_geographic_panel(map_probes)
+    has_map = '<h2>Mapa geográfico consultivo</h2>' in map_html
+    if not has_map:
+        # Render the real world basemap even when passive network telemetry
+        # contains a public peer IP but no persisted GeoIP coordinates.
+        # Never place a guessed point or infer a route from a bare IP address.
+        map_html = unlocated_world_map(observed_public_peers=passive_ip_count)
     # The existing map renderer embeds inline CSS for the catalog. Remove it
     # here so the executive report's restrictive offline CSP is respected.
     map_html = map_html.replace(
         "style='display:block;min-width:550px;max-width:100%;background:#f2f7fb'",
         "class='network-map-plot'",
     )
-    has_map = '<h2>Mapa geográfico consultivo</h2>' in map_html
     map_html = map_html.replace("<section class='panel'>",
                                 "<section class='panel' id='network-map'>", 1)
     html += map_html
@@ -373,7 +510,7 @@ def network_context(root, audit_id, timezone_name):
              'autorizadas. Não há dependência do catálogo técnico, nem inferência de '
              'topologia ou localização física dos equipamentos.</p>')
     map_status = ('Mapa geográfico aproximado disponível com coordenadas verificadas'
-                  if has_map else 'Mapa indisponível: nenhuma coordenada verificável persistida')
+                  if has_map else 'Mapa base disponível sem pontos: nenhuma coordenada verificável persistida')
     hop_status = ('Etapas de rede registradas em sondas autorizadas'
                   if hop_rows else 'Nenhum salto de rede verificável registrado')
     modal = (
@@ -404,13 +541,13 @@ def network_context(root, audit_id, timezone_name):
         'autorizadas. Os registros abaixo são sanitizados para apresentação; '
         'não representam novas medições nem substituem os artefatos originais.</p>'
     )
-    for label, entries in (
-        ('Captura passiva verificada', observations),
-        ('Sonda complementar autorizada', probes),
+    for kind, label, entries in (
+        ('passive', 'Captura passiva verificada', observations),
+        ('probe', 'Sonda complementar autorizada', probes),
     ):
         for position, row in enumerate(entries, 1):
             inventory += (
-                '<details><summary>' + text(label) + ' ' + str(position)
+                '<details id="network-' + kind + '-' + str(position) + '"><summary>' + text(label) + ' ' + str(position)
                 + ' de ' + str(len(entries)) + '</summary><pre>'
                 + text(json.dumps(presentation_timestamps(sanitize(row), timezone_name), ensure_ascii=False, indent=2, default=str))
                 + '</pre></details>'
@@ -424,7 +561,7 @@ def network_context(root, audit_id, timezone_name):
     return html, events, inventory
 
 
-def scope_context(root, raw_tables, timezone_name, costs):
+def scope_context(root, raw_tables, timezone_name, costs, capture_projection=None):
     tables = {name: sanitize(rows) for name, rows in raw_tables.items() if name in {
         'audit_targets', 'serp_observations', 'geo_observation_runs', 'perplexity_search_runs',
         'audits', 'audit_fulfillment_contracts', 'page_snapshots', 'synthetic_apdex_summaries',
@@ -435,8 +572,10 @@ def scope_context(root, raw_tables, timezone_name, costs):
     result = defaultdict(str)
     audit = next(iter(tables.get('audits', ())), {})
     local = lambda stamp: public_value(stamp, 'captured_at', timezone_name)
+    from .search_visibility_synthesis import render_search_visibility_synthesis
+    result[SEARCH_PAGE + ':primary'] = render_search_visibility_synthesis(root, raw_tables)
     result[SEARCH_PAGE] = search_context(root, tables)
-    review_html = editorial_evidence(root, tables)
+    review_html = editorial_evidence(root, tables, capture_projection)
     result['conteudo'] = review_html
     if review_html:
         result[SEARCH_PAGE] += ('<h2>Conteúdo observado e condições GEO/SEO</h2>'
@@ -456,7 +595,8 @@ def scope_context(root, raw_tables, timezone_name, costs):
         events.append(('Captura · ' + str(snap.get('device') or 'N/D'), local(snap.get('captured_at'))))
     for run in tables.get('perplexity_search_runs', ()):
         events.append(('Consulta Search API', local(run.get('started_at'))))
-    network_html, network_events, network_inventory = network_context(root, audit.get('audit_id'), timezone_name)
+    result['extracao'] += architecture_context(root, audit.get('audit_id'), timezone_name)
+    network_html, network_events, network_inventory = network_context(root, audit.get('audit_id'), timezone_name, primary=result)
     result['rede'] += network_html
     result['rede:inventory'] = network_inventory
     events.extend(network_events)
