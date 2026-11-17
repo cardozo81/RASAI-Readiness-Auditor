@@ -33,6 +33,8 @@ def _css_name_is_nonsecret(name):
 
 def _css_token_at(value, start, end, selector=False):
     token = value[start:end]
+    if token.startswith(CREDENTIAL_PREFIXES):
+        return False  # A selector field alone must never exempt known key prefixes.
     if selector and CSS_IDENT.fullmatch(value):
         return True  # Preserve the existing explicit selector-field contract.
     if not _css_name_is_nonsecret(token):
