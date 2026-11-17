@@ -63,7 +63,7 @@ def strategic_context(rows, governance):
     summary = _persisted_json(run.get('strategic_summary_json'), dict)
     roadmap = _persisted_json(run.get('roadmap_json'), list)
     if summary is None:
-        html += '<p>N/D — narrativa estratégica não materializada com contrato utilizável.</p>'
+        html += '<p>N/D — narrativa estratégica não disponível em formato verificável.</p>'
     else:
         for label, key in (
                 ('Pontos fortes', 'strengths'), ('Fragilidades', 'fragilities'),
