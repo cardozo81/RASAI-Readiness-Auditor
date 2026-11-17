@@ -671,6 +671,65 @@ def fractional_confidence_percentage(value: object) -> str:
         return "N/D"
 
 
+# Editorial module labels belong to the final HTML, not to persisted evidence.
+# Never rewrite technical payloads, HTML attributes, or source product names.
+_MODULE_LABELS = {
+    "M2": "descoberta e aquisição inicial",
+    "M3": "captura principal",
+    "M6": "análise de arquitetura da aplicação",
+    "M18": "análise semântica por IA",
+    "M20": "remediação textual por IA",
+    "M21": "coleta de Web Performance",
+    "M22": "avaliação de acessibilidade",
+    "M23": "Apdex de navegação",
+    "M24": "remediação técnica por IA",
+    "M25": "Apdex de experiência",
+}
+_MODULE_PHRASES = (
+    ("Classificação M6 persistida", "Classificação arquitetural registrada na auditoria"),
+    ("Classificação M6", "Classificação arquitetural observada"),
+    ("classificação M6", "classificação arquitetural observada"),
+    ("Captura M3", "Captura principal"),
+    ("Arquitetura M6", "Análise de arquitetura da aplicação"),
+    ("Configuração M25", "Configuração do Apdex de experiência"),
+    ("M18/M20", "análise semântica e remediação textual por IA"),
+    ("M21/M22", "Web Performance e acessibilidade"),
+    ("M21/M23", "Web Performance e Apdex de navegação"),
+    ("M23/M25", "Apdex de navegação e experiência"),
+    ("M3/M6", "captura e análise de arquitetura"),
+)
+_MODULE_CODE_RE = re.compile(
+    r"(?<![A-Za-z0-9_/-])M(?:[1-9]|[1-9][0-9])(?![A-Za-z0-9_/-])"
+)
+_MODULE_LITERAL_MODEL_RE = re.compile(
+    r"\b(?:produto|modelo|sku|código comercial|referência comercial|projeto)\s*$",
+    flags=re.IGNORECASE,
+)
+_MODULE_NAMED_CONTEXT_RE = re.compile(
+    r"\b(?:módulo|motor|etapa|medição|classificação|arquitetura|captura|apdex|relatório|configuração)\s*$",
+    flags=re.IGNORECASE,
+)
+
+
+def _humanize_internal_module_copy(visible: str) -> str:
+    """Convert internal module references while preserving third-party literals."""
+    for internal, readable in _MODULE_PHRASES:
+        visible = visible.replace(internal, readable)
+
+    def substitute(match: re.Match[str]) -> str:
+        preceding = visible[max(0, match.start() - 72):match.start()]
+        if _MODULE_LITERAL_MODEL_RE.search(preceding):
+            return match.group(0)
+        # Unrecognized module codes have no documented semantic title. Avoid
+        # inventing one, except where nearby wording proves an internal module.
+        return _MODULE_LABELS.get(
+            match.group(0),
+            "etapa técnica da auditoria" if _MODULE_NAMED_CONTEXT_RE.search(preceding) else match.group(0),
+        )
+
+    return _MODULE_CODE_RE.sub(substitute, visible)
+
+
 def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
     """Humanize visible report values without mutating persisted or code content.
 
@@ -739,14 +798,7 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
                 ("M20-CONTENT-REMEDIATION-v3", "Remediação editorial por IA · versão 3"),
             ):
                 visible = visible.replace(original, readable)
-            visible = re.sub(
-                r"(?<![A-Za-z0-9_])M(?:3|6)(?![A-Za-z0-9_])",
-                lambda match: {
-                    "M3": "captura principal",
-                    "M6": "análise de arquitetura da aplicação",
-                }[match.group(0)],
-                visible,
-            )
+            visible = _humanize_internal_module_copy(visible)
             visible = _standalone_concept_label(visible, page_name=page_name)
             output.append(_PUBLIC_TOKEN_RE.sub(_public_token_replacement, visible))
     return _VISIBLE_VALUE_RE.sub(isolated, "".join(output))
