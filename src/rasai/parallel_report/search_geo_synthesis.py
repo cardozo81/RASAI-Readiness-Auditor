@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from rasai.observability.store import observability_database_path
@@ -74,7 +75,7 @@ def _sidecar(root):
     path = observability_database_path(Path(root))
     if not path.is_file():
         return None, None
-    with sqlite3.connect(path.as_uri() + '?mode=ro', uri=True) as connection:
+    with closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True)) as connection:
         connection.row_factory = sqlite3.Row
         tables = {r[0] for r in connection.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")}
@@ -179,6 +180,9 @@ def _nonnegative_integer(value):
 def _competitive_summary(tables):
     analyses = [r for r in tables.get('serp_competitive_analyses', ())
                 if isinstance(r, dict)]
+    def reported_total(field):
+        values = [_nonnegative_integer(a.get(field)) for a in analyses]
+        return sum(values) if values and all(v is not None for v in values) else 'N/D'
     results = tables.get('serp_results')
     selected = [r for r in tables.get('serp_competitive_results', ())
                 if isinstance(r, dict) and
@@ -191,12 +195,10 @@ def _competitive_summary(tables):
          'value': len(selected) if tables.get('serp_competitive_results') is not None else 'N/D',
          'basis': 'serp_competitive_results'},
         {'indicator': 'Páginas externas com conteúdo observado',
-         'value': sum(_nonnegative_integer(a.get('observed_competitor_pages')) or 0
-                      for a in analyses) if analyses else 'N/D',
+         'value': reported_total('observed_competitor_pages'),
          'basis': 'serp_competitive_analyses.observed_competitor_pages'},
         {'indicator': 'Diferenças competitivas determinísticas',
-         'value': sum(_nonnegative_integer(a.get('gap_count')) or 0
-                      for a in analyses) if analyses else 'N/D',
+         'value': reported_total('gap_count'),
          'basis': 'serp_competitive_analyses.gap_count'},
     ]
 
