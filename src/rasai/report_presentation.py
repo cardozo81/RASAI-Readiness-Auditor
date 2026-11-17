@@ -760,7 +760,7 @@ _PRESENTATION_CATALOG_REF_RE = re.compile(
     re.IGNORECASE,
 )
 _PRESENTATION_CATALOG_GROUP_RE = re.compile(
-    r"(?<![A-Za-z0-9_./-])CAT-(?P<first>0[1-9]|10)/(?P<second>0[1-9]|10)"
+    r"(?<![A-Za-z0-9_./-])CAT-(?P<first>0[1-9]|10)/(?:CAT-)?(?P<second>0[1-9]|10)"
     r"(?![A-Za-z0-9_./-])",
     re.IGNORECASE,
 )
