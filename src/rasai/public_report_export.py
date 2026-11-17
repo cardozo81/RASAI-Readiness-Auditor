@@ -188,6 +188,8 @@ def _prepare(root: Path) -> tuple[dict[str, bytes], dict]:
         raise ValueError("exportação recusada: comprovação de origem inválida") from error
     if assurance.get("global_output_security", {}).get("passed") is not True:
         raise ValueError("exportação recusada: segurança da projeção não aprovada")
+    if source_manifest.get("freshness") != "FINAL":
+        raise ValueError("exportação recusada: relatório canônico não final")
     recorded = source_manifest.get("packaged_files", [])
     if not isinstance(recorded, list):
         raise ValueError("exportação recusada: inventário de origem inválido")
@@ -240,6 +242,8 @@ def verify_public_catalog_export(zip_path: str | Path) -> tuple[bool, tuple[str,
     """Verify a candidate using only its own archive, inventory and content."""
     try:
         with ZipFile(zip_path) as archive:
+            if archive.comment:
+                raise ValueError("comentário ZIP não inventariado")
             entries = archive.infolist()
             names = [entry.filename for entry in entries]
             if (len(names) != len(set(name.casefold() for name in names)) or
@@ -247,7 +251,7 @@ def verify_public_catalog_export(zip_path: str | Path) -> tuple[bool, tuple[str,
                         not _safe_path(name) or
                         (name != MANIFEST and not _exportable(name)) or
                         stat.S_IFMT(entry.external_attr >> 16) == stat.S_IFLNK or
-                        entry.file_size > _MAX_FILE
+                        entry.file_size > _MAX_FILE or bool(entry.extra) or bool(entry.comment)
                         for name, entry in zip(names, entries)
                     )):
                 raise ValueError("inventário do arquivo ZIP inválido")
@@ -265,8 +269,8 @@ def verify_public_catalog_export(zip_path: str | Path) -> tuple[bool, tuple[str,
                 if not isinstance(record, dict):
                     raise ValueError("registro de exportação inválido")
                 name = record.get("path")
-                if not isinstance(name, str) or name in declared:
-                    raise ValueError("registro de exportação duplicado")
+                if not isinstance(name, str) or name in declared or not _exportable(name):
+                    raise ValueError("registro de exportação inválido/duplicado")
                 declared[name] = record
             if set(names) != set(declared) | {MANIFEST}:
                 raise ValueError("inventário da exportação divergente")
@@ -288,6 +292,8 @@ def verify_public_catalog_export(zip_path: str | Path) -> tuple[bool, tuple[str,
 
 def export_public_catalog(report_dir: str | Path, destination: str | Path) -> Path:
     """Prepare a deterministic, self-verifiable candidate; never publish it."""
+    if Path(report_dir).is_symlink():
+        raise ValueError("origem com symlink não permitida")
     source = Path(report_dir).resolve()
     output = Path(destination).absolute()
     if output.suffix.casefold() != ".zip" or not output.parent.is_dir():
