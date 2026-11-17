@@ -113,7 +113,8 @@ def test_absent_contract_never_implies_complete_or_failure():
     rows = {'audits': [{'status':'FAILED'}]}
     html, receipt = build_execution_context(rows, receipt_with_network())
     assert receipt['contract_available'] is False
-    assert 'Contrato de cumprimento não materializado' in html['index:execution']
+    assert 'Critérios de conclusão da auditoria não registrados' in html['index:execution']
+    assert 'Contrato de cumprimento' not in html['index:execution']
     assert 'Sem requisito registrado' in html['seguranca:execution']
     assert 'Não inferir conclusão, falha ou solicitação' in html['seguranca:execution']
     assert 'Solicitado, não executado' not in html['seguranca:execution']
