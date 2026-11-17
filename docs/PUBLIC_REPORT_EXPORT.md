@@ -23,7 +23,7 @@ O comando **não transmite** dados e não gera nova análise nem nova auditoria.
 
 ### Controles fail-closed
 
-1. Verifica a origem pelo verificador canônico de pacote, `manifest.json`, inventário exato e `integrity/catalog-assurance.json` com `global_output_security.passed=true`. Não considera essa flag aprovação pública por si só.
+1. Verifica a origem pelo verificador canônico de pacote, `manifest.json`, inventário exato, digest lógico de equivalência entre fonte e snapshot final (pacotes históricos sem essa prova são recusados) e `integrity/catalog-assurance.json` com `global_output_security.passed=true`. Não considera essa flag aprovação pública por si só.
 2. Rejeita links relativos quebrados, âncoras inexistentes, caminhos fora do pacote, links de recursos remotos ativos, iframes/embeds, redirecionamento automático, CSS `@import` e `srcset` sem inspeção apropriada.
 3. Rejeita symlinks, caminhos ocultos/duvidosos, arquivos não inventariados, candidatos com dados não UTF-8, NUL e limites de tamanho excedidos.
 4. Inclui apenas extensões textuais explicitamente permitidas: `.html`, `.css`, `.txt`, `.md` e `.json`. JavaScript externo não é exportado: cada HTML deve conter exclusivamente o script de interface original e idêntico ao código canônico de navegação/modais; scripts adicionais, atributos executáveis, formulários, SVG/embeds e importações CSS ativas são recusados. O diretório `integrity/` inteiro, o `manifest.json` interno, bancos SQLite, dumps binários e quaisquer outros formatos são **excluídos**. Se o HTML depender de um arquivo excluído, a exportação é recusada em vez de gerar um relatório quebrado.
