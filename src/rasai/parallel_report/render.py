@@ -270,7 +270,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
                 body += ('<tr><td>' + esc(public_label(name)) + '</td><td>' +
                          str(count) + '</td><td><a class="tech-link" href="' +
                          esc(target) + '" aria-label="Detalhe: ' +
-                         esc(public_label(name)) + ' · ' + esc(destination_page) +
+                         esc(public_label(name)) + ' · ' + esc(name) + ' · ' + esc(destination_page) +
                          '">Abrir registros da fonte</a></td></tr>')
             body += '</tbody></table></div>'
         inventory_anchor = ' id="network-evidence-inventory"' if page == 'rede' else ''
