@@ -6,6 +6,7 @@ from rasai.catalog_report_public_labels import public_label
 from datetime import datetime, timezone
 import hashlib
 import json
+import logging
 from pathlib import Path
 import shutil
 import sqlite3
@@ -952,6 +953,26 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
                         audit_id=audit_id, workspace=workspace, report_dir=quarantine,
                     )):
                 quarantine.replace(report_dir)
+        elif report_dir.exists() or report_dir.is_symlink():
+            # The earlier package remained visible throughout rendering. If
+            # optional evidence changed, it is now stale and must not retain
+            # the public entrypoint; retain the bytes in quarantine instead.
+            try:
+                still_fresh = catalog_report_is_fresh(
+                    audit_id=audit_id, workspace=workspace, report_dir=report_dir,
+                )
+            except (OSError, ValueError, RuntimeError, sqlite3.Error):
+                still_fresh = False
+            if not still_fresh:
+                try:
+                    report_dir.replace(quarantine)
+                except OSError as quarantine_error:
+                    logging.getLogger(__name__).warning(
+                        "Stale catalog could not be quarantined: %s",
+                        type(quarantine_error).__name__,
+                    )
+                    # The independent integrity/freshness gate still rejects
+                    # this stale visible package; do not mask the original error.
         raise
 
     end_source_dependency_capture(dependency_token)

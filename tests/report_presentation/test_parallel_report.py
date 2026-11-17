@@ -442,6 +442,24 @@ def test_corrupt_package_is_regenerated(tmp_path):
     assert digest(page) == previous
 
 
+def test_catalog_rebuild_does_not_invalidate_independent_presentation(tmp_path, monkeypatch):
+    from rasai.parallel_report import generator
+
+    root = fixture(tmp_path / 'AUD-SYNTHETIC')
+    package = generate(root)
+    first = (package / '_geracao.json').read_bytes()
+    assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()
+
+    # The catalog is only a derived sibling, not a presentation source.
+    (root / 'report-catalog' / 'integrity' / 'audit-snapshot.db').unlink()
+    (root / 'report-catalog' / 'index.html').write_text('new catalog output', encoding='utf-8')
+    assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()
+
+    monkeypatch.setattr(generator, 'render', lambda *_: pytest.fail('catalog-only refresh re-rendered presentation'))
+    assert generate(root) == package
+    assert (package / '_geracao.json').read_bytes() == first
+
+
 def test_presentation_freshness_uses_logical_sqlite_digest(tmp_path):
     root = fixture(tmp_path / 'audit')
     output = generate(root)
