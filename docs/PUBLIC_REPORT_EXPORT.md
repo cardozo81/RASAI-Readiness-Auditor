@@ -19,6 +19,20 @@ Exemplo Windows PowerShell, com pasta do relatório real existente e **ZIP de sa
 & .\.venv\Scripts\python.exe -B -m rasai.public_report_export --catalog-dir "C:\IA-PROJETOS\github\RASAI-Readiness-Auditor\audits\AUD-EXEMPLO\report-catalog" --output "$HOME\Downloads\RASAI_EXPORT_CANDIDATO_AUD_EXEMPLO.zip"
 ```
 
+### Prévia parcial quando a fonte contém páginas não divulgáveis
+
+Por padrão, o exportador continua **fail-closed**: qualquer dado sensível ou incompatibilidade HTML interrompe a exportação. Para inspeção privada, existe o modo **explicitamente opt-in**, que substitui páginas inteiras não publicáveis por avisos inertes, sem tentar limpar ou reconstruir seletivamente os dados:
+
+```powershell
+& .\.venv\Scripts\python.exe -B -m rasai.public_report_export --catalog-dir "C:\IA-PROJETOS\github\RASAI-Readiness-Auditor\audits\AUD-EXEMPLO\report-catalog" --output "$HOME\Downloads\RASAI_PREVIA_PARCIAL_AUD_EXEMPLO.zip" --withhold-unsafe-pages
+```
+
+- Somente até **cinco páginas HTML canônicas**, nunca `index.html`, podem ser retidas. CSS e demais arquivos com conteúdo inseguro mantêm bloqueio total.
+- As páginas retidas **não são exportadas**: seus bytes são substituídos por avisos explícitos; âncoras locais referenciadas a partir de outras páginas elegíveis são reconstruídas apenas como destinos inertes para não quebrar a navegação.
+- O arquivo `export-manifest.json` declara `export_mode=withheld-pages-review-only` e a lista nominal `withheld_pages`. Cada HTML original não retido é preservado byte a byte e continua sujeito aos mesmos gates de segurança.
+- **Uma prévia parcial não é homologação de conteúdo, relatório completo nem autorização de publicação**. Mesmo que o comando produza ZIP verificável, cabe revisão humana de todos os arquivos incluídos. Para exibir fatos da página omitida, consulte somente o catálogo interno original.
+- O comando não executa chamadas de IA, coleta, HTTP, reprocessamento ou escrita no AUD; o catálogo canônico e sua apresentação permanecem íntegros.
+
 O comando **não transmite** dados e não gera nova análise nem nova auditoria. `EXPORT_CANDIDATE=READY_FOR_PRIVACY_REVIEW` significa apenas que as barreiras técnicas passam - não é uma decisão de liberação externa.
 
 ### Controles fail-closed
