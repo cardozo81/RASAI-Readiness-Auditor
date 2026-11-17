@@ -1,6 +1,6 @@
 # Guia do usuário
 
-Guia operacional do RASAi - Search & AI Readiness Auditor para execução local, configuração do console e leitura dos resultados.
+Guia operacional do RASAi - Search & AI Readiness Auditor para execução local, configuração do console e leitura dos resultados. Descreve os contratos vigentes na `main`; a release pública [`v0.10.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0) é uma tag distinta e pode não incluir correções posteriores.
 
 ## Instalação local no Windows
 
@@ -70,6 +70,7 @@ CAT-06 Apdex de navegação
 CAT-07 Apdex de experiência
 CAT-08 Análise profunda e melhorias
 CAT-09 Remediações
+CAT-10 Segurança passiva
 ```
 
 Selecionar um catálogo abre suas opções imediatamente. O operador não precisa atravessar uma sequência fixa de telas.
@@ -135,9 +136,9 @@ OPTIONAL
 REQUIRED
 ```
 
-`CAT-03` pode usar IA para análise semântica/contextual; `CAT-08` usa IA como requisito de fechamento da análise profunda; `CAT-09` pode usar IA para enriquecimento de remediações. Selecionar Acessibilidade, Web Performance, Search & AI Intelligence ou Apdex não ativa IA por si só. IA advisory não altera evidência/scoring determinístico.
+`CAT-03` pode usar IA para análise semântica/contextual; `CAT-05` tem IA competitiva opcional, sob opt-in e com comparação determinística habilitada; `CAT-08` usa IA como requisito de fechamento da análise profunda; `CAT-09` pode usar IA para remediações; `CAT-10` pode usar IA opcional para interpretação/remediação de segurança. Selecionar `CAT-01`, `CAT-02`, `CAT-04`, `CAT-06` ou `CAT-07` não aciona IA por seleção, e selecionar `CAT-05` não ativa sozinho a IA principal. Visibilidade em IA observada por integração não equivale a interpretação pela IA principal. IA advisory não altera evidência/scoring determinístico.
 
-Quando somente `CAT-03` e/ou `CAT-09` tornam IA possível, o plano começa em **Executar sem IA (recomendado)**. Se a IA principal estiver configurada, use `U. Executar com IA` para ativar o enriquecimento na próxima auditoria. Ao ativar IA, a previsão de consumo/custo aparece no fluxo canônico antes da escolha final entre executar com IA ou sem IA. Com `CAT-08`, a IA é obrigatória para o fechamento integral, mas sua ausência não impede a parte determinística nem a materialização do relatório.
+Quando somente recursos de IA opcionais estiverem no plano (`CAT-03`, `CAT-05` competitivo, `CAT-09` e/ou `CAT-10`), o plano começa em **Executar sem IA (recomendado)**. Se a IA principal estiver configurada, use `U. Executar com IA` para ativar o enriquecimento na próxima auditoria. Ao ativar IA, a previsão de consumo/custo aparece no fluxo canônico antes da escolha final entre executar com IA ou sem IA. Com `CAT-08`, a IA é obrigatória para o fechamento integral, mas sua ausência não impede a parte determinística nem a materialização do relatório.
 
 AUTO mantém a política existente de custo, elegibilidade, disponibilidade, quarentena, circuit breaker, fallback e limite de tentativas.
 
@@ -199,6 +200,10 @@ Selecionar `CAT-07` não ativa IA. Qualquer correlação por IA pertence aos cat
 
 `CAT-09` transforma achados em ações técnicas/editoriais rastreáveis. Remediações determinísticas continuam válidas sem IA; IA pode enriquecer contextualização/exemplos sem alterar scoring por opinião.
 
+## Segurança passiva
+
+`CAT-10` usa evidências HTTP/browser/runtime já capturadas, incluindo headers, cookies, recursos e terceiros. Enriquecimentos OSV/KEV são externos e podem ficar indisponíveis sem caracterizar vulnerabilidade no alvo. Não executa exploração ativa; interpretação por IA é opcional e usa a configuração principal, quando autorizada. Consulte [contrato do catálogo](AUDIT_CATALOG_WORKFLOW.md) e [superfícies de relatório](CATALOG_AND_REPORT_SURFACES.md).
+
 ## Integrações e serviços
 
 Use essa superfície para configurar GSC, SERP, PageSpeed/Lighthouse, CrUX, observabilidade e demais serviços publicados no catálogo técnico.
@@ -211,15 +216,19 @@ Cada variável deve informar finalidade, owner, contexto, valor/origem, estado, 
 
 ## Auditorias e histórico
 
-Carregar configuração de um `AUD-*` prepara **nova execução**; o AUD de origem não é alterado. Credenciais não são copiadas.
+Carregar configuração de um `AUD-*` prepara **nova execução** (`AUD-*` novo); o AUD de origem não é alterado e credenciais não são copiadas. Quando o snapshot contém `audit_catalog`, a lista `CAT-*` é restaurada junto da configuração não sensível.
 
-Quando o snapshot contém `audit_catalog`, a lista `CAT-*` é restaurada junto da configuração não sensível.
+Operações distintas sobre uma auditoria existente:
 
-Reprocessamento continua sendo outra operação: ele completa pendências do mesmo AUD segundo os contratos atuais.
+- **Reprocessar pendências (`RPR-*`)**: recupera requisitos ainda não atendidos do contrato do mesmo `AUD-*`, preservando os resultados válidos; uma AUD já `COMPLETE` não ganha novas pendências apenas por abrir RPR.
+- **Complementar auditoria**: adiciona ao mesmo `AUD-*` catálogos ainda não solicitados, como extensão aditiva associada a um `RPR-*`, sem reconfigurar catálogos concluídos. Novas coletas live dependem da janela temporal válida; catálogos replay-safe podem reutilizar fontes persistidas.
+- **Criar nova AUD**: refaz uma observação independente, necessária quando o escopo ou a validade temporal não permitem complemento legítimo.
+
+Consulte o [contrato de reprocessamento e complemento](AUDIT_REPROCESSING.md) antes de escolher a operação.
 
 ## Relatórios
 
-A estrutura `CAT-*` é persistida agora para permitir correspondência futura nos HTMLs. A mudança visual completa dos relatórios não faz parte desta etapa.
+Os resultados persistidos alimentam **dois relatórios offline independentes**: `report-catalog` (inventário técnico e CAT-01..CAT-10) e `report-presentation` (leitura executiva). Ambos consomem a mesma fonte de verdade, sem depender do HTML um do outro e sem acionar IA para recriar fatos materializados. A publicação automática ocorre no fluxo de conclusão de auditoria conforme os contratos vigentes; `A` abre a apresentação e `I` abre o catálogo. A existência do HTML não prova, isoladamente, completude dos dados da AUD. Consulte [superfícies dos relatórios](CATALOG_AND_REPORT_SURFACES.md) e [guia de relatórios](REPORT_GUIDE.md).
 
 A direção de UX é manter equivalência semântica:
 
@@ -231,12 +240,16 @@ Leia sempre separadamente medição determinística, indisponibilidade de fonte,
 
 ## CLI básica
 
-O catálogo descrito neste documento é uma UX do `rasai-console`. A CLI tradicional mantém seus contratos próprios.
+O catálogo descrito neste documento é uma UX do `rasai-console`. A CLI tradicional mantém seus contratos próprios. Exemplos de **chamadas diretas à CLI** no PowerShell:
 
 ```powershell
 rasai audit https://example.com --project "Exemplo"
-rasai audit https://example.com --device-context desktop
+rasai audit https://example.com --device-context desktop --ai-provider none
+rasai reprocess AUD-EXEMPLO --audits-root audits
+rasai consolidate AUD-BASE AUD-ATUAL --audits-root audits --selection-mode ALL
 ```
+
+Use IDs reais nas duas últimas operações e consulte a [referência CLI](CLI_REFERENCE.md) para seleção de itens/IA. Isso **não** torna a saída de `M. Ver linha de comando` compatível com PowerShell: o modo Windows atual dessa ação gera sintaxe `cmd.exe`/`.cmd`, com limitações de escape documentadas em [execução externa](EXECUTION_SCHEDULING.md) e na [issue #713](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/713).
 
 ## Segurança
 
@@ -250,6 +263,10 @@ rasai audit https://example.com --device-context desktop
 ## Documentos relacionados
 
 - [AUDIT_CATALOG_WORKFLOW.md](AUDIT_CATALOG_WORKFLOW.md)
+- [AUDIT_REPROCESSING.md](AUDIT_REPROCESSING.md)
+- [EXECUTION_SCHEDULING.md](EXECUTION_SCHEDULING.md)
+- [CLI_REFERENCE.md](CLI_REFERENCE.md)
+- [REPORT_GUIDE.md](REPORT_GUIDE.md)
 - [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
 - [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md)
 - [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md)
