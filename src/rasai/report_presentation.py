@@ -740,6 +740,36 @@ def _humanize_internal_module_copy(visible: str) -> str:
     return _MODULE_CODE_RE.sub(substitute, visible)
 
 
+def humanize_module_references_html(html: str) -> str:
+    """Humanize only module names in visible editorial text.
+
+    The independent presentation already owns its timestamps, enums and
+    formatting. Reusing the broader report humanizer here would unintentionally
+    change those semantics. Literal HTML, code, technical annexes and escaped
+    captured DOM are deliberately untouched.
+    """
+    parts = _TAG_SPLIT_RE.split(html)
+    result: list[str] = []
+    blocked_depth = 0
+    for part in parts:
+        if part.startswith("<"):
+            if re.match(r"<(?:script|style|pre|code)\b", part, flags=re.IGNORECASE):
+                blocked_depth += 1
+            elif re.match(r"</(?:script|style|pre|code)\b", part, flags=re.IGNORECASE):
+                blocked_depth = max(0, blocked_depth - 1)
+            result.append(part)
+            continue
+        if blocked_depth:
+            result.append(part)
+            continue
+        pieces = _ESCAPED_DOM_TAG_RE.split(part)
+        for position, fragment in enumerate(pieces):
+            # Preserve escaped DOM snippets, including text between tag pairs.
+            literal = position % 2 == 1 or 0 < position < len(pieces) - 1
+            result.append(fragment if literal else _humanize_internal_module_copy(fragment))
+    return "".join(result)
+
+
 def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
     """Humanize visible report values without mutating persisted or code content.
 
