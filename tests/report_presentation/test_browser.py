@@ -29,8 +29,14 @@ def test_browser_offline(tmp_path):
                 page.goto(path.as_uri())
                 assert page.locator('nav[aria-label="Páginas"] a').count() == 11
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), path.name
+                # The theme is persisted across pages. A click must invert the
+                # *current* effective choice, not always force dark mode.
+                was_dark = page.evaluate('''() => document.body.classList.contains("dark") ||
+                    (!document.body.classList.contains("light") &&
+                     matchMedia("(prefers-color-scheme: dark)").matches)''')
                 page.locator('#theme').click()
-                assert page.locator('body').evaluate('(e) => e.classList.contains("dark")')
+                assert page.locator('body').evaluate('(e) => e.classList.contains("dark")') is (not was_dark)
+                assert page.locator('body').evaluate('(e) => e.classList.contains("light")') is was_dark
                 page.locator('#expand').click()
                 assert page.locator('details:not([open])').count() == 0
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (path.name,'expanded')
