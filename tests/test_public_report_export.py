@@ -197,3 +197,32 @@ def test_export_textual_attachment_must_be_utf8_and_no_embedded_null(tmp_path: P
     (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ValueError, match="recusada"):
         export_public_catalog(root, tmp_path / "blocked.zip")
+
+
+def test_export_verifier_rejects_uninventoried_zip_comment(tmp_path: Path) -> None:
+    root = catalog_fixture(tmp_path)
+    exported = export_public_catalog(root, tmp_path / "public.zip")
+    with ZipFile(exported, "a") as archive:
+        archive.comment = b"unmanifested metadata"
+    assert verify_public_catalog_export(exported)[0] is False
+
+
+def test_export_rejects_nonfinal_source_even_if_hashes_are_valid(tmp_path: Path) -> None:
+    root = catalog_fixture(tmp_path)
+    path = root / "manifest.json"
+    metadata = json.loads(path.read_text(encoding="utf-8"))
+    metadata["freshness"] = "PARTIAL"
+    path.write_text(json.dumps(metadata), encoding="utf-8")
+    with pytest.raises(ValueError, match="não final"):
+        export_public_catalog(root, tmp_path / "blocked.zip")
+
+
+def test_export_rejects_symlinked_source_root(tmp_path: Path) -> None:
+    root = catalog_fixture(tmp_path)
+    alias = tmp_path / "alias"
+    try:
+        alias.symlink_to(root, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink unavailable in this runtime")
+    with pytest.raises(ValueError, match="symlink"):
+        export_public_catalog(alias, tmp_path / "blocked.zip")
