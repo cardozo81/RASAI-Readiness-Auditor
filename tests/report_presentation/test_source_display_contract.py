@@ -203,3 +203,33 @@ def test_generated_html_uses_content_hashed_json_for_record_payloads():
     for filename, content in attached.items():
         assert filename == sha256(content).hexdigest() + '.json'
         assert isinstance(json.loads(content), dict)
+
+def test_panel_has_source_links_and_technical_ledgers_remain_in_origin_pages():
+    from hashlib import sha256
+    from rasai.parallel_report.read_model import destination
+    from rasai.parallel_report.render import render
+
+    assert destination('audit_input_urls') == 'extracao'
+    assert destination('audit_fulfillment_work_items') == 'ia-custos'
+    assert destination('audit_reprocess_derived_archive') == 'ia-custos'
+    assert destination('audits') == 'index'
+
+    tables = {
+        'audits': [{'audit_id': 'AUD-SYNTHETIC'}],
+        'audit_input_urls': [{'position': 1, 'input_url': 'https://example.org'}],
+        'audit_reprocess_runs': [{'reprocess_id': 'RPR-X', 'status': 'SUCCESS'}],
+    }
+    records, _ = model(tables)
+    links = {record.href: () for record in records}
+    pages = render(records, links, tables, [], [], reconcile(tables),
+                   {'status': 'NOT_VERIFIED'}, load(), [])
+    for name, rows in tables.items():
+        page = destination(name)
+        target = (page + '.html#source-' +
+                  sha256(name.encode()).hexdigest()[:12])
+        assert 'href="' + target + '"' in pages['index.html']
+        assert 'id="source-' + sha256(name.encode()).hexdigest()[:12] + '"' in pages[page + '.html']
+    assert 'RPR-X' in pages['ia-custos.html']
+    assert 'record-' + sha256(json.dumps(['audit_reprocess_runs', 0],
+                    sort_keys=True).encode()).hexdigest()[:24] in pages['ia-custos.html']
+    assert 'RPR-X' not in pages['index.html'].split('Inventário integral de registros e anexos', 1)[-1]
