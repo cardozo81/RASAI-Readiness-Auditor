@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from . import __version__
 from .artifact_reader import confined, inventory, tree_digest, digest
-from .sqlite_reader import read_database, quiescent
+from .sqlite_reader import read_database, quiescent, logical_digest
 from .read_model import build, destination
 from .crossrefs import link_records
 from .cost_reconciliation import reconcile
@@ -24,8 +24,6 @@ EXPECTED = ('audits', 'page_snapshots', 'evidence', 'scores', 'findings', 'direc
 
 
 def generate(audit_dir):
-    from rasai.catalog_report_site import _sqlite_logical_digest
-
     root = Path(audit_dir).resolve(strict=True)
     database = confined(root, 'audit.db')
     quiescent(database)
@@ -33,7 +31,7 @@ def generate(audit_dir):
     with publication_work(root) as (stage, previous):
         quiescent(database)
         before = inventory(root)
-        logical_before = _sqlite_logical_digest(database)
+        logical_before = logical_digest(database)
         historical = historical_directories(base)
         package = find_package(base, historical, before, logical_before)
         if package is not None and package[0] == base and not historical:
@@ -49,7 +47,7 @@ def generate(audit_dir):
                 shutil.copy2(confined(directory, name), target)
         after = inventory(root)
         quiescent(database)
-        if before != after or logical_before != _sqlite_logical_digest(database):
+        if before != after or logical_before != logical_digest(database):
             raise RuntimeError('Source changed before presentation publication')
         if package is None:
             manifest['source_tree_digest_after'] = tree_digest(after)
@@ -230,7 +228,6 @@ def _render_package(root, database, before, logical_before, output):
         'generated_at': generated_at, 'timezone': 'UTC',
         'source_db_relative_path': 'audit.db', 'source_db_sha256': before['audit.db'],
         'source_db_logical_sha256': logical_before,
-        'report_catalog_tree_digest': tree_digest(before, 'report-catalog/'),
         'source_tree_digest_before': tree_digest(before),
         'source_inventory': before, 'tables_read': list(tables),
         'columns_read': {name: item['columns'] for name, item in schema.items()},
