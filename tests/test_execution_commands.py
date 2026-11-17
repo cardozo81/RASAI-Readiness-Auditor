@@ -189,7 +189,13 @@ def _probe(tmp_path: Path, args: tuple[str, ...], *, env_value: str) -> tuple[co
 def test_real_windows_cmd_roundtrip(tmp_path: Path, args: tuple[str, ...], env_value: str) -> None:
     plan, result = _probe(tmp_path, args, env_value=env_value)
     command = commands._copyable_command(commands.render(plan, "windows"), "windows")
-    subprocess.run(["cmd.exe", "/d", "/v:off", "/c", command],
+    # Windows subprocess(list) applies CRT quoting intended for *argv* to the
+    # /c payload; cmd.exe then sees literal backslash-escaped quotes. A .cmd
+    # file is the supported scheduler surface and exercises its actual parser.
+    batch = tmp_path / "rasai-stub.cmd"
+    batch.write_text("@echo off\nsetlocal DisableDelayedExpansion\n" +
+                     command + "\n", encoding="ascii")
+    subprocess.run(["cmd.exe", "/d", "/v:off", "/c", str(batch)],
                    check=True, cwd=tmp_path, timeout=30)
     actual = json.loads(result.read_text(encoding="utf-8"))
     assert actual == {"argv": list(args), "env": env_value}
