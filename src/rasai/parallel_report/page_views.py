@@ -250,6 +250,48 @@ def editorial(page, records, costs, thresholds, governance=None):
             html += local_table('Contagens por categoria de erro', [
                 {'error_code': name, 'count': amount} for name, amount in sorted(by_error.items())
             ], [('error_code', 'Código'), ('count', 'Tentativas')])
+    if page == 'seguranca':
+        platforms = rows(['passive_security_platforms'])
+        if platforms:
+            import json
+            visible = []
+            for platform in platforms:
+                identifiers = platform.get('identifiers_json')
+                if isinstance(identifiers, str):
+                    try:
+                        identifiers = json.loads(identifiers)
+                    except (TypeError, ValueError):
+                        identifiers = []
+                identifiers = identifiers if isinstance(identifiers, list) else []
+                safe_identifiers = []
+                for identifier in identifiers:
+                    if not isinstance(identifier, dict):
+                        continue
+                    if identifier.get('identifier_class') == 'PUBLIC_IDENTIFIER':
+                        safe_identifiers.append(identifier.get('identifier_display') or 'N/D')
+                    else:
+                        safe_identifiers.append(identifier.get('identifier_hash') or 'N/D')
+                refs = platform.get('evidence_ids_json')
+                if isinstance(refs, str):
+                    try:
+                        refs = json.loads(refs)
+                    except (TypeError, ValueError):
+                        refs = []
+                refs = refs if isinstance(refs, list) else []
+                visible.append({
+                    'platform_name': platform.get('platform_name'),
+                    'confidence': platform.get('confidence'),
+                    'identifiers': ' · '.join(map(str, safe_identifiers)) or 'N/D',
+                    'evidence_ids': ' · '.join(map(str, refs)) or 'N/D',
+                    '_ref': platform['_ref'],
+                })
+            html += '<h2>Plataformas e identificadores públicos</h2>'
+            html += '<p class="rf">Somente identificadores classificados PUBLIC_IDENTIFIER aparecem em texto. Outras classes são exibidas por hash, conforme persistido.</p>'
+            html += local_table('Plataformas de segurança passiva registradas', visible, [
+                ('platform_name', 'Plataforma'), ('confidence', 'Confiança'),
+                ('identifiers', 'Identificadores públicos ou hash'),
+                ('evidence_ids', 'Evidências vinculadas'), ('_ref', 'Detalhe técnico')
+            ])
     for title, names, columns in ([] if page == 'plano' else SECTIONS.get(page, [])):
         if page == 'ia-custos' and not rows(names):
             continue  # absence is explained above; populated telemetry retains its full tables
