@@ -93,12 +93,14 @@ def test_reprocessing_history_two_rows_and_archived_receipt():
         ],
         'audit_reprocess_derived_archive': [{'archive_id': f'AR-{i}'} for i in range(271)],
     }
-    pages, _ = build_execution_context(tables, {'pages': {}})
+    from rasai.parallel_report.annex_payloads import collect_payloads
+    with collect_payloads() as annex:
+        pages, _ = build_execution_context(tables, {'pages': {}})
     panel = pages['index:execution']
     assert 'Histórico de execução — 2 reprocessamentos' in panel
     assert 'RPR-A' in panel and 'RPR-B' in panel
     assert 'Registros derivados arquivados: 271' in panel
-    assert 'selected_items' in panel
+    assert any('selected_items' in payload.decode('utf-8') for payload in annex.values())
     assert 'anexos/' in panel
 
 
