@@ -101,6 +101,9 @@ def test_export_is_isolated_deterministic_and_excludes_entire_sqlite(tmp_path: P
     assert first.read_bytes() == second.read_bytes()
     assert verify_public_catalog_export(first) == (True, ())
     with ZipFile(first) as archive:
+        # The external candidate has one root index.html. Other independent
+        # report trees may each have their own index.html outside this ZIP.
+        assert archive.namelist().count("index.html") == 1
         names = set(archive.namelist())
         assert names == {
             MANIFEST, "index.html", "details.html", "css/site.css", "attachment.txt"
@@ -185,9 +188,12 @@ def test_export_verifier_rejects_zip_extra_files_and_tampering(tmp_path: Path) -
 def test_export_verifier_rejects_hashed_text_modified_in_zip(tmp_path: Path) -> None:
     root = catalog_fixture(tmp_path)
     exported = export_public_catalog(root, tmp_path / "public.zip")
-    with ZipFile(exported, "a") as archive:
-        # Duplicate member is not a legitimate replacement.
-        archive.writestr("index.html", "<h1>tampered</h1>")
+    # Intentional adversarial fixture: duplicating the *same ZIP member*
+    # must be refused. This is unrelated to independent report-presentation
+    # and report-catalog index.html files living in separate directories.
+    with pytest.warns(UserWarning, match="Duplicate name"):
+        with ZipFile(exported, "a") as archive:
+            archive.writestr("index.html", "<h1>tampered</h1>")
     ok, failures = verify_public_catalog_export(exported)
     assert not ok and failures
 
