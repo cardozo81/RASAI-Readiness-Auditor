@@ -751,3 +751,32 @@ def test_evidence_coverage_excludes_unknown_tables_from_claims_and_reports_them(
     assert 'should-not-print' not in repr(receipt)
     assert 'should-not-print' not in ''.join(pages.values())
     assert 'Pacote passivo presente, porém não validado' in pages['rede:coverage']
+
+
+def test_presentation_generator_humanizes_editorial_module_labels(tmp_path, monkeypatch):
+    from rasai.parallel_report import generator as pipeline
+
+    root = fixture(tmp_path / 'audit')
+    before = inventory(root)
+    original_render = pipeline.render
+
+    def add_editorial_labels(*args, **kwargs):
+        pages = original_render(*args, **kwargs)
+        pages['index.html'] = pages['index.html'].replace(
+            '</article>',
+            '<h2>Classificação M6 persistida</h2>'
+            '<p>Configuração M25 persistida.</p>'
+            '<pre>Classificação M6 persistida</pre></article>',
+            1,
+        )
+        return pages
+
+    monkeypatch.setattr(pipeline, 'render', add_editorial_labels)
+    output = pipeline.generate(root)
+    html = (output / 'index.html').read_text(encoding='utf-8')
+    assert '<h2>Classificação arquitetural registrada na auditoria</h2>' in html
+    assert 'Configuração do Apdex de experiência persistida' in html
+    assert '<pre>Classificação M6 persistida</pre>' in html
+    assert before == inventory(root)
+    manifest = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
+    assert digest(output / 'index.html') == manifest['sha256_per_file']['index.html']
