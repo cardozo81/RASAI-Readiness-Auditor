@@ -50,8 +50,36 @@ def _record_link_name(href, lookup):
         ' · ' + dimension if dimension else '') + ' · ' + target.anchor
 
 
+def _redact_nonpublic_platform_identifiers(data):
+    """Presentation-only protection: do not render non-public identifier display text."""
+    identifiers = data.get('identifiers_json')
+    if not isinstance(identifiers, (str, list)):
+        return data
+    try:
+        entries = json.loads(identifiers) if isinstance(identifiers, str) else identifiers
+    except (ValueError, TypeError):
+        return data
+    if not isinstance(entries, list):
+        return data
+    protected = []
+    for item in entries:
+        if not isinstance(item, dict):
+            protected.append(item)
+        elif item.get('identifier_class') == 'PUBLIC_IDENTIFIER':
+            protected.append(item)
+        else:
+            protected.append({
+                'identifier_class': item.get('identifier_class'),
+                'identifier_type': item.get('identifier_type'),
+                'identifier_hash': item.get('identifier_hash'),
+            })
+    return {**data, 'identifiers_json': protected}
+
+
 def record_html(record, links, physical_links=(), timezone_name=None, governance=None, lookup=None):
     data = thaw(record.data)
+    if record.table == 'passive_security_platforms':
+        data = _redact_nonpublic_platform_identifiers(data)
     title = next((data[k] for k in ('title', 'label', 'dimension', 'metric_id', 'rule_id') if data.get(k) is not None), None)
     if title is None:
         title = next((v for _, v in record.identity), 'Registro persistido')
