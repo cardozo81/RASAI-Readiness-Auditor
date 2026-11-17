@@ -36,7 +36,9 @@ def _css_token_at(value, start, end, selector=False):
     if token.startswith(CREDENTIAL_PREFIXES):
         return False  # A selector field alone must never exempt known key prefixes.
     if selector and CSS_IDENT.fullmatch(value):
-        return True  # Preserve the existing explicit selector-field contract.
+        return (_css_name_is_nonsecret(token) or
+                re.fullmatch(r'sk-[a-z]{4,24}-[0-9]{4,18}', token) is not None)
+        # Numeric class suffixes are retained only in a typed selector field.
     if not _css_name_is_nonsecret(token):
         return False
     if start and value[start - 1] in '.#':
