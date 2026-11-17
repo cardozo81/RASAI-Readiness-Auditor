@@ -290,3 +290,25 @@ def test_module_copy_does_not_rewrite_canonical_ids_or_product_models():
     assert "Galaxy M25 e Série M6 são modelos citados na página." in readable
     assert "data-code='M6'" in readable
     assert "Classificação arquitetural registrada na auditoria" in readable
+
+
+def test_independent_presentation_module_humanization_preserves_other_semantics():
+    from rasai.report_presentation import humanize_module_references_html
+
+    html = (
+        "<p>Classificação M6 persistida.</p>"
+        "<p>2026-11-17T14:53:41Z e UNAVAILABLE são valores da projeção.</p>"
+        "<pre>Classificação M6 persistida</pre>"
+        "<code>M25</code>"
+        "<div data-source='M6'>Produto Galaxy M25 e Série M6.</div>"
+        "&lt;div data-code=&quot;M6&quot;&gt;M25&lt;/div&gt;"
+    )
+    rendered = humanize_module_references_html(html)
+    assert "Classificação arquitetural registrada na auditoria." in rendered
+    assert "2026-11-17T14:53:41Z e UNAVAILABLE" in rendered
+    assert "<pre>Classificação M6 persistida</pre>" in rendered
+    assert "<code>M25</code>" in rendered
+    assert "data-source='M6'" in rendered
+    assert "Produto Galaxy M25 e Série M6." in rendered
+    assert "&lt;div data-code=&quot;M6&quot;&gt;M25&lt;/div&gt;" in rendered
+    assert rendered == humanize_module_references_html(rendered)
