@@ -4,6 +4,9 @@ from .read_model import thaw, SEARCH_PAGE
 from .templates import LABELS
 from .presentation_labels import public_value, timezone_for_records, timezone_provenance, metric_label
 from functools import partial
+from collections import Counter
+from decimal import Decimal, InvalidOperation
+from datetime import datetime, timezone
 
 # Each page owns explicit editorial sections rather than a sequence of SQL tables.
 SECTIONS = {
@@ -27,6 +30,26 @@ def _metric_proposal(key, thresholds):
     if key == 'apdex_score':
         return by_id.get('APDEX_RESULT_PERSISTED_CONTRACT')
     return None
+
+
+def _money(value):
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        amount = Decimal(str(value))
+        return amount if amount.is_finite() and amount >= 0 else None
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _timestamp(value):
+    if not value:
+        return None
+    try:
+        result = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        return result if result.tzinfo else result.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
 
 
 def editorial(page, records, costs, thresholds, governance=None):
@@ -122,8 +145,46 @@ def editorial(page, records, costs, thresholds, governance=None):
         html += '<h2>Estado da execução</h2>' + local_table('Cobertura operacional', rows(['audit_fulfillment_work_items']), [('component','Componente'),('status','Estado'),('required','Obrigatório')])
     if page in {'index','ia-custos'}:
         html += '<h2>Consumo e proveniência</h2>' + chip(costs['coverage']) + kv([('Tentativas identificadas',costs['attempt_count'])])
+        attempt_rows = rows(['ai_provider_attempts', 'content_remediation_attempts'])
+        priced = [row for row in attempt_rows if _money(row.get('estimated_cost')) is not None]
+        by_currency = {}
+        for row in priced:
+            currency = row.get('cost_currency') or 'moeda não registrada'
+            by_currency[currency] = by_currency.get(currency, Decimal(0)) + _money(row['estimated_cost'])
+        observed = [row for row in attempt_rows if _money(row.get('observed_cost')) is not None]
+        html += kv([
+            ('Custo estimado persistido',
+             ' · '.join(str(currency) + ' ' + format(total, 'f') for currency, total
+                        in sorted(by_currency.items())) + ' em ' + str(len(priced)) +
+             ' tentativas com preço' if priced else 'N/D — sem estimativas monetárias persistidas'),
+            ('Custo observado pelo provedor',
+             str(len(observed)) + ' tentativa(s) com valor observado' if observed else 'N/D — nenhum custo observado pelo provedor'),
+        ])
+        forecasts = rows(['console_cost_forecast_outcomes'])
+        for forecast in forecasts:
+            evaluated = forecast.get('evaluated_at')
+            instant = _timestamp(evaluated)
+            newer = [row for row in attempt_rows
+                     if instant and _timestamp(row.get('started_at')) and
+                     _timestamp(row.get('started_at')) > instant]
+            amount = forecast.get('actual_cost')
+            html += kv([(
+                'Instantâneo do console em ' + str(evaluated or 'data não registrada'),
+                (str(forecast.get('currency') or 'moeda não informada') + ' ' +
+                 (format(_money(amount), 'f') if _money(amount) is not None else 'N/D') +
+                 ' — anterior a ' + str(len(newer)) + ' tentativa(s)'
+                 if instant else 'data de avaliação não verificável; sem equivalência com custo final')
+            )])
+        if page == 'ia-custos' and priced:
+            html += '<h2>Tentativas com custo estimado persistido</h2>'
+            html += local_table('Preço por tentativa — sem cobrança inferida', priced, [
+                ('provider', 'Provedor'), ('model', 'Modelo'),
+                ('pricing_rule_id', 'Regra de preço'), ('pricing_version', 'Versão do preço'),
+                ('estimated_cost', 'Custo estimado'), ('cost_currency', 'Moeda'),
+                ('started_at', 'Início')
+            ])
         for currency, amounts in costs['totals'].items():
-            html += kv([(f'{currency} · {kind}',public_value(value,'amount')) for kind,value in amounts.items()])
+            html += kv([(f'{currency} · {kind}',public_value(value,'amount')) for kind,value in amounts.items() if kind != 'conciliado'])
             source_labels = {
                 'ai_provider_attempts': 'IA / integração',
                 'content_remediation_attempts': 'Remediação de conteúdo',
@@ -139,9 +200,9 @@ def editorial(page, records, costs, thresholds, governance=None):
                 parts.append((label, entry['amount'], entry.get('attempt_id')))
             html += stack(
                 parts,
-                title='Composição do custo conciliado por tentativa',
+                title='Composição do custo estimado ou observado por tentativa',
                 unit=currency,
-                note='Cada segmento usa o valor conciliado da tentativa: observado quando disponível; estimado como alternativa. As cores são apenas categóricas e não indicam qualidade, criticidade ou conformidade.',
+                note='Cada segmento usa um custo persistido da tentativa: observado quando disponível; estimado como alternativa. Não representa cobrança final. As cores são categóricas e não indicam conformidade.',
             )
         html += '<p class="callout">Custo técnico estimado não equivale a cobrança observada. Tokens de Search não são inferidos.</p>'
         if page == 'ia-custos':
