@@ -106,6 +106,9 @@ def build_analytical_views(tables, records, schema, timezone_name):
                     row['browser_support'] = '; '.join(str(key)+': '+', '.join(str(k)+' '+str(v) for k,v in item.get('support',{}).items()) for key,item in compatibility.items() if isinstance(item,dict) and isinstance(item.get('support'),dict)) or None
                     row['signals'] = '; '.join(str(s.get('kind'))+': '+str(s.get('evidence')) for item in compatibility.values() if isinstance(item,dict) for s in item.get('signals',[]) if isinstance(s,dict)) or None
             entry = {k:row.get(k) for k in fields}
+            if name == 'console_cost_forecast_outcomes' and entry.get('status') in {'CRÍTICO', 'CRITICO'}:
+                # Financial classification is an independent enum, not a generic workflow status.
+                entry['status'] = 'Crítico'
             if name == 'standards_metric_observations' and entry.get('classification'):
                 entry['classification'] = public_value(entry['classification'], 'status')
             for k,v in list(entry.items()):
