@@ -1,4 +1,4 @@
-# Exportação externa candidata de `report-catalog` — Issue #717
+# Exportação externa candidata de `report-catalog` - Issue #717
 
 **Estado:** implementação segregada, sujeita à CI, revisão de segurança e homologação antes da publicação externa. **Não distribuir o ZIP canônico** de `report-catalog`: ele inclui `integrity/audit-snapshot.db`, com possíveis dados opacos/restritos que não foram liberados por uma varredura de HTML.
 
@@ -19,7 +19,7 @@ Exemplo Windows PowerShell, com pasta do relatório real existente e **ZIP de sa
 & .\.venv\Scripts\python.exe -B -m rasai.public_report_export --catalog-dir "C:\IA-PROJETOS\github\RASAI-Readiness-Auditor\audits\AUD-EXEMPLO\report-catalog" --output "$HOME\Downloads\RASAI_EXPORT_CANDIDATO_AUD_EXEMPLO.zip"
 ```
 
-O comando **não transmite** dados e não gera nova análise nem nova auditoria. `EXPORT_CANDIDATE=READY_FOR_PRIVACY_REVIEW` significa apenas que as barreiras técnicas passam — não é uma decisão de liberação externa.
+O comando **não transmite** dados e não gera nova análise nem nova auditoria. `EXPORT_CANDIDATE=READY_FOR_PRIVACY_REVIEW` significa apenas que as barreiras técnicas passam - não é uma decisão de liberação externa.
 
 ### Controles fail-closed
 
