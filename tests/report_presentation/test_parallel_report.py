@@ -579,7 +579,9 @@ def test_encrypted_response_not_distributed_in_offline_html_or_annex(tmp_path, m
         if file.is_file() and file.suffix in ('.html', '.json'):
             content = file.read_text(encoding='utf-8')
             assert ciphertext not in content, file
-    assert OPAQUE_STATUS in (output / 'ia-custos.html').read_text(encoding='utf-8')
+    assert OPAQUE_STATUS not in (output / 'ia-custos.html').read_text(encoding='utf-8')
+    assert any(OPAQUE_STATUS in item.read_text(encoding='utf-8')
+               for item in (output / 'anexos').glob('*.json'))
     annex_name = sha256(b'ai_exchange_log').hexdigest() + '.json'
     annex = json.loads((output / 'anexos' / annex_name).read_text(encoding='utf-8'))
     assert annex[0]['response_payload']['output'][0]['encrypted_content']['status'] == OPAQUE_STATUS
