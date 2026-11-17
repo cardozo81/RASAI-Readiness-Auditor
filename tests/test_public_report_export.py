@@ -414,7 +414,7 @@ def test_partial_review_withholds_five_unexportable_pages_and_preserves_navigati
         assert receipt["forensic_equivalence"] is False
         for name in receipt["withheld_pages"]:
             replacement = z.read(name)
-            assert b"ConteÃºdo nÃ£o incluÃ­do" in replacement
+            assert "Conteúdo não incluído" in replacement.decode("utf-8")
             assert b"encrypted_content" not in replacement
             assert b"runUnknownCode" not in replacement
             assert b"../private/" not in replacement
