@@ -352,7 +352,7 @@ def _inventory(root: Path) -> dict[str, bytes]:
     return result
 
 
-def _prepare(root: Path) -> tuple[dict[str, bytes], dict]:
+def _prepare(root: Path, *, withhold_unsafe_pages: bool = False) -> tuple[dict[str, bytes], dict]:
     from rasai.catalog_report_site import verify_catalog_report_package
 
     ok, _errors = verify_catalog_report_package(root)
@@ -394,6 +394,7 @@ def _prepare(root: Path) -> tuple[dict[str, bytes], dict]:
         raise ValueError("exportação recusada: arquivos não inventariados no catálogo")
     contents: dict[str, bytes] = {}
     text: dict[str, str] = {}
+    initially_withheld: set[str] = set()
     total = 0
     for name, entry in expected.items():
         if not _exportable(name):
@@ -404,11 +405,22 @@ def _prepare(root: Path) -> tuple[dict[str, bytes], dict]:
         total += len(data)
         if total > _MAX_TOTAL:
             raise ValueError("exportação recusada: tamanho agregado excedido")
-        text[name] = _scan(name, data)
+        try:
+            text[name] = _scan(name, data)
+        except ValueError:
+            if not withhold_unsafe_pages or not name.endswith(".html") or name == "index.html":
+                raise
+            initially_withheld.add(name)
         contents[name] = data
     if not contents:
         raise ValueError("exportação recusada: nenhum documento elegível")
-    _validate_links(contents, text)
+    withheld_pages: list[str] = []
+    if withhold_unsafe_pages:
+        withheld_pages, contents, text = _withhold_unexportable_pages(
+            contents, text, initially_withheld
+        )
+    else:
+        _validate_links(contents, text)
     source_bytes = (root / "manifest.json").read_bytes()
     receipt = {
         "contract": CONTRACT,
@@ -418,6 +430,8 @@ def _prepare(root: Path) -> tuple[dict[str, bytes], dict]:
         "source_package": "report-catalog (internal, not included)",
         "forensic_equivalence": False,
         "privacy_review": "REQUIRED_BEFORE_DISTRIBUTION",
+        "export_mode": "withheld-pages-review-only" if withheld_pages else "strict",
+        "withheld_pages": withheld_pages,
         "automated_checks": "allowlist + inventory + UTF-8 + secret/PII patterns + local links",
         "files": [
             {"path": name, "sha256": _digest(data), "size_bytes": len(data)}
@@ -471,6 +485,17 @@ def verify_public_catalog_export(zip_path: str | Path) -> tuple[bool, tuple[str,
                     manifest.get("privacy_review") != "REQUIRED_BEFORE_DISTRIBUTION" or
                     not isinstance(manifest.get("files"), list)):
                 raise ValueError("contrato de exportação inválido")
+            mode = manifest.get("export_mode", "strict")
+            withheld = manifest.get("withheld_pages", [])
+            if (mode not in {"strict", "withheld-pages-review-only"}
+                    or not isinstance(withheld, list)
+                    or len(withheld) > _MAX_WITHHELD_PAGES
+                    or len(withheld) != len(set(withheld))
+                    or (mode == "strict" and withheld)
+                    or (mode == "withheld-pages-review-only" and not withheld)
+                    or any(not isinstance(n, str) or not _safe_path(n)
+                           for n in withheld)):
+                raise ValueError("contrato de páginas retidas inválido")
             declared = {}
             for record in manifest["files"]:
                 if not isinstance(record, dict):
@@ -489,6 +514,18 @@ def verify_public_catalog_export(zip_path: str | Path) -> tuple[bool, tuple[str,
                     raise ValueError("hash da exportação divergente")
                 contents[name] = data
                 text[name] = _scan(name, data)
+            if withheld:
+                from rasai.catalog_report_contract import CATALOG_REPORT_FILENAMES
+                if any(n not in CATALOG_REPORT_FILENAMES or n == "index.html"
+                       or n not in contents for n in withheld):
+                    raise ValueError("página retida inválida")
+                for name in withheld:
+                    parser = _References()
+                    parser.feed(text[name])
+                    parser.close()
+                    anchors = parser.ids - {"report-main"}
+                    if contents[name] != _withheld_page(anchors):
+                        raise ValueError("substituição não-canônica de página restrita")
             _validate_links(contents, text)
             # Exact canonical bytes also reject ZIP comments, arbitrary stubs,
             # overlays, extra metadata, nonstandard order and hidden trailing data.
@@ -501,7 +538,10 @@ def verify_public_catalog_export(zip_path: str | Path) -> tuple[bool, tuple[str,
         return False, (f"exportação inválida: {type(error).__name__}",)
 
 
-def export_public_catalog(report_dir: str | Path, destination: str | Path) -> Path:
+def export_public_catalog(
+    report_dir: str | Path, destination: str | Path, *,
+    withhold_unsafe_pages: bool = False,
+) -> Path:
     """Prepare a deterministic, self-verifiable candidate; never publish it."""
     if Path(report_dir).is_symlink():
         raise ValueError("origem com symlink não permitida")
@@ -511,7 +551,7 @@ def export_public_catalog(report_dir: str | Path, destination: str | Path) -> Pa
         raise ValueError("destino ZIP inválido")
     if output.exists() or output.is_symlink() or output.resolve().is_relative_to(source):
         raise ValueError("destino já existe ou pertence à origem")
-    contents, receipt = _prepare(source)
+    contents, receipt = _prepare(source, withhold_unsafe_pages=withhold_unsafe_pages)
     # A source change between validation and ZIP assembly must not be ignored.
     for name, data in contents.items():
         if (source / name).read_bytes() != data:
@@ -545,13 +585,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Exportação candidata offline, requer revisão de privacidade.")
     parser.add_argument("--catalog-dir", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--withhold-unsafe-pages", action="store_true", help="Prévia parcial: substituir páginas não publicáveis por aviso sem fatos")
     args = parser.parse_args(argv)
     try:
-        result = export_public_catalog(args.catalog_dir, args.output)
+        result = export_public_catalog(
+            args.catalog_dir, args.output,
+            withhold_unsafe_pages=args.withhold_unsafe_pages,
+        )
     except (OSError, ValueError, RuntimeError) as error:
         print(f"EXPORT_CANDIDATE=BLOCKED ({type(error).__name__})")
         return 2
     print("EXPORT_CANDIDATE=READY_FOR_PRIVACY_REVIEW")
+    if args.withhold_unsafe_pages:
+        print("EXPORT_MODE=REVIEW_ONLY_WITH_POSSIBLE_WITHHOLDING")
     print(f"OUTPUT={result}")
     return 0
 
