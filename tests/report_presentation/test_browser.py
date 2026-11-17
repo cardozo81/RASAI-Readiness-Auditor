@@ -44,8 +44,8 @@ def test_browser_offline(tmp_path):
                 assert page.locator('details[open]').count() == 0
                 for selector in ('.shell', '.top', '.rail'):
                     assert page.locator(selector).count() == 1
-                if page.locator('table').count():
-                    header = page.locator('table thead th').first
+                if page.locator('table:visible').count():
+                    header = page.locator('table:visible thead th:not([data-sort="none"])').first
                     header.focus()
                     page.keyboard.press('Enter')
                     assert header.get_attribute('aria-sort') == 'ascending'
