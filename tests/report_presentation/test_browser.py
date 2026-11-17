@@ -55,10 +55,10 @@ def test_browser_offline(tmp_path):
                     field.fill('no-match-unique')
                     assert '0 de ' in field.locator('..').inner_text()
                     field.fill('')
-                if page.locator('.modal-open:not(.capture-image-button)').count():
+                if page.locator('.modal-open:not(.capture-image-button):visible').count():
                     # Screenshot zoom has a dedicated browser test below;
                     # the generic detail-dialog contract expects provenance details.
-                    trigger = page.locator('.modal-open:not(.capture-image-button)').first
+                    trigger = page.locator('.modal-open:not(.capture-image-button):visible').first
                     trigger.focus()
                     trigger.click()
                     assert page.locator('dialog.detail-dialog[open]').count() == 1
