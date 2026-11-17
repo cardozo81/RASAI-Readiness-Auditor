@@ -189,7 +189,7 @@ def test_public_labels_across_ten_pages(tmp_path):
     from rasai.parallel_report.read_model import SEARCH_PAGE
     assert SEARCH_PAGE.split('-')==['search','geo']
     assert (output/(SEARCH_PAGE+'.html')).is_file()
-    coverage=json.loads((output/'assets/coverage-map.json').read_text(encoding='utf-8'))
+    coverage=json.loads((output/'anexos/dados-de-apoio/coverage-map.json').read_text(encoding='utf-8'))
     assert coverage['canonical_pages']['cat-05.html']==[SEARCH_PAGE+'.html']
     assert all((output/name).is_file() for pages in coverage['canonical_pages'].values() for name in pages)
     from rasai.parallel_report.parity import compare
