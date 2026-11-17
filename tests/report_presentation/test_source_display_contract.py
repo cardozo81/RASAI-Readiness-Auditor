@@ -182,3 +182,24 @@ def test_security_platform_text_hides_non_public_raw_identifiers():
     details = record_html(records[0], {records[0].href: ()})
     assert 'GTM-PUBLIC' in details and 'hashed-only' in details
     assert 'SECRET-INNER' not in details
+
+def test_generated_html_uses_content_hashed_json_for_record_payloads():
+    from hashlib import sha256
+    from rasai.parallel_report.annex_payloads import collect_payloads
+    from rasai.parallel_report.components import table
+    from rasai.parallel_report.render import payload
+
+    with collect_payloads() as attached:
+        modal = table('Fonte de teste', [{
+            'title': 'Registro', 'request_payload': '{"source":"true"}',
+            'metadata': {'origin': 'audit.db'}
+        }], [('title', 'Título')])
+        technical = payload({'source': 'audit.db', 'values': [1, 2]})
+
+    assert '<pre>' not in modal and '<pre>' not in technical
+    assert 'href="anexos/' in modal
+    assert 'href="anexos/' in technical
+    assert attached
+    for filename, content in attached.items():
+        assert filename == sha256(content).hexdigest() + '.json'
+        assert isinstance(json.loads(content), dict)
