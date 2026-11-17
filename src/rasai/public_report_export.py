@@ -244,6 +244,15 @@ def _prepare(root: Path) -> tuple[dict[str, bytes], dict]:
         raise ValueError("exportação recusada: segurança da projeção não aprovada")
     if source_manifest.get("freshness") != "FINAL":
         raise ValueError("exportação recusada: relatório canônico não final")
+    snapshot = source_manifest.get("audit_snapshot")
+    if not isinstance(snapshot, dict):
+        raise ValueError("exportação recusada: snapshot de origem não verificável")
+    logical = snapshot.get("logical_sha256")
+    source_logical = snapshot.get("source_logical_sha256")
+    if (not isinstance(logical, str) or len(logical) != 64
+            or logical != source_logical
+            or assurance.get("package_integrity", {}).get("final_source_snapshot_match") is not True):
+        raise ValueError("exportação recusada: equivalência lógica da origem não comprovada")
     recorded = source_manifest.get("packaged_files", [])
     if not isinstance(recorded, list):
         raise ValueError("exportação recusada: inventário de origem inválido")
