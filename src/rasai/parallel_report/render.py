@@ -8,6 +8,7 @@ from .coverage import display, state
 from .read_model import PAGES, destination, thaw, SEARCH_PAGE
 from .templates import label as public_label
 from .presentation_labels import public_value, timezone_for_records, metric_label, presentation_timestamps
+from .annex_payloads import register_payload
 
 
 def esc(value):
@@ -15,6 +16,11 @@ def esc(value):
 
 
 def payload(value):
+    annex = register_payload(value)
+    if annex:
+        filename, digest = annex
+        return ('<p><a class="tech-link" href="anexos/' + esc(filename) +
+                '">Abrir JSON sanitizado · SHA-256 ' + esc(digest) + '</a></p>')
     return '<pre>' + esc(json.dumps(value, ensure_ascii=False, indent=2, default=str)) + '</pre>'
 
 
