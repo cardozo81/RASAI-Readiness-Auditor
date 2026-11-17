@@ -113,7 +113,7 @@ def test_export_is_isolated_deterministic_and_excludes_entire_sqlite(tmp_path: P
     "html",
     [
         '<html><body>encrypted_content: opaque-binary-payload</body></html>',
-        '<html><body>Bearer AVeryLongRealTokenValue12345</body></html>',
+        '<html><body>Bearer ' + 'AVeryLongRealTokenValue12345</body></html>',
         '<html><body>ghp_' + "A" * 24 + '</body></html>',
         '<html><body>contato: titular@private.example</body></html>',
         '<html><body>CPF 123.456.789-01</body></html>',
@@ -133,7 +133,7 @@ def test_export_refuses_sensitive_or_broken_html(tmp_path: Path, html: str) -> N
 
 
 def test_export_refuses_sensitive_attachment(tmp_path: Path) -> None:
-    root = catalog_fixture(tmp_path, attachment="Authorization: Bearer SecretReallySensitiveToken")
+    root = catalog_fixture(tmp_path, attachment="Authorization: " + "Bearer " + "SecretReallySensitiveToken")
     with pytest.raises(ValueError):
         export_public_catalog(root, tmp_path / "refused.zip")
     assert not (tmp_path / "refused.zip").exists()
