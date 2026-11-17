@@ -141,3 +141,16 @@ def test_financial_critical_label_is_typed_only_in_financial_projection():
     assert 'Crítico' in html['ia-custos']
     assert receipt['ia-custos.html']['console_cost_forecast_outcomes']['records_available'] == 1
     assert records[0].data['status'] == 'CRÍTICO'  # immutable original record
+
+
+
+def test_search_geo_integration_artifact_has_identity_and_hash(tmp_path):
+    source = _external_source_fixture(tmp_path)
+    with sqlite3.connect(source) as connection:
+        connection.execute('ALTER TABLE datasets ADD COLUMN artifact_sha256 TEXT')
+        connection.execute('UPDATE datasets SET artifact_sha256 = ?', ('c' * 64,))
+    html = render_search_geo_synthesis(tmp_path, {})
+    assert 'cc-1' in html
+    assert 'artifacts/cc.json' in html
+    assert 'c' * 64 in html
+    assert 'N/D — solicitação não comprovada' in html
