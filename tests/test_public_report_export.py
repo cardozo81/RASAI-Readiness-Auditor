@@ -13,6 +13,7 @@ from rasai.public_report_export import (
     CONTRACT, MANIFEST, export_public_catalog, verify_public_catalog_export,
 )
 from rasai.catalog_report_style import _JS as TRUSTED_UI_SCRIPT
+from rasai.catalog_report_site import _sqlite_logical_digest
 
 
 def digest(data: bytes) -> str:
@@ -75,6 +76,8 @@ def catalog_fixture(tmp_path: Path, *, html: str | None = None,
         "audit_snapshot": {
             "path": "integrity/audit-snapshot.db",
             "sha256": digest(db.read_bytes()),
+            "logical_sha256": _sqlite_logical_digest(db),
+            "source_logical_sha256": _sqlite_logical_digest(db),
         },
         "packaged_files": records,
         "assurance": {
@@ -311,3 +314,14 @@ def test_export_from_real_catalog_renderer_with_synthetic_audit(tmp_path: Path) 
     with ZipFile(artifact) as archive:
         assert len([name for name in archive.namelist() if name.endswith(".html")]) >= 20
         assert "integrity/audit-snapshot.db" not in archive.namelist()
+
+
+def test_export_rejects_legacy_source_without_logical_equivalence(tmp_path: Path) -> None:
+    root = catalog_fixture(tmp_path)
+    path = root / "manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["audit_snapshot"].pop("logical_sha256")
+    manifest["audit_snapshot"].pop("source_logical_sha256")
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="equivalência lógica"):
+        export_public_catalog(root, tmp_path / "blocked.zip")
