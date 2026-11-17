@@ -193,7 +193,7 @@ def test_public_labels_across_ten_pages(tmp_path):
     assert coverage['canonical_pages']['cat-05.html']==[SEARCH_PAGE+'.html']
     assert all((output/name).is_file() for pages in coverage['canonical_pages'].values() for name in pages)
     from rasai.parallel_report.parity import compare
-    assert compare({},tmp_path)['status']=='PENDING'
+    assert compare({},tmp_path)['status']=='NOT_VERIFIED'
     for path in output.glob('*.html'):
         parser=PublicLabels();parser.feed(path.read_text(encoding='utf-8'))
         assert not parser.bad,(path.name,parser.bad)
