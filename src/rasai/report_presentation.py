@@ -793,7 +793,7 @@ def _humanize_presentation_catalog_copy(visible: str) -> str:
     # "Contrato CAT-##" is a persisted technical marker, not a contractual
     # obligation. In customer copy, describe the evaluated domain instead.
     visible = re.sub(
-        r"(?i)\\bContrato\\s+(?=CAT-(?:0[1-9]|10)\\b)",
+        r"(?i)\bContrato\s+(?=CAT-(?:0[1-9]|10)\b)",
         "Critério de avaliação de ",
         visible,
     )
