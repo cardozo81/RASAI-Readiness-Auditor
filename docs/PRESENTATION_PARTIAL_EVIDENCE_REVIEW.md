@@ -1,4 +1,4 @@
-# Revisão de apresentação da PR #718 — gerador 0.4.16
+# Revisão de apresentação da PR #718 - gerador 0.4.16
 
 Na auditoria parcial, dois achados de descoberta não constituem um plano aprovado,
 uma previsão financeira não representa consumo de IA e uma captura passiva não
