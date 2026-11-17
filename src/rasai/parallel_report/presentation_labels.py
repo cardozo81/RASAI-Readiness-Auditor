@@ -24,7 +24,7 @@ PRIORITY_LABELS.update({
     'P2':'Prioridade 2 (média)', 'P3':'Prioridade 3 (baixa)',
 })
 DEVICE_LABELS = {'MOBILE':'Móvel','DESKTOP':'Desktop','POPULATION':'Agregado de experiência','MIXED_DEVICE_POPULATION':'Agregado dos dispositivos configurados'}
-ORIGIN_LABELS = {'PRODUCT_PROPOSAL':'Proposta de produto','PERSISTED_CONTRACT':'Contrato persistido','PUBLIC_STANDARD':'Padrão público','DETERMINISTIC':'Regra determinística','CONTENT_AI':'IA de conteúdo','DEEP_ANALYSIS':'Análise aprofundada','JSONLD':'JSON-LD','SECURITY_REMEDIATION':'Remediação de segurança','EXTERNAL':'Externo','AUTO':'Automático','MIXED':'Misto'}
+ORIGIN_LABELS = {'PRODUCT_PROPOSAL':'Proposta de produto','PERSISTED_CONTRACT':'Critério de medição registrado','PUBLIC_STANDARD':'Padrão público','DETERMINISTIC':'Regra determinística','CONTENT_AI':'IA de conteúdo','DEEP_ANALYSIS':'Análise aprofundada','JSONLD':'JSON-LD','SECURITY_REMEDIATION':'Remediação de segurança','EXTERNAL':'Externo','AUTO':'Automático','MIXED':'Misto'}
 VALUE_LABELS = {**STATUS_LABELS, **SEVERITY_LABELS, **DEVICE_LABELS, **ORIGIN_LABELS}
 TIMESTAMPS = {'created_at','started_at','completed_at','captured_at','collected_at','executed_at','projected_at','updated_at','fetch_time','lighthouse_fetch_time','finished_at','observed_at','calculated_at','capture_utc','capture_timestamp','capture_time','capture_time_utc','timestamp_utc','provider_created_at','reused_at','persisted_at','requested_at','measurement_at'}
 ENUM_FIELDS = {'status','state','result','severity','priority','priority_class','coverage','confidence','device','source_kind','source_mode','origin_kind','effort','completion_status','consolidation_status','observation_status','outcome','analysis_state','field_scope','cwv_assessment'}
