@@ -144,7 +144,7 @@ def test_generation_projects_once_shares_pages_and_preserves_classification(tmp_
         assert 'Observed heading' in body and 'Synthetic capture' in body
         assert 'STRUCTURAL_EXTRACTION_ONLY' not in body  # explanatory prose belongs in UI
         assert 'Achados semânticos e acessibilidade' not in body
-    assert 'DISCOVERY_ACCESS' in (out/'conteudo.html').read_text(encoding='utf-8')
+    assert 'DISCOVERY_ACCESS' in ''.join(p.read_text(encoding='utf-8') for p in (out/'anexos').glob('*.json'))
     assert inventory(root) == before
     assert generate(root) == out and len(count) == 1
     receipt = json.loads((out/'assets/evidence-coverage.json').read_text(encoding='utf-8'))
@@ -259,7 +259,8 @@ def test_executive_summaries_reconcile_partial_sample_and_ai_overview_without_in
     extraction=(out/'extracao.html').read_text(encoding='utf-8')
     assert '19' in extraction and 'Estrutura DOM observada' in extraction
     search=(out/('search'+'-geo.html')).read_text(encoding='utf-8')
-    assert 'CUSTOMER_CONTENT_NOT_COMPARABLE' in search and 'não permitiu comparação' in search
+    assert 'não permitiu comparação' in search
+    assert 'CUSTOMER_CONTENT_NOT_COMPARABLE' in ''.join(p.read_text(encoding='utf-8') for p in (out/'anexos').glob('*.json'))
     for n in range(9): assert 'https://reference'+str(n)+'.test/' in search
     discovery=(out/'descoberta.html').read_text(encoding='utf-8')
     assert '195' in discovery and 'Persisted CSS issue' in discovery and 'Persisted HTML issue' in discovery
