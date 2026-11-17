@@ -9,6 +9,9 @@ from .presentation_labels import public_value
 # These are observable fields, not every storage/configuration column. Their
 # exact scope and all remaining fields are published in the receipt below.
 FIELDS = {
+ 'audit_execution_configurations': 'schema_version configuration_kind configuration_hash changed_fields_json created_at',
+ 'audit_input_summary': 'input_mode supplied_count normalized_unique_count',
+ 'audit_input_urls': 'position input_url normalized_url',
  'page_snapshots': 'title canonical device captured_at http_status rendering_mode architecture_classification preview_browser preview_viewport preview_runtime_count preview_visual_ref',
  'audit_fulfillment_attempts': 'component attempt_number status started_at finished_at result_ref',
  'audit_execution_sessions': 'kind source state started_at heartbeat_at finished_at',
@@ -23,6 +26,7 @@ FIELDS = {
  'm24_ai_results': 'state reason',
  'rule_executions': 'rule_id rule_version result observed_value expected_condition device executed_at evidence_ids',
  'serp_results': 'position title snippet domain url result_type serp_features',
+ 'serp_observations': 'query engine country region language device provider collected_at requested_depth result_count domain_status observation_status raw_organic_result_count observed_position_count observed_position_ceiling dropped_results requested_depth_complete normalization_incomplete_for_requested_depth collection_window_start collection_window_end',
  'serp_evidence_provenance': 'temporal_mode captured_at source_audit_id source_observation_id',
  'synthetic_apdex_runs': 'status threshold_seconds frustration_seconds target_valid_samples max_attempts_per_context attempted_samples valid_samples invalid_samples delay_seconds concurrency reason',
  'synthetic_apdex_samples': 'device run_index profile_id status classification duration_ms http_status cpu_method network_method captured_at',
@@ -33,6 +37,7 @@ FIELDS = {
  'synthetic_ux_apdex_samples': 'device run_index profile_id status classification kpm kpm_value_ms user_action_duration_ms navigation_duration_ms lcp_ms cls http_status xhr_fetch_count javascript_error_count request_failed_count http_error_count network_settled error_forced_frustrated',
  'synthetic_ux_apdex_summaries': 'device profile_id valid_samples invalid_samples satisfied_count tolerating_count frustrated_count error_forced_frustrated_count mean_ms median_ms p75_ms p90_ms p95_ms p99_ms javascript_error_samples request_error_samples network_unsettled_samples',
  'web_performance_attempts': 'service status http_status duration_ms created_at artifact_reference artifact_sha256',
+ 'web_performance_runs': 'status field_source page_limit pages_considered context_attempts successful_contexts pagespeed_successes crux_successes categories updated_at',
  'lighthouse_execution_profiles': 'device form_factor benchmark_index lighthouse_total_ms captured_at',
  'passive_security_resources': 'resource_kind party domain protocol resource_url evidence_ids_json',
  'passive_security_integrations': 'integration_id requested state attempts successes observed_at',
@@ -70,6 +75,12 @@ def build_analytical_views(tables, records, schema, timezone_name):
                 from .catalog_context import _capture_preview
                 row = _capture_preview(row)
             detail = object_value(row.get('details_json'))
+            if name == 'serp_observations':
+                quality=object_value(row.get('quality_metadata'))
+                row={**row,**{k:quality[k] for k in fields if k in quality}}
+            if name == 'audit_fulfillment_attempts':
+                work=next((r for r in tables.get('audit_fulfillment_work_items',()) if r.get('work_item_id')==row.get('work_item_id')), {})
+                row['component']=work.get('component')
             if name == 'standards_metric_observations':
                 row = {**row, **{k:detail[k] for k in fields if k in detail}}
                 compatibility = detail.get('per_compat_key')
@@ -99,6 +110,8 @@ def build_analytical_views(tables, records, schema, timezone_name):
             field_cells={k:sum(known(e.get(k)) for e in entries) for k in direct},
             field_origins={k:(k if k in schema[name]['columns'] else
                 'browser_metadata (projeção _capture_preview)' if k.startswith('preview_') else
+                'quality_metadata.'+k if name=='serp_observations' else
+                'audit_fulfillment_work_items.component' if name=='audit_fulfillment_attempts' and k=='component' else
                 'details_json.per_compat_key' if k in {'signals','browser_support'} else 'details_json.'+k) for k in direct},
             adequate_representation_certified=False, executive_interpretation_certified=False,
             limitation='EXPLICIT_FIELD_SCOPE_ONLY_NOT_FAMILY_COMPLETENESS')
