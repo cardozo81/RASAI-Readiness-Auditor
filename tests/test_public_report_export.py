@@ -12,10 +12,16 @@ import pytest
 from rasai.public_report_export import (
     CONTRACT, MANIFEST, export_public_catalog, verify_public_catalog_export,
 )
+from rasai.catalog_report_style import _JS as TRUSTED_UI_SCRIPT
 
 
 def digest(data: bytes) -> str:
     return sha256(data).hexdigest()
+
+
+def _with_trusted_script(html: str) -> str:
+    assert "</body>" in html
+    return html.replace("</body>", "<script>" + TRUSTED_UI_SCRIPT + "</script></body>")
 
 
 def catalog_fixture(tmp_path: Path, *, html: str | None = None,
@@ -31,14 +37,18 @@ def catalog_fixture(tmp_path: Path, *, html: str | None = None,
             ('{"output":[{"encrypted_content":"ghp_' + "X" * 24 + '"}]}',),
         )
     (root / "index.html").write_text(
-        html or '<!doctype html><html><head><link rel="stylesheet" href="css/site.css">'
-        '</head><body><h1 id="overview">Resumo</h1>'
-        '<a href="details.html#item-1">Abrir detalhe</a></body></html>',
+        _with_trusted_script(
+            html or '<!doctype html><html><head><link rel="stylesheet" href="css/site.css">'
+            '</head><body><h1 id="overview">Resumo</h1>'
+            '<a href="details.html#item-1">Abrir detalhe</a></body></html>'
+        ),
         encoding="utf-8",
     )
     (root / "details.html").write_text(
-        '<!doctype html><html><body><h1 id="item-1">Detalhe</h1>'
-        '<a href="index.html#overview">Voltar</a></body></html>', encoding="utf-8",
+        _with_trusted_script(
+            '<!doctype html><html><body><h1 id="item-1">Detalhe</h1>'
+            '<a href="index.html#overview">Voltar</a></body></html>'
+        ), encoding="utf-8",
     )
     (root / "css" / "site.css").write_text("body { color: #123; }\n", encoding="utf-8")
     if attachment is not None:
@@ -226,3 +236,48 @@ def test_export_rejects_symlinked_source_root(tmp_path: Path) -> None:
         pytest.skip("symlink unavailable in this runtime")
     with pytest.raises(ValueError, match="symlink"):
         export_public_catalog(alias, tmp_path / "blocked.zip")
+
+
+@pytest.mark.parametrize("attack", [
+    '<img src="https://remote.example/track.png">',
+    '<div onerror="dangerousAction()">evento</div>',
+    '<button formaction="https://remote.example/collect">Transmitir</button>',
+    '<div style="background:url(https://remote.example/collect)">X</div>',
+    '<style>@import "https://remote.example/style.css";</style>',
+    '<style>body{background:url(https://remote.example/track.png)}</style>',
+    '<script>dangerousAction()</script>',
+    '<script src="local.js"></script>',
+    '<svg><image href="https://remote.example/snoop"></image></svg>',
+    '<meta http-equiv="refresh" content="1;url=https://remote.example">',
+    '<img srcset="https://remote.example/evil 1x">',
+    '<iframe srcdoc="<h1>hidden</h1>"></iframe>',
+])
+def test_export_rejects_active_or_untrusted_markup(tmp_path: Path, attack: str) -> None:
+    valid = (
+        '<!doctype html><html><body><h1 id="overview">Resumo</h1>'
+        + attack
+        + '<a href="details.html#item-1">Detalhes</a></body></html>'
+    )
+    root = catalog_fixture(tmp_path, html=valid)
+    with pytest.raises(ValueError, match="recusada"):
+        export_public_catalog(root, tmp_path / "blocked.zip")
+
+
+def test_export_allows_canonical_static_ui_and_local_css(tmp_path: Path) -> None:
+    valid = (
+        '<!doctype html><html><body><h1 id="overview">Resumo</h1>'
+        '<style>main{color:rgb(2,3,4)}</style>'
+        '<a href="details.html#item-1">Detalhes</a></body></html>'
+    )
+    root = catalog_fixture(tmp_path, html=valid)
+    exported = export_public_catalog(root, tmp_path / "candidate.zip")
+    assert verify_public_catalog_export(exported) == (True, ())
+
+
+def test_export_verifier_rejects_zip_appended_overlay(tmp_path: Path) -> None:
+    root = catalog_fixture(tmp_path)
+    exported = export_public_catalog(root, tmp_path / "candidate.zip")
+    assert verify_public_catalog_export(exported) == (True, ())
+    with exported.open("ab") as handle:
+        handle.write(b"overlay bytes not present in the ZIP inventory")
+    assert verify_public_catalog_export(exported)[0] is False
