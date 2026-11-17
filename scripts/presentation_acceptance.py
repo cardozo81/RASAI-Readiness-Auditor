@@ -96,16 +96,42 @@ def compare_reports(previous, output):
     """Sections, record identities and persisted fields, never byte-equal derived HTML."""
     old={p.name:Document(p.read_text(encoding='utf-8')) for p in previous.glob('*.html')}
     new={p.name:Document(p.read_text(encoding='utf-8')) for p in output.glob('*.html')}
+    # P9 moves some record families between pages without changing their
+    # persisted identities. Per-page anchor subtraction is a false regression:
+    # audit_* ledgers move from index to ia-custos, input tables to extracao.
+    # Accept a relocation only when the exact record anchor still exists in
+    # exactly one page of the new package. A genuinely lost identity is NO-GO.
+    old_owners={}
+    new_owners={}
+    for name,doc in old.items():
+        for anchor in doc.records:
+            if anchor in old_owners:
+                raise ValueError('duplicate historical record anchor: '+anchor)
+            old_owners[anchor]=name
+    for name,doc in new.items():
+        for anchor in doc.records:
+            if anchor in new_owners:
+                raise ValueError('duplicate new record anchor: '+anchor)
+            new_owners[anchor]=name
+    missing=sorted(set(old_owners)-set(new_owners))
+    if missing:
+        raise ValueError('record identity regression: '+str(len(missing))+
+                         ' missing anchors; examples='+repr(missing[:8]))
+    relocated={anchor:{'before':old_owners[anchor],'after':new_owners[anchor]}
+               for anchor in sorted(set(old_owners)&set(new_owners))
+               if old_owners[anchor]!=new_owners[anchor]}
     comparison={}
     for name,doc in new.items():
         prior=old.get(name)
+        removed=sorted(prior.records-doc.records) if prior else []
         comparison[name]=dict(
-            old_records=len(prior.records) if prior else None,new_records=len(doc.records),
-            removed_record_anchors=sorted(prior.records-doc.records) if prior else [],
+            old_records=len(prior.records) if prior else None,
+            new_records=len(doc.records),
+            moved_out_to_other_pages=sum(anchor in relocated for anchor in removed),
+            missing_record_anchors=sorted(anchor for anchor in removed if anchor in missing),
             added_sections=list((Counter(doc.headings)-Counter(prior.headings)).elements()) if prior else doc.headings,
             removed_sections=list((Counter(prior.headings)-Counter(doc.headings)).elements()) if prior else [],
         )
-        if prior and prior.records-doc.records: raise ValueError('record anchor regression')
     # P11: legacy table-name digests change to content-derived filenames.
     # Preserve the original sanitized records by table identity; do NOT require
     # deprecated URLs to remain in the newly published package.
@@ -125,7 +151,10 @@ def compare_reports(previous, output):
             if not new_file.is_file() or digest(new_file)!=digest(file):
                 raise ValueError('payload annex regression: '+file.name)
             preserved+=1
-    return dict(pages=comparison, legacy_table_annexes_migrated=migrated,
+    return dict(pages=comparison, old_records=len(old_owners),
+                new_records=len(new_owners), record_identities_lost=0,
+                relocated_record_anchors=relocated,
+                legacy_table_annexes_migrated=migrated,
                 content_annexes_preserved=preserved)
 
 
