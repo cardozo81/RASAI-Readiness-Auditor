@@ -275,14 +275,34 @@ def render_search_geo_synthesis(root, tables):
                       [('observation', 'Observação SERP'), ('status', 'Comparabilidade'),
                        ('gaps', 'Diferenças'), ('reference', 'Arquivo de evidência'),
                        ('sha', 'SHA-256')])
-    ai = [
-        {'status': row.get('status') or row.get('state'),
-         'provider': row.get('provider'), 'model': row.get('model'),
-         'summary': row.get('summary'), 'reference': row.get('artifact_reference'),
-         'sha': row.get('artifact_sha256')}
-        for row in tables.get('serp_competitive_ai_analyses', ())
-        if isinstance(row, dict)
-    ]
+    ai, opportunities = [], []
+    for row in tables.get('serp_competitive_ai_analyses', ()):
+        if not isinstance(row, dict):
+            continue
+        ai.append({
+            'observation': row.get('observation_id'),
+            'status': row.get('state'),
+            'provider': row.get('provider'), 'model': row.get('model'),
+            'summary': row.get('summary'),
+            'opportunity_count': row.get('opportunity_count'),
+            'reference': row.get('evidence_ref'),
+            'sha': row.get('evidence_sha256'),
+        })
+        proposals = _json(row.get('opportunities_json'))
+        if isinstance(proposals, list):
+            for proposal in proposals:
+                if not isinstance(proposal, dict):
+                    continue
+                evidence_ids = proposal.get('evidence_ids')
+                opportunities.append({
+                    'observation': row.get('observation_id'),
+                    'title': proposal.get('title'),
+                    'priority': proposal.get('priority'),
+                    'proposal': proposal.get('recommendation'),
+                    'evidence': ', '.join(str(i) for i in evidence_ids)
+                                if isinstance(evidence_ids, list) else 'N/D',
+                    'reference': row.get('evidence_ref'),
+                })
     if ai:
         html += (
             '<h2>Propostas semânticas de Competitive AI</h2>'
@@ -290,9 +310,22 @@ def render_search_geo_synthesis(root, tables):
             'não constitui ação aprovada pela governança ou prova causal.</p>'
         )
         html += table('Sínteses de IA já materializadas', sanitize(ai),
-                      [('status', 'Estado'), ('provider', 'Provedor'),
-                       ('model', 'Modelo'), ('summary', 'Síntese consultiva'),
+                      [('observation', 'Observação SERP'), ('status', 'Estado'),
+                       ('provider', 'Provedor'), ('model', 'Modelo'),
+                       ('summary', 'Síntese consultiva'),
+                       ('opportunity_count', 'Propostas declaradas'),
                        ('reference', 'Artefato'), ('sha', 'SHA-256')])
+    if opportunities:
+        # The full list is still available in the canonical row and annex;
+        # this is an editorial preview in persisted order, not a new ranking.
+        html += '<p class="rf">Amostra das primeiras até cinco propostas, na ordem persistida; ' \
+                'não é uma seleção de prioridades aprovadas.</p>'
+        html += table('Propostas consultivas e seus vínculos de evidência',
+                      sanitize(opportunities[:5]),
+                      [('observation', 'Observação'), ('title', 'Proposta'),
+                       ('priority', 'Prioridade declarada pela fonte'),
+                       ('proposal', 'Recomendação consultiva'),
+                       ('evidence', 'IDs de evidência'), ('reference', 'Artefato')])
     html += (
         '<p class="rf">Registros completos, limitações metodológicas, IDs '
         'e anexos permanecem no inventário técnico desta própria página. '
