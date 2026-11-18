@@ -188,47 +188,79 @@ def table(caption, rows, columns, timezone_name=None, *, full_text=False):
     return table_html + ''.join(dialogs)
 
 def stack(parts, title='Composição proporcional', unit=None, note=None):
+    """Offline accessible cost composition with row-local, evidence-bound metadata.
+
+    The eight cat* CSS classes denote palette positions, not catalog IDs.
+    A tooltip can never fabricate a per-catalog allocation from those classes.
+    """
     normalized = []
     for part in parts:
         if len(part) == 2:
             label, value = part
-            detail = None
-        else:
+            detail, metadata = None, {}
+        elif len(part) == 3:
             label, value, detail = part
+            metadata = {}
+        else:
+            label, value, detail, metadata = part
         try:
             numeric = float(value)
         except (TypeError, ValueError):
             continue
         if not math.isfinite(numeric) or numeric < 0:
             continue
-        normalized.append((label, value, detail, numeric))
+        normalized.append((label, value, detail, numeric,
+                           metadata if isinstance(metadata, dict) else {}))
     total = sum(item[3] for item in normalized)
     if total <= 0:
         return '<p>Composição não disponível para total nulo.</p>'
 
-    aria_parts = []
-    spans = []
-    legend = []
-    technical = []
-    for index, (label, raw_value, detail, numeric) in enumerate(normalized):
+    aria_parts, spans, legend, technical = [], [], [], []
+    for index, (label, raw_value, detail, numeric, metadata) in enumerate(normalized):
         percentage = numeric / total * 100
-        tone = f'cat{index % 8 + 1}'
-        amount_label = (f'{unit} ' if unit else '') + str(public_value(str(raw_value),'amount'))
+        tone = f'cat{index % 8 + 1}'  # Palette only, never a CAT-xx identifier.
+        amount_label = (f'{unit} ' if unit else '') + str(public_value(str(raw_value), 'amount'))
         percentage_label = f'{percentage:.1f}'.replace('.', ',') + '%'
-        aria_parts.append(f'{label}: {amount_label}, {percentage_label}')
+        kind = {
+            'observado': 'Custo observado pelo provedor',
+            'estimado': 'Custo estimado persistido',
+        }.get(metadata.get('kind'), 'Valor apresentado')
+        def described(name):
+            value = metadata.get(name)
+            return str(value) if value not in (None, '') else 'N/D'
+        origin = described('source')
+        purpose = described('purpose')
+        provider = described('provider')
+        model = described('model')
+        reasoning = described('reasoning')
+        catalog = 'Catálogo de origem não individualizado nesta tentativa'
+        provenance = (f'Origem: {origin}; finalidade: {purpose}; provedor: {provider}; '
+                      f'modelo: {model}; esforço solicitado: {reasoning}; {catalog}')
+        description = (f'{label}. {kind}: {amount_label}; {percentage_label} do total '
+                       f'desta moeda. {provenance}. Referência: {detail or "N/D"}. '
+                       'Não representa cobrança final.')
+        aria_parts.append(description)
         spans.append(
             f'<span class="{tone}" data-width="{percentage:g}" '
-            f'title="{text(label)} · {text(amount_label)} · {percentage_label}"></span>'
+            f'title="{text(description)}" data-explanation="{text(description)}" '
+            'aria-hidden="true"></span>'
         )
+        # Metadata remains readable without hover and keyboard users receive
+        # a focusable explanation outside the graphic's role=img boundary.
+        visible = (f'{kind} · {origin} · {purpose} · {provider} / {model} '
+                   f'· {reasoning} · {catalog}')
         legend.append(
-            '<li><span class="sw ' + tone + '" aria-hidden="true"></span>'
-            f'<span class="stack-label">{text(label)}</span>'
+            f'<li tabindex="0" aria-label="{text(description)}" '
+            f'data-explanation="{text(description)}">'
+            '<span class="sw ' + tone + '" aria-hidden="true"></span>'
+            f'<span class="stack-label">{text(label)}'
+            f'<small class="stack-context">{text(visible)}</small></span>'
             f'<strong>{text(amount_label)}</strong><span>{percentage_label}</span></li>'
         )
         if detail:
             technical.append(f'<li><strong>{text(label)}</strong>: <code>{text(detail)}</code></li>')
 
-    total_label = ((str(unit)+' ') if unit else '') + format(total, '.10g').replace('.',',')
+    total_label = ((str(unit) + ' ') if unit else '') + format(total, '.10g').replace('.', ',')
     aria = f'{title}. Total {total_label}. ' + '; '.join(aria_parts)
     html = (
         f'<div class="stack-head"><strong>{text(title)}</strong><span>{text(total_label)}</span></div>'
@@ -238,5 +270,6 @@ def stack(parts, title='Composição proporcional', unit=None, note=None):
     if note:
         html += f'<p class="rf">{text(note)}</p>'
     if technical:
-        html += '<details class="in"><summary>Ver IDs técnicos das tentativas</summary><ul class="stack-tech">' + ''.join(technical) + '</ul></details>'
+        html += ('<details class="in"><summary>Ver IDs técnicos das tentativas</summary>'
+                 '<ul class="stack-tech">' + ''.join(technical) + '</ul></details>')
     return html
