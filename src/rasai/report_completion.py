@@ -188,10 +188,15 @@ def materialize_catalog_report_projection(
     # Canonical errors are still returned unchanged to their own caller.
     # Read-only catalog replay never creates a secondary presentation.
     if not read_only:
-        _materialize_parallel_report_best_effort(
+        if _materialize_parallel_report_best_effort(
             audit_id=audit_id,
             workspace=workspace,
-        )
+        ) is None:
+            # A missing presentation is not a failed logical audit. However,
+            # mutable RPR must not report successful publication when the
+            # independent derived presentation could not be materialized.
+            # Do not expose exception text, filesystem paths or credentials.
+            errors.append("report-presentation:unavailable")
 
     return AuditReportCompletion(
         expected_pages=(),
