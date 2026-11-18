@@ -146,6 +146,20 @@ def editorial(page, records, costs, thresholds, governance=None):
     if page in {'index','ia-custos'}:
         html += '<h2>Consumo e proveniência</h2>' + chip(costs['coverage']) + kv([('Tentativas identificadas',costs['attempt_count'])])
         attempt_rows = rows(['ai_provider_attempts', 'content_remediation_attempts'])
+        # Join the reconciled entry to its very same persisted ledger row.
+        # Ambiguous/missing IDs are never assigned invented provider metadata.
+        attempts_by_origin = {}
+        ambiguous_attempts = set()
+        for attempt in attempt_rows:
+            identity = (attempt.get('_source_table'), attempt.get('attempt_id'))
+            if identity[1] is None:
+                continue
+            if identity in attempts_by_origin:
+                ambiguous_attempts.add(identity)
+            else:
+                attempts_by_origin[identity] = attempt
+        for identity in ambiguous_attempts:
+            attempts_by_origin.pop(identity, None)
         priced = [row for row in attempt_rows if _money(row.get('estimated_cost')) is not None]
         by_currency = {}
         for row in priced:
@@ -198,7 +212,19 @@ def editorial(page, records, costs, thresholds, governance=None):
                 source = entry.get('source') or 'origem não identificada'
                 source_counts[source] = source_counts.get(source, 0) + 1
                 label = f"{source_labels.get(source, source)} #{source_counts[source]}"
-                parts.append((label, entry['amount'], entry.get('attempt_id')))
+                attempt = attempts_by_origin.get((source, entry.get('attempt_id'))) or {}
+                metadata = {
+                    'kind': entry.get('kind'),
+                    'source': source_labels.get(source, 'Origem não identificada'),
+                    'purpose': public_value(
+                        attempt.get('operation') or attempt.get('purpose'), 'operation'
+                    ),
+                    'provider': attempt.get('provider'),
+                    'model': attempt.get('model'),
+                    'reasoning': public_value(attempt.get('reasoning_profile'), 'reasoning_profile'),
+                    'fallback': attempt.get('fallback_reason'),
+                }
+                parts.append((label, entry['amount'], entry.get('attempt_id'), metadata))
             html += stack(
                 parts,
                 title='Composição do custo estimado ou observado por tentativa',
