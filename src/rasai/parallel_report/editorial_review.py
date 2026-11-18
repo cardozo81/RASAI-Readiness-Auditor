@@ -133,6 +133,10 @@ def _classification(name, rows, editorial_states, analytical_fields):
         return 'SOURCE_EMPTY'
     if 'PRESENT_SUMMARIZED' in editorial_states:
         return 'PRESENT_EXECUTIVE'
+    if name == 'serp_competitive_pages':
+        # Field-level visibility is not a competitive decision or executive
+        # synthesis. Keep the explicit high-priority editorial gap open.
+        return 'REQUIRES_EXECUTIVE_REVIEW'
     if analytical_fields or 'PRESENT_FIELD_PROJECTION' in editorial_states:
         # Existing SECTIONS are source-backed field projections even when the
         # separate analytical-views renderer did not register direct fields.

@@ -44,3 +44,45 @@ def test_selected_semantic_and_provider_usage_sources_become_analytical_not_bill
     assert 'não aprovadas' in html['seguranca']
     assert '0,17' in html['indices']
     assert receipt['indices.html']['score_contributions']['executive_interpretation_certified'] is False
+
+
+def test_competitor_page_and_root_cause_precision_are_source_backed_projections():
+    """#722: visible fields are persisted; target selectors are not observations."""
+    tables = {
+        'serp_competitive_pages': [
+            {'observation_id':'OBS-1', 'role':'CUSTOMER', 'domain':'example.test',
+             'fetch_status':'OBSERVED', 'http_status':200, 'title':'Página cliente',
+             'word_count':120},
+            {'observation_id':'OBS-1', 'role':'COMPETITOR_CANDIDATE',
+             'domain':'other.example', 'fetch_status':'ERROR',
+             'http_status':None, 'title':None, 'word_count':None},
+        ],
+        'root_cause_precision': [
+            {'finding_id':'F-1','rule_id':'BR-TEST', 'reason_code':'CANONICAL_ABSENT',
+             'precise_cause_summary':'Canonical não observado',
+             'observed_element_status':'ABSENT','observed_selector':None,
+             'target_selector':'head > link[rel="canonical"]',
+             'target_element':'link','target_location':'head',
+             'materialized_at':'2026-11-18T10:00:00+00:00'},
+        ],
+    }
+    schema = {
+        name: {'columns':list(rows[0]), 'primary_key':[], 'foreign_keys':[]}
+        for name,rows in tables.items()
+    }
+    records=build(tables,schema)
+    html,receipt=build_analytical_views(tables,records,schema,'UTC')
+    search=receipt['search-geo.html']['serp_competitive_pages']
+    plan=receipt['plano.html']['root_cause_precision']
+    assert search['analytical_records']==2
+    assert {'role','fetch_status','http_status','word_count'} <= set(search['direct_fields'])
+    assert 'Página cliente' in html['search-geo']
+    assert 'other.example' in html['search-geo']
+    assert plan['analytical_records']==1
+    assert 'reason_code' in plan['direct_fields']
+    assert 'observed_element_status' in plan['direct_fields']
+    assert 'target_selector' in plan['direct_fields']
+    assert 'observed_selector' not in plan['direct_fields']
+    assert 'CANONICAL_ABSENT' in html['plano']
+    assert 'head &gt; link' in html['plano']
+    assert plan['executive_interpretation_certified'] is False
