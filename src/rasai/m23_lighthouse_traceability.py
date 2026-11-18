@@ -26,6 +26,27 @@ class LighthouseTraceabilityResult:
     invalid_artifacts: int
 
 
+def _logged_setting(value: Any) -> Any:
+    """Missing tool settings are explicit only in the log, not in stored evidence."""
+    return "não informado pela ferramenta" if value is None or value == "" else value
+
+
+def _log_lighthouse_profile(workspace: AuditWorkspace, audit_id: str, item: LighthouseExecutionProfile) -> None:
+    try_append_operational_event(
+        workspace, "M23_LIGHTHOUSE_PROFILE_EXTRACTED", audit_id=audit_id,
+        observation_id=item.observation_id, device=item.device, url=item.url,
+        form_factor=_logged_setting(item.form_factor),
+        throttling_method=_logged_setting(item.throttling_method),
+        rtt_ms=_logged_setting(item.rtt_ms),
+        throughput_kbps=_logged_setting(item.throughput_kbps),
+        request_latency_ms=_logged_setting(item.request_latency_ms),
+        download_throughput_kbps=_logged_setting(item.download_throughput_kbps),
+        upload_throughput_kbps=_logged_setting(item.upload_throughput_kbps),
+        cpu_slowdown_multiplier=_logged_setting(item.cpu_slowdown_multiplier),
+        benchmark_index=_logged_setting(item.benchmark_index),
+    )
+
+
 def extract_lighthouse_execution_profiles(*, audit_id: str, workspace: AuditWorkspace) -> LighthouseTraceabilityResult:
     rows = _observations(workspace, audit_id)
     extracted = missing = invalid = 0
@@ -75,14 +96,7 @@ def extract_lighthouse_execution_profiles(*, audit_id: str, workspace: AuditWork
             )
             store.upsert_lighthouse_profile(item)
             extracted += 1
-            try_append_operational_event(
-                workspace, "M23_LIGHTHOUSE_PROFILE_EXTRACTED", audit_id=audit_id,
-                observation_id=item.observation_id, device=item.device, url=item.url,
-                form_factor=item.form_factor, throttling_method=item.throttling_method,
-                cpu_slowdown_multiplier=item.cpu_slowdown_multiplier,
-                rtt_ms=item.rtt_ms, throughput_kbps=item.throughput_kbps,
-                benchmark_index=item.benchmark_index,
-            )
+            _log_lighthouse_profile(workspace, audit_id, item)
     return LighthouseTraceabilityResult(len(rows), extracted, missing, invalid)
 
 

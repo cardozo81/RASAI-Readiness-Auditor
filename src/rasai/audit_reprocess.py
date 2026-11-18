@@ -41,6 +41,7 @@ from rasai.audit_fulfillment import (
     update_reprocess_run_configuration,
 )
 from rasai.operational_log import try_append_operational_event
+from rasai.public_language import component_label, is_traceability_identifier, scope_label
 from rasai.persistence import AuditWorkspace
 from rasai.reprocess_policy import (
     blocking_dependencies,
@@ -81,6 +82,17 @@ _RPR_BASELINE_SUCCESSES: ContextVar[int | None] = ContextVar(
 _RPR_FINAL_EVENT_DEFERRED: ContextVar[bool] = ContextVar(
     "rasai_rpr_final_event_deferred", default=False
 )
+_RPR_PROCESSED_ITEMS: ContextVar[tuple[str, ...]] = ContextVar(
+    "rasai_rpr_processed_item_names", default=()
+)
+
+
+def _remember_rpr_item(item: WorkItem) -> None:
+    """Record actual attempts for the session log, using console-facing names."""
+    # Friendly names remain readable; traceability IDs do not become item labels.
+    scope = "" if is_traceability_identifier(item.scope_key) else f"/{scope_label(item.scope_key)}"
+    name = f"{component_label(item.component)}{scope}"
+    _RPR_PROCESSED_ITEMS.set((*_RPR_PROCESSED_ITEMS.get(), name))
 
 
 def emit_reprocess_completion_event(
@@ -616,6 +628,7 @@ def reprocess_audit(
     The function is intentionally repeatable. Calling it after COMPLETE is a no-op
     that returns the current final state; it never re-executes successful services.
     """
+    _RPR_PROCESSED_ITEMS.set(())
     workspace = AuditWorkspace.open(Path(audits_root) / audit_id)
     reconcile_reprocess_state(workspace, audit_id)
     before = list_work_items(workspace,audit_id)
@@ -667,6 +680,7 @@ def reprocess_audit(
             continue
         ai_used = True
         attempted += 1
+        _remember_rpr_item(item)
         try:
             from rasai.reprocess_ai import recover_semantic_item
             success, shared_provider = recover_semantic_item(
@@ -702,6 +716,7 @@ def reprocess_audit(
             continue
         ai_used = True
         attempted += 1
+        _remember_rpr_item(item)
         try:
             from rasai.reprocess_ai import recover_technical_ai
             success, shared_provider = recover_technical_ai(
@@ -738,6 +753,7 @@ def reprocess_audit(
             continue
         ai_used = True
         attempted += 1
+        _remember_rpr_item(item)
         try:
             from rasai.reprocess_ai import recover_content_remediation
             success, shared_provider, m20_status = recover_content_remediation(
@@ -776,6 +792,7 @@ def reprocess_audit(
             )
             continue
         attempted += 1
+        _remember_rpr_item(item)
         try:
             if item.component == "WEB_PERFORMANCE":
                 from rasai.reprocess_measurements import recover_web_performance

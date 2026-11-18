@@ -148,6 +148,7 @@ def execute_m23_apdex(
     )
 
     if not cfg.enabled:
+        disabled_reason = "SYNTHETIC_APDEX_DISABLED"
         with M23Persistence(workspace) as store:
             store.upsert_run(
                 SyntheticApdexRun(
@@ -169,11 +170,14 @@ def execute_m23_apdex(
                     concurrency=cfg.concurrency,
                     configuration=configuration,
                     host_environment=static_host_environment(),
-                    reason="SYNTHETIC_APDEX_DISABLED",
+                    reason=disabled_reason,
                     updated_at=_utc_now(),
                 )
             )
-        try_append_operational_event(workspace, "M23_COMPLETED", audit_id=audit_id, status="DISABLED")
+        try_append_operational_event(
+            workspace, "M23_COMPLETED", audit_id=audit_id,
+            status="DISABLED", motivo=disabled_reason,
+        )
         return M23ExecutionResult(False, "DISABLED", 0, 0, 0, 0, 0, 0, 0)
 
     if gateway is not None and cfg.concurrency != 1:
@@ -297,6 +301,7 @@ def execute_m23_apdex(
         "M23_COMPLETED",
         audit_id=audit_id,
         status=status,
+        motivo=reason if reason else "não informado",
         attempted_samples=attempted_total,
         valid_samples=valid_total,
         invalid_samples=invalid_total,
