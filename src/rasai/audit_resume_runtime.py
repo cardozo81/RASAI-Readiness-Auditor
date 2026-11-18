@@ -1294,6 +1294,32 @@ def _replace_result(result: Any, summary: Any) -> Any:
         return result
 
 
+def _log_continuation_summary(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    result: Any,
+    item_names: Sequence[str],
+) -> None:
+    """Write one human-readable summary without changing the RPR result or ledger."""
+    processed = int(getattr(result, "attempted_items", 0) or 0)
+    concluded = int(getattr(result, "successful_items", 0) or 0)
+    pending = int(getattr(result, "remaining_items", 0) or 0)
+    names = list(dict.fromkeys(str(name) for name in item_names if str(name).strip()))
+    status = str(getattr(result, "processing_status", "") or "").upper()
+    try_append_operational_event(
+        workspace,
+        "AUDIT_CONTINUATION_SESSION_SUMMARY",
+        level="WARNING" if status.startswith("PARTIAL") else "INFO",
+        audit_id=audit_id,
+        reprocess_id=getattr(result, "reprocess_id", None),
+        processed_items=processed,
+        completed_items=concluded,
+        pending_items=pending,
+        item_names=names if processed else [],
+        detail="nenhum item pendente" if processed == 0 else "itens processados na sessão",
+    )
+
+
 def install() -> None:
     """Wrap the fully composed RPR entrypoint with interruption reconciliation/lease."""
     global _INSTALLED
@@ -1390,6 +1416,12 @@ def install() -> None:
                     final_owner=True,
                     report_projection_ok=report_projection_ok,
                 )
+            _log_continuation_summary(
+                workspace,
+                audit_id,
+                result,
+                completion_events._RPR_PROCESSED_ITEMS.get(),
+            )
             return result
         except BaseException as exc:
             state = "INTERRUPTED" if isinstance(exc, KeyboardInterrupt) else "FAILED"

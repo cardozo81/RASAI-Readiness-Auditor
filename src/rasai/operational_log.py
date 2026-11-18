@@ -25,6 +25,23 @@ def operational_log_path(workspace: AuditWorkspace) -> Path:
     return workspace.root / LOG_DIRECTORY / LOG_FILE
 
 
+def _event_level(event: str, level: str, details: dict[str, Any]) -> str:
+    """Project terminal stage states into log severity; never change their status."""
+    normalized_level = str(level).upper()
+    if normalized_level != "INFO" or not str(event).endswith(("_COMPLETED", "_FINISHED")):
+        return normalized_level
+    status = str(
+        details.get("status") or details.get("processing_status") or details.get("state") or ""
+    ).strip().upper()
+    if (
+        status in {"PARTIAL", "NO_DATA", "NO_CONTEXTS", "NO_RESULTS", "UNAVAILABLE",
+                   "NOT_AVAILABLE", "DISABLED"}
+        or status.startswith(("PARTIAL_", "NO_DATA_", "NO_CONTEXTS_"))
+    ):
+        return "WARNING"
+    return normalized_level
+
+
 def append_operational_event(
     workspace: AuditWorkspace,
     event: str,
@@ -43,7 +60,7 @@ def append_operational_event(
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "level": str(level).upper(),
+        "level": _event_level(event, level, details),
         "event": redact_text(str(event)),
         **_sanitize_mapping(details),
     }
