@@ -93,6 +93,11 @@ summary{overflow-wrap:anywhere} .record .org{max-width:none} .ruler .nt{font-siz
 .record{overflow-wrap:anywhere}
 
 
+/* Presentation-only point identity; colors are embedded in trusted offline SVG. */
+.map-ref{display:inline-flex;gap:5px;align-items:center;white-space:nowrap}
+.map-ref svg{width:14px;height:14px;flex:none}
+#network-map ul li svg{display:inline-block;vertical-align:-2px;margin-right:4px}
+#network-map g[id^="network-map-point-"]{scroll-margin-top:70px}
 /* Mapa de rede somente com coordenadas persistidas. Sem inline CSS (CSP offline). */
 #network-map .table-wrap{overflow-x:auto;margin:8px 0 14px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
 #network-map svg.network-map-plot{display:block;width:100%;height:auto;max-width:100%;background:var(--card)}
