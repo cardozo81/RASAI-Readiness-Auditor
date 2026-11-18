@@ -107,3 +107,51 @@ def test_ruler_marks_only_its_active_zone_in_offline_chromium(tmp_path):
             )
         assert errors == []
         browser.close()
+
+
+def test_stack_tooltip_mouse_and_keyboard_offline(tmp_path):
+    import pytest
+    sync_playwright = pytest.importorskip('playwright.sync_api').sync_playwright
+    assets = Path(__file__).parents[2] / 'src/rasai/parallel_report/assets'
+    (tmp_path / 'site.css').write_bytes((assets / 'site.css').read_bytes())
+    markup = stack([
+        ('IA / integração #1', 0.40, 'ATT-ONE', {
+            'kind': 'estimado', 'source': 'IA / integração',
+            'purpose': 'Análise semântica', 'provider': 'Provider A',
+            'model': 'Model A', 'reasoning': 'Esforço alto solicitado',
+        }),
+        ('IA / integração #2', 0.60, 'ATT-TWO', {
+            'kind': 'observado', 'source': 'IA / integração',
+            'purpose': 'Análise direcionada', 'provider': 'Provider B',
+            'model': 'Model B', 'reasoning': 'Padrão do provedor (nível não comprovado)',
+        }),
+    ], unit='USD')
+    (tmp_path / 'stack.html').write_text(
+        '<!doctype html><html><head><link rel="stylesheet" href="site.css"></head>'
+        '<body class="light"><main>' + markup + '</main></body></html>',
+        encoding='utf-8'
+    )
+    with sync_playwright() as pw:
+        if not Path(pw.chromium.executable_path).exists():
+            pytest.skip('Use existing Chromium only')
+        browser = pw.chromium.launch()
+        page = browser.new_page()
+        for width in (390, 1440):
+            page.set_viewport_size({'width': width, 'height': 900})
+            page.goto((tmp_path / 'stack.html').as_uri())
+            for theme in ('light', 'dark'):
+                page.evaluate('(mode) => document.body.className=mode', theme)
+                assert page.locator('.stack[role="img"]').count() == 1
+                first = page.locator('.stack > span').first
+                first.hover()
+                assert 'Análise semântica' in first.get_attribute('data-explanation')
+                tooltip = first.evaluate("(node) => getComputedStyle(node, '::after').content")
+                assert 'Análise semântica' in tooltip
+                item = page.locator('.stack-legend li').nth(1)
+                item.focus()
+                assert item.get_attribute('tabindex') == '0'
+                assert 'observado' in item.get_attribute('data-explanation').lower()
+                focused = item.evaluate("(node) => getComputedStyle(node, '::after').content")
+                assert 'Model B' in focused
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        browser.close()
