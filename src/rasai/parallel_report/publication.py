@@ -48,7 +48,7 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
     try:
         path = confined(directory, MANIFEST)
         manifest = json.loads(path.read_text(encoding='utf-8'))
-        versions = (__version__, '0.4.19', '0.4.18', '0.4.17', '0.4.16', '0.4.3', '0.4.2', '0.4.1', '0.3.0', '0.2.0', '0.1.0') if historical_version else (__version__,)
+        versions = (__version__, '0.4.21', '0.4.19', '0.4.18', '0.4.17', '0.4.16', '0.4.3', '0.4.2', '0.4.1', '0.3.0', '0.2.0', '0.1.0') if historical_version else (__version__,)
         if not isinstance(manifest, dict) or (
             manifest.get('contract') != CONTRACT or manifest.get('version') != 1
             or manifest.get('generator_version') not in versions
@@ -69,6 +69,14 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
             return None
         required = {name + '.html' for name, _ in PAGES}
         required.update(visual_files)
+        if (manifest.get('generator_version') == __version__
+                or 'anexos/dados-de-apoio/editorial-review.json'
+                   in manifest.get('generated_files', ())):
+            # Current packages require the new receipt. In explicit historical
+            # mode, validate a present receipt even when a legacy generator
+            # version is recorded; do not reject otherwise intact migration
+            # fixtures or silently ignore files listed in their manifests.
+            required.add('anexos/dados-de-apoio/editorial-review.json')
         required.update('assets/' + name for name in ('site.css', 'app.js', 'thresholds.json'))
         layout = manifest.get('annex_contract')
         if layout == 'CONTENT_SHA256_V1':

@@ -27,6 +27,8 @@ FIELDS = {
  'm24_ai_results': 'state reason',
  'rule_executions': 'rule_id rule_version result observed_value expected_condition device executed_at evidence_ids',
  'serp_results': 'position title snippet domain url result_type serp_features',
+ # Observed HTTP/content features only: no ranking causality or inferred competition.
+ 'serp_competitive_pages': 'observation_id role domain requested_url final_url fetch_status http_status content_type bytes_read title meta_description word_count error_code',
  'serp_observations': 'query engine country region language device provider collected_at requested_depth result_count domain_status observation_status raw_organic_result_count observed_position_count observed_position_ceiling dropped_results requested_depth_complete normalization_incomplete_for_requested_depth collection_window_start collection_window_end',
  'serp_evidence_provenance': 'temporal_mode captured_at source_audit_id source_observation_id',
  'synthetic_apdex_runs': 'status threshold_seconds frustration_seconds target_valid_samples max_attempts_per_context attempted_samples valid_samples invalid_samples delay_seconds concurrency reason',
@@ -43,6 +45,22 @@ FIELDS = {
  'passive_security_resources': 'resource_kind party domain protocol resource_url evidence_ids_json',
  'passive_security_integrations': 'integration_id requested state attempts successes observed_at',
  'console_cost_forecast_outcomes': 'evaluated_at currency expected_cost actual_cost status relation likely_low likely_high potential forecast_pages actual_pages confidence unpriced_ai_attempts source notes',
+ # Source-backed decision details; none of these rows are approved actions or
+ # observed provider billing merely because their values were persisted.
+ 'ai_provider_native_usage': 'attempt_id provider surface native_usage_unit native_usage_quantity billable source_metric estimated_cost observed_cost cost_currency pricing_source_reference',
+ 'ai_request_rounds': 'ai_task_id round_index status started_at finished_at',
+ 'ai_task_profile_attempts': 'attempt_id source_table task_profile_id task_profile_version',
+ 'perplexity_search_sources': 'position title url source_date last_updated',
+ 'semantic_assessments': 'assessment_type result confidence reasoning_summary snapshot_id provider model',
+ 'property_semantic_summaries': 'criterion_id result confidence summary observation_count',
+ 'content_context_interpretations': 'field_name status interpreted_value confidence rationale affects_scoring',
+ 'passive_security_remediations': 'finding_id source containment correction implementation_order regression_risk validation advisory_only',
+ 'passive_security_relationships': 'relation_type confidence from_ref to_ref',
+ 'root_cause_analyses': 'finding_id rule_id cause_type cause_summary evidence_basis human_decision_required',
+ # Keep observed element and proposed target separate, as the M17 contract requires.
+ 'root_cause_precision': 'finding_id rule_id reason_code precise_cause_summary observed_element_status observed_selector target_selector target_element target_location materialized_at',
+ 'score_contributions': 'score_id rule_id result weight effective_contribution',
+
 }
 TITLES = {
  'audit_execution_configurations':'Configuração registrada da execução',
@@ -65,6 +83,7 @@ TITLES = {
  'passive_security_integrations':'Integrações observadas na captura',
  'rule_executions':'Critérios e resultados de cada regra executada',
  'serp_results':'Títulos e trechos dos resultados orgânicos observados',
+ 'serp_competitive_pages':'Páginas capturadas para comparação (sem causalidade de ranking)',
  'standards_metric_observations':'Métricas e funcionalidades por ferramenta',
  'synthetic_apdex_samples':'Medições individuais de navegação',
  'synthetic_ux_apdex_samples':'Medições individuais de experiência',
@@ -73,6 +92,19 @@ TITLES = {
  'passive_security_resources':'Inventário observacional por recurso e origem',
  'console_cost_forecast_outcomes':'Intervalos e cobertura da previsão financeira',
  'evidence':'Sinais persistidos por tipo de evidência',
+ 'ai_provider_native_usage':'Uso nativo declarado pelo provedor (não é faturamento)',
+ 'ai_request_rounds':'Rodadas e resultados de requisitos de IA',
+ 'ai_task_profile_attempts':'Perfis registrados nas tentativas de IA',
+ 'perplexity_search_sources':'Fontes retornadas pela pesquisa persistida',
+ 'semantic_assessments':'Avaliações semânticas persistidas (não revalidadas)',
+ 'property_semantic_summaries':'Sínteses semânticas persistidas (não revalidadas)',
+ 'content_context_interpretations':'Interpretações de contexto registradas (não são fatos novos)',
+ 'passive_security_remediations':'Remediações consultivas de segurança (não aprovadas)',
+ 'passive_security_relationships':'Relações técnicas entre recursos observados',
+ 'root_cause_analyses':'Análises de causa-raiz registradas',
+ 'root_cause_precision':'Precisão das causas: elemento observado e alvo proposto',
+ 'score_contributions':'Contribuições persistidas ao score (sem recálculo)',
+
 }
 
 
@@ -126,9 +158,9 @@ def build_analytical_views(tables, records, schema, timezone_name):
                 if newer:
                     completion = max(newer, key=lambda value: as_time(value))
                     entry['notes'] = (
-                        'Registrado em ' + str(recorded) +
+                        'Registrado em ' + str(public_value(recorded, 'evaluated_at', timezone_name)) +
                         ' — superado pelo contrato de fulfillment concluído em ' +
-                        str(completion) + '. ' + str(row['notes'])
+                        str(public_value(completion, 'completed_at', timezone_name)) + '. ' + str(row['notes'])
                     )
             if name == 'console_cost_forecast_outcomes' and entry.get('status') in {'CRÍTICO', 'CRITICO'}:
                 # Financial classification is an independent enum, not a generic workflow status.

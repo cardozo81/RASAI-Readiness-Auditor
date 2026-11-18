@@ -130,3 +130,27 @@ só são reconhecidos quando a leitura de histórico explicitamente permite lega
 Nenhuma operação regrava `audit.db`, `report-catalog` ou a evidência de origem.
 A formatação temporal da projeção financeira usa o timezone da apresentação,
 sem modificar timestamps persistidos nem arquivos JSON anexos.
+
+
+### Triagem editorial por fonte (issue #722, gerador 0.4.21)
+
+A publicação gera `anexos/dados-de-apoio/editorial-review.json` com uma
+entrada para cada família SQLite, inclusive tabelas vazias. O recibo distingue
+origem, quantidade, estado registrado por linha, página, referência navegável,
+campos analíticos efetivamente projetados, síntese registrada e prioridade de
+revisão. Os tópicos antes classificados como `PRESENT_TECHNICAL_ONLY`
+recebem classificação explícita, sem convertê-los em conclusões.
+
+O Painel mostra as contagens do inventário e as lacunas de decisão em
+expansão opcional; cada página apresenta seu mapa de fontes em `details`
+fechado por padrão, reutilizando a navegação e as tabelas existentes.
+Não existe dependência de `report-catalog`, mudança de pontuação, coleta,
+IA ou alteração do banco. Sidecars de rede e histórico são descritos
+separadamente, apenas nos estados que os recibos já comprovam.
+
+A política editorial identifica lacunas de síntese/análise sem inventar
+aprovações. Novas famílias sem política entram em revisão, nunca são
+silenciosamente marcadas como técnicas. A evidência de cobertura de 100%
+das famílias **não é** aceite editorial humano: ambos os recibos preservam
+`certifies_editorial_completeness=false`. A homologação da AUD real,
+inspeção visual e decisões de materialização ainda são obrigatórias.

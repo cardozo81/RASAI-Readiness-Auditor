@@ -11,7 +11,7 @@ from .read_model import PAGES, SEARCH_PAGE, destination, thaw
 from .presentation_labels import public_value
 
 
-def summaries(root, tables, inventory, records, capture):
+def summaries(root, tables, inventory, records, capture, timezone_name=None):
     html, topics = defaultdict(str), defaultdict(list)
     by_table = defaultdict(list)
     for record in records:
@@ -202,13 +202,15 @@ def summaries(root, tables, inventory, records, capture):
             [('target','Alvo'), ('scope','Escopo'), ('form_factor','Dispositivo'), ('metric','Métrica'),
              ('unit','Unidade'), ('periods','Janelas'), ('first_start','Início da primeira janela'),
              ('first_end','Fim da primeira janela'), ('first_p75','Primeiro p75'),
-             ('last_start','Início da última janela'), ('last_end','Fim da última janela'), ('last_p75','Último p75')])
+             ('last_start','Início da última janela'), ('last_end','Fim da última janela'), ('last_p75','Último p75')],
+             timezone_name=timezone_name)
     else:
         body += '<p>Sem série temporal comparável comprovada nos sidecars disponíveis.</p>'
     for index, group in enumerate(history['groups'],1):
         body += '<details><summary>'+text('Janelas de campo · '+str(group['metric'])+' · '+str(group['form_factor'] or 'Sem filtro de dispositivo'))+'</summary>'
         body += table('CrUX · série '+str(index), group['series'],
-                      [('period_start','Início da janela'),('period_end','Fim da janela'),('p75','p75 ('+group['unit']+')')],full_text=True)
+                      [('period_start','Início da janela'),('period_end','Fim da janela'),('p75','p75 ('+group['unit']+')')],
+                      timezone_name=timezone_name, full_text=True)
         body += '</details>'
     body += ('<p>Janelas CrUX podem se sobrepor; diferenças não demonstram tendência ou causalidade. '
              'Campo, laboratório e simulação são medições independentes. Não são combinados em score.</p>')

@@ -65,7 +65,7 @@ def validate_package(output):
         path=output/'anexos'/filename
         if not path.is_file() or digest(path)!=filename[:-5]:
             raise ValueError('table annex address mismatch: '+table)
-    for name in ('coverage-map.json','evidence-coverage.json'):
+    for name in ('coverage-map.json','evidence-coverage.json','editorial-review.json'):
         if not (output/'anexos'/'dados-de-apoio'/name).is_file():
             raise ValueError('missing support receipt: '+name)
         if (output/'assets'/name).exists():
@@ -256,6 +256,18 @@ def main():
                 raise ValueError('source-to-annex parity mismatch: '+table)
         checks['table_families_reconciled']=len(tables)
         checks['unique_table_annexes']=len(set(manifest['table_annexes'].values()))
+        review=json.loads((output/'anexos/dados-de-apoio/editorial-review.json').read_text(encoding='utf-8'))
+        if (review['families_total']!=len(tables)
+                or review['families_classified']!=len(tables)
+                or set(review['families'])!=set(tables)
+                or review['certifies_editorial_completeness'] is not False):
+            raise ValueError('editorial family coverage contract mismatch')
+        for name, family_receipt in review['families'].items():
+            if (family_receipt['row_count']!=len(tables[name])
+                    or family_receipt['annex']!='anexos/'+manifest['table_annexes'][name]):
+                raise ValueError('editorial source receipt mismatch: '+name)
+        checks['editorial_families_classified']=len(review['families'])
+        checks['editorial_technical_topics_reviewed']=review['technical_only_topics_reviewed']
         if inventory(copy)!=baseline or read_database(copy/'audit.db')!=(tables,schema):
             raise ValueError('source bytes or row identity changed')
         from rasai.parallel_report.read_model import destination
