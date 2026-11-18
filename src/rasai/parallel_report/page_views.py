@@ -17,7 +17,7 @@ SECTIONS = {
  SEARCH_PAGE: [('Busca observada — SERP',['serp_observations'], [('query','Consulta'),('engine','Mecanismo'),('language','Idioma'),('country','Mercado'),('device','Dispositivo'),('collected_at','Instante'),('result_count','Resultados'),('requested_depth','Profundidade consultada'),('customer_position','Posição do alvo'),('domain_status','Alvo no recorte'),('observation_status','Estado')]), ('Concorrência observada na busca',['serp_competitive_results'], [('position','Posição'),('domain','Domínio'),('url','URL'),('classification','Tipo de resultado'),('reason','Motivo da classificação'),('eligible_for_content_comparison','Comparação de conteúdo elegível'),('selected_for_content_comparison','Selecionado para comparação')]), ('Pesquisa externa — Perplexity',['perplexity_search_runs'], [('query_json','Consulta'),('status','Estado'),('native_usage_quantity','Requests'),('started_at','Instante')]), ('GEO e evidências contextuais',['geo_observation_runs','serp_competitive_ai_analyses'], [('contract_version','Contrato'),('summary','Síntese'),('projection_json','Projeção persistida'),('state','Estado')])],
  'seguranca': [('Cobertura da análise passiva',['passive_security_runs'], [('status','Estado'),('pages_analyzed','Páginas'),('resources_count','Recursos'),('findings_count','Achados'),('limitations_json','Limitações')]), ('Achados e remediação',['passive_security_findings'], [('title','Achado'),('severity','Severidade'),('url_scope','Escopo'),('description','Observado'),('remediation','Remediação'),('validation','Como validar')])],
  'plano': [('Ações por prioridade',['directed_analysis_actions'], [('priority','Prioridade'),('title','Ação'),('effort','Esforço'),('source_kind','Origem'),('implementation_guidance_json','Como implementar'),('validation_steps_json','Como validar')]), ('Correções técnicas propostas',['improvement_intelligence_recommendations'], [('title','Correção'),('selector','Elemento'),('original_html','Atual persistido'),('suggested_html','Sugerido — não aprovado'),('verification','Como validar')]), ('Textos sugeridos por IA',['content_remediation_suggestions'], [('target_location','Alvo'),('objective','Objetivo'),('proposed_text','Sugerido — não aprovado'),('review_note','Revisão humana')])],
- 'ia-custos': [('Custo por chamada',['ai_provider_attempts','content_remediation_attempts'], [('provider','Provedor'),('model','Modelo'),('status','Estado'),('input_tokens','Tokens entrada'),('output_tokens','Tokens saída'),('estimated_cost','Estimado'),('cost_currency','Moeda da estimativa'),('observed_cost','Observado'),('observed_cost_currency','Moeda observada'),('started_at','Início da tentativa'),('finished_at','Fim da tentativa'),('duration_ms','Duração ms'),('operation','Operação'),('error_code','Código do erro'),('fallback_reason','Motivo do fallback'),('request_message_summary','Resumo da requisição')]), ('Entradas e saídas completas',['ai_exchange_log'], [('purpose','Finalidade'),('provider','Provedor'),('model','Modelo'),('outcome','Estado'),('request_payload','Entrada sanitizada'),('response_payload','Saída sanitizada')]), ('Proveniência e execução',['ai_tasks'], [('purpose','Finalidade'),('status','Estado'),('prompt_version','Versão do prompt'),('semantic_contract_version','Versão da especificação técnica')])],
+ 'ia-custos': [('Custo por chamada',['ai_provider_attempts','content_remediation_attempts'], [('provider','Provedor'),('model','Modelo'),('reasoning_profile','Esforço solicitado'),('status','Estado'),('input_tokens','Tokens entrada'),('output_tokens','Tokens saída'),('estimated_cost','Estimado'),('cost_currency','Moeda da estimativa'),('observed_cost','Observado'),('observed_cost_currency','Moeda observada'),('started_at','Início da tentativa'),('finished_at','Fim da tentativa'),('duration_ms','Duração ms'),('operation','Operação'),('error_code','Código do erro'),('fallback_reason','Motivo do fallback'),('request_message_summary','Resumo da requisição')]), ('Entradas e saídas completas',['ai_exchange_log'], [('purpose','Finalidade'),('provider','Provedor'),('model','Modelo'),('outcome','Estado'),('request_payload','Entrada sanitizada'),('response_payload','Saída sanitizada')]), ('Proveniência e execução',['ai_tasks'], [('purpose','Finalidade'),('status','Estado'),('prompt_version','Versão do prompt'),('semantic_contract_version','Versão da especificação técnica')])],
 }
 
 
@@ -146,6 +146,20 @@ def editorial(page, records, costs, thresholds, governance=None):
     if page in {'index','ia-custos'}:
         html += '<h2>Consumo e proveniência</h2>' + chip(costs['coverage']) + kv([('Tentativas identificadas',costs['attempt_count'])])
         attempt_rows = rows(['ai_provider_attempts', 'content_remediation_attempts'])
+        # Join the reconciled entry to its very same persisted ledger row.
+        # Ambiguous/missing IDs are never assigned invented provider metadata.
+        attempts_by_origin = {}
+        ambiguous_attempts = set()
+        for attempt in attempt_rows:
+            identity = (attempt.get('_source_table'), attempt.get('attempt_id'))
+            if identity[1] is None:
+                continue
+            if identity in attempts_by_origin:
+                ambiguous_attempts.add(identity)
+            else:
+                attempts_by_origin[identity] = attempt
+        for identity in ambiguous_attempts:
+            attempts_by_origin.pop(identity, None)
         priced = [row for row in attempt_rows if _money(row.get('estimated_cost')) is not None]
         by_currency = {}
         for row in priced:
@@ -180,7 +194,7 @@ def editorial(page, records, costs, thresholds, governance=None):
             html += '<h2>Tentativas com custo estimado persistido</h2>'
             html += local_table('Preço por tentativa — sem cobrança inferida', priced, [
                 ('provider', 'Provedor'), ('model', 'Modelo'),
-                ('pricing_rule_id', 'Regra de preço'), ('pricing_version', 'Versão do preço'),
+                ('reasoning_profile', 'Esforço solicitado'), ('pricing_rule_id', 'Regra de preço'), ('pricing_version', 'Versão do preço'),
                 ('estimated_cost', 'Custo estimado'), ('cost_currency', 'Moeda'),
                 ('started_at', 'Início')
             ])
@@ -198,7 +212,19 @@ def editorial(page, records, costs, thresholds, governance=None):
                 source = entry.get('source') or 'origem não identificada'
                 source_counts[source] = source_counts.get(source, 0) + 1
                 label = f"{source_labels.get(source, source)} #{source_counts[source]}"
-                parts.append((label, entry['amount'], entry.get('attempt_id')))
+                attempt = attempts_by_origin.get((source, entry.get('attempt_id'))) or {}
+                metadata = {
+                    'kind': entry.get('kind'),
+                    'source': source_labels.get(source, 'Origem não identificada'),
+                    'purpose': public_value(
+                        attempt.get('operation') or attempt.get('purpose'), 'operation'
+                    ),
+                    'provider': attempt.get('provider'),
+                    'model': attempt.get('model'),
+                    'reasoning': public_value(attempt.get('reasoning_profile'), 'reasoning_profile'),
+                    'fallback': attempt.get('fallback_reason'),
+                }
+                parts.append((label, entry['amount'], entry.get('attempt_id'), metadata))
             html += stack(
                 parts,
                 title='Composição do custo estimado ou observado por tentativa',

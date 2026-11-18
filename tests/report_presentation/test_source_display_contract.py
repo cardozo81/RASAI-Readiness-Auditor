@@ -274,3 +274,86 @@ def test_historical_record_disappearance_remains_blocking(tmp_path):
 
     with pytest.raises(ValueError, match='record identity regression: 1 missing anchors'):
         compare_reports(previous, current)
+
+
+def test_persisted_reasoning_profile_matches_each_attempt_and_fallback():
+    """No inference from console defaults or grouping across provider attempts."""
+    from rasai.parallel_report.presentation_labels import public_value
+    attempts = [
+        {'attempt_id': 'AI-1', 'provider': 'provedor-A', 'model': 'modelo-alto',
+         'reasoning_profile': 'HIGH', 'status': 'TECHNICAL_ERROR',
+         'estimated_cost': 0.10, 'cost_currency': 'USD'},
+        {'attempt_id': 'AI-2', 'provider': 'provedor-B', 'model': 'modelo-padrao',
+         'reasoning_profile': 'PROVIDER_DEFAULT', 'status': 'SUCCESS',
+         'fallback_reason': 'tentativa alternativa', 'estimated_cost': 0.20, 'cost_currency': 'USD'},
+        {'attempt_id': 'AI-3', 'provider': 'provedor-C', 'model': 'modelo-baixo',
+         'reasoning_profile': 'LOW', 'status': 'SUCCESS',
+         'estimated_cost': 0.30, 'cost_currency': 'USD'},
+        {'attempt_id': 'AI-4', 'provider': 'provedor-D', 'model': 'modelo-ausente',
+         'status': 'SUCCESS', 'estimated_cost': 0.40, 'cost_currency': 'USD'},
+    ]
+    remediation = [{
+        'attempt_id': 'REM-1', 'provider': 'provedor-E', 'model': 'modelo-minimo',
+        'reasoning_profile': 'MINIMAL', 'status': 'SUCCESS',
+        'estimated_cost': 0.05, 'cost_currency': 'USD',
+    }]
+    source = {'ai_provider_attempts': attempts, 'content_remediation_attempts': remediation}
+    records, _ = model(source)
+    rendered = editorial('ia-custos', records, reconcile(source), load())
+    for caption in ('Custo por chamada', 'Preço por tentativa — sem cobrança inferida'):
+        assert f'<caption>{caption}</caption>' in rendered
+        section = rendered.split(f'<caption>{caption}</caption>', 1)[1].split('</table>', 1)[0]
+        assert 'Esforço solicitado' in section
+        for model_name, effort in (
+            ('modelo-alto', 'Esforço alto solicitado'),
+            ('modelo-padrao', 'Padrão do provedor (nível não comprovado)'),
+            ('modelo-baixo', 'Esforço baixo solicitado'),
+            ('modelo-ausente', 'N/D'),
+            ('modelo-minimo', 'Esforço mínimo solicitado'),
+        ):
+            matches = [row for row in section.split('<tr>') if f'>{model_name}</td>' in row]
+            assert len(matches) == 1, (caption, model_name)
+            assert effort in matches[0], (caption, model_name, effort)
+    assert public_value('NONE', 'reasoning_profile') == 'Sem esforço adicional solicitado'
+    assert public_value('XHIGH', 'reasoning_profile') == 'Esforço muito alto solicitado'
+    assert public_value('MAX', 'reasoning_profile') == 'Esforço máximo solicitado'
+    assert public_value('', 'reasoning_profile').startswith('N/D')
+    assert public_value('HIGH', 'unrelated_evidence') == 'HIGH'
+    assert attempts[0]['reasoning_profile'] == 'HIGH'
+
+
+def test_cost_stacks_explain_each_persisted_attempt_without_cat_classification():
+    attempts = [
+        {'attempt_id': 'AI-SEM', 'provider': 'Provider A', 'model': 'Model A',
+         'reasoning_profile': 'HIGH', 'operation': 'SEMANTIC_M7',
+         'estimated_cost': 0.40, 'cost_currency': 'USD', 'status': 'SUCCESS'},
+        {'attempt_id': 'AI-FALLBACK', 'provider': 'Provider B', 'model': 'Model B',
+         'reasoning_profile': 'PROVIDER_DEFAULT', 'operation': 'DIRECTED_ANALYSIS',
+         'fallback_reason': 'primeiro provedor indisponível',
+         'estimated_cost': 0.60, 'cost_currency': 'USD', 'status': 'SUCCESS'},
+    ]
+    original = [dict(item) for item in attempts]
+    data = {'ai_provider_attempts': attempts}
+    records, _ = model(data)
+    index = editorial('index', records, reconcile(data), load())
+    costs = editorial('ia-custos', records, reconcile(data), load())
+    from rasai.parallel_report.presentation_labels import public_value
+    assert public_value('SEMANTIC_M7', 'operation') == 'Análise semântica'
+    assert public_value('SEMANTIC_M7', 'observed_value') == 'SEMANTIC_M7'
+    for html in (index, costs):
+        assert 'role="img"' in html
+        assert 'tabindex="0"' in html
+        assert 'data-explanation=' in html
+        assert 'Catálogo de origem não individualizado nesta tentativa' in html
+        assert 'Custo estimado persistido: USD 0,4' in html
+        assert 'Custo estimado persistido: USD 0,6' in html
+        assert '40,0% do total desta moeda' in html
+        assert '60,0% do total desta moeda' in html
+        assert 'Provider A' in html and 'Model A' in html
+        assert 'Provider B' in html and 'Model B' in html
+        assert 'Padrão do provedor (nível não comprovado)' in html
+        assert 'motivo do fallback: primeiro provedor indisponível' in html
+        assert 'Análise semântica' in html
+        assert 'SEMANTIC_M7' not in html.split('data-explanation=', 1)[1].split('>', 1)[0]
+        assert 'CAT-01' not in html and 'CAT-02' not in html
+    assert attempts == original

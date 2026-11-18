@@ -21,6 +21,9 @@ td.n,th.n{text-align:right;white-space:nowrap}
 .bar{position:relative;display:flex;height:12px;border-radius:6px;margin:8px 0 6px;overflow:visible}.bar i{display:block;height:100%}.bar i:first-child{border-radius:6px 0 0 6px}.bar i:last-child{border-radius:0 6px 6px 0}
 .z1{background:var(--z1)}.z2{background:var(--z2)}.z3{background:var(--z3)}.z4{background:var(--z4)}
 .mk{position:absolute;top:-5px;width:4px;height:22px;margin-left:-2px;background:var(--ink);border-radius:2px;box-shadow:0 0 0 2px var(--card)}
+/* Active zone uses the existing palette; neutral fallback for absent markers. */
+.ruler .bar > i{filter:grayscale(1)}
+.ruler .bar > i.active{filter:none}
 .rf{font-size:12.5px;color:var(--mut)}.nt{font-size:13px;margin:6px 0 0}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:0 16px}
 dl.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 18px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}dl.kv dt{font-size:12.5px;color:var(--mut)}dl.kv dd{margin:0;word-break:break-word}
@@ -30,8 +33,17 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--bg);padding:10px
 figure{margin:10px 0;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}figcaption{font-size:12.5px;color:var(--mut)}
 .lc{width:100%;height:auto}.ln{fill:none;stroke-width:2}.s0{stroke:var(--acc);color:var(--acc)}.s1{stroke:var(--z2);color:var(--warn)}.th{stroke-width:1;stroke-dasharray:4 3}.th.g{stroke:var(--z4)}.th.b{stroke:var(--z1)}.tl,.ct{font-size:10px;fill:var(--mut)}.ct{font-weight:600;fill:var(--ink);font-size:11px}.lg{margin-right:10px;font-weight:600}
 .stack-head{display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-top:10px}.stack-head span{color:var(--mut);font-size:12.5px}
-.stack{display:flex;height:22px;border-radius:5px;overflow:hidden;margin:6px 0}.stack span{display:block;height:100%;min-width:0}
+.stack{display:flex;height:22px;border-radius:5px;overflow:visible;margin:6px 0}.stack span{display:block;height:100%;min-width:0}
 .cat1{background:#4e79a7}.cat2{background:#6f5bd5}.cat3{background:#76b7b2}.cat4{background:#b279a2}.cat5{background:#5f9ed1}.cat6{background:#9c755f}.cat7{background:#79706e}.cat8{background:#86bcb6}
+/* Cost segments: detailed hover text and focusable legend, fully offline. */
+.stack > span{position:relative;cursor:help}
+.stack > span:first-child{border-radius:5px 0 0 5px}
+.stack > span:last-child{border-radius:0 5px 5px 0}
+.stack > span:hover::after{content:attr(data-explanation);position:absolute;left:0;top:calc(100% + 6px);z-index:8;width:min(340px,calc(100vw - 40px));padding:8px 10px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.16);font-size:12px;line-height:1.5;white-space:normal;overflow-wrap:anywhere;pointer-events:none}
+.stack-legend li{position:relative}
+.stack-legend li:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+.stack-legend li:focus::after{content:attr(data-explanation);grid-column:2/-1;padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);white-space:normal;overflow-wrap:anywhere}
+.stack-context{display:block;font-size:11.5px;line-height:1.45;color:var(--mut);font-weight:400;white-space:normal}
 .stack-legend{list-style:none;padding:0;margin:8px 0 4px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:5px 18px}.stack-legend li{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:7px;align-items:center;font-size:12.5px;color:var(--mut)}.stack-legend strong{color:var(--ink);font-weight:600;white-space:nowrap}.stack-label{overflow-wrap:anywhere}.sw{width:10px;height:10px;border-radius:2px}.stack-tech{margin:4px 0 8px;padding-left:20px}.stack-tech code{overflow-wrap:anywhere;word-break:break-all}
 .shot{max-width:300px;border:1px solid var(--line);border-radius:8px}
 footer{margin-top:44px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;color:var(--mut)}
@@ -81,6 +93,11 @@ summary{overflow-wrap:anywhere} .record .org{max-width:none} .ruler .nt{font-siz
 .record{overflow-wrap:anywhere}
 
 
+/* Presentation-only point identity; colors are embedded in trusted offline SVG. */
+.map-ref{display:inline-flex;gap:5px;align-items:center;white-space:nowrap}
+.map-ref svg{width:14px;height:14px;flex:none}
+#network-map ul li svg{display:inline-block;vertical-align:-2px;margin-right:4px}
+#network-map g[id^="network-map-point-"]{scroll-margin-top:70px}
 /* Mapa de rede somente com coordenadas persistidas. Sem inline CSS (CSP offline). */
 #network-map .table-wrap{overflow-x:auto;margin:8px 0 14px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
 #network-map svg.network-map-plot{display:block;width:100%;height:auto;max-width:100%;background:var(--card)}

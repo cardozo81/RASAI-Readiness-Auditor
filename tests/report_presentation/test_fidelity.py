@@ -58,3 +58,101 @@ def test_prototype_tokens_and_components():
         assert token in css
     for component in ('.shell','.rail','.top','.ruler','.bar','.mk','.chip','.org','.kv','.tw','.callout','.detail-dialog','.modal-open'):
         assert component in css
+
+
+def test_ruler_marks_only_its_active_zone_in_offline_chromium(tmp_path):
+    """Focused rendering: thresholds, 0/100, missing marker, themes and no-JS."""
+    import pytest
+    sync_playwright = pytest.importorskip('playwright.sync_api').sync_playwright
+    assets = Path(__file__).parents[2] / 'src/rasai/parallel_report/assets'
+    for name in ('site.css', 'app.js'):
+        (tmp_path / name).write_bytes((assets / name).read_bytes())
+    proposal = load()[0]  # 60/80/95/100
+    values = (0, 59.99, 60, 80, 95, 100, None)
+    markup = ''.join(
+        f'<section id="case-{i}">' + ruler('Métrica persistida', value, proposal=proposal) + '</section>'
+        for i, value in enumerate(values)
+    )
+    prefix = '<!doctype html><html><head><link rel="stylesheet" href="site.css"></head><body class="light">'
+    (tmp_path / 'index.html').write_text(
+        prefix + markup + '<script src="app.js"></script></body></html>', encoding='utf-8'
+    )
+    (tmp_path / 'without-js.html').write_text(prefix + markup + '</body></html>', encoding='utf-8')
+    with sync_playwright() as pw:
+        if not Path(pw.chromium.executable_path).exists():
+            pytest.skip('Existing Chromium unavailable; do not install')
+        browser = pw.chromium.launch()
+        context = browser.new_context(offline=True)
+        page = context.new_page()
+        errors = []
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        for width in (390, 1440):
+            page.set_viewport_size({'width': width, 'height': 900})
+            page.goto((tmp_path / 'index.html').as_uri())
+            for theme in ('light', 'dark'):
+                page.evaluate('(value) => {document.body.className=value}', theme)
+                for index, expected in enumerate((0, 0, 1, 2, 3, 3, None)):
+                    actual = page.locator(f'#case-{index} .bar > i').evaluate_all(
+                        '(els) => els.map((el,i) => getComputedStyle(el).filter === "none" ? i : null).filter(i => i !== null)'
+                    )
+                    assert actual == ([] if expected is None else [expected]), (width, theme, index, actual)
+            page.emulate_media(media='print')
+            assert page.locator('#case-3 .bar > i').evaluate_all(
+                '(els) => els.filter(el => getComputedStyle(el).filter === "none").length'
+            ) == 1
+            page.emulate_media(media='screen')
+            page.goto((tmp_path / 'without-js.html').as_uri())
+            assert page.locator('.ruler .bar > i').evaluate_all(
+                '(els) => els.every(el => getComputedStyle(el).filter === "grayscale(1)")'
+            )
+        assert errors == []
+        browser.close()
+
+
+def test_stack_tooltip_mouse_and_keyboard_offline(tmp_path):
+    import pytest
+    sync_playwright = pytest.importorskip('playwright.sync_api').sync_playwright
+    assets = Path(__file__).parents[2] / 'src/rasai/parallel_report/assets'
+    (tmp_path / 'site.css').write_bytes((assets / 'site.css').read_bytes())
+    (tmp_path / 'app.js').write_bytes((assets / 'app.js').read_bytes())
+    markup = stack([
+        ('IA / integração #1', 0.40, 'ATT-ONE', {
+            'kind': 'estimado', 'source': 'IA / integração',
+            'purpose': 'Análise semântica', 'provider': 'Provider A',
+            'model': 'Model A', 'reasoning': 'Esforço alto solicitado',
+        }),
+        ('IA / integração #2', 0.60, 'ATT-TWO', {
+            'kind': 'observado', 'source': 'IA / integração',
+            'purpose': 'Análise direcionada', 'provider': 'Provider B',
+            'model': 'Model B', 'reasoning': 'Padrão do provedor (nível não comprovado)',
+        }),
+    ], unit='USD')
+    (tmp_path / 'stack.html').write_text(
+        '<!doctype html><html><head><link rel="stylesheet" href="site.css"></head>'
+        '<body class="light"><main>' + markup + '</main><script src="app.js"></script></body></html>',
+        encoding='utf-8'
+    )
+    with sync_playwright() as pw:
+        if not Path(pw.chromium.executable_path).exists():
+            pytest.skip('Use existing Chromium only')
+        browser = pw.chromium.launch()
+        page = browser.new_page()
+        for width in (390, 1440):
+            page.set_viewport_size({'width': width, 'height': 900})
+            page.goto((tmp_path / 'stack.html').as_uri())
+            for theme in ('light', 'dark'):
+                page.evaluate('(mode) => document.body.className=mode', theme)
+                assert page.locator('.stack[role="img"]').count() == 1
+                first = page.locator('.stack > span').first
+                first.hover()
+                assert 'Análise semântica' in first.get_attribute('data-explanation')
+                tooltip = first.evaluate("(node) => getComputedStyle(node, '::after').content")
+                assert 'Análise semântica' in tooltip
+                item = page.locator('.stack-legend li').nth(1)
+                item.focus()
+                assert item.get_attribute('tabindex') == '0'
+                assert 'observado' in item.get_attribute('data-explanation').lower()
+                focused = item.evaluate("(node) => getComputedStyle(node, '::after').content")
+                assert 'Model B' in focused
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        browser.close()

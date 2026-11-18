@@ -13,6 +13,27 @@ const links=$('.rail a');if(links.length&&'IntersectionObserver'in window){const
 // Bind finite normalized widths without inline script or stylesheet attributes.
 document.querySelectorAll('[data-width]').forEach(e=>{const n=Number(e.dataset.width);if(Number.isFinite(n))e.style.width=Math.max(0,Math.min(100,n))+'%'});
 document.querySelectorAll('.mk[data-position]').forEach(e=>{const n=Number(e.dataset.position);if(Number.isFinite(n))e.style.left=Math.max(0,Math.min(100,n))+'%'});
+// With no valid marker or JavaScript, every band remains neutral.
+document.querySelectorAll('.ruler .bar').forEach(bar=>{
+  const zones=[...bar.children].filter(el=>el.tagName==='I' && el.hasAttribute('data-width'));
+  const marker=bar.querySelector(':scope > .mk[data-position]');
+  if(!marker || !zones.length || !marker.dataset.position?.trim())return;
+  const n=Number(marker.dataset.position);
+  if(!Number.isFinite(n))return;
+  const position=Math.max(0,Math.min(100,n));
+  let cumulative=0, active=null, last=null;
+  zones.forEach(zone=>{
+    const width=Number(zone.dataset.width);
+    if(!Number.isFinite(width) || width<=0)return;
+    const start=cumulative;
+    cumulative+=Math.max(0,Math.min(100,width));
+    last=zone;
+    // Half-open bands: exact threshold belongs to the following band.
+    if(!active && position>=start && position<cumulative)active=zone;
+  });
+  if(position===100 && last && Math.abs(cumulative-100)<0.05)active=last;
+  if(active)active.classList.add('active');
+});
 // Persist the reader's choice throughout the 11 HTML pages, including file://.
 // Browser localStorage under file:// is implementation-dependent: the URL
 // parameter is the authoritative handoff for navigation inside this report.

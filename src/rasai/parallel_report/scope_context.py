@@ -9,7 +9,7 @@ from rasai.catalog_report_search_trust import (
     _overview_values, _overview_references, _raw_serp_artifact, _target_hosts, overview_citation,
 )
 from rasai.network_intelligence import build_network_assessment
-from rasai.network_map import network_geographic_panel
+from rasai.network_map import network_geographic_panel, network_map_locations, map_reference_for_hop
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
@@ -265,7 +265,7 @@ def _network_metric_rows(observations, probes, timezone_name):
     return sanitize(rows)
 
 
-def _network_hop_rows(probes, timezone_name):
+def _network_hop_rows(probes, timezone_name, *, map_locations=None):
     rows = []
     for index, item in enumerate(probes, 1):
         metrics = item.get('metrics') if isinstance(item, dict) else None
@@ -280,6 +280,7 @@ def _network_hop_rows(probes, timezone_name):
                 continue
             enrichment = hop.get('enrichment') if isinstance(hop.get('enrichment'), dict) else {}
             rows.append({
+                **({'_map_point': map_reference_for_hop(hop, map_locations)} if map_locations is not None else {}),
                 'captured_at': stamp,
                 'target': item.get('hostname'),
                 'hop': hop.get('hop'),
@@ -435,7 +436,12 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
          ('captured_at', 'Instante'), ('indicator', 'Indicador'), ('state', 'Estado'),
          ('value', 'Valor'), ('method','Método'), ('provenance', 'Fonte'),
          ('reason', 'Motivo / limite'),('_ref','Evidência')])
-    hop_rows = _network_hop_rows(probes, timezone_name)
+    map_probes = sanitize(probes)
+    for item in map_probes:
+        if isinstance(item, dict):
+            item['capture_utc'] = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
+    map_locations = network_map_locations(map_probes)
+    hop_rows = _network_hop_rows(probes, timezone_name, map_locations=map_locations)
     if hop_rows:
         html += '<h2>Etapas conhecidas do caminho</h2>' + table(
             'Traceroute · saltos persistidos', hop_rows,
@@ -443,7 +449,7 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
              ('hop_state', 'Situação'), ('public_ip', 'Endereço público'),
              ('rtt_ms', 'RTT (ms)'), ('rtt_samples', 'Amostras RTT'),
              ('asn', 'ASN'), ('geoip', 'GeoIP aproximado'),
-             ('method','Método'),('protocol','Protocolo'),('_ref','Evidência')])
+             ('_map_point','Ponto no mapa'), ('method','Método'),('protocol','Protocolo'),('_ref','Evidência')])
     history = _network_series_rows(probes, timezone_name)
     if history:
         html += (
@@ -460,11 +466,7 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
         )
     # Reuse the established offline map with exactly the verified probe objects.
     # Missing coordinates produce an explicit explanation, never a synthetic route.
-    map_probes = sanitize(probes)
-    for item in map_probes:
-        if isinstance(item, dict):
-            item['capture_utc'] = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
-    map_html = network_geographic_panel(map_probes)
+    map_html = network_geographic_panel(map_probes, presentation_mode=True)
     has_map = '<h2>Mapa geográfico consultivo</h2>' in map_html
     if not has_map:
         # Render the real world basemap even when passive network telemetry
