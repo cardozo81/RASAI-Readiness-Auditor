@@ -114,6 +114,7 @@ def test_stack_tooltip_mouse_and_keyboard_offline(tmp_path):
     sync_playwright = pytest.importorskip('playwright.sync_api').sync_playwright
     assets = Path(__file__).parents[2] / 'src/rasai/parallel_report/assets'
     (tmp_path / 'site.css').write_bytes((assets / 'site.css').read_bytes())
+    (tmp_path / 'app.js').write_bytes((assets / 'app.js').read_bytes())
     markup = stack([
         ('IA / integração #1', 0.40, 'ATT-ONE', {
             'kind': 'estimado', 'source': 'IA / integração',
@@ -128,7 +129,7 @@ def test_stack_tooltip_mouse_and_keyboard_offline(tmp_path):
     ], unit='USD')
     (tmp_path / 'stack.html').write_text(
         '<!doctype html><html><head><link rel="stylesheet" href="site.css"></head>'
-        '<body class="light"><main>' + markup + '</main></body></html>',
+        '<body class="light"><main>' + markup + '</main><script src="app.js"></script></body></html>',
         encoding='utf-8'
     )
     with sync_playwright() as pw:
