@@ -1,5 +1,5 @@
 """Issue #722: high-value analytical projections, source rows only."""
-from rasai.parallel_report.read_model import build
+from rasai.parallel_report.read_model import build, SEARCH_PAGE
 from rasai.parallel_report.analytical_views import build_analytical_views
 
 
@@ -40,7 +40,7 @@ def test_selected_semantic_and_provider_usage_sources_become_analytical_not_bill
     assert '0,02' in html['ia-custos']
     assert 'faturamento' in html['ia-custos']
     assert 'Sem evidência de comprovação' in html['conteudo']
-    assert 'Fonte persistida' in html['search-geo']
+    assert 'Fonte persistida' in html[SEARCH_PAGE]
     assert 'não aprovadas' in html['seguranca']
     assert '0,17' in html['indices']
     assert receipt['indices.html']['score_contributions']['executive_interpretation_certified'] is False
