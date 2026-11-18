@@ -262,9 +262,9 @@ def main():
                 or set(review['families'])!=set(tables)
                 or review['certifies_editorial_completeness'] is not False):
             raise ValueError('editorial family coverage contract mismatch')
-        for name, source in review['families'].items():
-            if (source['row_count']!=len(tables[name])
-                    or source['annex']!='anexos/'+manifest['table_annexes'][name]):
+        for name, family_receipt in review['families'].items():
+            if (family_receipt['row_count']!=len(tables[name])
+                    or family_receipt['annex']!='anexos/'+manifest['table_annexes'][name]):
                 raise ValueError('editorial source receipt mismatch: '+name)
         checks['editorial_families_classified']=len(review['families'])
         checks['editorial_technical_topics_reviewed']=review['technical_only_topics_reviewed']
