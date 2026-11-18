@@ -69,7 +69,13 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
             return None
         required = {name + '.html' for name, _ in PAGES}
         required.update(visual_files)
-        if manifest.get('generator_version') == __version__:
+        if (manifest.get('generator_version') == __version__
+                or 'anexos/dados-de-apoio/editorial-review.json'
+                   in manifest.get('generated_files', ())):
+            # Current packages require the new receipt. In explicit historical
+            # mode, validate a present receipt even when a legacy generator
+            # version is recorded; do not reject otherwise intact migration
+            # fixtures or silently ignore files listed in their manifests.
             required.add('anexos/dados-de-apoio/editorial-review.json')
         required.update('assets/' + name for name in ('site.css', 'app.js', 'thresholds.json'))
         layout = manifest.get('annex_contract')
