@@ -393,7 +393,7 @@ def test_perplexity_saved_draft_reuse_requires_explicit_confirmation(monkeypatch
     assert state.perplexity_queries == ()
     assert state.perplexity_last_status == "NOT_REQUESTED"
 
-    answers = iter(("R", "S"))
+    answers = iter(("R", "S", "1"))
     _manage_perplexity_draft(search, state)
     assert state.perplexity_queries == ("seguro de vida",)
     assert state.perplexity_search_type == "fast"
@@ -448,7 +448,7 @@ def test_perplexity_submenu_distinguishes_loaded_draft_ready_from_requested(monk
     assert "secret-do-not-print" not in rendered
 
     # Opt-in mutates only the current AUD, preserving the stored draft.
-    rendered = _run(state, ["P", "9", "R", "S", "V", "V"])
+    rendered = _run(state, ["P", "9", "R", "S", "1", "V", "V"])
     assert "Configuração         : APTA PARA SOLICITAÇÃO | origem=SESSÃO" in rendered
     assert "Solicitação           : SOLICITADA" in rendered
     assert "Queries configuradas : 1 | modo=FAST" in rendered
@@ -521,7 +521,7 @@ def test_perplexity_explicit_e_reuses_ini_draft_without_search_or_serp_side_effe
         perplexity_draft_queries=("consultoria de ti",),
         perplexity_draft_search_type="fast",
     )
-    responses = iter(("E", "N", "E", "S", "V"))
+    responses = iter(("E", "N", "E", "S", "1", "V"))
     output = StringIO()
     with patch("builtins.input", side_effect=lambda *_: next(responses)), redirect_stdout(output):
         _configure_perplexity(search, state)
@@ -556,3 +556,103 @@ def test_serp_menu_names_provider_and_distinguishes_perplexity(monkeypatch) -> N
     assert "SerpApi é um fornecedor SERP, NÃO é Perplexity" in rendered
     assert "exclusivamente SERP" in rendered
     assert "Perplexity Search API" in rendered
+
+
+def test_727_perplexity_destination_session_only_never_writes(monkeypatch):
+    from rasai.console_search_parameter_menu import _request_saved_perplexity
+    from rasai import interactive_console as console
+
+    state = SearchConsoleState(perplexity_draft_queries=("exemplo público",),
+                               perplexity_draft_search_type="fast")
+    def forbidden_writer(_state):
+        raise AssertionError("Session-only choice must never write INI")
+    monkeypatch.setattr(console, "_save_configuration", forbidden_writer)
+    answers = iter(("S", "1"))
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    output = StringIO()
+    with redirect_stdout(output):
+        _request_saved_perplexity(search, state)
+    assert "DESTINO DA ALTERAÇÃO" in output.getvalue()
+    assert state.perplexity_queries == ("exemplo público",)
+    assert state.perplexity_search_type == "fast"
+    assert state.perplexity_last_status == "PENDING"
+
+
+def test_727_perplexity_save_uses_canonical_ini_and_never_restores_consent(tmp_path, monkeypatch):
+    from rasai.console_search_parameter_menu import _request_saved_perplexity
+    from rasai import console_settings, interactive_console as console
+    from rasai.console_ui_refactor import _install_search_persistence
+    from rasai.console_complete_persistence import install
+
+    _install_search_persistence()
+    install()
+    ini = tmp_path / "rasai-console.ini"
+    state = SearchConsoleState(perplexity_draft_queries=("análise de busca",),
+                               perplexity_draft_search_type="fast")
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "secret-fixture-not-to-persist")
+    monkeypatch.setenv("RASAI_PERPLEXITY_ENABLED", "true")
+    calls = []
+    def save(current):
+        calls.append(current)
+        console_settings.save_console_config(current, ini)
+        return True
+    monkeypatch.setattr(console, "_save_configuration", save)
+    answers = iter(("S", "2"))
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    output = StringIO()
+    with redirect_stdout(output):
+        _request_saved_perplexity(search, state)
+
+    assert calls == [state]
+    saved = ini.read_text(encoding="utf-8")
+    assert "[perplexity_draft]" in saved
+    assert "análise de busca" in saved and "search_type = fast" in saved
+    assert "secret-fixture-not-to-persist" not in saved
+    assert "perplexity_queries" not in saved
+    assert "PENDING" not in saved and "geo_ai_requested" not in saved
+    restored = SearchConsoleState()
+    console_settings.load_console_config(restored, ini)
+    assert restored.perplexity_draft_queries == ("análise de busca",)
+    assert restored.perplexity_draft_search_type == "fast"
+    assert restored.perplexity_queries == ()
+    assert restored.perplexity_last_status == "NOT_REQUESTED"
+    assert "Próxima AUD exigirá novo aceite" in output.getvalue()
+
+
+def test_727_perplexity_reject_and_missing_draft_do_not_offer_save(monkeypatch):
+    from rasai.console_search_parameter_menu import _request_saved_perplexity
+    from rasai import interactive_console as console
+
+    monkeypatch.setattr(console, "_save_configuration",
+                        lambda _state: (_ for _ in ()).throw(AssertionError("unexpected write")))
+    state = SearchConsoleState(perplexity_draft_queries=("busca",))
+    monkeypatch.setattr("builtins.input", lambda prompt="": "N")
+    out = StringIO()
+    with redirect_stdout(out):
+        _request_saved_perplexity(search, state)
+    assert state.perplexity_queries == ()
+    assert "DESTINO DA ALTERAÇÃO" not in out.getvalue()
+    state.perplexity_draft_queries = ()
+    monkeypatch.setattr("builtins.input", lambda prompt="": (_ for _ in ()).throw(AssertionError("unexpected prompt")))
+    with redirect_stdout(StringIO()):
+        _request_saved_perplexity(search, state)
+
+
+def test_727_perplexity_failed_save_does_not_claim_success(tmp_path, monkeypatch):
+    from rasai.console_search_parameter_menu import _request_saved_perplexity
+    from rasai import interactive_console as console
+
+    path = tmp_path / "rasai-console.ini"
+    path.write_bytes(b"[console]\\nvalue = previous\\n")
+    before = path.read_bytes()
+    state = SearchConsoleState(perplexity_draft_queries=("busca",))
+    monkeypatch.setattr(console, "_save_configuration", lambda _state: False)
+    answers = iter(("S", "2"))
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    out = StringIO()
+    with redirect_stdout(out):
+        _request_saved_perplexity(search, state)
+    assert "Falha ao salvar o INI" in out.getvalue()
+    assert "Rascunho salvo" not in out.getvalue()
+    assert state.perplexity_queries == ("busca",)
+    assert path.read_bytes() == before

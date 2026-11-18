@@ -325,6 +325,35 @@ def _request_saved_perplexity(search_module: ModuleType, state: Any) -> None:
     state.perplexity_skip_draft_this_aud = False
     _mark_perplexity_pending(search_module, state)
     _set_feedback(state, "Perplexity SOLICITADA nesta AUD; execução e custo dependem do gate final.")
+    # Payment consent is scoped to this AUD; the only reusable payload is
+    # the canonical, nonsecret [perplexity_draft] projection.
+    print()
+    print("DESTINO DA ALTERAÇÃO")
+    print("1. Manter somente nesta sessão")
+    print("2. Manter na sessão e salvar rascunho seguro no INI")
+    while True:
+        destination = input("Escolha [1/2/V]: ").strip().upper()
+        if destination in {"1", "2", "V"}:
+            break
+        print("  Opção inválida: escolha 1, 2 ou V.")
+    if destination != "2":
+        print("  Solicitação mantida somente nesta AUD; INI inalterado.")
+        return
+    # Reuse the existing writer, validation and rollback; never serialize
+    # PENDING, authorization, tokens or a second custom format.
+    from rasai import interactive_console as console
+
+    if console._save_configuration(state):
+        print(
+            "  Rascunho salvo; autorização vale apenas para a AUD corrente. "
+            "Próxima AUD exigirá novo aceite."
+        )
+    else:
+        print(
+            "  Falha ao salvar o INI. Solicitação mantida na sessão; "
+            "arquivo anterior preservado."
+        )
+
 
 
 def _manage_perplexity_draft(search_module: ModuleType, state: Any) -> None:
