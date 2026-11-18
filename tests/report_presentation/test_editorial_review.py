@@ -74,6 +74,18 @@ def test_actual_summary_and_analytical_fields_take_precedence_over_triage_policy
     assert receipt['families']['ai_provider_native_usage']['analytical_direct_fields'] == ['native_usage_quantity']
 
 
+def test_existing_field_projection_is_not_mislabeled_as_missing():
+    tables, names, editorial = _inputs()
+    editorial['pages']['ia-custos.html'] = [{
+        'topic': 'Campos do uso nativo', 'state': 'PRESENT_FIELD_PROJECTION',
+        'families': ['ai_provider_native_usage']}]
+    _, receipt = build_editorial_review(tables, editorial, {}, names,
+                                       {'pages': {}})
+    item = receipt['families']['ai_provider_native_usage']
+    assert item['classification'] == 'PRESENT_ANALYTICAL'
+    assert item['human_editorial_acceptance'] == 'PENDING'
+
+
 def test_generation_seals_editorial_review_receipt_and_keeps_sources(tmp_path):
     root = tmp_path / 'AUD-EDITORIAL-722'
     root.mkdir()
