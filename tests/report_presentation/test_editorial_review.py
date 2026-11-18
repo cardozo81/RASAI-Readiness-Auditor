@@ -42,6 +42,7 @@ def test_inventory_classifies_every_family_without_claiming_executive_acceptance
     assert receipt['certifies_editorial_completeness'] is False
     assert receipt['human_editorial_acceptance'] == 'PENDING'
     assert len(receipt['technical_only_topics']) == 2
+    assert receipt['absent_or_unexecuted_topics'] == []
     families = receipt['families']
     assert families['audits']['classification'] == 'PRESENT_CONTEXTUAL'
     assert families['audit_fulfillment_contracts']['classification'] == 'PRESENT_CONTEXTUAL'
@@ -72,6 +73,26 @@ def test_actual_summary_and_analytical_fields_take_precedence_over_triage_policy
     assert receipt['families']['ai_provider_native_usage']['classification'] == 'PRESENT_EXECUTIVE'
     assert receipt['families']['ai_task_dependency_specs']['classification'] == 'PRESENT_ANALYTICAL'
     assert receipt['families']['ai_provider_native_usage']['analytical_direct_fields'] == ['native_usage_quantity']
+
+
+def test_absent_or_unexecuted_source_is_reported_separately_from_sqlite_families():
+    tables, names, editorial = _inputs()
+    editorial['pages']['conteudo.html'] = [{
+        'topic': 'Coerência semântica', 'state': 'PROCESSING_NOT_EXECUTED',
+        'families': ['semantic_coherence_assessments'],
+        'component': 'CORE_AUDIT', 'persisted_execution_state': 'NOT_REQUESTED',
+        'limitation': 'ABSENCE_IS_NOT_A_NEGATIVE_FINDING'}]
+    _, receipt = build_editorial_review(tables, editorial, {}, names,
+                                       {'pages': {}})
+    assert receipt['families_total'] == len(tables)
+    assert 'semantic_coherence_assessments' not in receipt['families']
+    assert receipt['absent_or_unexecuted_topics'] == [{
+        'page': 'conteudo.html', 'family': 'semantic_coherence_assessments',
+        'table_present': False, 'persisted_rows': 0,
+        'state': 'PROCESSING_NOT_EXECUTED',
+        'source_component': 'CORE_AUDIT',
+        'persisted_execution_state': 'NOT_REQUESTED',
+        'limitation': 'ABSENCE_IS_NOT_A_NEGATIVE_FINDING'}]
 
 
 def test_existing_field_projection_is_not_mislabeled_as_missing():

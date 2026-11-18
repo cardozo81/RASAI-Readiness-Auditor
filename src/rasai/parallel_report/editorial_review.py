@@ -212,6 +212,24 @@ def build_editorial_review(tables, editorial_receipt, analytical_receipt,
                     'href': families[name]['href'],
                     'human_editorial_acceptance': 'PENDING',
                 })
+    # An expected but absent analysis is not a zero-valued measurement.
+    # These projections originate from the existing execution/editorial receipt,
+    # and are separate from the physical inventory of SQLite tables.
+    absent_topics = []
+    for page, topics in editorial_receipt.get('pages', {}).items():
+        for topic in topics:
+            if topic.get('state') not in {'SOURCE_ABSENT', 'PROCESSING_NOT_EXECUTED'}:
+                continue
+            for family in topic.get('families', ()):
+                absent_topics.append({
+                    'page': page, 'family': family,
+                    'table_present': family in tables,
+                    'persisted_rows': len(tables.get(family, ())),
+                    'state': topic['state'],
+                    'source_component': topic.get('component'),
+                    'persisted_execution_state': topic.get('persisted_execution_state'),
+                    'limitation': topic.get('limitation'),
+                })
     counts = dict(sorted(Counter(f['classification'] for f in families.values()).items()))
     open_gaps = sorted(
         (f for f in families.values() if f['classification'] in {
@@ -250,6 +268,7 @@ def build_editorial_review(tables, editorial_receipt, analytical_receipt,
         'open_decision_gaps': [f['family'] for f in open_gaps],
         'sidecar_projections': sidecars,
         'technical_only_topics': topic_review,
+        'absent_or_unexecuted_topics': absent_topics,
         'families': families,
         'certifies_editorial_completeness': False,
         'human_editorial_acceptance': 'PENDING',
@@ -270,6 +289,7 @@ def build_editorial_review(tables, editorial_receipt, analytical_receipt,
         + kv([('Famílias de fontes inventariadas', len(families)),
               ('Famílias com registros', receipt['families_with_rows']),
               ('Tópicos anteriormente apenas técnicos classificados', len(topic_review)),
+              ('Análises ausentes ou não executadas declaradas', len(absent_topics)),
               ('Fontes com revisão decisória pendente', len(open_gaps))])
         + '<p><a class="tech-link" href="anexos/dados-de-apoio/editorial-review.json">'
           'Consultar recibo integral por fonte</a></p>'
