@@ -5,7 +5,7 @@ from hashlib import sha256
 
 from rasai.parallel_report.editorial_review import build_editorial_review
 from rasai.parallel_report.generator import generate
-from rasai.parallel_report.read_model import destination
+from rasai.parallel_report.read_model import destination, SEARCH_PAGE
 
 
 def _inputs():
@@ -151,9 +151,9 @@ def test_competitor_fields_do_not_falsely_close_executive_gap():
     tables,names,editorial=_inputs()
     tables['serp_competitive_pages']=[{'role':'CUSTOMER', 'fetch_status':'OBSERVED'}]
     names['serp_competitive_pages']=sha256(json.dumps(tables['serp_competitive_pages'],ensure_ascii=False,indent=2).encode()).hexdigest()+'.json'
-    editorial['pages']['search-geo.html']=[{'topic':'conteúdo observado',
+    editorial['pages'][f'{SEARCH_PAGE}.html']=[{'topic':'conteúdo observado',
         'state':'PRESENT_FIELD_PROJECTION','families':['serp_competitive_pages']}]
-    analytical={'search-geo.html':{'serp_competitive_pages':{
+    analytical={f'{SEARCH_PAGE}.html':{'serp_competitive_pages':{
         'direct_fields':['role','fetch_status']}}}
     _,receipt=build_editorial_review(tables,editorial,analytical,names,{'pages':{}})
     family=receipt['families']['serp_competitive_pages']

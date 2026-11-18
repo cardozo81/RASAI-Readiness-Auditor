@@ -72,12 +72,12 @@ def test_competitor_page_and_root_cause_precision_are_source_backed_projections(
     }
     records=build(tables,schema)
     html,receipt=build_analytical_views(tables,records,schema,'UTC')
-    search=receipt['search-geo.html']['serp_competitive_pages']
+    search=receipt[f'{SEARCH_PAGE}.html']['serp_competitive_pages']
     plan=receipt['plano.html']['root_cause_precision']
     assert search['analytical_records']==2
     assert {'role','fetch_status','http_status','word_count'} <= set(search['direct_fields'])
-    assert 'Página cliente' in html['search-geo']
-    assert 'other.example' in html['search-geo']
+    assert 'Página cliente' in html[SEARCH_PAGE]
+    assert 'other.example' in html[SEARCH_PAGE]
     assert plan['analytical_records']==1
     assert 'reason_code' in plan['direct_fields']
     assert 'observed_element_status' in plan['direct_fields']
