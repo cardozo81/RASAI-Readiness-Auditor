@@ -36,6 +36,16 @@ ocorre somente ao iniciar a AUD, após os gates financeiros aplicáveis. O estad
 **SOLICITADA** não significa **EXECUTADA**; apenas evidências persistidas na
 AUD demonstram o que de fato ocorreu.
 
+Após confirmar `CAT-05 > P > E > S` (ou `P > 9 > R > S`), o console pergunta
+**DESTINO DA ALTERAÇÃO**: **1** mantém somente o pedido na sessão; **2**
+mantém o pedido na sessão e usa o salvamento canônico para registrar somente
+o **rascunho reutilizável**, não a autorização comercial, no INI. Escolher
+**V** nessa pergunta não cancela o pedido já confirmado: apenas não salva.
+`E > N` e menus abandonados não gravam configuração. Quando o save falha,
+o INI anterior permanece intacto e não há mensagem de sucesso. Na próxima
+AUD, a autorização deve ser concedida novamente; o INI jamais é licença de
+consulta externa paga.
+
 | Origem ou escolha | Escopo | Destino se salvar com S | Após nova sessão |
 | --- | --- | --- | --- |
 | Consultas SERP, região, profundidade, dispositivo e opções de comparação | Estado da sessão | Seção `[search_intelligence]` | Restaurados sob política do CAT-05 e gates da AUD |

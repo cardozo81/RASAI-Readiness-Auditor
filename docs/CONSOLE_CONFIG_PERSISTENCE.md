@@ -482,6 +482,23 @@ Se o operador alterar uma query e salvar, o rascunho gravado será a query ativa
 
 Testes de processo isolado, restauração não faturável, anterior, modos, leitura inválida, apagamento e confirmação explícita são gates técnicos; uma auditoria real não é necessária para homologar o save/reopen. As referências históricas à não persistência das queries neste documento permanecem apenas como registro do comportamento anterior.
 
+### Destino explícito após opt-in Perplexity (#727, escopo UX)
+
+Em `CAT-05 > P > E > S` ou `P > 9 > R > S`, a tela pergunta **DESTINO DA
+ALTERAÇÃO**: `1` (sessão) ou `2` (sessão mais salvar o rascunho). A opção
+`2` reutiliza `interactive_console._save_configuration` e a serialização
+existente de `[perplexity_draft]` / `[environment]`, sem adicionar campo de
+autorização. A próxima sessão mantém somente os parâmetros; a solicitação
+efetiva `perplexity_queries` retorna vazia. `N` na confirmação, `V` antes
+de confirmar e ausência de rascunho não geram gravação. O `V` apresentado
+**depois** de confirmar `S` cancela apenas o salvamento: a intenção continua
+válida na AUD corrente. O caminho de erro do writer canônico não deve afirmar
+salvamento nem danificar bytes anteriores.
+
+A auditoria completa editor→INI→nova sessão→precedência→consumidor real de
+todos os campos SERP/Perplexity/GSC é uma verificação independente; a existência
+de um fluxo de salvamento no submenu não certifica a matriz integral.
+
 ## Leitura de readiness a partir de INI e sessão (#523)
 
 A leitura do console é exclusivamente *read-only* e diferencia **viabilidade de configuração** de **solicitação de execução**. Em `console_perplexity_readiness.inspect_perplexity_readiness`, os termos ativos na sessão (`perplexity_queries`, `perplexity_search_type`) prevalecem na apresentação; se não houver solicitação ativa, a tela exibe os termos do `[perplexity_draft]` restaurados por `console_settings.load_console_config`. Credencial configurada, ativação habilitada, 1 a 5 queries válidas e WEB/FAST válido tornam a **configuração APTA PARA SOLICITAÇÃO**. É uma prontidão de parâmetros, não validação da credencial no endpoint nem concessão de consentimento.
