@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from rasai.audit_resume_runtime import _log_continuation_summary
+from rasai.audit_reprocess import _RPR_PROCESSED_ITEMS, _remember_rpr_item
 from rasai.m23_lighthouse_traceability import _log_lighthouse_profile
 from rasai.operational_log import append_operational_event, operational_log_path
 from rasai.persistence import AuditWorkspace
@@ -68,8 +69,14 @@ def test_3_continuation_summary_with_and_without_items(tmp_path: Path) -> None:
         attempted_items=2, successful_items=1, remaining_items=1,
         processing_status="PARTIAL_RETRYABLE", reprocess_id="RPR-TEST",
     )
-    names = ("Aquisição HTTP/Auditoria", "Captura renderizada/Auditoria")
-    _log_continuation_summary(workspace, "AUD-CONTINUATION", some, names)
+    token = _RPR_PROCESSED_ITEMS.set(())
+    try:
+        _remember_rpr_item(SimpleNamespace(component="SEMANTIC_AI", scope_key="SNP-A1"))
+        _remember_rpr_item(SimpleNamespace(component="SEMANTIC_AI", scope_key="SNP-B2"))
+        names = _RPR_PROCESSED_ITEMS.get()
+        _log_continuation_summary(workspace, "AUD-CONTINUATION", some, names)
+    finally:
+        _RPR_PROCESSED_ITEMS.reset(token)
     empty, processed = _events(workspace)
     assert empty["detail"] == "nenhum item pendente"
     assert empty["processed_items"] == 0 and empty["item_names"] == []
@@ -77,6 +84,8 @@ def test_3_continuation_summary_with_and_without_items(tmp_path: Path) -> None:
     assert (processed["processed_items"], processed["completed_items"],
             processed["pending_items"]) == (2, 1, 1)
     assert processed["item_names"] == list(names)
+    assert len(processed["item_names"]) == 2
+    assert all("SNP-" not in label for label in processed["item_names"])
     assert processed["level"] == "WARNING"
 
 

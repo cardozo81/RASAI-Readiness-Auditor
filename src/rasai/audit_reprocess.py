@@ -41,7 +41,7 @@ from rasai.audit_fulfillment import (
     update_reprocess_run_configuration,
 )
 from rasai.operational_log import try_append_operational_event
-from rasai.public_language import component_label, scope_label
+from rasai.public_language import component_label, is_traceability_identifier, scope_label
 from rasai.persistence import AuditWorkspace
 from rasai.reprocess_policy import (
     blocking_dependencies,
@@ -89,7 +89,9 @@ _RPR_PROCESSED_ITEMS: ContextVar[tuple[str, ...]] = ContextVar(
 
 def _remember_rpr_item(item: WorkItem) -> None:
     """Record actual attempts for the session log, using console-facing names."""
-    name = f"{component_label(item.component)}/{scope_label(item.scope_key)}"
+    # Friendly names remain readable; traceability IDs do not become item labels.
+    scope = "" if is_traceability_identifier(item.scope_key) else f"/{scope_label(item.scope_key)}"
+    name = f"{component_label(item.component)}{scope}"
     _RPR_PROCESSED_ITEMS.set((*_RPR_PROCESSED_ITEMS.get(), name))
 
 

@@ -1304,7 +1304,7 @@ def _log_continuation_summary(
     processed = int(getattr(result, "attempted_items", 0) or 0)
     concluded = int(getattr(result, "successful_items", 0) or 0)
     pending = int(getattr(result, "remaining_items", 0) or 0)
-    names = list(dict.fromkeys(str(name) for name in item_names if str(name).strip()))
+    names = [str(name) for name in item_names if str(name).strip()]
     status = str(getattr(result, "processing_status", "") or "").upper()
     try_append_operational_event(
         workspace,
