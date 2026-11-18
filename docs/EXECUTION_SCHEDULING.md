@@ -28,9 +28,10 @@ A mesma ação usa sempre a mesma tecla. `E` permanece reservado às superfície
 Dentro de **Ver linha de comando**:
 
 ```text
-1. Windows
-2. Linux
-3. macOS
+1. Windows cmd.exe / .cmd
+2. Windows PowerShell 5.1/7
+3. Linux (POSIX sh)
+4. macOS (POSIX sh)
 C. Copiar comando executável para clipboard
 O. Abrir log de comandos
 P. Abrir pasta da execução
@@ -145,8 +146,12 @@ O arquivo contém blocos distintos:
 
 ```text
 [WINDOWS]
-...
+... cmd.exe ...
 [/WINDOWS]
+
+[POWERSHELL]
+... Windows PowerShell 5.1/7 ...
+[/POWERSHELL]
 
 [LINUX]
 ...
@@ -165,13 +170,20 @@ Falha ao gravar esse log é tratada como falha de observabilidade e não muda o 
 
 Secrets nunca são gravados com seu valor real.
 
-Quando uma credencial é aplicável, o modelo mostra explicitamente a variável, mas a linha fica comentada.
+Quando uma credencial é aplicável, o modelo mostra explicitamente a variável, mas a linha fica comentada. O log **nunca carrega valores sensíveis**; a credencial real é herdada do processo do Agendador/terminal.
 
-Windows:
+Windows cmd.exe:
 
 ```cmd
 REM set "OPENAI_API_KEY=**********"
 REM set "RASAI_SERPAPI_API_KEY=**********"
+```
+
+Windows PowerShell 5.1/7:
+
+```powershell
+# $env:OPENAI_API_KEY = '**********'
+# $env:RASAI_SERPAPI_API_KEY = '**********'
 ```
 
 Linux e macOS:
@@ -195,10 +207,16 @@ No Windows, a entrada pública `rasai` ativa explicitamente secrets conhecidos p
 
 ### Usar outra credencial somente naquela execução
 
-Windows:
+Windows cmd.exe:
 
 ```cmd
 set "OPENAI_API_KEY=sk-chave-especifica"
+```
+
+Windows PowerShell:
+
+```powershell
+$env:OPENAI_API_KEY = 'chave-especifica'
 ```
 
 Linux/macOS:
@@ -228,11 +246,18 @@ Para usar um override secreto, o operador deve editar conscientemente o modelo e
 
 Configurações não sensíveis que pertencem ao ambiente efetivo aparecem ativas.
 
-Windows:
+Windows cmd.exe:
 
 ```cmd
 set "RASAI_SERP_MODE=live"
 set "RASAI_SERP_PROVIDER=serpapi"
+```
+
+PowerShell:
+
+```powershell
+$env:RASAI_SERP_MODE = 'live'
+$env:RASAI_SERP_PROVIDER = 'serpapi'
 ```
 
 Linux/macOS:
@@ -259,7 +284,11 @@ Também pode ser usado:
 
 ### Testar antes de agendar
 
-O modo Windows da ação `M. Ver linha de comando` gera sintaxe de **`cmd.exe`/`.cmd`**, não PowerShell. Antes de reproduzir ou agendar, confira especialmente URLs e argumentos contendo `&`, `|`, `^`, `%`, `!` ou aspas: o escape de metacaracteres está em correção na [issue #713](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/713), portanto a linha gerada ainda não comprova reprodução fiel nesses casos. Depois de conferir e corrigir manualmente o quoting quando necessário, teste em um `cmd.exe` novo usando a mesma conta que executará a tarefa. Não execute cegamente comandos copiados do log.
+A ação `M. Ver linha de comando` oferece **`1. Windows cmd.exe/.cmd`** e **`2. Windows PowerShell 5.1/7`** independentes. Não misture sintaxes. A opção `C` copia somente as linhas executáveis correspondentes à shell escolhida, mantendo comentários de credenciais desativados. O bloco PowerShell utiliza `$env:NOME = 'valor'` e o operador `&`; o copiado usa separação `;` compatível com PowerShell 5.1, **nunca `&&`**.
+
+No `cmd.exe`, argumentos simples usam **quoting individual de argv** para manter `&`, `|`, espaços, caminhos e URLs literais. Para caracteres sujeitos a expansão própria do `cmd` (`%`, `!`, `^`, aspas incorporadas e quebras de linha), o renderer fornece um **encapsulamento seguro de JSON/base64** exclusivamente de argv e variáveis **não sensíveis**, consumido pelo Python local com `subprocess`. Ele não transfere segredos e não altera o mecanismo analítico. Essa forma de transporte evita divergências entre comandos colados diretamente e arquivos `.cmd`. **Atenção:** o encapsulamento não é cifragem: não o use para transmitir informação confidencial.
+
+Os testes de regressão `tests/test_execution_commands.py` executam um stub local inofensivo em `cmd.exe`, PowerShell 5.1/7 quando disponível, e `/bin/sh` em Linux/macOS, validando round-trip exato de `argv` e variáveis sem HTTP/IA. Ainda é necessário um smoke na conta real do Agendador antes de agendar uma auditoria remunerada.
 
 Valide:
 
@@ -287,6 +316,32 @@ Argumentos:
 A expressão de agenda, conta de execução, política de repetição e tratamento de falhas pertencem ao Agendador e não fazem parte do comando RASAi.
 
 Se o usuário optar por colocar uma key diretamente na ação ou em arquivo `.cmd`, essa key deixa de estar protegida pelo mecanismo normal de secrets do SO e passa a existir em texto no artefato criado pelo usuário. Use apenas quando houver necessidade operacional explícita.
+
+### Agendamento nativo PowerShell 5.1/7
+
+Selecione `2. Windows PowerShell` no menu. A saída já está pronta para colar em um terminal PowerShell; não é necessário converter manualmente `set` e `&&`.
+
+No Agendador de Tarefas, prefira armazenar o script como `.ps1` sob ACL restrita, sem segredos gravados. Defina:
+
+```text
+Programa/script:
+powershell.exe
+
+Argumentos:
+-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "C:\Caminho Seguro\execucao-rasai.ps1"
+
+Iniciar em:
+C:\IA-PROJETOS\github\RASAI-Readiness-Auditor
+```
+
+O processo lançado usa o executável Python selecionado; confira o caminho absoluto do Python/`venv` e o diretório `Iniciar em`. Ao copiar para outra máquina, `python` é apenas marcador de resolução via `PATH`, não garantia de equivalência de instalação ou credenciais. A conta de agendamento deve herdar as credenciais por mecanismo seguro do SO. Não grave credenciais na definição da tarefa nem no `.ps1`.
+
+### Fidelidade e limites conhecidos
+
+- **PLANEJADO:** projeção da configuração em vigor. **EXECUTADO:** usa o `argv` efetivamente passado ao subprocesso quando o console o registra. `show_logged` lê os blocos do arquivo histórico de execução, não remonta o estado com a sessão atual.
+- Log histórico anterior à issue #713 contém somente `[WINDOWS]`, `[LINUX]` e `[MACOS]`. A ausência de `[POWERSHELL]` é real e exibida como indisponibilidade, **sem converter silenciosamente dados históricos**.
+- `reprocess` persiste a seleção de `--item`, `--use-ai`/`--no-use-ai`, provider/modelo/reasoning quando ativados; `consolidate` preserva baseline/current, seleção, filtros e IA. A projeção não permite deduzir variáveis de ambiente/secrets ausentes do snapshot original.
+- A reprodução usa o mesmo CLI, mas requer versão de software e ambiente de destino compatíveis. `execution-commands/` continua separado de `audit.db`, de `report-catalog` e de `report-presentation`.
 
 ## Linux
 

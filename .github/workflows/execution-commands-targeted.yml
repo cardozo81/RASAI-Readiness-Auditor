@@ -1,0 +1,39 @@
+name: Execution Command Shell Fidelity Targeted
+
+on:
+  pull_request:
+    paths:
+      - 'src/rasai/execution_commands.py'
+      - 'tests/test_execution_commands.py'
+      - 'docs/EXECUTION_SCHEDULING.md'
+      - '.github/workflows/execution-commands-targeted.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/execution_commands.py'
+      - 'tests/test_execution_commands.py'
+      - 'docs/EXECUTION_SCHEDULING.md'
+      - '.github/workflows/execution-commands-targeted.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-argv-roundtrip:
+    name: Shell argv/env round-trip (Windows and POSIX)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install isolated runtime (no provider calls)
+        run: python -m pip install -e . pytest
+      - name: Test execution command renderers (real shells, no AUD processing)
+        run: python -m pytest -q -rs tests/test_execution_commands.py

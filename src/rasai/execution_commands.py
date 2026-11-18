@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import base64
+import json
+import re
 from datetime import datetime
 import os
 from pathlib import Path
@@ -14,8 +17,17 @@ from types import SimpleNamespace
 from typing import Any, Iterable, Mapping, Sequence
 
 SECRET_PLACEHOLDER = "**********"
-PLATFORMS = ("windows", "linux", "macos")
-LABELS = {"windows": "WINDOWS", "linux": "LINUX", "macos": "MACOS"}
+# Keep the existing "windows" key for backward-compatible cmd.exe logs.
+PLATFORMS = ("windows", "powershell", "linux", "macos")
+LABELS = {
+    "windows": "WINDOWS", "powershell": "POWERSHELL",
+    "linux": "LINUX", "macos": "MACOS",
+}
+_ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+# Percent/delayed expansion, caret and embedded double quote semantics vary
+# between interactive cmd.exe and batch files; use a lossless transport.
+_CMD_UNSAFE = re.compile(r'[%!^"\r\n]|[^\x00-\x7F]')
+_PS_NATIVE_UNSAFE = re.compile(r'["\r\n]')
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,24 +157,117 @@ def consolidation_plan(audits_root: str | Path, selection: Any, filters: Any, *,
                        _meta(base=selection.baseline_audit_id, atual=selection.current_audit_id, selecao=selection.selection_mode, ia="SIM" if use_ai else "NÃO"))
 
 
+def _valid_env_name(name: str) -> bool:
+    return _ENV_NAME.fullmatch(name) is not None
+
+
+def _cmd_quote(argument: str) -> str:
+    """Quote a Windows CRT argv element, including trailing backslashes."""
+    pieces = ['"']
+    backslashes = 0
+    for char in argument:
+        if char == "\\":
+            backslashes += 1
+        elif char == '"':
+            pieces.extend(("\\" * (backslashes * 2 + 1), '"'))
+            backslashes = 0
+        else:
+            pieces.extend(("\\" * backslashes, char))
+            backslashes = 0
+    pieces.extend(("\\" * (backslashes * 2), '"'))
+    return "".join(pieces)
+
+
+def _cmd_transport(executable: str, args: Sequence[str], env: Mapping[str, str]) -> str:
+    """Lossless cmd.exe argv+env via Python, never serializing secrets."""
+    payload = base64.urlsafe_b64encode(json.dumps(
+        {"args": list(args), "environment": dict(env)}, ensure_ascii=True,
+        separators=(",", ":"),
+    ).encode("ascii")).decode("ascii")
+    code = (
+        "import base64,json,os,subprocess,sys;"
+        "p=json.loads(base64.urlsafe_b64decode('"+payload+"'));"
+        "e=dict(os.environ);e.update(p['environment']);"
+        "sys.exit(subprocess.call([sys.executable]+p['args'],env=e))"
+    )
+    resolved = executable if not _CMD_UNSAFE.search(executable) else "python"
+    return _cmd_quote(resolved) + ' -c "' + code + '"'
+
+
+def _powershell_quote(value: str) -> str:
+    """Literal single-quoted PowerShell string, valid on 5.1 and 7."""
+    return "'" + value.replace("'", "''") + "'"
+
+
 def render(plan: CommandPlan, target: str) -> str:
     target = target.casefold()
-    executable = plan.argv[0] if target == _os() else ("python" if target == "windows" else "python3")
+    if target not in PLATFORMS:
+        raise ValueError(target)
+    if not plan.argv:
+        raise ValueError("plano de execução sem argv")
+    exe = plan.argv[0] if (
+        (target in {"windows", "powershell"} and _os() == "windows")
+        or target == _os()
+    ) else ("python" if target in {"windows", "powershell"} else "python3")
+    safe_env: dict[str, str] = {}
+    for item in plan.environment:
+        if not _valid_env_name(item.name):
+            raise ValueError("nome de variável de ambiente inválido")
+        if not item.secret:
+            safe_env[item.name] = item.value or ""
     if target == "windows":
-        lines = ["REM Secrets opcionais: deixe comentado para usar a credencial herdada do SO.",
-                 "REM Para override somente desta execução, substitua ********** e remova REM."]
-        lines += [f'REM set "{item.name}={SECRET_PLACEHOLDER}"' for item in plan.environment if item.secret]
-        lines += [f'set "{item.name}={item.value or ""}"' for item in plan.environment if not item.secret]
-        lines += [subprocess.list2cmdline([executable, *plan.argv[1:]])]
+        lines = [
+            "REM Shell: cmd.exe / .cmd; não usar no PowerShell.",
+            "REM Secrets herdados do SO; nenhum valor de credencial é gravado.",
+        ]
+        lines += [f'REM set "{item.name}={SECRET_PLACEHOLDER}"'
+                  for item in plan.environment if item.secret]
+        if any(_CMD_UNSAFE.search(v) for v in (exe, *plan.argv[1:], *safe_env.values())):
+            lines += [
+                "REM Caracteres de expansão cmd: argv/env não secretos",
+                "REM transportados por JSON/base64 ao Python local.",
+                _cmd_transport(exe, plan.argv[1:], safe_env),
+            ]
+        else:
+            lines += [f'set "{name}={value}"' for name, value in safe_env.items()]
+            lines += [" ".join(_cmd_quote(x) for x in (exe, *plan.argv[1:]))]
         return "\n".join(lines)
-    if target not in {"linux", "macos"}: raise ValueError(target)
-    lines = ["# Secrets opcionais: deixe comentado para usar a credencial herdada do SO.",
-             "# Para override somente desta execução, substitua ********** e remova #."]
-    lines += [f"# export {item.name}={shlex.quote(SECRET_PLACEHOLDER)}" for item in plan.environment if item.secret]
-    lines += [f"export {item.name}={shlex.quote(item.value or '')}" for item in plan.environment if not item.secret]
-    lines += [shlex.join([executable, *plan.argv[1:]])]
+    if target == "powershell":
+        lines = [
+            "# Shell: Windows PowerShell 5.1 ou PowerShell 7.",
+            "# Secrets herdados do ambiente; nenhum valor real é gravado.",
+        ]
+        lines += [f"# $env:{item.name} = {_powershell_quote(SECRET_PLACEHOLDER)}"
+                  for item in plan.environment if item.secret]
+        lines += [f"$env:{name} = {_powershell_quote(value)}"
+                  for name, value in safe_env.items()]
+        if any(_PS_NATIVE_UNSAFE.search(v) or v.endswith("\\") for v in plan.argv[1:]):
+            # PowerShell 5.1 native-command parsing eats embedded double quotes
+            # even inside PS single-quoted literals. Transport only argv with
+            # the same non-executable base64 JSON, preserving real subprocess
+            # argv across Windows PowerShell 5.1 and PS 7.
+            lines += ["# PowerShell 5.1: argv transportado sem parsing nativo de aspas."]
+            payload = base64.urlsafe_b64encode(json.dumps(
+                list(plan.argv[1:]), ensure_ascii=True, separators=(",", ":"),
+            ).encode("ascii")).decode("ascii")
+            code = (
+                "import base64,json,subprocess,sys;"
+                "a=json.loads(base64.urlsafe_b64decode('"+payload+"'));"
+                "sys.exit(subprocess.call([sys.executable]+a))"
+            )
+            lines += ["& " + " ".join(_powershell_quote(v) for v in (exe, "-c", code))]
+        else:
+            lines += ["& " + " ".join(_powershell_quote(v) for v in (exe, *plan.argv[1:]))]
+        return "\n".join(lines)
+    lines = [
+        "# Shell: POSIX sh (Linux/macOS).",
+        "# Secrets herdados do ambiente; nenhum placeholder executável.",
+    ]
+    lines += [f"# export {item.name}={shlex.quote(SECRET_PLACEHOLDER)}"
+              for item in plan.environment if item.secret]
+    lines += [f"export {name}={shlex.quote(value)}" for name, value in safe_env.items()]
+    lines += [shlex.join([exe, *plan.argv[1:]])]
     return "\n".join(lines)
-
 
 def render_log(plan: CommandPlan) -> str:
     lines = ["=" * 100, "RASAi - LINHA DE COMANDO PARA EXECUÇÃO EXTERNA / AGENDAMENTO", "=" * 100,
@@ -219,7 +324,8 @@ def _copyable_command(text: str, target: str) -> str:
         if target != "windows" and line.startswith("#"):
             continue
         active.append(line)
-    return " && ".join(active)
+    # The && operator was introduced in PowerShell 7; 5.1 requires ';'.
+    return ("; " if target == "powershell" else " && ").join(active)
 
 
 def _copy(text: str) -> bool:
@@ -241,16 +347,28 @@ def _open(path: Path) -> bool:
 
 
 def _menu(blocks: Mapping[str, str], path: Path, artifact_root: str | Path | None, title: str) -> None:
-    selected = _os() if _os() in blocks else "windows"; message = ""
+    preferred = "powershell" if _os() == "windows" else _os()
+    selected = preferred if preferred in blocks else next(iter(blocks))
+    message = ""
     while True:
-        print("\n" + "=" * 100); print(title); print("=" * 100); print(f"Sistema: {LABELS[selected]} | Log: {path}"); print("-" * 100); print(blocks[selected]); print("-" * 100)
+        print("\n" + "=" * 100); print(title); print("=" * 100)
+        print(f"Shell: {LABELS[selected]} | Log: {path}")
+        print("-" * 100); print(blocks[selected]); print("-" * 100)
         if message: print(message)
-        print("1. Windows\n2. Linux\n3. macOS\nC. Copiar comando executável para clipboard\nO. Abrir log de comandos")
+        print("1. Windows cmd.exe\n2. Windows PowerShell 5.1/7\n3. Linux sh\n4. macOS sh")
+        print("C. Copiar comando executável para clipboard\nO. Abrir log de comandos")
         if artifact_root is not None: print("P. Abrir pasta da execução")
         print("V. Voltar")
         choice = input("Escolha: ").strip().upper()
         if choice == "V": return
-        if choice in {"1", "2", "3"}: selected = {"1":"windows","2":"linux","3":"macos"}[choice]; message = ""; continue
+        options = {"1": "windows", "2": "powershell", "3": "linux", "4": "macos"}
+        if choice in options:
+            if options[choice] not in blocks:
+                message = "Log histórico sem esta shell; use um log novo para PowerShell."
+            else:
+                selected = options[choice]
+                message = ""
+            continue
         if choice == "C":
             command = _copyable_command(blocks[selected], selected)
             message = (
@@ -262,7 +380,6 @@ def _menu(blocks: Mapping[str, str], path: Path, artifact_root: str | Path | Non
         if choice == "O": message = "Log aberto." if _open(path) else "Não foi possível abrir o log automaticamente."; continue
         if choice == "P" and artifact_root is not None: message = "Pasta aberta." if _open(Path(artifact_root)) else "Não foi possível abrir a pasta automaticamente."; continue
         message = "Ação inválida."
-
 
 def show(plan: CommandPlan, audits_root: str | Path, *, artifact_root: str | Path | None = None, execution_id: str | None = None) -> None:
     path = log_path(audits_root, execution_id) if execution_id else record(plan, audits_root, append=False)
