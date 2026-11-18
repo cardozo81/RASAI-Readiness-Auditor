@@ -133,7 +133,9 @@ def _classification(name, rows, editorial_states, analytical_fields):
         return 'SOURCE_EMPTY'
     if 'PRESENT_SUMMARIZED' in editorial_states:
         return 'PRESENT_EXECUTIVE'
-    if analytical_fields:
+    if analytical_fields or 'PRESENT_FIELD_PROJECTION' in editorial_states:
+        # Existing SECTIONS are source-backed field projections even when the
+        # separate analytical-views renderer did not register direct fields.
         return 'PRESENT_ANALYTICAL'
     if name in CONTEXTUAL_RENDERERS:
         return 'PRESENT_CONTEXTUAL'
