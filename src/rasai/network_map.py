@@ -273,12 +273,12 @@ def network_geographic_panel(probes: list[dict], *, presentation_mode: bool = Fa
         "A posição estimada é representada apenas pelos marcadores; nenhuma "
         "rota física é desenhada.</p>"
         "<h3>Origem e precisão de cada ponto</h3>"
-        ("<p>Os marcadores possuem cores individuais e identificadores Ponto N; "
-         "um marcador compartilhado mantém a mesma cor em todas as observações. "
-         if presentation_mode else
-         "<p>Os números nos marcadores indicam quantos registros compartilham ")
-        "a mesma coordenada estimada. O detalhamento individual continua "
-        "na lista abaixo e é acessível pelo teclado.</p><ul>" +
+        + ("<p>Os marcadores possuem cores individuais e identificadores Ponto N; "
+           "um marcador compartilhado mantém a mesma cor em todas as observações. "
+           if presentation_mode else
+           "<p>Os números nos marcadores indicam quantos registros compartilham "
+           "a mesma coordenada estimada. ")
+        + "O detalhamento individual continua na lista abaixo e é acessível pelo teclado.</p><ul>" +
         "".join(legend) + "</ul>"
         "</section>"
     )
