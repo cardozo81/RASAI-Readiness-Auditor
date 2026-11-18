@@ -139,6 +139,28 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
     return trigger, dialog
 
 
+
+def _map_point_cell(value):
+    """Trusted, derived-only link and swatch for the presentation map."""
+    if not isinstance(value, dict):
+        return 'Não localizado no mapa'
+    number = value.get('number')
+    color = value.get('color')
+    if type(number) is not int or not 1 <= number <= 10000:
+        return 'Não localizado no mapa'
+    if not isinstance(color, str) or len(color) != 7 or not color.startswith('#'):
+        return 'Não localizado no mapa'
+    if any(char not in '0123456789abcdefABCDEF' for char in color[1:]):
+        return 'Não localizado no mapa'
+    return (
+        '<span class="map-ref">'
+        '<svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true">'
+        f'<circle cx="7" cy="7" r="6" fill="{color}"/></svg>'
+        f'<a href="#network-map-point-{number}">Ponto {number}</a>'
+        '</span>'
+    )
+
+
 def table(caption, rows, columns, timezone_name=None, *, full_text=False):
     if not rows:
         return '<p class="callout">Não medido — nenhum registro disponível para esta seção.</p>'
@@ -161,6 +183,10 @@ def table(caption, rows, columns, timezone_name=None, *, full_text=False):
                 cell = chip(value,key)
             elif key == '_ref':
                 cell = technical_link(value) if value else 'N/D'
+            elif key == '_map_point':
+                cell = _map_point_cell(value)
+                title_value = ('Correspondência com a localização aproximada do mapa'
+                               if isinstance(value, dict) else 'Não localizado no mapa')
             else:
                 if key in TECHNICAL_ONLY_FIELDS and value is not None:
                     rendered = 'Conteúdo técnico disponível em Ver detalhes'
