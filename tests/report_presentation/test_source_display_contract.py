@@ -274,3 +274,49 @@ def test_historical_record_disappearance_remains_blocking(tmp_path):
 
     with pytest.raises(ValueError, match='record identity regression: 1 missing anchors'):
         compare_reports(previous, current)
+
+
+def test_persisted_reasoning_profile_matches_each_attempt_and_fallback():
+    """No inference from console defaults or grouping across provider attempts."""
+    from rasai.parallel_report.presentation_labels import public_value
+    attempts = [
+        {'attempt_id': 'AI-1', 'provider': 'provedor-A', 'model': 'modelo-alto',
+         'reasoning_profile': 'HIGH', 'status': 'TECHNICAL_ERROR',
+         'estimated_cost': 0.10, 'cost_currency': 'USD'},
+        {'attempt_id': 'AI-2', 'provider': 'provedor-B', 'model': 'modelo-padrao',
+         'reasoning_profile': 'PROVIDER_DEFAULT', 'status': 'SUCCESS',
+         'fallback_reason': 'tentativa alternativa', 'estimated_cost': 0.20, 'cost_currency': 'USD'},
+        {'attempt_id': 'AI-3', 'provider': 'provedor-C', 'model': 'modelo-baixo',
+         'reasoning_profile': 'LOW', 'status': 'SUCCESS',
+         'estimated_cost': 0.30, 'cost_currency': 'USD'},
+        {'attempt_id': 'AI-4', 'provider': 'provedor-D', 'model': 'modelo-ausente',
+         'status': 'SUCCESS', 'estimated_cost': 0.40, 'cost_currency': 'USD'},
+    ]
+    remediation = [{
+        'attempt_id': 'REM-1', 'provider': 'provedor-E', 'model': 'modelo-minimo',
+        'reasoning_profile': 'MINIMAL', 'status': 'SUCCESS',
+        'estimated_cost': 0.05, 'cost_currency': 'USD',
+    }]
+    source = {'ai_provider_attempts': attempts, 'content_remediation_attempts': remediation}
+    records, _ = model(source)
+    rendered = editorial('ia-custos', records, reconcile(source), load())
+    for caption in ('Custo por chamada', 'Preço por tentativa — sem cobrança inferida'):
+        assert f'<caption>{caption}</caption>' in rendered
+        section = rendered.split(f'<caption>{caption}</caption>', 1)[1].split('</table>', 1)[0]
+        assert 'Esforço solicitado' in section
+        for model_name, effort in (
+            ('modelo-alto', 'Esforço alto solicitado'),
+            ('modelo-padrao', 'Padrão do provedor (nível não comprovado)'),
+            ('modelo-baixo', 'Esforço baixo solicitado'),
+            ('modelo-ausente', 'N/D'),
+            ('modelo-minimo', 'Esforço mínimo solicitado'),
+        ):
+            matches = [row for row in section.split('<tr>') if f'>{model_name}</td>' in row]
+            assert len(matches) == 1, (caption, model_name)
+            assert effort in matches[0], (caption, model_name, effort)
+    assert public_value('NONE', 'reasoning_profile') == 'Sem esforço adicional solicitado'
+    assert public_value('XHIGH', 'reasoning_profile') == 'Esforço muito alto solicitado'
+    assert public_value('MAX', 'reasoning_profile') == 'Esforço máximo solicitado'
+    assert public_value('', 'reasoning_profile').startswith('N/D')
+    assert public_value('HIGH', 'unrelated_evidence') == 'HIGH'
+    assert attempts[0]['reasoning_profile'] == 'HIGH'

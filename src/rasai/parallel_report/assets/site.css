@@ -21,6 +21,9 @@ td.n,th.n{text-align:right;white-space:nowrap}
 .bar{position:relative;display:flex;height:12px;border-radius:6px;margin:8px 0 6px;overflow:visible}.bar i{display:block;height:100%}.bar i:first-child{border-radius:6px 0 0 6px}.bar i:last-child{border-radius:0 6px 6px 0}
 .z1{background:var(--z1)}.z2{background:var(--z2)}.z3{background:var(--z3)}.z4{background:var(--z4)}
 .mk{position:absolute;top:-5px;width:4px;height:22px;margin-left:-2px;background:var(--ink);border-radius:2px;box-shadow:0 0 0 2px var(--card)}
+/* Active zone uses the existing palette; neutral fallback for absent markers. */
+.ruler .bar > i{filter:grayscale(1)}
+.ruler .bar > i.active{filter:none}
 .rf{font-size:12.5px;color:var(--mut)}.nt{font-size:13px;margin:6px 0 0}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:0 16px}
 dl.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 18px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}dl.kv dt{font-size:12.5px;color:var(--mut)}dl.kv dd{margin:0;word-break:break-word}

@@ -7,7 +7,7 @@ from rasai.time_contract import (presentation_timezone_for_audit,
 from rasai.public_language import component_label, scope_label, supplemental_public_label, safe_visible_fallback
 from rasai.catalog_report_public_labels import public_label as canonical_public_label
 
-FIELD_LABELS = {'status':'Estado','severity':'Criticidade','priority':'Prioridade','provider':'Provedor','model':'Modelo','source':'Origem','reference':'Referência','references':'Referências','scope':'Escopo','device':'Dispositivo','native_usage_quantity':'Requisições','input_tokens':'Tokens de entrada','output_tokens':'Tokens de saída','duration_ms':'Duração (ms)','created_at':'Criada em','started_at':'Iniciada em','completed_at':'Concluída em','captured_at':'Capturada em','collected_at':'Coletada em','executed_at':'Executada em','updated_at':'Atualizada em','finished_at':'Finalizada em','capture_utc':'Capturada em','capture_timestamp':'Capturada em','classification':'Tipo de resultado','eligible_for_content_comparison':'Comparação de conteúdo elegível','selected_for_content_comparison':'Selecionado para comparação'}
+FIELD_LABELS = {'status':'Estado','severity':'Criticidade','priority':'Prioridade','provider':'Provedor','model':'Modelo','reasoning_profile':'Esforço solicitado','source':'Origem','reference':'Referência','references':'Referências','scope':'Escopo','device':'Dispositivo','native_usage_quantity':'Requisições','input_tokens':'Tokens de entrada','output_tokens':'Tokens de saída','duration_ms':'Duração (ms)','created_at':'Criada em','started_at':'Iniciada em','completed_at':'Concluída em','captured_at':'Capturada em','collected_at':'Coletada em','executed_at':'Executada em','updated_at':'Atualizada em','finished_at':'Finalizada em','capture_utc':'Capturada em','capture_timestamp':'Capturada em','classification':'Tipo de resultado','eligible_for_content_comparison':'Comparação de conteúdo elegível','selected_for_content_comparison':'Selecionado para comparação'}
 STATUS_LABELS = {'SUCCESS':'Concluído','COMPLETE':'Concluído','COMPLETED':'Concluído','PASS':'Aprovado','PARTIAL':'Parcial','WARNING':'Atenção','FAILED':'Falhou','ERROR':'Falhou','FAIL':'Reprovado','BLOCKED':'Bloqueado','NOT_OBSERVED':'Não observado','COLLECTION_FAILED':'Falha na coleta','INCONCLUSIVE':'Inconclusivo','NOT_REQUESTED':'Não solicitado','NOT_APPLICABLE':'Não aplicável','SKIPPED':'Não executado','UNKNOWN':'Não determinado','CONSOLIDATED':'Consolidado','NOT_CONSOLIDATED':'Não consolidado','COMPLETE_WITH_LIMITATIONS':'Concluído com limitações','GOOD':'Bom','NEEDS_IMPROVEMENT':'Precisa melhorar','TOLERATING':'Tolerável','OBSERVED':'Observado','COHERENT':'Coerente','NOT_DETERMINABLE':'Não determinável','AVAILABLE':'Disponível','NOT_CONFIGURED':'Não configurado','DISABLED':'Desabilitado','NO_DATA':'Sem dados','ABSENT':'Ausente'}
 STATUS_LABELS.update({
     'UNAVAILABLE':'Indisponível', 'NOT_AVAILABLE':'Não disponível',
@@ -346,6 +346,20 @@ def timezone_provenance(reason):
 def public_value(value, field=None, timezone_name=None):
     if value is None:
         return 'N/D'
+    if field == 'reasoning_profile':
+        profile = str(value).strip().upper()
+        if not profile:
+            return 'N/D — esforço não registrado'
+        return {
+            'NONE': 'Sem esforço adicional solicitado',
+            'MINIMAL': 'Esforço mínimo solicitado',
+            'LOW': 'Esforço baixo solicitado',
+            'MEDIUM': 'Esforço médio solicitado',
+            'HIGH': 'Esforço alto solicitado',
+            'XHIGH': 'Esforço muito alto solicitado',
+            'MAX': 'Esforço máximo solicitado',
+            'PROVIDER_DEFAULT': 'Padrão do provedor (nível não comprovado)',
+        }.get(profile, 'N/D — perfil de esforço não reconhecido')
     if field in {'requested','configured','effective_enabled','ai_enabled','retryable',
                  'consumed_by_navigation','reused_by_navigation','network_settled',
                  'error_forced_frustrated','requested_depth_complete',
