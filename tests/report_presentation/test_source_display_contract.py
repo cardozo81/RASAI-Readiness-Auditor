@@ -352,6 +352,7 @@ def test_cost_stacks_explain_each_persisted_attempt_without_cat_classification()
         assert 'Provider A' in html and 'Model A' in html
         assert 'Provider B' in html and 'Model B' in html
         assert 'Padrão do provedor (nível não comprovado)' in html
+        assert 'motivo do fallback: primeiro provedor indisponível' in html
         assert 'Análise semântica' in html
         assert 'SEMANTIC_M7' not in html.split('data-explanation=', 1)[1].split('>', 1)[0]
         assert 'CAT-01' not in html and 'CAT-02' not in html

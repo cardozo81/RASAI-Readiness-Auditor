@@ -262,6 +262,9 @@ def stack(parts, title='Composição proporcional', unit=None, note=None):
         catalog = 'Catálogo de origem não individualizado nesta tentativa'
         provenance = (f'Origem: {origin}; finalidade: {purpose}; provedor: {provider}; '
                       f'modelo: {model}; esforço solicitado: {reasoning}; {catalog}')
+        fallback = described('fallback')
+        if fallback != 'N/D':
+            provenance += f'; motivo do fallback: {fallback}'
         description = (f'{label}. {kind}: {amount_label}; {percentage_label} do total '
                        f'desta moeda. {provenance}. Referência: {detail or "N/D"}. '
                        'Não representa cobrança final.')
@@ -274,7 +277,8 @@ def stack(parts, title='Composição proporcional', unit=None, note=None):
         # Metadata remains readable without hover and keyboard users receive
         # a focusable explanation outside the graphic's role=img boundary.
         visible = (f'{kind} · {origin} · {purpose} · {provider} / {model} '
-                   f'· {reasoning} · {catalog}')
+                   f'· {reasoning} · {catalog}'
+                   + (f' · Fallback: {fallback}' if fallback != 'N/D' else ''))
         legend.append(
             f'<li tabindex="0" aria-label="{text(description)}" '
             f'data-explanation="{text(description)}">'
