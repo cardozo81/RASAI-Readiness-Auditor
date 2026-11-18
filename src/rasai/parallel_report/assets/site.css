@@ -129,3 +129,6 @@ body.modal-active{overflow:hidden}
 .physical-file-group > summary{overflow-wrap:anywhere;word-break:break-word}
 .physical-file-group > details.in{margin:8px 0 8px 14px}
 .physical-file-group .rf{font-weight:400}
+
+/* Content-addressed annex links contain SHA-256 identifiers; wrap tokens on mobile. */
+.tech-link{overflow-wrap:anywhere;word-break:break-word}

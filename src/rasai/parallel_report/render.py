@@ -8,6 +8,7 @@ from .coverage import display, state
 from .read_model import PAGES, destination, thaw, SEARCH_PAGE
 from .templates import label as public_label
 from .presentation_labels import public_value, timezone_for_records, metric_label, presentation_timestamps
+from .annex_payloads import register_payload, table_annex_filename
 
 
 def esc(value):
@@ -15,6 +16,11 @@ def esc(value):
 
 
 def payload(value):
+    annex = register_payload(value)
+    if annex:
+        filename, digest = annex
+        return ('<p><a class="tech-link" href="anexos/' + esc(filename) +
+                '">Abrir JSON sanitizado · SHA-256 ' + esc(digest) + '</a></p>')
     return '<pre>' + esc(json.dumps(value, ensure_ascii=False, indent=2, default=str)) + '</pre>'
 
 
@@ -37,8 +43,49 @@ def shell(page, title, body, audit_id=None):
 <div class="shell"><article><h1>{esc(title)}</h1><p class="lead">Análise dos fatos persistidos, com evidências, escopos e limitações. Sem nova coleta ou recálculo de score.</p>{body}<footer>Projeção derivada offline. Ausência não é zero. Sugestões de IA dependem de revisão humana.</footer></article><div class="rail"><b>Nesta página</b>{rail}</div></div></main></body></html>'''
 
 
-def record_html(record, links, physical_links=(), timezone_name=None, governance=None):
+def _record_link_name(href, lookup):
+    target = lookup.get(href)
+    if target is None:
+        return 'Detalhe: referência ' + href
+    data = thaw(target.data)
+    name = next((str(data[key]) for key in
+                 ('title', 'label', 'rule_id', 'metric_id', 'dimension', 'name', 'action_id')
+                 if data.get(key) not in (None, '')), target.table)
+    dimension = str(data.get('dimension') or data.get('device') or '')
+    return 'Detalhe: ' + target.table + ' · ' + name + (
+        ' · ' + dimension if dimension else '') + ' · ' + target.anchor
+
+
+def _redact_nonpublic_platform_identifiers(data):
+    """Presentation-only protection: do not render non-public identifier display text."""
+    identifiers = data.get('identifiers_json')
+    if not isinstance(identifiers, (str, list)):
+        return data
+    try:
+        entries = json.loads(identifiers) if isinstance(identifiers, str) else identifiers
+    except (ValueError, TypeError):
+        return data
+    if not isinstance(entries, list):
+        return data
+    protected = []
+    for item in entries:
+        if not isinstance(item, dict):
+            protected.append(item)
+        elif item.get('identifier_class') == 'PUBLIC_IDENTIFIER':
+            protected.append(item)
+        else:
+            protected.append({
+                'identifier_class': item.get('identifier_class'),
+                'identifier_type': item.get('identifier_type'),
+                'identifier_hash': item.get('identifier_hash'),
+            })
+    return {**data, 'identifiers_json': protected}
+
+
+def record_html(record, links, physical_links=(), timezone_name=None, governance=None, lookup=None):
     data = thaw(record.data)
+    if record.table == 'passive_security_platforms':
+        data = _redact_nonpublic_platform_identifiers(data)
     title = next((data[k] for k in ('title', 'label', 'dimension', 'metric_id', 'rule_id') if data.get(k) is not None), None)
     if title is None:
         title = next((v for _, v in record.identity), 'Registro persistido')
@@ -68,8 +115,18 @@ def record_html(record, links, physical_links=(), timezone_name=None, governance
     if record.table == 'recommendation_governance':
         summary += ''.join(f'<dt>{esc(label)}</dt><dd>{esc(value)}</dd>' for label, value in (
             ('Decisão', data.get('decision')), ('Alvo', data.get('target_class')), ('Motivo', data.get('rejection_reason'))))
-    refs = ''.join(f'<a class="tech-link" href="{esc(target)}">Abrir registro técnico relacionado {i + 1}</a> ' for i, target in enumerate(links[record.href]))
-    refs += ''.join(f'<a class="tech-link" href="extracao.html#physical-{index}">Abrir evidência física</a> ' for index in physical_links)
+    lookup = lookup or {}
+    refs = ''.join(
+        f'<a class="tech-link" href="{esc(target)}" '
+        f'aria-label="{esc(_record_link_name(target, lookup))}">'
+        f'{esc(_record_link_name(target, lookup))}</a> '
+        for target in links[record.href]
+    )
+    refs += ''.join(
+        f'<a class="tech-link" href="extracao.html#physical-{index}" '
+        f'aria-label="Detalhe: evidência física {index + 1}">Abrir evidência física {index + 1}</a> '
+        for index in physical_links
+    )
     return f'<div class="record" id="{record.anchor}"><h3>{esc(title)}</h3><p class="org">{esc(origin)}</p><p>{esc(status)}</p><dl>{summary}</dl><details><summary>Dados persistidos e proveniência (datas no fuso da auditoria)</summary>{payload(presentation_timestamps(data, timezone_name))}<p>ID de apresentação: {record.anchor}</p></details><nav aria-label="Referências bidirecionais">{refs}</nav></div>'
 
 
@@ -173,6 +230,7 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
         item['source_href'] = source.href
         physical.setdefault(source.href, []).append(index)
     governance = Governance(tables.get('recommendation_governance', ()))
+    lookup = {record.href: record for record in records}
     for page, title in PAGES:
         # Visual capture evidence is visible in HTML immediately, not hidden in
         # technical tables or available only via a modal.
@@ -193,6 +251,28 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
             body += '<p class="callout w">Laboratório, campo e amostras sintéticas são universos independentes. Sem série temporal comparável persistida, nenhum gráfico histórico é fabricado.</p>'
         if page == SEARCH_PAGE:
             body += '<p class="callout w">Busca não equivale a citação. Posição não prova causalidade. Consulta, idioma, mercado, dispositivo e instante delimitam a amostra.</p>'
+        if page == 'index':
+            routed = [(name, destination(name), len(items))
+                      for name, items in sorted(tables.items())
+                      if destination(name) is not None]
+            body += (
+                '<h2>Fontes e localização dos registros</h2>'
+                '<p class="rf">Cada fonte persistida permanece disponível na página '
+                'temática de origem. O Painel apresenta o contexto e as contagens, '
+                'não replica o inventário técnico completo de outras páginas.</p>'
+                '<div class="tw"><table><caption>Fontes da auditoria</caption>'
+                '<thead><tr><th scope="col">Fonte</th><th scope="col">Registros</th>'
+                '<th scope="col">Abrir na página de origem</th></tr></thead><tbody>'
+            )
+            for name, destination_page, count in routed:
+                target = (destination_page + '.html#source-' +
+                          sha256(name.encode()).hexdigest()[:12])
+                body += ('<tr><td>' + esc(public_label(name)) + '</td><td>' +
+                         str(count) + '</td><td><a class="tech-link" href="' +
+                         esc(target) + '" aria-label="Detalhe: ' +
+                         esc(public_label(name)) + ' · ' + esc(name) + ' · ' + esc(destination_page) +
+                         '">Abrir registros da fonte</a></td></tr>')
+            body += '</tbody></table></div>'
         inventory_anchor = ' id="network-evidence-inventory"' if page == 'rede' else ''
         body += '<h2>Evidências e detalhe técnico</h2><details' + inventory_anchor + '><summary>Inventário integral de registros e anexos</summary><span id="presentation-records"></span>'
         if page == 'rede':
@@ -207,8 +287,8 @@ def render(records, links, tables, evidence, calculated, costs, parity, threshol
             body += '<p class="callout">Nenhuma família de registros do audit.db foi roteada para esta página.</p>'
         for table_name in routed_tables:
             items = [r for r in records if r.table == table_name]
-            body += f'<details><summary>{esc(public_label(table_name))} · {len(items)} registros</summary><a class="tech-link" href="anexos/{sha256(table_name.encode()).hexdigest()}.json">Abrir anexo sanitizado integral</a>'
-            body += ''.join(record_html(record, links, physical.get(record.href, ()), timezone_name, governance) for record in items) + '</details>'
+            body += f'<details id="source-{sha256(table_name.encode()).hexdigest()[:12]}"><summary>{esc(public_label(table_name))} · {len(items)} registros</summary><a class="tech-link" href="anexos/{table_annex_filename(table_name)}">Abrir anexo sanitizado integral</a>'
+            body += ''.join(record_html(record, links, physical.get(record.href, ()), timezone_name, governance, lookup) for record in items) + '</details>'
         body += '</details><details><summary>Limitações, cobertura e conferência de paridade</summary>' + payload({'missing_data':missing,'parity':parity}) + '</details>'
         audit_id = tables.get('audits',[{}])[0].get('audit_id') if tables.get('audits') else None
         output[page+'.html'] = shell(page,title,body,audit_id)

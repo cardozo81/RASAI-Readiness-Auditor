@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from . import __version__
 from .artifact_reader import confined, inventory, tree_digest, digest
-from .sqlite_reader import read_database, quiescent
+from .sqlite_reader import read_database, quiescent, logical_digest
 from .read_model import build, destination
 from .crossrefs import link_records
 from .cost_reconciliation import reconcile
@@ -24,8 +24,6 @@ EXPECTED = ('audits', 'page_snapshots', 'evidence', 'scores', 'findings', 'direc
 
 
 def generate(audit_dir):
-    from rasai.catalog_report_site import _sqlite_logical_digest
-
     root = Path(audit_dir).resolve(strict=True)
     database = confined(root, 'audit.db')
     quiescent(database)
@@ -33,7 +31,7 @@ def generate(audit_dir):
     with publication_work(root) as (stage, previous):
         quiescent(database)
         before = inventory(root)
-        logical_before = _sqlite_logical_digest(database)
+        logical_before = logical_digest(database)
         historical = historical_directories(base)
         package = find_package(base, historical, before, logical_before)
         if package is not None and package[0] == base and not historical:
@@ -49,7 +47,7 @@ def generate(audit_dir):
                 shutil.copy2(confined(directory, name), target)
         after = inventory(root)
         quiescent(database)
-        if before != after or logical_before != _sqlite_logical_digest(database):
+        if before != after or logical_before != logical_digest(database):
             raise RuntimeError('Source changed before presentation publication')
         if package is None:
             manifest['source_tree_digest_after'] = tree_digest(after)
@@ -62,7 +60,9 @@ def generate(audit_dir):
 
 def _render_package(root, database, before, logical_before, output):
     tables, schema = read_database(database)
-    records = build(tables, schema)
+    from .annex_payloads import build_table_annexes, use_table_annexes, collect_payloads
+    table_annexes, table_payloads = build_table_annexes(tables)
+    records = build(tables, schema, table_annexes)
     links, ambiguous = link_records(records)
     evidence, calculated = references(tables, root)
     costs, parity = reconcile(tables), compare(tables, root)
@@ -79,6 +79,7 @@ def _render_package(root, database, before, logical_before, output):
         value['generated_at'] = generated_at
     (output / 'assets').mkdir()
     (output / 'anexos').mkdir()
+    (output / 'anexos' / 'dados-de-apoio').mkdir()
     assets = Path(__file__).parent / 'assets'
     for name in ('site.css', 'app.js', 'thresholds.json'):
         (output / 'assets' / name).write_bytes((assets / name).read_bytes())
@@ -90,60 +91,64 @@ def _render_package(root, database, before, logical_before, output):
     from .capture_projection import project_capture
     from .executive_evidence import summaries
     capture_projection = project_capture(root, tables, before)
-    supplements = scope_context(root, tables, timezone_name, costs, capture_projection)
-    summary_html, editorial_receipt = summaries(root, tables, before, records, capture_projection)
-    from .analytical_views import build_analytical_views
-    analytical_html, analytical_receipt = build_analytical_views(tables, records, schema, timezone_name)
-    editorial_receipt['analytical'] = analytical_receipt
-    # A family may have analytical fields even when it has no executive
-    # interpretation. Preserve the legacy receipt state and add the precise
-    # representation level instead of calling every routed family technical-only.
-    for page, topics in editorial_receipt['pages'].items():
-        for topic in topics:
-            scopes = [analytical_receipt.get(page, {}).get(name, {})
-                      for name in topic.get('families', ())]
-            has_fields = any(scope.get('direct_fields') for scope in scopes)
-            topic['representation_level'] = (
-                'PRESENT_EXECUTIVE_SUMMARY' if topic['state'] == 'PRESENT_SUMMARIZED'
-                else 'PRESENT_ANALYTICAL_FIELDS' if has_fields
-                else 'NOT_EXECUTED' if topic['state'] == 'PROCESSING_NOT_EXECUTED'
-                else 'TECHNICAL_DETAIL_ONLY' if topic['state'] == 'PRESENT_TECHNICAL_ONLY'
-                else topic['state'])
-    for page, body in analytical_html.items():
-        summary_html[page] += body
-    if (capture_projection['state'] == 'SOURCE_INTEGRITY_MISMATCH'
-            or editorial_receipt['history_state'] == 'SOURCE_INTEGRITY_MISMATCH'
-            or editorial_receipt['overview_state'] == 'SOURCE_INTEGRITY_MISMATCH'):
-        raise RuntimeError('Source integrity mismatch; presentation publication refused')
-    for page, body in summary_html.items():
-        supplements[page] += body
-    visual_previews = package_captures(root, tables.get('page_snapshots', ()), output, before)
-    supplements['extracao:visual'] = capture_gallery_html(
-        tables.get('page_snapshots', ()), visual_previews, timezone_name)
-    audit = next(iter(tables.get('audits', ())), {})
-    for page, body in catalog_context(root, logical_before, audit.get('audit_id'), tables, timezone_name).items():
-        supplements[page] += body
-    from .evidence_coverage import build_coverage
-    coverage_html, coverage_receipt = build_coverage(root, audit.get('audit_id'), tables)
-    supplements.update(coverage_html)
-    from .execution_context import build_execution_context
-    execution_html, execution_receipt = build_execution_context(tables, coverage_receipt)
-    supplements.update(execution_html)
-    coverage_receipt['execution'] = execution_receipt
-    coverage_receipt['editorial'] = editorial_receipt
-    (output / 'assets' / 'evidence-coverage.json').write_text(
-        json.dumps(coverage_receipt, ensure_ascii=False, indent=2), encoding='utf-8')
-    pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
+    with collect_payloads() as payload_annexes, use_table_annexes(table_annexes):
+        supplements = scope_context(root, tables, timezone_name, costs, capture_projection)
+        summary_html, editorial_receipt = summaries(root, tables, before, records, capture_projection)
+        from .analytical_views import build_analytical_views
+        analytical_html, analytical_receipt = build_analytical_views(tables, records, schema, timezone_name)
+        editorial_receipt['analytical'] = analytical_receipt
+        # A family may have analytical fields even when it has no executive
+        # interpretation. Preserve the legacy receipt state and add the precise
+        # representation level instead of calling every routed family technical-only.
+        for page, topics in editorial_receipt['pages'].items():
+            for topic in topics:
+                scopes = [analytical_receipt.get(page, {}).get(name, {})
+                          for name in topic.get('families', ())]
+                has_fields = any(scope.get('direct_fields') for scope in scopes)
+                topic['representation_level'] = (
+                    'PRESENT_EXECUTIVE_SUMMARY' if topic['state'] == 'PRESENT_SUMMARIZED'
+                    else 'PRESENT_ANALYTICAL_FIELDS' if has_fields
+                    else 'NOT_EXECUTED' if topic['state'] == 'PROCESSING_NOT_EXECUTED'
+                    else 'TECHNICAL_DETAIL_ONLY' if topic['state'] == 'PRESENT_TECHNICAL_ONLY'
+                    else topic['state'])
+        for page, body in analytical_html.items():
+            summary_html[page] += body
+        if (capture_projection['state'] == 'SOURCE_INTEGRITY_MISMATCH'
+                or editorial_receipt['history_state'] == 'SOURCE_INTEGRITY_MISMATCH'
+                or editorial_receipt['overview_state'] == 'SOURCE_INTEGRITY_MISMATCH'):
+            raise RuntimeError('Source integrity mismatch; presentation publication refused')
+        for page, body in summary_html.items():
+            supplements[page] += body
+        visual_previews = package_captures(root, tables.get('page_snapshots', ()), output, before)
+        supplements['extracao:visual'] = capture_gallery_html(
+            tables.get('page_snapshots', ()), visual_previews, timezone_name)
+        audit = next(iter(tables.get('audits', ())), {})
+        for page, body in catalog_context(root, logical_before, audit.get('audit_id'), tables, timezone_name).items():
+            supplements[page] += body
+        from .evidence_coverage import build_coverage
+        coverage_html, coverage_receipt = build_coverage(root, audit.get('audit_id'), tables)
+        supplements.update(coverage_html)
+        from .execution_context import build_execution_context
+        execution_html, execution_receipt = build_execution_context(tables, coverage_receipt, timezone_name)
+        supplements.update(execution_html)
+        coverage_receipt['execution'] = execution_receipt
+        coverage_receipt['editorial'] = editorial_receipt
+        (output / 'anexos' / 'dados-de-apoio' / 'evidence-coverage.json').write_text(
+            json.dumps(coverage_receipt, ensure_ascii=False, indent=2), encoding='utf-8')
+        pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
+    for filename, content in payload_annexes.items():
+        prior = table_payloads.get(filename)
+        if prior is not None and prior != content:
+            raise RuntimeError('SHA-256 annex namespace collision')
+        (output / 'anexos' / filename).write_bytes(content)
     from rasai.report_presentation import humanize_module_references_html
     for name, html in pages.items():
         html = humanize_module_references_html(html)
         # Only visible copy is humanized; SQLite and annex JSON remain exact.
         # retain the precise persisted bytes and any original punctuation.
         (output / name).write_text(html.replace('\u2014', '-'), encoding='utf-8')
-    from hashlib import sha256
-    for table, rows in tables.items():
-        filename = sha256(table.encode()).hexdigest() + '.json'
-        (output / 'anexos' / filename).write_text(json.dumps(sanitize(rows), ensure_ascii=False, indent=2), encoding='utf-8')
+    for filename, content in table_payloads.items():
+        (output / 'anexos' / filename).write_bytes(content)
     coverage_map = json.loads((assets / 'coverage-map.json').read_text(encoding='utf-8'))
     # The source template can describe a technical filename as topic components.
     # Emit the same canonical_pages file contract, with resolved HTML filenames.
@@ -222,7 +227,7 @@ def _render_package(root, database, before, logical_before, output):
             entry['analytical_projection'] = scope
             entry['adequate_representation_certified'] = False
             entry['levels']['analytical_field_projection'] = bool(scope['direct_fields'])
-    (output / 'assets' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
+    (output / 'anexos' / 'dados-de-apoio' / 'coverage-map.json').write_text(json.dumps(coverage_map, ensure_ascii=False, indent=2), encoding='utf-8')
     generated = {p.relative_to(output).as_posix(): digest(p) for p in output.rglob('*') if p.is_file()}
     return {
         'contract': CONTRACT, 'version': 1, 'generator_version': __version__,
@@ -230,14 +235,15 @@ def _render_package(root, database, before, logical_before, output):
         'generated_at': generated_at, 'timezone': 'UTC',
         'source_db_relative_path': 'audit.db', 'source_db_sha256': before['audit.db'],
         'source_db_logical_sha256': logical_before,
-        'report_catalog_tree_digest': tree_digest(before, 'report-catalog/'),
         'source_tree_digest_before': tree_digest(before),
         'source_inventory': before, 'tables_read': list(tables),
+        'annex_contract': 'CONTENT_SHA256_V1', 'table_annexes': table_annexes,
         'columns_read': {name: item['columns'] for name, item in schema.items()},
         'artifacts_read': sanitize(evidence), 'calculated_values': sanitize(calculated),
         'warnings': costs['warnings'] + [f'Ambiguous identifier values: {ambiguous}', 'HTML parity and visual human acceptance not certified', 'Credentials are redacted; sanitized payload is not the literal source'],
         'missing_data': missing, 'parity_differences': parity, 'cost_reconciliation': costs,
         'generated_files': sorted(generated), 'sha256_per_file': generated,
+        'payload_annexes': sorted(payload_annexes),
         'visual_previews': visual_previews,
         'manifest_self_hash': 'Excluded to avoid recursive hashing', 'page_count': len(pages),
         'external_requests': 0, 'ai_calls': 0, 'source_writes': 0, 'score_recomputed': False,

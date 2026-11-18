@@ -14,6 +14,7 @@ from rasai.network_active_probe import read_authorized_probes
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
 from .components import kv, table, text, technical_link
+from .annex_payloads import register_payload
 from .presentation_labels import public_value, presentation_timestamps
 from .read_model import SEARCH_PAGE
 from .sanitization import sanitize
@@ -546,11 +547,19 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
         ('probe', 'Sonda complementar autorizada', probes),
     ):
         for position, row in enumerate(entries, 1):
+            original = presentation_timestamps(sanitize(row), timezone_name)
+            annex = register_payload(original)
+            if annex:
+                filename, digest = annex
+                raw = ('<a class="tech-link" href="anexos/' + text(filename) +
+                       '">Abrir JSON sanitizado · SHA-256 ' + text(digest) + '</a>')
+            else:
+                raw = ('<pre>' + text(json.dumps(original, ensure_ascii=False,
+                       indent=2, default=str)) + '</pre>')
             inventory += (
-                '<details id="network-' + kind + '-' + str(position) + '"><summary>' + text(label) + ' ' + str(position)
-                + ' de ' + str(len(entries)) + '</summary><pre>'
-                + text(json.dumps(presentation_timestamps(sanitize(row), timezone_name), ensure_ascii=False, indent=2, default=str))
-                + '</pre></details>'
+                '<details id="network-' + kind + '-' + str(position) + '"><summary>' +
+                text(label) + ' ' + str(position) + ' de ' + str(len(entries)) +
+                '</summary>' + raw + '</details>'
             )
     if not observations and not probes:
         inventory += (
@@ -638,7 +647,7 @@ def scope_context(root, raw_tables, timezone_name, costs, capture_projection=Non
         for field, label in [('input_tokens','Entrada'), ('cached_input_tokens','Entrada em cache'), ('output_tokens','Saída'), ('reasoning_tokens','Raciocínio'), ('total_tokens','Total')]:
             subtotal, count = known_token_subtotal(attempts, field)
             pairs.append((f'Tokens · {label} ({count}/{len(attempts)} com valor)', subtotal))
-        pairs.append(('Tentativas com custo conciliado / total', f"{sum(e.get('amount') is not None for e in costs['entries'])}/{costs['attempt_count']}"))
+        pairs.append(('Tentativas com valor monetário estimado ou observado / total', f"{sum(e.get('amount') is not None for e in costs['entries'])}/{costs['attempt_count']}"))
         result['ia-custos'] += '<p>A duração por tentativa mede uma chamada. Etapas de execução, esperas e requisições HTTP podem se sobrepor; seus intervalos não devem ser somados como duração da auditoria.</p>'
         result['ia-custos'] += subsection('Consumo conhecido e cobertura', pairs, 'Cache integra a entrada. Raciocínio integra a saída. Valores ausentes permanecem desconhecidos.')
     if 'passive_security_findings' in tables and tables.get('passive_security_runs'):

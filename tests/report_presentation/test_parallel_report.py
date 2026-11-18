@@ -1,4 +1,5 @@
 import json
+from hashlib import sha256
 from pathlib import Path
 import socket
 import sqlite3
@@ -180,9 +181,11 @@ def test_integration(tmp_path, monkeypatch, complete):
     manifest = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
     assert manifest['page_count'] == 11
     assert manifest['source_tree_digest_before'] == manifest['source_tree_digest_after']
-    assert manifest['parity_differences']['comparisons']['scores']['status'] == 'PASS'
+    assert manifest['parity_differences']['comparisons']['scores']['status'] == 'NOT_VERIFIED'
+    assert manifest['parity_differences']['reference'] == 'audit.db'
+    assert 'report-catalog' not in (output / '_geracao.json').read_text(encoding='utf-8')
     assert manifest['external_requests'] == manifest['ai_calls'] == manifest['source_writes'] == 0
-    coverage = json.loads((output / 'assets' / 'coverage-map.json').read_text(encoding='utf-8'))
+    coverage = json.loads((output / 'anexos' / 'dados-de-apoio' / 'coverage-map.json').read_text(encoding='utf-8'))
     if complete:
         assert coverage['families']['private_payload']['page'] is None
         assert coverage['families']['private_payload']['representation'] == 'technical-only'
@@ -420,7 +423,7 @@ def test_previous_generator_version_is_upgraded_from_history(tmp_path):
     root = fixture(tmp_path / 'AUD-SYNTHETIC')
     package = generate(root)
     original = json.loads((package / '_geracao.json').read_text(encoding='utf-8'))
-    assert __version__ == '0.4.18'
+    assert __version__ == '0.4.20'
     original['generator_version'] = '0.4.3'
     (package / '_geracao.json').write_text(json.dumps(original), encoding='utf-8')
     assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()
@@ -577,8 +580,11 @@ def test_encrypted_response_not_distributed_in_offline_html_or_annex(tmp_path, m
         if file.is_file() and file.suffix in ('.html', '.json'):
             content = file.read_text(encoding='utf-8')
             assert ciphertext not in content, file
-    assert OPAQUE_STATUS in (output / 'ia-custos.html').read_text(encoding='utf-8')
-    annex_name = sha256(b'ai_exchange_log').hexdigest() + '.json'
+    assert OPAQUE_STATUS not in (output / 'ia-custos.html').read_text(encoding='utf-8')
+    assert any(OPAQUE_STATUS in item.read_text(encoding='utf-8')
+               for item in (output / 'anexos').glob('*.json'))
+    receipt = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
+    annex_name = receipt['table_annexes']['ai_exchange_log']
     annex = json.loads((output / 'anexos' / annex_name).read_text(encoding='utf-8'))
     assert annex[0]['response_payload']['output'][0]['encrypted_content']['status'] == OPAQUE_STATUS
     assert sha256((root / 'audit.db').read_bytes()).hexdigest() == original_digest
@@ -685,7 +691,7 @@ def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path)
         db.execute("INSERT INTO passive_security_resource_observations VALUES (1,'script')")
     before = inventory(root)
     output = generate(root)
-    receipt = json.loads((output / 'assets' / 'evidence-coverage.json').read_text(encoding='utf-8'))
+    receipt = json.loads((output / 'anexos' / 'dados-de-apoio' / 'evidence-coverage.json').read_text(encoding='utf-8'))
     manifest = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
     assert receipt['measurement'] == 'PERSISTED_ROWS_AND_VERIFIED_SIDECARS_ONLY'
     assert receipt['certifies_editorial_completeness'] is False
@@ -710,7 +716,7 @@ def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path)
     assert receipt['pages']['plano.html']['evidence_state'] == 'COM_REGISTROS_PERSISTIDOS'
     assert receipt['pages']['index.html']['sqlite_record_count'] == 2
     assert 'Projeções operacionais do console' in (output / 'index.html').read_text(encoding='utf-8')
-    assert 'assets/evidence-coverage.json' in manifest['generated_files']
+    assert 'anexos/dados-de-apoio/evidence-coverage.json' in manifest['generated_files']
     assert manifest['source_writes'] is False or manifest['source_writes'] == 0
     assert inventory(root) == before
     assert generate(root) == output
@@ -780,3 +786,63 @@ def test_presentation_generator_humanizes_editorial_module_labels(tmp_path, monk
     assert before == inventory(root)
     manifest = json.loads((output / '_geracao.json').read_text(encoding='utf-8'))
     assert digest(output / 'index.html') == manifest['sha256_per_file']['index.html']
+
+def test_table_annexes_are_content_addressed_deduplicated_and_sealed(tmp_path):
+    """P11/P12: lossless source families, content-derived URLs and strict layout."""
+    from rasai.parallel_report.publication import compatible_manifest
+    from rasai.parallel_report.sqlite_reader import logical_digest
+
+    root = fixture(tmp_path / 'AUD-CONTENT-ANNEXES')
+    with sqlite3.connect(root / 'audit.db') as db:
+        db.execute('CREATE TABLE empty_source_a (value TEXT)')
+        db.execute('CREATE TABLE empty_source_b (value TEXT)')
+    before = inventory(root)
+    output = generate(root)
+    manifest_path = output / '_geracao.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+
+    assert manifest['annex_contract'] == 'CONTENT_SHA256_V1'
+    names = manifest['table_annexes']
+    assert set(names) == set(manifest['tables_read'])
+    assert names['empty_source_a'] == names['empty_source_b']
+    assert names['empty_source_a'] == sha256(b'[]').hexdigest() + '.json'
+    assert len(set(names.values())) < len(names)
+    assert not (output / 'anexos' / (sha256(b'empty_source_a').hexdigest() + '.json')).exists()
+
+    for source, filename in names.items():
+        file = output / 'anexos' / filename
+        assert file.is_file(), source
+        assert digest(file) == filename[:-5]
+        with sqlite3.connect(root / 'audit.db') as db:
+            rows = db.execute('SELECT COUNT(*) FROM "' + source + '"').fetchone()[0]
+        assert len(json.loads(file.read_text(encoding='utf-8'))) == rows
+        assert 'anexos/' + filename in manifest['generated_files']
+    for name in ('coverage-map.json', 'evidence-coverage.json'):
+        new = 'anexos/dados-de-apoio/' + name
+        assert (output / new).is_file()
+        assert new in manifest['sha256_per_file']
+        assert not (output / 'assets' / name).exists()
+        assert 'assets/' + name not in manifest['generated_files']
+    assert compatible_manifest(output, before, logical_digest(root / 'audit.db'))
+    del manifest['annex_contract']
+    manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+    assert compatible_manifest(output, before, logical_digest(root / 'audit.db')) is None
+
+
+def test_table_annex_referenced_by_non_routed_record_and_history(tmp_path):
+    from rasai.parallel_report.annex_payloads import build_table_annexes
+    from rasai.parallel_report.read_model import build, destination
+    root = fixture(tmp_path / 'AUD-RECORD-LINK')
+    with sqlite3.connect(root / 'audit.db') as db:
+        db.execute('CREATE TABLE unclassified_source (id TEXT)')
+        db.execute("INSERT INTO unclassified_source VALUES ('opaque-reference')")
+    from rasai.parallel_report.sqlite_reader import read_database
+    tables, schema = read_database(root / 'audit.db')
+    names, payloads = build_table_annexes(tables)
+    records = build(tables, schema, names)
+    record = next(r for r in records if r.table == 'unclassified_source')
+    assert destination(record.table) is None
+    assert record.href == 'anexos/' + names[record.table]
+    assert sha256(payloads[names[record.table]]).hexdigest() == names[record.table][:-5]
+    output = generate(root)
+    assert (output / record.href).is_file()

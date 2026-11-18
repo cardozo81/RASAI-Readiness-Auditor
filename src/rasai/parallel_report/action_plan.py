@@ -108,7 +108,8 @@ def strategic_context(rows, governance):
 def render_plan(rows, timezone_name, governance):
     if not rows(['directed_analysis_runs', 'directed_analysis_actions',
                  'recommendations', 'improvement_intelligence_recommendations',
-                 'content_remediation_suggestions', 'recommendation_governance']):
+                 'content_remediation_suggestions', 'recommendation_governance',
+                 'remediation_groups']):
         partial = any(r.get('processing_status') == 'PARTIAL_RETRYABLE'
                       for r in rows(['audit_fulfillment_contracts']))
         heading = ('Plano de ação não produzido nesta auditoria parcial' if partial
@@ -126,7 +127,53 @@ def render_plan(rows, timezone_name, governance):
                 'O inventário técnico integral permanece acessível nesta apresentação.</p></details>')
     groups=grouped_actions(rows(['directed_analysis_actions']))
     priorities=Counter(group[0].get('priority') for group in groups)
-    html='<h2>Visão geral</h2>'+origin('Calculado no relatório')
+    html = '<h2>Causas-raiz e prioridades do motor</h2>'
+    root_groups = rows(['remediation_groups'])
+    html += '<p class="rf">Prioridade do motor (P1/P2, score): classificação persistida dos grupos; não é a prioridade das ações do plano direcionado e não implica aprovação da governança.</p>'
+    if root_groups:
+        ordered = sorted(root_groups,
+                         key=lambda item: (-float(item.get('priority_score') or 0),
+                                           str(item.get('group_id') or '')))
+        html += table('Grupos por causa-raiz', ordered, [
+            ('rule_id', 'Regra'), ('root_cause', 'Causa-raiz'),
+            ('priority_class', 'Prioridade do motor'), ('priority_score', 'Score de prioridade'),
+            ('severity', 'Severidade'), ('impact', 'Impacto'), ('effort', 'Esforço'),
+            ('affected_findings', 'Achados afetados')
+        ], timezone_name)
+        for group in ordered:
+            affected = group.get('affected_findings')
+            if isinstance(affected, str):
+                try:
+                    affected = json.loads(affected)
+                except (TypeError, ValueError):
+                    affected = [affected]
+            html += ('<details><summary>' + text(group.get('rule_id')) + ' · ' +
+                     text(group.get('root_cause')) + '</summary>')
+            html += kv([('Prioridade do motor', group.get('priority_class')),
+                        ('Pontuação de prioridade', group.get('priority_score')),
+                        ('Severidade', group.get('severity')),
+                        ('Impacto', group.get('impact')), ('Esforço', group.get('effort'))])
+            html += '<h3>Todos os achados afetados</h3>' + content(affected)
+            html += technical_reference(group.get('_ref')) + '</details>'
+    else:
+        html += '<p>Nenhum grupo de remediação persistido nesta auditoria.</p>'
+    action_occurrences = rows(['directed_analysis_actions'])
+    title_groups = {}
+    for row in action_occurrences:
+        title_groups.setdefault(str(row.get('title') or 'Título não registrado'), []).append(row)
+    html += '<details><summary>Ocorrências por título do plano direcionado (' + (
+        str(len(action_occurrences)) + ' ocorrências / ' + str(len(title_groups)) +
+        ' títulos)</summary>')
+    html += '<p class="rf">Prioridade do plano direcionado (Alta/Média/Baixa): hierarquia independente da prioridade do motor. Todas as ocorrências são preservadas, sem fusão por título.</p>'
+    for title, entries in sorted(title_groups.items()):
+        html += '<details><summary>' + text(title) + ' · ' + str(len(entries)) + ' ocorrência(s)</summary>'
+        html += table('Registros integrais por título: ' + title, entries, [
+            ('action_id', 'ID'), ('title', 'Título'), ('priority', 'Prioridade do plano direcionado'),
+            ('source_id', 'Origem'), ('effort', 'Esforço'), ('_ref', 'Detalhe persistido')
+        ], timezone_name)
+        html += '</details>'
+    html += '</details>'
+    html += '<h2>Visão geral</h2>'+origin('Calculado no relatório')
     html+=kv([('Ações (ocorrências)',sum(map(len,groups))),('Ações distintas por ID',sum(bool(g[0].get('action_id')) for g in groups)),('Ocorrências sem ID',sum(not g[0].get('action_id') for g in groups)),('Crítica',priorities['CRITICAL']),('Alta',priorities['HIGH']),('Média',priorities['MEDIUM']),('Baixa',priorities['LOW']),('Sem prioridade',priorities[None]+priorities['']),('Origem explicitamente IA de conteúdo',sum(g[0].get('source_kind')=='CONTENT_AI' for g in groups))])
     html+='<p class="rf">Contagens de apresentação por action_id; não há deduplicação por título. Ocorrências sem ID permanecem separadas, sem afirmar identidade distinta. Origens de IA não explícitas não são inferidas. Prioridades não reconhecidas permanecem no detalhe.</p>'
     decisions = rows(['recommendation_governance'])

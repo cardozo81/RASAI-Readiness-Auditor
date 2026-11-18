@@ -8,6 +8,8 @@ Untrusted error text and configuration are deliberately not displayed.
 from __future__ import annotations
 
 from collections import Counter
+from .annex_payloads import table_annex_filename
+import json
 
 from .components import text, kv, table
 from .presentation_labels import public_value, STATUS_LABELS
@@ -158,7 +160,7 @@ def _notes(page, rows, network):
     return notes
 
 
-def _decision_summaries(page, rows):
+def _decision_summaries(page, rows, timezone_name=None):
     """Concise facts for decisions, not a copy of technical rows or new scores."""
     output = ''
     if page == 'indices':
@@ -288,10 +290,11 @@ def _decision_summaries(page, rows):
                     and attempt.get('observed_cost_currency') == currency
                 ]
                 result.append({
+                    'cutoff': public_value(row.get('evaluated_at'), 'evaluated_at', timezone_name),
                     'currency': currency,
                     'forecast': public_value(estimate, 'estimated_cost')
                                 if type(estimate) in (int, float) else 'N/D',
-                    'reconciled': public_value(reconciled, 'amount')
+                    'snapshot': public_value(reconciled, 'amount')
                                   if type(reconciled) in (int, float) else 'N/D',
                     'telemetry': (str(len(telemetry)) + ' tentativa(s) com valor observado'
                                   if telemetry else 'N/D — sem telemetria monetária nesta moeda'),
@@ -304,26 +307,25 @@ def _decision_summaries(page, rows):
                 })
             output += (
                 '<h2>Previsão versus execução registrada</h2>'
-                '<p class="callout w">Na comparação financeira, o valor apresentado como '
-                'custo técnico conciliado pode incluir estimativas de tentativas sem '
-                'telemetria monetária do provedor. Não constitui faturamento comprovado. '
-                'Valor ausente não equivale a zero; mesmo valor observado igual a zero '
-                'não significa custo final. Execução parcial não comprova fechamento financeiro.</p>'
+                '<p class="callout w">O instantâneo do console corresponde exclusivamente '
+                'à data de avaliação exibida em cada linha. Não constitui custo final nem '
+                'cobrança observada pelo provedor. Comparações antigas podem anteceder '
+                'outras tentativas e a conclusão do contrato de execução.</p>'
                 + table('Comparação financeira, respeitando a cobertura',
-                        result, [('currency', 'Moeda'), ('forecast', 'Previsão anterior'),
-                                 ('reconciled', 'Custo técnico conciliado'),
+                        result, [('cutoff', 'Avaliado em'), ('currency', 'Moeda'), ('forecast', 'Previsão anterior'),
+                                 ('snapshot', 'Instantâneo do console na data indicada'),
                                  ('telemetry', 'Telemetria monetária observada'),
                                  ('classification', 'Classificação financeira persistida'),
                                  ('range', 'Faixa provável na moeda indicada'),
                                  ('basis', 'Origem da previsão')])
                 + '<p class="rf">A faixa provável e o cenário P90 são referências históricas, '
-                  'não garantias ou limites contratuais. O total conciliado pode combinar '
-                  'parcelas estimadas e observadas, sem equivaler à cobrança real.</p>'
+                  'não garantias ou limites contratuais. Tentativas posteriores ao instantâneo '
+                  'devem ser consultadas no ledger persistido, não inferidas deste valor.</p>'
             )
     return output
 
 
-def build_execution_context(tables, coverage_receipt):
+def build_execution_context(tables, coverage_receipt, timezone_name=None):
     """Return (HTML by page, structured public operational receipt).
 
     Both artifacts consume the same immutable source rows; no SQL, HTTP, IA,
@@ -430,10 +432,52 @@ def build_execution_context(tables, coverage_receipt):
                 ])
                 if contract.get('consolidation_eligible') is not True and contract.get('consolidation_eligible') != 1:
                     html += '<p class="callout w">Consolidação não elegível segundo os critérios de conclusão registrados. Resultados parciais continuam disponíveis, mas não compõem conclusão consolidada.</p>'
+                reprocess = [
+                    run for run in tables.get('audit_reprocess_runs', ())
+                    if isinstance(run, dict)
+                ]
+                if reprocess:
+                    history = []
+                    for run in reprocess:
+                        selected = None
+                        configuration = run.get('configuration')
+                        if isinstance(configuration, str):
+                            try:
+                                configuration = json.loads(configuration)
+                            except (ValueError, TypeError):
+                                configuration = None
+                        if isinstance(configuration, dict):
+                            selected = configuration.get('selected_items')
+                        history.append({
+                            **{key: run.get(key) for key in (
+                                'reprocess_id', 'status', 'attempted_items', 'successful_items',
+                                'remaining_items', 'started_at', 'completed_at', 'note'
+                            )},
+                            'selected_items': selected,
+                        })
+                    html += ('<details><summary>Histórico de execução — ' +
+                             text(len(history)) + ' reprocessamentos</summary>')
+                    html += table(
+                        'Execuções AUD/RPR persistidas', history,
+                        [('reprocess_id', 'Reprocessamento'), ('status', 'Estado'),
+                         ('attempted_items', 'Itens tentados'), ('successful_items', 'Itens bem-sucedidos'),
+                         ('remaining_items', 'Itens restantes'), ('started_at', 'Início'),
+                         ('completed_at', 'Fim'), ('note', 'Nota'),
+                         ('selected_items', 'Itens selecionados')])
+                    archived = len(tables.get('audit_reprocess_derived_archive') or ())
+                    if 'audit_reprocess_derived_archive' in tables:
+                        archive_name = table_annex_filename('audit_reprocess_derived_archive')
+                        html += ('<p>Registros derivados arquivados: ' + text(archived) +
+                                 ' · <a class="tech-link" href="anexos/' + archive_name +
+                                 '">Detalhe integral do histórico arquivado</a></p></details>')
+                    else:
+                        html += ('<p>Registros derivados arquivados: N/D - fonte de '
+                                 'histórico arquivado não presente nesta auditoria.</p></details>')
+
         elif contract is None:
             html += '<p class="callout w">Critérios de execução não disponíveis. Não inferir conclusão, falha ou solicitação com base apenas em tabelas vazias.</p>'
         if page == 'ia-custos':
-            html += _decision_summaries(page, tables)
+            html += _decision_summaries(page, tables, timezone_name)
         if values:
             html += table(
                 'Requisitos associados a esta página', values,
@@ -445,7 +489,7 @@ def build_execution_context(tables, coverage_receipt):
         for note in notes:
             html += '<p class="callout w">' + text(note) + '</p>'
         if page != 'ia-custos':
-            html += _decision_summaries(page, tables)
+            html += _decision_summaries(page, tables, timezone_name)
         html += '</section>'
         supplemental[page + ':execution'] = html
     return supplemental, records

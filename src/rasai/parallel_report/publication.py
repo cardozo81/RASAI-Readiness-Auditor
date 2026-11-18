@@ -48,7 +48,7 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
     try:
         path = confined(directory, MANIFEST)
         manifest = json.loads(path.read_text(encoding='utf-8'))
-        versions = (__version__, '0.4.17', '0.4.16', '0.4.3', '0.4.2', '0.4.1', '0.3.0', '0.2.0', '0.1.0') if historical_version else (__version__,)
+        versions = (__version__, '0.4.19', '0.4.18', '0.4.17', '0.4.16', '0.4.3', '0.4.2', '0.4.1', '0.3.0', '0.2.0', '0.1.0') if historical_version else (__version__,)
         if not isinstance(manifest, dict) or (
             manifest.get('contract') != CONTRACT or manifest.get('version') != 1
             or manifest.get('generator_version') not in versions
@@ -69,12 +69,41 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
             return None
         required = {name + '.html' for name, _ in PAGES}
         required.update(visual_files)
-        required.update('assets/' + name for name in ('site.css', 'app.js', 'thresholds.json',
-                                                          'coverage-map.json', 'evidence-coverage.json'))
-        required.update('anexos/' + sha256(table.encode()).hexdigest() + '.json'
-                        for table in manifest['tables_read'])
+        required.update('assets/' + name for name in ('site.css', 'app.js', 'thresholds.json'))
+        layout = manifest.get('annex_contract')
+        if layout == 'CONTENT_SHA256_V1':
+            names = manifest.get('table_annexes')
+            if (not isinstance(names, dict) or set(names) != set(manifest['tables_read'])
+                    or any(not isinstance(name, str)
+                           or not re.fullmatch(r'[0-9a-f]{64}\.json', name)
+                           for name in names.values())):
+                return None
+            required.update('anexos/' + name for name in names.values())
+            required.update('anexos/dados-de-apoio/' + name for name in
+                            ('coverage-map.json', 'evidence-coverage.json'))
+        elif historical_version and layout is None:
+            # Historical compatibility is READ-ONLY and opt-in. Current
+            # packages must use content addresses and the new support layout.
+            required.update('assets/' + name for name in
+                            ('coverage-map.json', 'evidence-coverage.json'))
+            required.update('anexos/' + sha256(table.encode()).hexdigest() + '.json'
+                            for table in manifest['tables_read'])
+        else:
+            return None
+        payload_annexes = manifest.get('payload_annexes', ())
+        if not isinstance(payload_annexes, list) or any(
+            not isinstance(name, str) or not re.fullmatch(r'[0-9a-f]{64}\.json', name)
+            for name in payload_annexes
+        ):
+            return None
+        required.update('anexos/' + name for name in payload_annexes)
         hashes = manifest['sha256_per_file']
         if set(hashes) != required or set(manifest['generated_files']) != required:
+            return None
+        annex_names = set(payload_annexes)
+        if layout == 'CONTENT_SHA256_V1':
+            annex_names.update(names.values())
+        if any(hashes['anexos/' + name] != name[:-5] for name in annex_names):
             return None
         if all(digest(confined(directory, name)) == hashes[name] for name in required):
             return manifest

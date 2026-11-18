@@ -25,6 +25,14 @@ def destination(table):
         # Route its one historically technical-only record to the local
         # index evidence inventory without inventing an executive conclusion.
         return 'index'
+    if table in {'audit_targets', 'audit_input_summary', 'audit_input_urls'}:
+        # Input provenance belongs with extraction, not the executive dashboard.
+        return 'extracao'
+    if table.startswith(('audit_fulfillment_', 'audit_reprocess_',
+                         'audit_execution_')):
+        # Operational ledgers belong to the provenance page. The dashboard
+        # retains its concise, source-backed status and historical overview.
+        return 'ia-custos'
     if table in {'scores', 'score_contributions', 'rule_executions'}:
         return 'indices'
     if table.startswith(('passive_security',)):
@@ -70,16 +78,17 @@ class Record:
     anchor: str
     identity: tuple
     data: object
+    annex_filename: str | None = None
 
     @property
     def href(self):
         page = destination(self.table)
         if page is not None:
             return page + '.html#' + self.anchor
-        return 'anexos/' + sha256(self.table.encode()).hexdigest() + '.json'
+        return 'anexos/' + (self.annex_filename or sha256(self.table.encode()).hexdigest() + '.json')
 
 
-def build(tables, schema):
+def build(tables, schema, table_annexes=None):
     records = []
     for table, rows in sorted(tables.items()):
         for ordinal, row in enumerate(rows):
@@ -87,5 +96,6 @@ def build(tables, schema):
             identity = tuple((key, row.get(key)) for key in keys)
             seed = json.dumps([table, identity if identity else ordinal], default=str, sort_keys=True)
             anchor = 'record-' + sha256(seed.encode()).hexdigest()[:24]
-            records.append(Record(table, anchor, identity, freeze(sanitize(row))))
+            records.append(Record(table, anchor, identity, freeze(sanitize(row)),
+                                  (table_annexes or {}).get(table)))
     return tuple(records)

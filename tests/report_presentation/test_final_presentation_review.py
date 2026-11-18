@@ -101,7 +101,7 @@ def test_forecast_zero_partial_and_no_attempts_never_become_final_spend():
                    'execução parcial', 'Pesquisa Perplexity: nenhuma execução registrada',
                    'Recorded Search provider'):
         assert phrase in visible
-    assert 'não significa custo final' in visible
+    assert 'Não constitui custo final' in visible
     assert 'Tokens de entrada</dt><dd>0' not in body
     assert 'Custo por chamada' not in body  # no repeated empty telemetry panels
 
@@ -189,7 +189,7 @@ def test_analytical_receipt_keeps_compatibility_without_calling_fields_technical
                           "INSERT INTO web_performance_attempts VALUES('W1', 123.5);")
     con.close()
     output = generate(audit)
-    receipt = json.loads((output/'assets/evidence-coverage.json').read_text(encoding='utf-8'))['editorial']
+    receipt = json.loads((output/'anexos/dados-de-apoio/evidence-coverage.json').read_text(encoding='utf-8'))['editorial']
     assert receipt['certifies_editorial_completeness'] is False
     for topics in receipt['pages'].values():
         for topic in topics:

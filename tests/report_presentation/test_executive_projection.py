@@ -144,10 +144,10 @@ def test_generation_projects_once_shares_pages_and_preserves_classification(tmp_
         assert 'Observed heading' in body and 'Synthetic capture' in body
         assert 'STRUCTURAL_EXTRACTION_ONLY' not in body  # explanatory prose belongs in UI
         assert 'Achados semânticos e acessibilidade' not in body
-    assert 'DISCOVERY_ACCESS' in (out/'conteudo.html').read_text(encoding='utf-8')
+    assert 'DISCOVERY_ACCESS' in ''.join(p.read_text(encoding='utf-8') for p in (out/'anexos').glob('*.json'))
     assert inventory(root) == before
     assert generate(root) == out and len(count) == 1
-    receipt = json.loads((out/'assets/evidence-coverage.json').read_text(encoding='utf-8'))
+    receipt = json.loads((out/'anexos/dados-de-apoio/evidence-coverage.json').read_text(encoding='utf-8'))
     assert receipt['editorial']['capture_state'] == 'AVAILABLE'
     assert receipt['editorial']['certifies_editorial_completeness'] is False
     # A changed bound source is never published over a valid prior presentation.
@@ -230,7 +230,7 @@ def test_two_device_captures_keep_unique_html_ids_and_separate_provenance(tmp_pa
     for p in out.glob('*.html'):
         doc=Links(p.read_text(encoding='utf-8'))  # asserts every id is unique
         assert doc.ids
-    receipt=json.loads((out/'assets/evidence-coverage.json').read_text(encoding='utf-8'))
+    receipt=json.loads((out/'anexos/dados-de-apoio/evidence-coverage.json').read_text(encoding='utf-8'))
     topic=next(t for t in receipt['editorial']['pages']['conteudo.html']
                if t['topic']=='Estrutura editorial verificável da captura')
     sources=[s for s in topic['sources'] if s.get('sha256')]
@@ -259,13 +259,14 @@ def test_executive_summaries_reconcile_partial_sample_and_ai_overview_without_in
     extraction=(out/'extracao.html').read_text(encoding='utf-8')
     assert '19' in extraction and 'Estrutura DOM observada' in extraction
     search=(out/('search'+'-geo.html')).read_text(encoding='utf-8')
-    assert 'CUSTOMER_CONTENT_NOT_COMPARABLE' in search and 'não permitiu comparação' in search
+    assert 'não permitiu comparação' in search
+    assert 'CUSTOMER_CONTENT_NOT_COMPARABLE' in ''.join(p.read_text(encoding='utf-8') for p in (out/'anexos').glob('*.json'))
     for n in range(9): assert 'https://reference'+str(n)+'.test/' in search
     discovery=(out/'descoberta.html').read_text(encoding='utf-8')
     assert '195' in discovery and 'Persisted CSS issue' in discovery and 'Persisted HTML issue' in discovery
-    receipt=json.loads((out/'assets/evidence-coverage.json').read_text(encoding='utf-8'))['editorial']
+    receipt=json.loads((out/'anexos/dados-de-apoio/evidence-coverage.json').read_text(encoding='utf-8'))['editorial']
     assert len(receipt['pages'])==11
-    coverage=json.loads((out/'assets/coverage-map.json').read_text(encoding='utf-8'))
+    coverage=json.loads((out/'anexos/dados-de-apoio/coverage-map.json').read_text(encoding='utf-8'))
     assert coverage['families']['element_observations']['levels']['editorial_summary']
     assert not coverage['families']['findings']['levels']['conclusion_or_decision_present']
     assert inventory(root)==before

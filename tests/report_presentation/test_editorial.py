@@ -34,8 +34,10 @@ def test_apdex_sources():
     assert 'experiência — agregado dos dispositivos' in label and 'populacional' not in label
     data=records({source:[{'device':'MOBILE','apdex_score':.55}] for source in ('synthetic_apdex_summaries','synthetic_ux_apdex_summaries','synthetic_population_apdex_summaries')})
     html=editorial('performance',data,{},load())
-    for family in ('navegação','experiência','populacional'):
-        assert 'Apdex sintético '+family in html if family=='populacional' else 'Apdex sintético de '+family in html
+    for family in ('navegação', 'experiência'):
+        assert 'Apdex sintético de ' + family in html
+    assert 'Dados de suporte da população' in html
+    assert 'Apdex sintético populacional' not in html
     assert '>Apdex sintético<' not in html
 
 
@@ -187,11 +189,11 @@ def test_public_labels_across_ten_pages(tmp_path):
     from rasai.parallel_report.read_model import SEARCH_PAGE
     assert SEARCH_PAGE.split('-')==['search','geo']
     assert (output/(SEARCH_PAGE+'.html')).is_file()
-    coverage=json.loads((output/'assets/coverage-map.json').read_text(encoding='utf-8'))
+    coverage=json.loads((output/'anexos/dados-de-apoio/coverage-map.json').read_text(encoding='utf-8'))
     assert coverage['canonical_pages']['cat-05.html']==[SEARCH_PAGE+'.html']
     assert all((output/name).is_file() for pages in coverage['canonical_pages'].values() for name in pages)
     from rasai.parallel_report.parity import compare
-    assert compare({},tmp_path)['status']=='PENDING'
+    assert compare({},tmp_path)['status']=='NOT_VERIFIED'
     for path in output.glob('*.html'):
         parser=PublicLabels();parser.feed(path.read_text(encoding='utf-8'))
         assert not parser.bad,(path.name,parser.bad)
@@ -245,3 +247,17 @@ def test_chip_palette_contrast():
             for background in ('card','bg'):
                 low,high=sorted((luminance(tokens[foreground]),luminance(tokens[background])))
                 assert (high+.05)/(low+.05)>=4.5,(selector,foreground,background)
+
+def test_ruler_explicit_qualitative_bands_from_contract():
+    from rasai.parallel_report.thresholds import load
+    limits = {item['metric_id']: item for item in load()}
+    from rasai.parallel_report.components import ruler
+    assert '>Ruim</span>' in ruler('Apdex', 0.55, maximum=1,
+                                  proposal=limits['APDEX_RESULT_PERSISTED_CONTRACT'])
+    assert '>Bom</span>' in ruler('Apdex', 0.85, maximum=1,
+                                 proposal=limits['APDEX_RESULT_PERSISTED_CONTRACT'])
+    assert '>Precisa melhorar</span>' in ruler(
+        'Lighthouse', 78, proposal=limits['LIGHTHOUSE_CATEGORY_PERSISTED_CONTRACT'])
+    sari = ruler('SARI', 94.195489, proposal=limits['SARI_PRESENTATION_PROPOSAL'])
+    assert 'Ideal proposto · Proposta não aprovada' in sari
+    assert 'Sem faixa textual definida no contrato' in ruler('Outro', 23)

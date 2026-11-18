@@ -4,6 +4,7 @@ from hashlib import sha256
 import json
 import math
 from .presentation_labels import FIELD_LABELS, ORIGIN_LABELS, public_value, chip_tone, TECHNICAL_ONLY_FIELDS, presentation_timestamps
+from .annex_payloads import register_payload
 
 
 def text(value):
@@ -31,7 +32,26 @@ def kv(pairs):
 def technical_link(href, label='Abrir registro técnico'):
     if not href:
         return ''
-    return f'<a class="tech-link" href="{text(href)}">{text(label)}</a>'
+    return f'<a class="tech-link" href="{text(href)}" aria-label="{text("Detalhe: " + label + " · " + str(href))}">{text(label)}</a>'
+
+
+def _ruler_band(value, proposal):
+    """Visible qualitative band from the already-versioned display contract."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
+        return 'N/D — sem valor medido'
+    if not proposal:
+        return 'Sem faixa textual definida no contrato'
+    metric = proposal.get('metric_id')
+    thresholds = proposal.get('thresholds') or []
+    index = sum(value >= threshold for threshold in thresholds)
+    if metric == 'APDEX_RESULT_PERSISTED_CONTRACT' and len(thresholds) == 2:
+        return ('Ruim', 'Regular', 'Bom')[index]
+    if metric == 'LIGHTHOUSE_CATEGORY_PERSISTED_CONTRACT' and len(thresholds) == 2:
+        return ('Ruim', 'Precisa melhorar', 'Bom')[index]
+    if metric == 'SARI_PRESENTATION_PROPOSAL' and len(thresholds) == 3:
+        return ('Abaixo do mínimo proposto', 'Mínimo proposto',
+                'Ideal proposto', 'Ótimo proposto')[index] + ' · Proposta não aprovada'
+    return 'Sem faixa textual definida no contrato'
 
 
 def ruler(label, value, maximum=100, proposal=None, scope=None, href=None):
@@ -50,7 +70,7 @@ def ruler(label, value, maximum=100, proposal=None, scope=None, href=None):
     display_value = (format(value, '.2f').rstrip('0').rstrip('.').replace('.', ',') if valid else text(value))
     title = text(label)
     technical = ('<p class="rf">' + technical_link(href) + '</p>') if href else ''
-    return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{text(ORIGIN_LABELS.get(reference, reference))}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)} · {text(ORIGIN_LABELS.get(reference, reference))}</div><div class="rf">{text(scope)}</div><details class="in"><summary>Detalhes técnicos da faixa e limites</summary>{text(note)}<p><code>{text(reference)}</code></p>{technical}</details></div>'
+    return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{text(_ruler_band(value, proposal))}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)} · {text(ORIGIN_LABELS.get(reference, reference))}</div><div class="rf">{text(scope)}</div><details class="in"><summary>Detalhes técnicos da faixa e limites</summary>{text(note)}<p><code>{text(reference)}</code></p>{technical}</details></div>'
 
 
 def _detail_title(row, index):
@@ -58,7 +78,9 @@ def _detail_title(row, index):
         value = row.get(key)
         if value not in (None, ''):
             return str(public_value(value, key))
-    return f'Registro {index + 1}'
+    source = str(row.get('_source_table') or 'Registro persistido')
+    identifier = str(row.get('_ref') or '').split('#')[-1]
+    return source + (' · ' + identifier if identifier else ' · entrada ' + str(index + 1))
 
 
 def _detail_dialog(caption, row, columns, index, timezone_name=None):
@@ -93,16 +115,23 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
     source_html = (
         f'<p class="rf">Tabela de origem: <code>{text(source)}</code></p>' if source else ''
     )
-    raw = text(json.dumps(presentation_timestamps(persisted, timezone_name), ensure_ascii=False, indent=2, default=str))
+    original = presentation_timestamps(persisted, timezone_name)
+    annex = register_payload(original)
+    if annex:
+        filename, digest = annex
+        raw = ('<a class="tech-link" href="anexos/' + text(filename) +
+               '">Abrir JSON original sanitizado · SHA-256 ' + text(digest) + '</a>')
+    else:
+        raw = '<pre>' + text(json.dumps(original, ensure_ascii=False, indent=2, default=str)) + '</pre>'
     technical = technical_link(row.get('_ref'), 'Abrir registro técnico completo')
     dialog = ''.join([
         f'<dialog class="detail-dialog" id="{dialog_id}" aria-labelledby="{title_id}">',
         '<div class="modal-head"><div><span class="modal-kicker">' + text(caption) + '</span>',
-        f'<h2 id="{title_id}">{text(title)}</h2></div>',
+        f'<h2 id="{title_id}">{text(title)}</h2><span class="modal-kicker">Registro {index + 1}</span></div>',
         '<button type="button" class="modal-close" data-modal-close aria-label="Fechar detalhes">×</button></div>',
         '<div class="modal-body">' + summary,
         '<details class="in"><summary>Dados técnicos originais (rastreabilidade)</summary><p class="rf">Horários exibidos no fuso da auditoria; valores originais permanecem nos anexos.</p>'
-        + source_html + '<pre>' + raw + '</pre></details>',
+        + source_html + raw + '</details>',
         '</div><div class="modal-foot">',
         technical if technical else '<span class="rf">Sem referência técnica adicional.</span>',
         '<button type="button" class="modal-dismiss" data-modal-close>Fechar</button></div></dialog>',

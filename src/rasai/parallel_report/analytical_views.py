@@ -1,5 +1,6 @@
 """Explicit thematic field projections, without row limits or completeness claims."""
 from collections import defaultdict
+from datetime import datetime, timezone
 
 from .capture_projection import public_data, object_value
 from .components import table, text
@@ -41,7 +42,7 @@ FIELDS = {
  'lighthouse_execution_profiles': 'device form_factor benchmark_index lighthouse_total_ms captured_at',
  'passive_security_resources': 'resource_kind party domain protocol resource_url evidence_ids_json',
  'passive_security_integrations': 'integration_id requested state attempts successes observed_at',
- 'console_cost_forecast_outcomes': 'currency expected_cost actual_cost status relation likely_low likely_high potential forecast_pages actual_pages confidence unpriced_ai_attempts source notes',
+ 'console_cost_forecast_outcomes': 'evaluated_at currency expected_cost actual_cost status relation likely_low likely_high potential forecast_pages actual_pages confidence unpriced_ai_attempts source notes',
 }
 TITLES = {
  'audit_execution_configurations':'Configuração registrada da execução',
@@ -106,6 +107,29 @@ def build_analytical_views(tables, records, schema, timezone_name):
                     row['browser_support'] = '; '.join(str(key)+': '+', '.join(str(k)+' '+str(v) for k,v in item.get('support',{}).items()) for key,item in compatibility.items() if isinstance(item,dict) and isinstance(item.get('support'),dict)) or None
                     row['signals'] = '; '.join(str(s.get('kind'))+': '+str(s.get('evidence')) for item in compatibility.values() if isinstance(item,dict) for s in item.get('signals',[]) if isinstance(s,dict)) or None
             entry = {k:row.get(k) for k in fields}
+            if name == 'console_cost_forecast_outcomes' and row.get('notes'):
+                contract_times = [
+                    item.get('completed_at')
+                    for item in tables.get('audit_fulfillment_contracts', ())
+                    if isinstance(item, dict) and item.get('completed_at')
+                ]
+                recorded = row.get('evaluated_at')
+                def as_time(value):
+                    try:
+                        parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+                        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+                    except (TypeError, ValueError):
+                        return None
+                cutoff = as_time(recorded)
+                newer = [value for value in contract_times
+                         if cutoff and as_time(value) and as_time(value) > cutoff]
+                if newer:
+                    completion = max(newer, key=lambda value: as_time(value))
+                    entry['notes'] = (
+                        'Registrado em ' + str(recorded) +
+                        ' — superado pelo contrato de fulfillment concluído em ' +
+                        str(completion) + '. ' + str(row['notes'])
+                    )
             if name == 'console_cost_forecast_outcomes' and entry.get('status') in {'CRÍTICO', 'CRITICO'}:
                 # Financial classification is an independent enum, not a generic workflow status.
                 entry['status'] = 'Crítico'

@@ -4,6 +4,9 @@ from .read_model import thaw, SEARCH_PAGE
 from .templates import LABELS
 from .presentation_labels import public_value, timezone_for_records, timezone_provenance, metric_label
 from functools import partial
+from collections import Counter
+from decimal import Decimal, InvalidOperation
+from datetime import datetime, timezone
 
 # Each page owns explicit editorial sections rather than a sequence of SQL tables.
 SECTIONS = {
@@ -14,7 +17,7 @@ SECTIONS = {
  SEARCH_PAGE: [('Busca observada — SERP',['serp_observations'], [('query','Consulta'),('engine','Mecanismo'),('language','Idioma'),('country','Mercado'),('device','Dispositivo'),('collected_at','Instante'),('result_count','Resultados'),('requested_depth','Profundidade consultada'),('customer_position','Posição do alvo'),('domain_status','Alvo no recorte'),('observation_status','Estado')]), ('Concorrência observada na busca',['serp_competitive_results'], [('position','Posição'),('domain','Domínio'),('url','URL'),('classification','Tipo de resultado'),('reason','Motivo da classificação'),('eligible_for_content_comparison','Comparação de conteúdo elegível'),('selected_for_content_comparison','Selecionado para comparação')]), ('Pesquisa externa — Perplexity',['perplexity_search_runs'], [('query_json','Consulta'),('status','Estado'),('native_usage_quantity','Requests'),('started_at','Instante')]), ('GEO e evidências contextuais',['geo_observation_runs','serp_competitive_ai_analyses'], [('contract_version','Contrato'),('summary','Síntese'),('projection_json','Projeção persistida'),('state','Estado')])],
  'seguranca': [('Cobertura da análise passiva',['passive_security_runs'], [('status','Estado'),('pages_analyzed','Páginas'),('resources_count','Recursos'),('findings_count','Achados'),('limitations_json','Limitações')]), ('Achados e remediação',['passive_security_findings'], [('title','Achado'),('severity','Severidade'),('url_scope','Escopo'),('description','Observado'),('remediation','Remediação'),('validation','Como validar')])],
  'plano': [('Ações por prioridade',['directed_analysis_actions'], [('priority','Prioridade'),('title','Ação'),('effort','Esforço'),('source_kind','Origem'),('implementation_guidance_json','Como implementar'),('validation_steps_json','Como validar')]), ('Correções técnicas propostas',['improvement_intelligence_recommendations'], [('title','Correção'),('selector','Elemento'),('original_html','Atual persistido'),('suggested_html','Sugerido — não aprovado'),('verification','Como validar')]), ('Textos sugeridos por IA',['content_remediation_suggestions'], [('target_location','Alvo'),('objective','Objetivo'),('proposed_text','Sugerido — não aprovado'),('review_note','Revisão humana')])],
- 'ia-custos': [('Custo por chamada',['ai_provider_attempts','content_remediation_attempts'], [('provider','Provedor'),('model','Modelo'),('status','Estado'),('input_tokens','Tokens entrada'),('output_tokens','Tokens saída'),('estimated_cost','Estimado'),('cost_currency','Moeda da estimativa'),('observed_cost','Observado'),('observed_cost_currency','Moeda observada'),('started_at','Início da tentativa'),('finished_at','Fim da tentativa'),('duration_ms','Duração ms')]), ('Entradas e saídas completas',['ai_exchange_log'], [('purpose','Finalidade'),('provider','Provedor'),('model','Modelo'),('outcome','Estado'),('request_payload','Entrada sanitizada'),('response_payload','Saída sanitizada')]), ('Proveniência e execução',['ai_tasks'], [('purpose','Finalidade'),('status','Estado'),('prompt_version','Versão do prompt'),('semantic_contract_version','Versão da especificação técnica')])],
+ 'ia-custos': [('Custo por chamada',['ai_provider_attempts','content_remediation_attempts'], [('provider','Provedor'),('model','Modelo'),('status','Estado'),('input_tokens','Tokens entrada'),('output_tokens','Tokens saída'),('estimated_cost','Estimado'),('cost_currency','Moeda da estimativa'),('observed_cost','Observado'),('observed_cost_currency','Moeda observada'),('started_at','Início da tentativa'),('finished_at','Fim da tentativa'),('duration_ms','Duração ms'),('operation','Operação'),('error_code','Código do erro'),('fallback_reason','Motivo do fallback'),('request_message_summary','Resumo da requisição')]), ('Entradas e saídas completas',['ai_exchange_log'], [('purpose','Finalidade'),('provider','Provedor'),('model','Modelo'),('outcome','Estado'),('request_payload','Entrada sanitizada'),('response_payload','Saída sanitizada')]), ('Proveniência e execução',['ai_tasks'], [('purpose','Finalidade'),('status','Estado'),('prompt_version','Versão do prompt'),('semantic_contract_version','Versão da especificação técnica')])],
 }
 
 
@@ -27,6 +30,26 @@ def _metric_proposal(key, thresholds):
     if key == 'apdex_score':
         return by_id.get('APDEX_RESULT_PERSISTED_CONTRACT')
     return None
+
+
+def _money(value):
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        amount = Decimal(str(value))
+        return amount if amount.is_finite() and amount >= 0 else None
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _timestamp(value):
+    if not value:
+        return None
+    try:
+        result = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        return result if result.tzinfo else result.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
 
 
 def editorial(page, records, costs, thresholds, governance=None):
@@ -54,7 +77,7 @@ def editorial(page, records, costs, thresholds, governance=None):
         if page != 'index':
             html += '<h2>Indicadores independentes e escopos</h2>'
         html += '<div>' if page == 'indices' else '<div class="grid">'
-        for data in sorted(rows(['scores','web_performance_observations','synthetic_apdex_summaries','synthetic_ux_apdex_summaries','synthetic_population_apdex_summaries']), key=lambda r: r.get('dimension') != 'OVERALL_READINESS'):
+        for data in sorted(rows(['scores','web_performance_observations','synthetic_apdex_summaries','synthetic_ux_apdex_summaries']), key=lambda r: r.get('dimension') != 'OVERALL_READINESS'):
             for key in ('value','performance_score','accessibility_score','best_practices_score','seo_score','agentic_browsing_score','apdex_score'):
                 if page == 'index' and key == 'value' and data.get('dimension') != 'OVERALL_READINESS':
                     continue
@@ -85,6 +108,34 @@ def editorial(page, records, costs, thresholds, governance=None):
                     else:
                         html += '<p class="rf">Decomposição de regras desta dimensão não disponível na fonte. O índice acima permanece medido quando possui valor persistido; nenhuma contribuição é inferida.</p>'
         html += '</div>'
+        if page == 'performance' and rows(['synthetic_population_apdex_summaries']):
+            populations = rows(['synthetic_population_apdex_summaries'])
+            mobile = rows(['synthetic_ux_apdex_summaries'])
+            html += '<h2>Dados de suporte da população</h2>'
+            for item in populations:
+                matched = any(
+                    row.get('device') == 'MOBILE' and
+                    row.get('apdex_score') == item.get('apdex_score') and
+                    row.get('valid_samples') == item.get('valid_samples')
+                    for row in mobile
+                )
+                mix = item.get('device_mix') or item.get('device_mix_json')
+                if isinstance(mix, str):
+                    try:
+                        import json
+                        mix = json.loads(mix)
+                    except (TypeError, ValueError):
+                        mix = None
+                mobile_only = (isinstance(mix, dict) and len(mix) == 1 and
+                               mix.get('MOBILE') == 100.0)
+                if matched and mobile_only:
+                    html += '<p>População (mix 100% móvel): mesma medição que Móvel. '
+                    html += '<a class="tech-link" href="' + text(item['_ref']) + '">Detalhe da população</a></p>'
+                else:
+                    html += '<p>Registro populacional persistido; equivalência com a medição móvel não demonstrada.</p>'
+                    html += local_table('População: dados de suporte', [item], [
+                        ('device', 'Dispositivo'), ('apdex_score', 'Apdex'),
+                        ('valid_samples', 'Amostras válidas'), ('device_mix', 'Mix de dispositivos')])
     if page == 'index':
         exceptions = [r for r in rows(['scores']) if r.get('confidence') == 'LOW' or r.get('consolidation_status') == 'NOT_APPLICABLE']
         if exceptions:
@@ -94,8 +145,46 @@ def editorial(page, records, costs, thresholds, governance=None):
         html += '<h2>Estado da execução</h2>' + local_table('Cobertura operacional', rows(['audit_fulfillment_work_items']), [('component','Componente'),('status','Estado'),('required','Obrigatório')])
     if page in {'index','ia-custos'}:
         html += '<h2>Consumo e proveniência</h2>' + chip(costs['coverage']) + kv([('Tentativas identificadas',costs['attempt_count'])])
+        attempt_rows = rows(['ai_provider_attempts', 'content_remediation_attempts'])
+        priced = [row for row in attempt_rows if _money(row.get('estimated_cost')) is not None]
+        by_currency = {}
+        for row in priced:
+            currency = row.get('cost_currency') or 'moeda não registrada'
+            by_currency[currency] = by_currency.get(currency, Decimal(0)) + _money(row['estimated_cost'])
+        observed = [row for row in attempt_rows if _money(row.get('observed_cost')) is not None]
+        html += kv([
+            ('Custo estimado persistido',
+             ' · '.join(str(currency) + ' ' + format(total, 'f') for currency, total
+                        in sorted(by_currency.items())) + ' em ' + str(len(priced)) +
+             ' tentativas com preço' if priced else 'N/D — sem estimativas monetárias persistidas'),
+            ('Custo observado pelo provedor',
+             str(len(observed)) + ' tentativa(s) com valor observado' if observed else 'N/D — nenhum custo observado pelo provedor'),
+        ])
+        forecasts = rows(['console_cost_forecast_outcomes'])
+        for forecast in forecasts:
+            evaluated = forecast.get('evaluated_at')
+            instant = _timestamp(evaluated)
+            newer = [row for row in attempt_rows
+                     if instant and _timestamp(row.get('started_at')) and
+                     _timestamp(row.get('started_at')) > instant]
+            amount = forecast.get('actual_cost')
+            html += kv([(
+                'Instantâneo do console em ' + str(evaluated or 'data não registrada'),
+                (str(forecast.get('currency') or 'moeda não informada') + ' ' +
+                 (format(_money(amount), 'f') if _money(amount) is not None else 'N/D') +
+                 ' — anterior a ' + str(len(newer)) + ' tentativa(s)'
+                 if instant else 'data de avaliação não verificável; sem equivalência com custo final')
+            )])
+        if page == 'ia-custos' and priced:
+            html += '<h2>Tentativas com custo estimado persistido</h2>'
+            html += local_table('Preço por tentativa — sem cobrança inferida', priced, [
+                ('provider', 'Provedor'), ('model', 'Modelo'),
+                ('pricing_rule_id', 'Regra de preço'), ('pricing_version', 'Versão do preço'),
+                ('estimated_cost', 'Custo estimado'), ('cost_currency', 'Moeda'),
+                ('started_at', 'Início')
+            ])
         for currency, amounts in costs['totals'].items():
-            html += kv([(f'{currency} · {kind}',public_value(value,'amount')) for kind,value in amounts.items()])
+            html += kv([(f'{currency} · {kind}',public_value(value,'amount')) for kind,value in amounts.items() if kind != 'conciliado'])
             source_labels = {
                 'ai_provider_attempts': 'IA / integração',
                 'content_remediation_attempts': 'Remediação de conteúdo',
@@ -111,9 +200,9 @@ def editorial(page, records, costs, thresholds, governance=None):
                 parts.append((label, entry['amount'], entry.get('attempt_id')))
             html += stack(
                 parts,
-                title='Composição do custo conciliado por tentativa',
+                title='Composição do custo estimado ou observado por tentativa',
                 unit=currency,
-                note='Cada segmento usa o valor conciliado da tentativa: observado quando disponível; estimado como alternativa. As cores são apenas categóricas e não indicam qualidade, criticidade ou conformidade.',
+                note='Cada segmento usa um custo persistido da tentativa: observado quando disponível; estimado como alternativa. Não representa cobrança final. As cores são categóricas e não indicam conformidade.',
             )
         html += '<p class="callout">Custo técnico estimado não equivale a cobrança observada. Tokens de Search não são inferidos.</p>'
         if page == 'ia-custos':
@@ -149,6 +238,60 @@ def editorial(page, records, costs, thresholds, governance=None):
     if page == 'plano':
         from .action_plan import render_plan
         html += render_plan(rows, timezone_name, governance)
+    if page == 'ia-custos':
+        attempts = rows(['ai_provider_attempts'])
+        if attempts:
+            by_status = Counter(str(row.get('status') or 'N/D') for row in attempts)
+            by_error = Counter(str(row.get('error_code') or 'Sem código') for row in attempts)
+            html += '<h2>Resultados das tentativas de IA</h2>'
+            html += local_table('Contagens por status persistido', [
+                {'status': name, 'count': amount} for name, amount in sorted(by_status.items())
+            ], [('status', 'Estado'), ('count', 'Tentativas')])
+            html += local_table('Contagens por categoria de erro', [
+                {'error_code': name, 'count': amount} for name, amount in sorted(by_error.items())
+            ], [('error_code', 'Código'), ('count', 'Tentativas')])
+    if page == 'seguranca':
+        platforms = rows(['passive_security_platforms'])
+        if platforms:
+            import json
+            visible = []
+            for platform in platforms:
+                identifiers = platform.get('identifiers_json')
+                if isinstance(identifiers, str):
+                    try:
+                        identifiers = json.loads(identifiers)
+                    except (TypeError, ValueError):
+                        identifiers = []
+                identifiers = identifiers if isinstance(identifiers, list) else []
+                safe_identifiers = []
+                for identifier in identifiers:
+                    if not isinstance(identifier, dict):
+                        continue
+                    if identifier.get('identifier_class') == 'PUBLIC_IDENTIFIER':
+                        safe_identifiers.append(identifier.get('identifier_display') or 'N/D')
+                    else:
+                        safe_identifiers.append(identifier.get('identifier_hash') or 'N/D')
+                refs = platform.get('evidence_ids_json')
+                if isinstance(refs, str):
+                    try:
+                        refs = json.loads(refs)
+                    except (TypeError, ValueError):
+                        refs = []
+                refs = refs if isinstance(refs, list) else []
+                visible.append({
+                    'platform_name': platform.get('platform_name'),
+                    'confidence': platform.get('confidence'),
+                    'identifiers': ' · '.join(map(str, safe_identifiers)) or 'N/D',
+                    'evidence_ids': ' · '.join(map(str, refs)) or 'N/D',
+                    '_ref': platform['_ref'],
+                })
+            html += '<h2>Plataformas e identificadores públicos</h2>'
+            html += '<p class="rf">Somente identificadores classificados PUBLIC_IDENTIFIER aparecem em texto. Outras classes são exibidas por hash, conforme persistido.</p>'
+            html += local_table('Plataformas de segurança passiva registradas', visible, [
+                ('platform_name', 'Plataforma'), ('confidence', 'Confiança'),
+                ('identifiers', 'Identificadores públicos ou hash'),
+                ('evidence_ids', 'Evidências vinculadas'), ('_ref', 'Detalhe técnico')
+            ])
     for title, names, columns in ([] if page == 'plano' else SECTIONS.get(page, [])):
         if page == 'ia-custos' and not rows(names):
             continue  # absence is explained above; populated telemetry retains its full tables

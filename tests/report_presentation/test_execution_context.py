@@ -211,9 +211,9 @@ def test_forecast_with_incomplete_execution_does_not_claim_final_spend():
     assert 'Previsão versus execução registrada' in ai
     assert 'Não comparável' in ai
     assert '0,0411926' in ai
-    assert 'Custo técnico conciliado' in ai
+    assert 'Instantâneo do console na data indicada' in ai
     assert 'Telemetria monetária observada' in ai
-    assert 'não significa custo final' in ai
+    assert 'Não constitui custo final' in ai
     assert 'unsafe source text' not in ai
 
 
@@ -259,11 +259,23 @@ def test_financial_forecast_critical_classification_keeps_estimates_distinct():
     assert '0,0411926' in body
     assert '0,68212442' in body
     assert 'Crítico' in body
-    assert 'Custo técnico conciliado' in body
+    assert 'Instantâneo do console na data indicada' in body
     assert 'N/D — sem telemetria monetária nesta moeda' in body
     assert 'Observado até o momento' not in body
-    assert 'faturamento comprovado' in body
+    assert 'Não constitui custo final nem cobrança observada pelo provedor' in body
     rows['ai_provider_attempts'][0]['observed_cost'] = 0
     rows['ai_provider_attempts'][0]['observed_cost_currency'] = 'USD'
     with_telemetry, _ = build_execution_context(rows, receipt_with_network())
     assert '1 tentativa(s) com valor observado' in with_telemetry['ia-custos:execution']
+
+def test_financial_snapshot_timestamp_uses_report_timezone_without_mutating_source():
+    stamp = '2026-11-17T16:09:25.783348+00:00'
+    rows = sample_partial_contract()
+    rows['console_cost_forecast_outcomes'] = [{
+        'currency': 'USD', 'evaluated_at': stamp, 'expected_cost': 0.1,
+        'actual_cost': 0.2, 'status': 'NOT_COMPARABLE',
+    }]
+    panels, _ = build_execution_context(rows, receipt_with_network(), 'America/Sao_Paulo')
+    assert '17/11/2026 13:09:25 (America/Sao_Paulo)' in panels['ia-custos:execution']
+    assert stamp not in panels['ia-custos:execution']
+    assert rows['console_cost_forecast_outcomes'][0]['evaluated_at'] == stamp
