@@ -463,7 +463,7 @@ def build_execution_context(tables, coverage_receipt, timezone_name=None):
                          ('attempted_items', 'Itens tentados'), ('successful_items', 'Itens bem-sucedidos'),
                          ('remaining_items', 'Itens restantes'), ('started_at', 'Início'),
                          ('completed_at', 'Fim'), ('note', 'Nota'),
-                         ('selected_items', 'Itens selecionados')])
+                         ('selected_items', 'Itens selecionados')], timezone_name=timezone_name)
                     archived = len(tables.get('audit_reprocess_derived_archive') or ())
                     if 'audit_reprocess_derived_archive' in tables:
                         archive_name = table_annex_filename('audit_reprocess_derived_archive')

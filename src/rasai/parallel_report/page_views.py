@@ -169,7 +169,8 @@ def editorial(page, records, costs, thresholds, governance=None):
                      _timestamp(row.get('started_at')) > instant]
             amount = forecast.get('actual_cost')
             html += kv([(
-                'Instantâneo do console em ' + str(evaluated or 'data não registrada'),
+                'Instantâneo do console em ' + (public_value(evaluated, 'evaluated_at', timezone_name)
+                                              if evaluated else 'data não registrada'),
                 (str(forecast.get('currency') or 'moeda não informada') + ' ' +
                  (format(_money(amount), 'f') if _money(amount) is not None else 'N/D') +
                  ' — anterior a ' + str(len(newer)) + ' tentativa(s)'

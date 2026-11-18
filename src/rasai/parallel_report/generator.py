@@ -93,7 +93,7 @@ def _render_package(root, database, before, logical_before, output):
     capture_projection = project_capture(root, tables, before)
     with collect_payloads() as payload_annexes, use_table_annexes(table_annexes):
         supplements = scope_context(root, tables, timezone_name, costs, capture_projection)
-        summary_html, editorial_receipt = summaries(root, tables, before, records, capture_projection)
+        summary_html, editorial_receipt = summaries(root, tables, before, records, capture_projection, timezone_name)
         from .analytical_views import build_analytical_views
         analytical_html, analytical_receipt = build_analytical_views(tables, records, schema, timezone_name)
         editorial_receipt['analytical'] = analytical_receipt

@@ -1,7 +1,9 @@
 """Typed public labels only: never translate evidence or untyped free text."""
 import json
 import re
-from rasai.time_contract import presentation_timezone_for_audit, format_presentation_timestamp
+from rasai.time_contract import (presentation_timezone_for_audit,
+                                 format_presentation_timestamp,
+                                 format_presentation_date_only)
 from rasai.public_language import component_label, scope_label, supplemental_public_label, safe_visible_fallback
 from rasai.catalog_report_public_labels import public_label as canonical_public_label
 
@@ -26,7 +28,12 @@ PRIORITY_LABELS.update({
 DEVICE_LABELS = {'MOBILE':'Móvel','DESKTOP':'Desktop','POPULATION':'Agregado de experiência','MIXED_DEVICE_POPULATION':'Agregado dos dispositivos configurados'}
 ORIGIN_LABELS = {'PRODUCT_PROPOSAL':'Proposta de produto','PERSISTED_CONTRACT':'Critério de medição registrado','PUBLIC_STANDARD':'Padrão público','DETERMINISTIC':'Regra determinística','CONTENT_AI':'IA de conteúdo','DEEP_ANALYSIS':'Análise aprofundada','JSONLD':'JSON-LD','SECURITY_REMEDIATION':'Remediação de segurança','EXTERNAL':'Externo','AUTO':'Automático','MIXED':'Misto'}
 VALUE_LABELS = {**STATUS_LABELS, **SEVERITY_LABELS, **DEVICE_LABELS, **ORIGIN_LABELS}
-TIMESTAMPS = {'created_at','started_at','completed_at','captured_at','collected_at','executed_at','projected_at','updated_at','fetch_time','lighthouse_fetch_time','finished_at','observed_at','calculated_at','capture_utc','capture_timestamp','capture_time','capture_time_utc','timestamp_utc','provider_created_at','reused_at','persisted_at','requested_at','measurement_at'}
+TIMESTAMPS = {'created_at','started_at','completed_at','captured_at','collected_at','executed_at','projected_at','updated_at','fetch_time','lighthouse_fetch_time','finished_at','observed_at','calculated_at','capture_utc','capture_timestamp','capture_time','capture_time_utc','timestamp_utc','provider_created_at','reused_at','persisted_at','requested_at','measurement_at',
+              'collection_window_start','collection_window_end','last_updated'}
+# Civil dates from CrUX windows and external source metadata are NOT instants.
+# Only explicitly typed fields receive pt-BR date formatting, without shifting days.
+CIVIL_DATES = {'first_start','first_end','last_start','last_end',
+               'period_start','period_end','source_date','last_updated'}
 ENUM_FIELDS = {'status','state','result','severity','priority','priority_class','coverage','confidence','device','source_kind','source_mode','origin_kind','effort','completion_status','consolidation_status','observation_status','outcome','analysis_state','field_scope','cwv_assessment'}
 FIELD_LABELS.update({'projected_at':'Projetada em','fetch_time':'Coletada em','lighthouse_fetch_time':'Coletada pelo Lighthouse em','observed_at':'Observada em','calculated_at':'Calculada em','type':'Tipo','selector':'Seletor','line':'Linha','column':'Coluna','coverage':'Cobertura','canonical':'URL canônica','sha256':'SHA-256'})
 # Explicit labels for the already selected analytical fields. Raw keys, IDs and
@@ -367,6 +374,10 @@ def public_value(value, field=None, timezone_name=None):
                 return format_presentation_timestamp(value,timezone_name=timezone_name)
             except (ValueError,OverflowError):
                 pass
+    if field in CIVIL_DATES and isinstance(value, str):
+        civil = format_presentation_date_only(value)
+        if civil is not None:
+            return civil
     if type(value) is float:
         return str(value).replace('.',',')
     if field in TYPED_LABELS:
@@ -389,7 +400,7 @@ def presentation_timestamps(value, timezone_name):
         return {key: presentation_timestamps(item, timezone_name)
                 if isinstance(item, (dict, list, tuple))
                 else (public_value(item, key, timezone_name)
-                      if key in TIMESTAMPS
+                      if key in TIMESTAMPS or key in CIVIL_DATES
                       or (isinstance(key, str) and key.endswith(('_at', '_utc', '_timestamp')))
                       else item)
                 for key, item in value.items()}

@@ -158,9 +158,9 @@ def build_analytical_views(tables, records, schema, timezone_name):
                 if newer:
                     completion = max(newer, key=lambda value: as_time(value))
                     entry['notes'] = (
-                        'Registrado em ' + str(recorded) +
+                        'Registrado em ' + str(public_value(recorded, 'evaluated_at', timezone_name)) +
                         ' — superado pelo contrato de fulfillment concluído em ' +
-                        str(completion) + '. ' + str(row['notes'])
+                        str(public_value(completion, 'completed_at', timezone_name)) + '. ' + str(row['notes'])
                     )
             if name == 'console_cost_forecast_outcomes' and entry.get('status') in {'CRÍTICO', 'CRITICO'}:
                 # Financial classification is an independent enum, not a generic workflow status.
