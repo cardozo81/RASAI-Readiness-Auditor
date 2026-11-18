@@ -43,6 +43,20 @@ FIELDS = {
  'passive_security_resources': 'resource_kind party domain protocol resource_url evidence_ids_json',
  'passive_security_integrations': 'integration_id requested state attempts successes observed_at',
  'console_cost_forecast_outcomes': 'evaluated_at currency expected_cost actual_cost status relation likely_low likely_high potential forecast_pages actual_pages confidence unpriced_ai_attempts source notes',
+ # Source-backed decision details; none of these rows are approved actions or
+ # observed provider billing merely because their values were persisted.
+ 'ai_provider_native_usage': 'attempt_id provider surface native_usage_unit native_usage_quantity billable source_metric estimated_cost observed_cost cost_currency pricing_source_reference',
+ 'ai_request_rounds': 'ai_task_id round_index status started_at finished_at',
+ 'ai_task_profile_attempts': 'attempt_id source_table task_profile_id task_profile_version',
+ 'perplexity_search_sources': 'position title url source_date last_updated',
+ 'semantic_assessments': 'assessment_type result confidence reasoning_summary snapshot_id provider model',
+ 'property_semantic_summaries': 'criterion_id result confidence summary observation_count',
+ 'content_context_interpretations': 'field_name status interpreted_value confidence rationale affects_scoring',
+ 'passive_security_remediations': 'finding_id source containment correction implementation_order regression_risk validation advisory_only',
+ 'passive_security_relationships': 'relation_type confidence from_ref to_ref',
+ 'root_cause_analyses': 'finding_id rule_id cause_type cause_summary evidence_basis human_decision_required',
+ 'score_contributions': 'score_id rule_id result weight effective_contribution',
+
 }
 TITLES = {
  'audit_execution_configurations':'Configuração registrada da execução',
@@ -73,6 +87,18 @@ TITLES = {
  'passive_security_resources':'Inventário observacional por recurso e origem',
  'console_cost_forecast_outcomes':'Intervalos e cobertura da previsão financeira',
  'evidence':'Sinais persistidos por tipo de evidência',
+ 'ai_provider_native_usage':'Uso nativo declarado pelo provedor (não é faturamento)',
+ 'ai_request_rounds':'Rodadas e resultados de requisitos de IA',
+ 'ai_task_profile_attempts':'Perfis registrados nas tentativas de IA',
+ 'perplexity_search_sources':'Fontes retornadas pela pesquisa persistida',
+ 'semantic_assessments':'Avaliações semânticas persistidas (não revalidadas)',
+ 'property_semantic_summaries':'Sínteses semânticas persistidas (não revalidadas)',
+ 'content_context_interpretations':'Interpretações de contexto registradas (não são fatos novos)',
+ 'passive_security_remediations':'Remediações consultivas de segurança (não aprovadas)',
+ 'passive_security_relationships':'Relações técnicas entre recursos observados',
+ 'root_cause_analyses':'Análises de causa-raiz registradas',
+ 'score_contributions':'Contribuições persistidas ao score (sem recálculo)',
+
 }
 
 
