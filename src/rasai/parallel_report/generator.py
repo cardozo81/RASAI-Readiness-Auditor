@@ -133,6 +133,13 @@ def _render_package(root, database, before, logical_before, output):
         supplements.update(execution_html)
         coverage_receipt['execution'] = execution_receipt
         coverage_receipt['editorial'] = editorial_receipt
+        from .editorial_review import build_editorial_review
+        review_html, review_receipt = build_editorial_review(
+            tables, editorial_receipt, analytical_receipt, table_annexes, coverage_receipt)
+        for page, body in review_html.items():
+            supplements[page] += body
+        (output / 'anexos' / 'dados-de-apoio' / 'editorial-review.json').write_text(
+            json.dumps(review_receipt, ensure_ascii=False, indent=2), encoding='utf-8')
         (output / 'anexos' / 'dados-de-apoio' / 'evidence-coverage.json').write_text(
             json.dumps(coverage_receipt, ensure_ascii=False, indent=2), encoding='utf-8')
         pages = render(records, links, tables, sanitize(evidence), sanitize(calculated), costs, parity, load(), missing, supplements)
@@ -221,6 +228,12 @@ def _render_package(root, database, before, logical_before, output):
             entry['representation'] = 'editorial' if summarized else 'navigable-record'
             entry['editorial_uses'] = [dict(page=p, topic=t['topic'], state=t['state']) for p,t in uses]
     coverage_map['editorial'] = editorial_receipt
+    coverage_map['editorial_review'] = {
+        'contract': review_receipt['contract'],
+        'families_classified': review_receipt['families_classified'],
+        'classification_counts': review_receipt['classification_counts'],
+        'certifies_editorial_completeness': False,
+    }
     for page, families in analytical_receipt.items():
         for source, scope in families.items():
             entry = family_coverage[source]

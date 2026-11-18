@@ -69,6 +69,8 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
             return None
         required = {name + '.html' for name, _ in PAGES}
         required.update(visual_files)
+        if manifest.get('generator_version') == __version__:
+            required.add('anexos/dados-de-apoio/editorial-review.json')
         required.update('assets/' + name for name in ('site.css', 'app.js', 'thresholds.json'))
         layout = manifest.get('annex_contract')
         if layout == 'CONTENT_SHA256_V1':
