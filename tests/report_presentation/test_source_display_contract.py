@@ -320,3 +320,39 @@ def test_persisted_reasoning_profile_matches_each_attempt_and_fallback():
     assert public_value('', 'reasoning_profile').startswith('N/D')
     assert public_value('HIGH', 'unrelated_evidence') == 'HIGH'
     assert attempts[0]['reasoning_profile'] == 'HIGH'
+
+
+def test_cost_stacks_explain_each_persisted_attempt_without_cat_classification():
+    attempts = [
+        {'attempt_id': 'AI-SEM', 'provider': 'Provider A', 'model': 'Model A',
+         'reasoning_profile': 'HIGH', 'operation': 'SEMANTIC_M7',
+         'estimated_cost': 0.40, 'cost_currency': 'USD', 'status': 'SUCCESS'},
+        {'attempt_id': 'AI-FALLBACK', 'provider': 'Provider B', 'model': 'Model B',
+         'reasoning_profile': 'PROVIDER_DEFAULT', 'operation': 'DIRECTED_ANALYSIS',
+         'fallback_reason': 'primeiro provedor indisponível',
+         'estimated_cost': 0.60, 'cost_currency': 'USD', 'status': 'SUCCESS'},
+    ]
+    original = [dict(item) for item in attempts]
+    data = {'ai_provider_attempts': attempts}
+    records, _ = model(data)
+    index = editorial('index', records, reconcile(data), load())
+    costs = editorial('ia-custos', records, reconcile(data), load())
+    from rasai.parallel_report.presentation_labels import public_value
+    assert public_value('SEMANTIC_M7', 'operation') == 'Análise semântica'
+    assert public_value('SEMANTIC_M7', 'observed_value') == 'SEMANTIC_M7'
+    for html in (index, costs):
+        assert 'role="img"' in html
+        assert 'tabindex="0"' in html
+        assert 'data-explanation=' in html
+        assert 'Catálogo de origem não individualizado nesta tentativa' in html
+        assert 'Custo estimado persistido: USD 0,4' in html
+        assert 'Custo estimado persistido: USD 0,6' in html
+        assert '40,0% do total desta moeda' in html
+        assert '60,0% do total desta moeda' in html
+        assert 'Provider A' in html and 'Model A' in html
+        assert 'Provider B' in html and 'Model B' in html
+        assert 'Padrão do provedor (nível não comprovado)' in html
+        assert 'Análise semântica' in html
+        assert 'SEMANTIC_M7' not in html.split('data-explanation=', 1)[1].split('>', 1)[0]
+        assert 'CAT-01' not in html and 'CAT-02' not in html
+    assert attempts == original
