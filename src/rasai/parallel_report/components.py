@@ -155,7 +155,7 @@ def _map_point_cell(value):
     return (
         '<span class="map-ref">'
         '<svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true">'
-        f'<circle cx="7" cy="7" r="6" fill="{color}"/></svg>'
+        f'<rect x="1" y="1" width="12" height="12" rx="2" fill="{color}"/></svg>'
         f'<a href="#network-map-point-{number}">Ponto {number}</a>'
         '</span>'
     )

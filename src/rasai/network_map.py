@@ -240,7 +240,7 @@ def network_geographic_panel(probes: list[dict], *, presentation_mode: bool = Fa
             legend.append(
                 "<li tabindex='0'>"
                 "<svg width='14' height='14' viewBox='0 0 14 14' aria-hidden='true'>"
-                f"<circle cx='7' cy='7' r='6' fill='{point['color']}'/></svg> "
+                f"<rect x='1' y='1' width='12' height='12' rx='2' fill='{point['color']}'/></svg> "
                 f"<a href='#{point['id']}'>{point['label']}</a> — "
                 "<strong>" + escape(name) + "</strong>: " + escape(detail) + "; "
                 f"{lat:.3f}°, {lon:.3f}°; raio de precisão: {radius:g} km. "
