@@ -50,7 +50,7 @@ def test_costs_keep_estimate_and_dated_snapshot_distinct():
     html = editorial('ia-custos', records, result, load())
     assert 'USD 0.204055 em 7 tentativas com preço' in html
     assert 'N/D — nenhum custo observado pelo provedor' in html
-    assert '2026-11-17T16:09:25' in html
+    assert '17/11/2026 13:09:25 (America/Sao_Paulo)' in html
     assert 'anterior a 7 tentativa(s)' in html
     assert 'Custo técnico conciliado' not in html
     assert html.count('Preço por tentativa') >= 1
@@ -70,8 +70,8 @@ def test_forecast_note_is_superseded_only_when_contract_is_newer():
     records, schema = model(tables)
     pages, _ = build_analytical_views(tables, records, schema, 'UTC')
     html = pages['ia-custos']
-    assert 'Registrado em 2026-11-17T16:09:25' in html
-    assert 'superado pelo contrato de fulfillment concluído em 2026-11-17T17:32:04' in html
+    assert 'Registrado em 17/11/2026 16:09:25 (UTC)' in html
+    assert 'superado pelo contrato de fulfillment concluído em 17/11/2026 17:32:04 (UTC)' in html
     assert '5 requisitos obrigatórios incompletos' in html
 
 
