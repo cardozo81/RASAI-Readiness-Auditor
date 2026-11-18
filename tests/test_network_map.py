@@ -120,3 +120,70 @@ def test_same_coordinates_are_aggregated_without_losing_records():
     assert html.count("data-map-layer='logical-sequence'") == 2
     assert "Hop 13" in html and "Destino: example.org" in html
     assert "não são rotas físicas medidas" in html
+
+
+def test_presentation_point_colors_are_unique_stable_and_shared_without_changing_catalog():
+    from rasai.network_map import network_map_locations
+    def geo(lat, lon):
+        return {"state": "OBSERVED", "value": {
+            "latitude": lat, "longitude": lon, "accuracy_radius_km": 75,
+            "source": "LOCAL_MAXMIND_MMDB"}}
+    row = {"hostname": "example.test", "metrics": {
+        "geoip": geo(-30.0, -51.0),
+        "traceroute": {"state": "OBSERVED", "value": {"hops": [
+            {"hop": 1, "state": "PUBLIC_HOP", "public_ip": "8.8.8.8",
+             "enrichment": {"geoip": geo(-30.0, -51.0)}},
+            {"hop": 2, "state": "PUBLIC_HOP", "public_ip": "1.1.1.1",
+             "enrichment": {"geoip": geo(40.0, -74.0)}},
+            {"hop": 3, "state": "PUBLIC_HOP", "public_ip": "9.9.9.9",
+             "enrichment": {"geoip": geo(48.0, 2.0)}},
+            {"hop": 4, "state": "NO_REPLY"},
+        ]}}}}
+    points = network_map_locations([row])
+    assert len(points) == 3
+    assert len({p["color"] for p in points.values()}) == 3
+    assert points == network_map_locations([row])
+    assert list(p["number"] for p in points.values()) == [1, 2, 3]
+    presentation = network_geographic_panel([row], presentation_mode=True)
+    technical = network_geographic_panel([row])
+    assert technical.count("fill='#24578b'") == 3
+    assert "data-point-number=" not in technical and "Ponto 1" not in technical
+    assert presentation.count("data-point-number=") == 3
+    assert presentation.count("data-marker-count='2'") == 1
+    assert presentation.count("<li tabindex='0'>") == 4
+    for point in points.values():
+        assert f"id='{point['id']}'" in presentation
+        assert f"fill='{point['color']}'" in presentation
+        assert f"href='#{point['id']}'" in presentation
+    # Missing GeoIP is never assigned a pin or a color.
+    assert "Hop 4:" not in presentation
+    assert "Não é posição física comprovada" in presentation
+
+
+def test_presentation_hop_table_links_only_truly_plotted_locations():
+    from rasai.network_map import network_map_locations
+    from rasai.parallel_report.scope_context import _network_hop_rows
+    from rasai.parallel_report.components import table
+
+    geo = {"state": "OBSERVED", "value": {
+        "latitude": 10.0, "longitude": 20.0, "accuracy_radius_km": 100}}
+    probes = [{"hostname": "example.test", "metrics": {
+        "traceroute": {"state": "OBSERVED", "value": {"hops": [
+            {"hop": 1, "state": "PUBLIC_HOP", "public_ip": "8.8.8.8",
+             "enrichment": {"geoip": geo}},
+            {"hop": 2, "state": "PUBLIC_HOP", "public_ip": "1.1.1.1",
+             "enrichment": {}},
+            {"hop": 3, "state": "NO_REPLY"},
+        ]}}}}]
+    positions = network_map_locations(probes)
+    mapped = _network_hop_rows(probes, "UTC", map_locations=positions)
+    assert len(mapped) == 3
+    assert mapped[0]["_map_point"] == positions[(10.0, 20.0)]
+    assert mapped[1]["_map_point"] is None
+    assert mapped[2]["_map_point"] is None
+    html = table("Saltos verificados", mapped,
+                 [("hop", "Salto"), ("_map_point", "Ponto no mapa")])
+    assert html.count("Ponto 1</a>") == 1
+    assert html.count("Não localizado no mapa") >= 2
+    assert f"fill=\"{positions[(10.0, 20.0)]['color']}\"" in html
+    assert "href=\"#network-map-point-1\"" in html
