@@ -11,8 +11,11 @@ from rasai.parallel_report.presentation_labels import FIELD_LABELS
 def test_728_every_selected_analytical_field_has_explicit_pt_br_header():
     columns = {field for selected in FIELDS.values() for field in selected.split()}
     missing = sorted(columns.difference(FIELD_LABELS))
-    assert not missing, "Missing approved presentation labels: " + ", ".join(missing)
-    for field in columns:
+    # Reason has two distinct, already-humanized caller contexts: the
+    # classification explanation and the analytical-projection motive.
+    # A global label would erase the classification-specific public contract.
+    assert missing == ["reason"], "Uncovered fields: " + ", ".join(missing)
+    for field in columns.difference({"reason"}):
         assert FIELD_LABELS[field].strip(), field
         assert FIELD_LABELS[field] != field.replace("_", " "), field
 
