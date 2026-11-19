@@ -1,4 +1,5 @@
 """Issue #722: high-value analytical projections, source rows only."""
+import json
 from rasai.parallel_report.read_model import build, SEARCH_PAGE
 from rasai.parallel_report.analytical_views import build_analytical_views
 
@@ -155,7 +156,7 @@ def test_internal_configuration_control_metadata_is_annex_only():
     assert 'anexos/' in detail
     payload = next(iter(annexes.values())).decode('utf-8')
     assert settings['configuration_hash'] in payload
-    assert settings['changed_fields_json'] in payload
+    assert json.loads(payload)['changed_fields_json'] == json.loads(settings['changed_fields_json'])
     assert thaw(config_record.data) == settings
     assert source == original
 
