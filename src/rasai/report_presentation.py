@@ -806,6 +806,43 @@ def _humanize_presentation_catalog_copy(visible: str) -> str:
     )
 
 
+# Only these known RASAi operations are safe to interpret in an explicitly
+# labeled narrative context. Do not rewrite arbitrary evidence/provenance tokens.
+_PRESENTATION_OPERATION_VALUES = {
+    "SEMANTIC_M7": "Análise semântica por IA",
+}
+_PRESENTATION_OPERATION_CONTEXT = re.compile(
+    r"(?P<label>\b(?:operação|finalidade|propósito|atividade de IA|tarefa de IA)"
+    r"\s*[:=]\s*)(?P<token>SEMANTIC_M7)(?![A-Za-z0-9_/-])",
+    flags=re.IGNORECASE,
+)
+_PRESENTATION_LABELED_ATTRIBUTE = re.compile(
+    r'(?P<key>\b(?:title|aria-label))="(?P<value>[^"]*)"',
+    flags=re.IGNORECASE,
+)
+_PRESENTATION_OPERATION_FIELD_NAMES = frozenset({
+    "operação", "finalidade", "propósito", "atividade de ia", "tarefa de ia",
+})
+
+
+def _humanize_presentation_operation_context(visible: str) -> str:
+    """Translate only a whitelisted operation after a semantic field label."""
+    return _PRESENTATION_OPERATION_CONTEXT.sub(
+        lambda found: found.group("label") +
+        _PRESENTATION_OPERATION_VALUES[found.group("token").upper()],
+        visible,
+    )
+
+
+def _humanize_presentation_labeled_attribute(tag: str) -> str:
+    """Only human-facing title/ARIA copy; never href, data-*, IDs, or names."""
+    return _PRESENTATION_LABELED_ATTRIBUTE.sub(
+        lambda found: found.group("key") + '="' +
+        _humanize_presentation_operation_context(found.group("value")) + '"',
+        tag,
+    )
+
+
 def humanize_module_references_html(html: str) -> str:
     """Humanize internal module and catalog references in visible editorial text.
 
@@ -817,26 +854,51 @@ def humanize_module_references_html(html: str) -> str:
     parts = _TAG_SPLIT_RE.split(html)
     result: list[str] = []
     blocked_depth = 0
+    reading_label = False
+    label_text = ""
+    awaiting_value = False
+    labeled_value = False
     for part in parts:
         if part.startswith("<"):
             if re.match(r"<(?:script|style|pre|code|blockquote|q|samp|textarea)\b", part, flags=re.IGNORECASE):
                 blocked_depth += 1
             elif re.match(r"</(?:script|style|pre|code|blockquote|q|samp|textarea)\b", part, flags=re.IGNORECASE):
                 blocked_depth = max(0, blocked_depth - 1)
-            result.append(part)
+            if blocked_depth:
+                result.append(part)
+                continue
+            if re.match(r"<dt(?:\s[^>]*)?>", part, flags=re.IGNORECASE):
+                reading_label, label_text, awaiting_value = True, "", False
+            elif re.match(r"</dt\s*>", part, flags=re.IGNORECASE):
+                reading_label = False
+                awaiting_value = label_text.strip().casefold() in _PRESENTATION_OPERATION_FIELD_NAMES
+            elif re.match(r"<dd(?:\s[^>]*)?>", part, flags=re.IGNORECASE):
+                labeled_value, awaiting_value = awaiting_value, False
+            elif re.match(r"</dd\s*>", part, flags=re.IGNORECASE):
+                labeled_value = False
+            result.append(_humanize_presentation_labeled_attribute(part))
             continue
         if blocked_depth:
             result.append(part)
             continue
+        if reading_label:
+            label_text += part
         pieces = _ESCAPED_DOM_TAG_RE.split(part)
         for position, fragment in enumerate(pieces):
             # Preserve escaped DOM snippets, including text between tag pairs.
             literal = position % 2 == 1 or 0 < position < len(pieces) - 1
-            result.append(
-                fragment if literal else _humanize_presentation_catalog_copy(
-                    _humanize_internal_module_copy(fragment)
-                )
-            )
+            if literal:
+                result.append(fragment)
+                continue
+            # A value in a dl is safe to interpret only when its immediately
+            # preceding dt explicitly names an operation/purpose field.
+            if labeled_value and fragment.strip() in _PRESENTATION_OPERATION_VALUES:
+                fragment = fragment.replace(
+                    fragment.strip(), _PRESENTATION_OPERATION_VALUES[fragment.strip()])
+            fragment = _humanize_presentation_operation_context(fragment)
+            result.append(_humanize_presentation_catalog_copy(
+                _humanize_internal_module_copy(fragment)
+            ))
     return "".join(result)
 
 
