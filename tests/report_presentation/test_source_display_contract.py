@@ -160,7 +160,7 @@ def test_crosslinked_records_use_unique_accessible_link_names():
     targets = {r.href: r for r in records}
     html = record_html(source, {source.href: (records[1].href,)}, lookup=targets)
     assert 'relacionado 1' not in html
-    assert 'aria-label="Detalhe: findings' in html
+    assert 'aria-label="Detalhe: Achados da auditoria' in html
     assert records[1].anchor in html
 
 
@@ -357,3 +357,43 @@ def test_cost_stacks_explain_each_persisted_attempt_without_cat_classification()
         assert 'SEMANTIC_M7' not in html.split('data-explanation=', 1)[1].split('>', 1)[0]
         assert 'CAT-01' not in html and 'CAT-02' not in html
     assert attempts == original
+
+
+def test_crosslinks_humanize_persisted_dimension_without_changing_identity():
+    """#728: same source-backed public field name in text and accessible label."""
+    tables = {'scores': [
+        {'score_id': 'S-1', 'dimension': 'DISCOVERY_ACCESS', 'value': 71},
+        {'score_id': 'S-2', 'dimension': 'OVERALL_READINESS', 'value': 83},
+    ]}
+    records, _ = model(tables)
+    source, target = records
+    before = json.loads(json.dumps(tables))
+    html = record_html(source, {source.href: (target.href,)},
+                       lookup={record.href: record for record in records})
+    links = html.split('<nav aria-label="Referências bidirecionais">', 1)[1].split('</nav>', 1)[0]
+    assert 'Índice de Prontidão Search &amp; IA e dimensões' in links
+    assert 'Índice de Prontidão Search &amp; IA (SARI)' in links
+    assert 'OVERALL_READINESS' not in links
+    assert 'DISCOVERY_ACCESS' not in links
+    assert 'href="' + target.href + '"' in links
+    assert 'aria-label="Detalhe: ' in links
+    assert target.anchor in links
+    assert tables == before
+
+
+def test_crosslinks_keep_unmapped_trace_identifiers_but_label_technical_family():
+    """Known public vocabulary does not authorize changing source rule IDs."""
+    tables = {'rule_executions': [
+        {'execution_id': 'R-1', 'rule_id': 'RULE-TECHNICAL-001', 'dimension': 'DISCOVERY_ACCESS'},
+        {'execution_id': 'R-2', 'rule_id': 'RULE-TECHNICAL-002', 'dimension': 'CONTENT_VALUE'},
+    ]}
+    records, _ = model(tables)
+    source, target = records
+    html = record_html(source, {source.href: (target.href,)},
+                       lookup={record.href: record for record in records})
+    links = html.split('<nav aria-label="Referências bidirecionais">', 1)[1].split('</nav>', 1)[0]
+    assert 'Resultados das regras' in links
+    assert 'RULE-TECHNICAL-002' in links
+    assert 'Valor do conteúdo' in links
+    assert 'CONTENT_VALUE' not in links
+    assert 'href="' + target.href + '"' in links

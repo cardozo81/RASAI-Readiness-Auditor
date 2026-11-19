@@ -48,7 +48,7 @@ def compatible_manifest(directory, source, logical, *, historical_version=False)
     try:
         path = confined(directory, MANIFEST)
         manifest = json.loads(path.read_text(encoding='utf-8'))
-        versions = (__version__, '0.4.29', '0.4.28', '0.4.27', '0.4.26', '0.4.25', '0.4.24.post1', '0.4.24', '0.4.23', '0.4.22', '0.4.21', '0.4.19', '0.4.18', '0.4.17', '0.4.16', '0.4.3', '0.4.2', '0.4.1', '0.3.0', '0.2.0', '0.1.0') if historical_version else (__version__,)
+        versions = (__version__, '0.4.30', '0.4.29', '0.4.28', '0.4.27', '0.4.26', '0.4.25', '0.4.24.post1', '0.4.24', '0.4.23', '0.4.22', '0.4.21', '0.4.19', '0.4.18', '0.4.17', '0.4.16', '0.4.3', '0.4.2', '0.4.1', '0.3.0', '0.2.0', '0.1.0') if historical_version else (__version__,)
         if not isinstance(manifest, dict) or (
             manifest.get('contract') != CONTRACT or manifest.get('version') != 1
             or manifest.get('generator_version') not in versions
