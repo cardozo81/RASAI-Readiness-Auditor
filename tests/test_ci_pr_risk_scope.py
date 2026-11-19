@@ -9,7 +9,9 @@ def test_docs_and_editorial_path_selection():
     assert classify_paths(["src/rasai/parallel_report/render.py",
                            "tests/report_presentation/test_source_display_contract.py",
                            "docs/PRESENTATION_EDITORIAL_ACCEPTANCE.md"]) == "presentation"
-    assert classify_paths(["src/rasai/parallel_report/assets/app.js"]) == "presentation"
+    # Browser/runtime assets are deliberately outside the lightweight lane.
+    assert classify_paths(["src/rasai/parallel_report/assets/app.js"]) == "full"
+    assert classify_paths(["src/rasai/parallel_report/assets/site.css"]) == "full"
 
 
 def test_unrecognized_or_critical_changes_are_full():

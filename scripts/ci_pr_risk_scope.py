@@ -57,9 +57,9 @@ def classify_paths(paths: list[str], content=None) -> str:
             path.startswith("docs/") and path.endswith(".md")
         ):
             continue
+        # Asset JavaScript/CSS can affect cross-page interaction, browser and
+        # accessibility semantics: keep full+Chromium for those changes.
         if (path in PUBLIC_PRESENTATION_FILES
-                or (path.startswith("src/rasai/parallel_report/assets/")
-                    and path.endswith((".js", ".css")))
                 or (path.startswith("tests/report_presentation/")
                     and path.endswith(".py"))):
             scope = "presentation"
