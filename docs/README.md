@@ -117,7 +117,7 @@ A seleção de testes por risco das pull requests, os critérios de *fail-closed
 
 ## Aceite editorial da apresentação (#722)
 
-A [matriz de decisão editorial por família](EDITORIAL_DECISION_GATE_722.md) define como qualificar cada fonte persistida como A (técnica deliberada), B (ausente/não executada), C (projeção analítica necessária) ou D (síntese executiva necessária), com evidência e aceite humano/visual. **O recibo automatizado não certifica completude por si só.**
+A [matriz de decisão editorial por família](EDITORIAL_DECISION_GATE.md) define como qualificar cada fonte persistida como A (técnica deliberada), B (ausente/não executada), C (projeção analítica necessária) ou D (síntese executiva necessária), com evidência e aceite humano/visual. **O recibo automatizado não certifica completude por si só.**
 
 ## Ordem de leitura recomendada
 
