@@ -111,6 +111,10 @@ Se o runtime aceita aliases mas existe um valor canônico, ambos devem ser disti
 
 A referência central consolidada de variáveis é [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md). Para credenciais, tokens, API keys, criação no fornecedor, finalidade funcional e links oficiais, a referência central é [`EXTERNAL_CREDENTIALS.md`](EXTERNAL_CREDENTIALS.md).
 
+## Desenvolvimento e validação de PRs
+
+A seleção de testes por risco das pull requests, os critérios de *fail-closed* e a preservação dos checks de contrato são descritos na [política de CI por risco](CI_POLICY.md). Essa política operacional não altera o contrato público do produto nem substitui os gates de integração e homologação aplicáveis.
+
 ## Ordem de leitura recomendada
 
 1. [`GLOSSARY.md`](GLOSSARY.md) - siglas, identificadores, taxonomia e significado dos termos usados pelo RASAi.
