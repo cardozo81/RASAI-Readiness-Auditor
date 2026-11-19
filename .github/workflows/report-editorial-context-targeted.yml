@@ -12,7 +12,7 @@ on:
       - 'tests/report_presentation/test_search_visibility_semantic_patch.py'
       - 'tests/report_presentation/test_editorial_review.py'
       - 'tests/report_presentation/test_parallel_report.py'
-      - '.github/workflows/report-pr733-editorial-targeted.yml'
+      - '.github/workflows/report-editorial-context-targeted.yml'
 
 permissions:
   contents: read
