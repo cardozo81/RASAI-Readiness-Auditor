@@ -272,7 +272,7 @@ def test_unpriced_local_attempt_is_unknown_not_a_zero_cost(tmp_path) -> None:
     forecast = _forecast_from_runs([observed], target_pages=2, source="synthetic")
     assert forecast.expected == 0.24
     assert forecast.sample_calls == 1
-    assert any("1 tentativas com valor conhecido" in x for x in forecast.notes)
+    assert any("1 tentativa com valor conhecido" in x for x in forecast.notes)
     assert any("2 sem valor comprovado" in x for x in forecast.notes)
     assert any("custos desconhecidos não são zero" in x for x in forecast.notes)
 
