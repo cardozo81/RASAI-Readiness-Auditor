@@ -188,6 +188,8 @@ def test_725_uncomparable_source_cannot_appear_as_zero_competitive_gaps(tmp_path
     assert 'Conteúdo do alvo não comparável' in html
     assert 'N/D' in html
     assert 'artifacts/serp-x.json' in html
+    assert next(row['value'] for row in _competitive_summary(data)
+                if row['indicator'] == 'Páginas externas com conteúdo observado') == 1
 
 
 def test_725_consolidated_differences_require_observation_and_selected_url(tmp_path):
@@ -237,3 +239,42 @@ def test_725_absent_analysis_is_indeterminate_even_with_orphan_page(tmp_path):
     assert 'Análise comparativa não persistida' in assessed[0]['reason']
     assert 'N/D' in render_search_visibility_synthesis(tmp_path, data)
     assert 'conclusão competitiva indeterminada' in render_search_visibility_synthesis(tmp_path, {})
+
+def test_725_mixed_cohort_keeps_observed_pages_and_qualifies_partial_gaps():
+    """One verified observation cannot certify a whole mixed cohort."""
+    data = {
+        'serp_competitive_analyses': [
+            {'observation_id': 'A', 'comparison_status': 'CONSOLIDATED',
+             'gap_count': 2, 'observed_competitor_pages': 1},
+            {'observation_id': 'B', 'comparison_status': 'CUSTOMER_CONTENT_UNAVAILABLE',
+             'gap_count': 0, 'observed_competitor_pages': 1},
+        ],
+        'serp_competitive_pages': [
+            {'observation_id': 'A', 'role': 'CUSTOMER',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://client.example/'},
+            {'observation_id': 'A', 'role': 'COMPETITOR_CANDIDATE',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://first.example/'},
+            {'observation_id': 'B', 'role': 'COMPETITOR_CANDIDATE',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://second.example/'},
+        ],
+        'serp_competitive_results': [
+            {'observation_id': 'A', 'selected_for_content_comparison': 1,
+             'url': 'https://first.example/'},
+            {'observation_id': 'B', 'selected_for_content_comparison': 1,
+             'url': 'https://second.example/'},
+        ],
+    }
+    summary = {
+        item['indicator']: item['value']
+        for item in _competitive_summary(data)
+    }
+    assert summary['Páginas externas com conteúdo observado'] == 2
+    assert summary['Diferenças competitivas determinísticas'] == (
+        '2 (parcial: 1 de 2 observações)'
+    )
+    assessed = _competitive_evidence_assessment(data)
+    assert [row['content_comparison_verified'] for row in assessed] == [True, False]
+    assert assessed[0]['observed_gap_count'] == 2
+    assert assessed[1]['observed_gap_count'] is None
+    assert all(row['competitive_conclusion'] == 'INDETERMINATE'
+               for row in assessed)
