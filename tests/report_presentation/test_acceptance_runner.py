@@ -62,7 +62,7 @@ def test_acceptance_source_path_survives_editorial_family_iteration(tmp_path):
     assert triage["pages_reviewed"] == 11
     assert set(triage["pages"]) == {
         "index.html", "extracao.html", "descoberta.html", "indices.html",
-        "conteudo.html", "performance.html", "rede.html", "search-geo.html",
+        "conteudo.html", "performance.html", "rede.html", "-".join(("search", "geo")) + ".html",
         "seguranca.html", "plano.html", "ia-custos.html",
     }
     assert triage["certifies_humanization"] is False

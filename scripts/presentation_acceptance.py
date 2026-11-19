@@ -21,7 +21,14 @@ from rasai.parallel_report.artifact_reader import digest, inventory
 from rasai.parallel_report.generator import generate
 from rasai.parallel_report.sqlite_reader import read_database
 from rasai.parallel_report.sanitization import sanitize
-from presentation_surface_inventory import inspect_presentation
+# Support both "python scripts/presentation_acceptance.py" (Windows/CLI) and
+# "from scripts.presentation_acceptance import ..." (pytest/repository import).
+try:
+    from scripts.presentation_surface_inventory import inspect_presentation
+except ModuleNotFoundError as exc:
+    if exc.name not in {"scripts", "scripts.presentation_surface_inventory"}:
+        raise
+    from presentation_surface_inventory import inspect_presentation
 
 
 class Document(HTMLParser):

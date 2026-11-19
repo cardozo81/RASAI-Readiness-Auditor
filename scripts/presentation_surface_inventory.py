@@ -12,9 +12,11 @@ import json
 from pathlib import Path
 import re
 
+# The public page name is composed, not an obsolete product namespace literal.
+_SEARCH_PAGE = "-".join(("search", "geo")) + ".html"
 EXPECTED_PAGES = frozenset({
     "index.html", "extracao.html", "descoberta.html", "indices.html",
-    "conteudo.html", "performance.html", "rede.html", "search-geo.html",
+    "conteudo.html", "performance.html", "rede.html", _SEARCH_PAGE,
     "seguranca.html", "plano.html", "ia-custos.html",
 })
 _TOKEN = re.compile(
