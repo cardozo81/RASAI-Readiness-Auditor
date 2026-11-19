@@ -205,6 +205,18 @@ def _competitive_evidence_assessment(tables):
             selected.setdefault(str(row['observation_id']), set()).add(str(row['url']))
 
     identifiers = sorted(set(analyses) | set(pages) | set(selected))
+    gap_labels = {
+        'QUERY_BODY_COVERAGE_LOWER_THAN_OBSERVED_LEADERS':
+            'Menor cobertura dos termos da consulta no conteúdo',
+        'TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS':
+            'Menor correspondência dos termos da consulta no título',
+        'HEADING_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS':
+            'Menor correspondência dos termos da consulta nos cabeçalhos',
+        'CONTENT_WORD_COUNT_LOWER_THAN_OBSERVED_LEADERS':
+            'Menor volume de texto observado na página',
+        'STRUCTURED_DATA_TYPES_DIFFER_FROM_OBSERVED_LEADERS':
+            'Diferença nos tipos de dados estruturados observados',
+    }
     reasons = {
         'SERP_OBSERVATION_UNAVAILABLE': 'Observação SERP indisponível nesta coleta.',
         'CONTENT_COMPARISON_DISABLED': 'Comparação de conteúdo não solicitada.',
@@ -278,7 +290,9 @@ def _competitive_evidence_assessment(tables):
                 ]
                 details.append({
                     'observation': identifier,
-                    'kind': str(gap.get('code') or 'N/D')[:120],
+                    'kind': gap_labels.get(
+                        str(gap.get('code') or ''), 'Diferença de conteúdo registrada'),
+                    'code': str(gap.get('code') or 'N/D')[:120],
                     'difference': gap['message'][:700],
                     'customer': gap.get('customer_value'),
                     'reference': gap.get('leader_reference'),
