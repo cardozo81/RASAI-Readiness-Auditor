@@ -84,3 +84,36 @@ def test_history_keeps_middle_window_value_not_only_endpoints(tmp_path):
     html,_=summaries(tmp_path,tables,inventory(tmp_path),(),dict(state='SOURCE_ABSENT',sources=[]))
     parser=Visible();parser.feed(html['performance'])
     assert '2500' in ' '.join(parser.values)
+
+
+def test_apdex_sample_classification_uses_human_labels_without_changing_evidence():
+    """The two Apdex sample families share labels, not source-row mutations."""
+    from rasai.parallel_report.presentation_labels import public_value
+
+    classes = (
+        ('SATISFIED', 'Amostra satisfatória'),
+        ('TOLERATING', 'Amostra tolerável'),
+        ('FRUSTRATED', 'Amostra frustrada'),
+    )
+    for family in ('synthetic_apdex_samples', 'synthetic_ux_apdex_samples'):
+        rows = [
+            {'id': f'sample-{index}', 'device': 'MOBILE', 'run_index': index,
+             'status': 'SUCCESS', 'classification': raw, 'duration_ms': 1000 * index}
+            for index, (raw, _label) in enumerate(classes, 1)
+        ]
+        original = [dict(row) for row in rows]
+        rendered, receipt = project(family, rows)
+        sections = [html for html in rendered.values()
+                    if f'data-analytical-family="{family}"' in html]
+        assert len(sections) == 1
+        visible = sections[0].split('<dialog')[0]
+        for raw, label in classes:
+            assert f'>{label}</td>' in visible
+            assert f'>{raw}</td>' not in visible
+        assert rows == original
+        assert any(
+            receipt[page][family]['analytical_records'] == len(rows)
+            for page in receipt if family in receipt[page]
+        )
+    # Unrelated literal evidence fields are not treated as Apdex categories.
+    assert public_value('SATISFIED', 'observed_value') == 'SATISFIED'
