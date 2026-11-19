@@ -161,3 +161,28 @@ def test_competitor_fields_do_not_falsely_close_executive_gap():
     assert family['classification']=='REQUIRES_EXECUTIVE_REVIEW'
     assert 'serp_competitive_pages' in receipt['open_decision_gaps']
     assert receipt['certifies_editorial_completeness'] is False
+
+def test_725_competitive_receipt_has_source_bound_indeterminate_observations():
+    """Source pages are not automatically an executive comparison or consent."""
+    tables, names, editorial = _inputs()
+    tables['serp_competitive_pages'] = [{
+        'observation_id': 'OBS-725', 'role': 'COMPETITOR_CANDIDATE',
+        'fetch_status': 'OBSERVED', 'requested_url': 'https://candidate.example/',
+    }]
+    tables['serp_competitive_analyses'] = [{
+        'observation_id': 'OBS-725', 'comparison_status': 'CUSTOMER_CONTENT_UNAVAILABLE',
+        'gap_count': 0, 'observed_competitor_pages': 1,
+    }]
+    for name in ('serp_competitive_pages', 'serp_competitive_analyses'):
+        names[name] = sha256(json.dumps(tables[name], ensure_ascii=False).encode()).hexdigest() + '.json'
+    _, receipt = build_editorial_review(tables, editorial, {}, names, {'pages': {}})
+    evidence = receipt['competitive_comparability']
+    assert evidence['source'].startswith('serp_competitive_analyses')
+    assert evidence['competitive_ranking_or_market_conclusion'] == 'INDETERMINATE'
+    assert evidence['editorial_interpretation_certified'] is False
+    assert evidence['human_editorial_acceptance'] == 'PENDING'
+    assert evidence['observations'][0]['observation_id'] == 'OBS-725'
+    assert evidence['observations'][0]['content_comparison_verified'] is False
+    assert evidence['observations'][0]['observed_gap_count'] is None
+    assert receipt['families']['serp_competitive_pages']['classification'] == 'REQUIRES_EXECUTIVE_REVIEW'
+    assert receipt['certifies_editorial_completeness'] is False
