@@ -157,6 +157,6 @@ def test_internal_configuration_control_metadata_is_annex_only():
     payload = next(iter(annexes.values())).decode('utf-8')
     assert settings['configuration_hash'] in payload
     assert json.loads(payload)['changed_fields_json'] == json.loads(settings['changed_fields_json'])
-    assert thaw(config_record.data) == settings
+    assert thaw(config_record.data) == {**settings, 'changed_fields_json': json.loads(settings['changed_fields_json'])}
     assert source == original
 
