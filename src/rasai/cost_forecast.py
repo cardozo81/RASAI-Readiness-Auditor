@@ -32,6 +32,9 @@ class HistoricalRunCost:
     currency: str
     known_calls: int
     repriced_calls: int
+    # Additive metadata: legacy known-cost samples remain compatible.
+    unpriced_calls: int = 0
+    scope_verified: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,9 +88,21 @@ def _confidence(runs: int, repriced_share: float) -> str:
 def _forecast_from_runs(
     runs: Iterable[HistoricalRunCost], *, target_pages: int, source: str, notes: Iterable[str] = ()
 ) -> CostForecast:
-    items = [run for run in runs if run.page_count > 0 and run.known_calls > 0]
+    # A fully unpriced AUD has no monetary rate, but must still contribute
+    # to sample coverage and confidence. Keep price quantiles known-only.
+    eligible = [run for run in runs if run.page_count > 0
+                and (run.known_calls > 0 or run.unpriced_calls > 0)]
+    items = [run for run in eligible if run.known_calls > 0]
+    unpriced = sum(max(run.unpriced_calls, 0) for run in eligible)
     if not items:
-        return unavailable_forecast(*tuple(notes), "sem histórico financeiro comparável", source=source)
+        coverage = (
+            f"{unpriced} {'tentativa' if unpriced == 1 else 'tentativas'} "
+            "com valor monetário desconhecido; sem estimativa de custo zero"
+        ) if unpriced else ""
+        return unavailable_forecast(
+            *tuple(notes), "sem histórico financeiro comparável", coverage,
+            source=source,
+        )
     currencies = {run.currency for run in items if run.currency}
     if len(currencies) != 1:
         return unavailable_forecast(
@@ -105,8 +120,30 @@ def _forecast_from_runs(
     baseline = median(success_rates) * pages
     calls = sum(run.known_calls for run in items)
     repriced = sum(run.repriced_calls for run in items)
+    scope_verified = all(run.scope_verified for run in eligible)
+    unpriced_only_runs = sum(
+        run.known_calls == 0 and run.unpriced_calls > 0 for run in eligible
+    )
     share = repriced / calls if calls else 0.0
     extra = list(notes)
+    if unpriced:
+        extra.append(
+            f"cobertura monetária parcial: {calls} "
+            f"{'tentativa' if calls == 1 else 'tentativas'} com valor conhecido; "
+            f"{unpriced} {'tentativa' if unpriced == 1 else 'tentativas'} "
+            "sem valor comprovado; custos desconhecidos não são zero"
+        )
+    if unpriced_only_runs:
+        extra.append(
+            f"{unpriced_only_runs} "
+            f"{'auditoria sem custo conhecido' if unpriced_only_runs == 1 else 'auditorias sem custo conhecido'} "
+            "incluídas na cobertura, mas excluídas da mediana monetária"
+        )
+    if not scope_verified:
+        extra.append(
+            "comparabilidade parcial: não há configuração histórica completa "
+            "para certificar equivalência de escopo, esforço e fallback"
+        )
     if share < 1:
         extra.append("parte do histórico não pôde ser reprecificada por tokens e usou o custo técnico persistido")
     extra.append("estimativa técnica histórica; não substitui invoice/fatura do provider")
@@ -114,7 +151,10 @@ def _forecast_from_runs(
     return CostForecast(
         monetary, monetary, next(iter(currencies)), round(baseline, 8), round(expected, 8),
         round(low, 8), round(high, 8), round(potential, 8), len(items), calls, pages,
-        _confidence(len(items), share), source, round(share, 4), tuple(dict.fromkeys(extra)),
+        ("MODERADA" if (unpriced or not scope_verified)
+         and _confidence(len(items), share) in {"BOA", "ALTA"}
+         else _confidence(len(items), share)),
+        source, round(share, 4), tuple(dict.fromkeys(extra)),
     )
 
 
@@ -279,8 +319,31 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
     except sqlite3.Error:
         return None
     try:
-        if not _local_comparable(state, _projection(connection)):
+        comparison_configuration = _projection(connection)
+        if not _local_comparable(state, comparison_configuration):
             return None
+        # Missing/partial snapshots are admissible as historical samples, but
+        # cannot alone attest equivalence of every cost-driving scope.
+        scope_verified = bool(
+            comparison_configuration
+            and all(key in comparison_configuration for key in (
+                "ai_provider", "device", "content_remediation",
+                "search_ai_competitive", "ai_model", "improvement_enabled",
+                "reasoning_profile", "fallback_policy"
+            ))
+            and str(getattr(state, "ai_provider", "")).casefold() != "auto"
+            and bool(str(getattr(state, "ai_model", "") or "").strip())
+            and str(comparison_configuration["ai_model"]).strip()
+                == str(getattr(state, "ai_model", "")).strip()
+            and type(comparison_configuration["improvement_enabled"]) is bool
+            and comparison_configuration["improvement_enabled"] == improvement_enabled
+            and bool(str(getattr(state, "ai_reasoning_effort", "") or "").strip())
+            and str(comparison_configuration["reasoning_profile"]).upper()
+                == str(getattr(state, "ai_reasoning_effort", "")).upper()
+            and bool(str(getattr(state, "ai_fallback_policy", "") or "").strip())
+            and str(comparison_configuration["fallback_policy"]).upper()
+                == str(getattr(state, "ai_fallback_policy", "")).upper()
+        )
         improvement_contract, old_improvement_provider, old_improvement_model = _improvement_history(connection)
         # Explicit primary selection must remain comparable to the effective historical
         # provider/model used by Improvement. AUTO deliberately preserves the observed mix.
@@ -309,7 +372,7 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
                 pass
 
         success = total = 0.0
-        known = repriced = 0
+        known = repriced = unpriced = 0
         currency: str | None = None
         for family, row in rows:
             if family == "semantic" and _is_separately_authorized_ai_cost(row):
@@ -343,6 +406,9 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
                     continue
             amount, item_currency, was_repriced = _current_cost(row)
             if amount is None or not item_currency:
+                # This is an eligible attempt with unknown monetary telemetry,
+                # not an observed zero-cost request.
+                unpriced += 1
                 continue
             if currency is None:
                 currency = item_currency
@@ -352,11 +418,14 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
             repriced += int(was_repriced)
             total += amount
             success += amount if str(_value(row, "status") or "").upper() in _SUCCESS else 0.0
-        if not currency or not known:
+        if not known and not unpriced:
             return None
+        # An unpriced-only AUD has no established currency; never supply a
+        # fictitious currency or include it in the monetary median.
         return HistoricalRunCost(
             str(audit[0]) if audit and audit[0] else database.parent.name,
-            page_count, success, total, currency, known, repriced,
+            page_count, success, total, currency or "", known, repriced,
+            unpriced_calls=unpriced, scope_verified=scope_verified,
         )
     finally:
         connection.close()
@@ -392,7 +461,13 @@ def forecast_local_cost(state: Any) -> CostForecast:
         notes.append("Improvement Intelligence usa a mesma seleção principal de IA; em AUTO o histórico preserva o mix efetivo de providers/modelos")
     if bool(getattr(state, "search_ai_competitive", False)):
         notes.append("Competitive Intelligence usa a mesma seleção principal de IA e somente evidência determinística consolidada")
-    return _forecast_from_runs(runs, target_pages=_target_local(state, runs), source="local-audit-history", notes=notes)
+    # Preserve the original page-volume forecast: AUDs without known money
+    # affect coverage, not the median used to size the next paid run.
+    priced_runs = [run for run in runs if run.known_calls > 0]
+    return _forecast_from_runs(
+        runs, target_pages=_target_local(state, priced_runs),
+        source="local-audit-history", notes=notes,
+    )
 
 
 def _job_payload(job: Any) -> dict[str, Any] | None:

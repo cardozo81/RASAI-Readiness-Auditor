@@ -227,3 +227,177 @@ def test_pilot_ui_injects_forecast_before_enqueue() -> None:
     assert "execution-cost-estimate" in rendered
     assert "window.confirm(formatCostForecast(forecast))" in rendered
     assert rendered.index("execution-cost-estimate") < rendered.index("/execution-jobs")
+
+
+def test_unpriced_local_attempt_is_unknown_not_a_zero_cost(tmp_path) -> None:
+    """#716: an eligible failed attempt cannot disappear from coverage."""
+    import sqlite3
+
+    from rasai.cost_forecast import _read_local_run
+
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE audits(audit_id TEXT, created_at TEXT);"
+            "INSERT INTO audits VALUES('AUD-COVERAGE', '2026-11-18T10:00:00Z');"
+            "CREATE TABLE pages(page_id TEXT);"
+            "INSERT INTO pages VALUES('P-1');"
+            "CREATE TABLE ai_provider_attempts("
+            "operation TEXT,provider TEXT,model TEXT,status TEXT,"
+            "estimated_cost REAL,cost_currency TEXT);"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES(?,?,?,?,?,?)",
+            [
+                ("SEMANTIC_M7", "", "", "SUCCESS", 0.12, "USD"),
+                ("SEMANTIC_M7", "", "", "TECHNICAL_ERROR", None, None),
+                ("SEMANTIC_M7", "", "", "TECHNICAL_ERROR", None, None),
+                ("DIRECTED_ANALYSIS", "", "", "SUCCESS", 0.30, "USD"),
+            ],
+        )
+    state = SimpleNamespace(
+        ai_provider="auto", ai_model=None, improvement_enabled=False,
+        content_remediation=False, search_ai_competitive=False,
+    )
+    original = db.read_bytes()
+    observed = _read_local_run(state, db)
+    assert observed is not None
+    assert observed.known_calls == 1
+    assert observed.unpriced_calls == 2
+    assert observed.scope_verified is False
+    assert observed.billable_cost == 0.12
+    assert observed.success_cost == 0.12
+    assert db.read_bytes() == original
+
+    forecast = _forecast_from_runs([observed], target_pages=2, source="synthetic")
+    assert forecast.expected == 0.24
+    assert forecast.sample_calls == 1
+    assert any("1 tentativa com valor conhecido" in x for x in forecast.notes)
+    assert any("2 tentativas sem valor comprovado" in x for x in forecast.notes)
+    assert any("custos desconhecidos não são zero" in x for x in forecast.notes)
+
+
+def test_confidence_requires_known_monetary_coverage_and_verified_scope() -> None:
+    """#716: sample volume cannot certify unknown retries or scope parity."""
+    def cohort(*, unpriced=0, comparable=True):
+        return [
+            HistoricalRunCost(
+                f"AUD-{index}", 2, 0.1, 0.2, "USD", 2, 2,
+                unpriced_calls=unpriced, scope_verified=comparable,
+            )
+            for index in range(25)
+        ]
+
+    complete = _forecast_from_runs(cohort(), target_pages=3, source="synthetic")
+    partial_cost = _forecast_from_runs(cohort(unpriced=1), target_pages=3, source="synthetic")
+    partial_scope = _forecast_from_runs(cohort(comparable=False), target_pages=3, source="synthetic")
+    both_partial = _forecast_from_runs(cohort(unpriced=1, comparable=False), target_pages=3, source="synthetic")
+
+    assert complete.confidence == "BOA"
+    for result in (partial_cost, partial_scope, both_partial):
+        assert result.confidence == "MODERADA"
+        assert result.sample_runs == 25
+        assert result.sample_calls == complete.sample_calls
+        assert result.expected == complete.expected
+        assert result.likely_high == complete.likely_high
+    assert any("25 tentativas sem valor comprovado" in x for x in partial_cost.notes)
+    assert any("comparabilidade parcial" in x for x in partial_scope.notes)
+
+
+def test_partial_local_projection_does_not_prove_effort_or_fallback_scope(tmp_path) -> None:
+    """#716: even a matching provider alone cannot certify a financial cohort."""
+    import sqlite3
+
+    from rasai.cost_forecast import _read_local_run
+
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE audits(audit_id TEXT, created_at TEXT);"
+            "INSERT INTO audits VALUES('AUD-SCOPE', '2026-11-18T10:00:00Z');"
+            "CREATE TABLE pages(page_id TEXT);"
+            "INSERT INTO pages VALUES('P-1');"
+            "CREATE TABLE console_execution_projections(configuration TEXT,projected_at TEXT);"
+            "CREATE TABLE ai_provider_attempts("
+            "operation TEXT,provider TEXT,model TEXT,status TEXT,"
+            "estimated_cost REAL,cost_currency TEXT);"
+            "INSERT INTO ai_provider_attempts "
+            "VALUES('SEMANTIC_M7','','','SUCCESS',0.05,'USD');"
+        )
+        con.execute(
+            "INSERT INTO console_execution_projections VALUES(?,?)",
+            ('{"ai_provider":"auto","device":"desktop",'
+             '"content_remediation":false,"search_ai_competitive":false,'
+             '"ai_model":""}', "2026-11-18T10:00:00Z"),
+        )
+    state = SimpleNamespace(
+        ai_provider="auto", ai_model="", improvement_enabled=False,
+        content_remediation=False, search_ai_competitive=False, device="desktop",
+    )
+    before = db.read_bytes()
+    observed = _read_local_run(state, db)
+    assert observed is not None
+    assert observed.scope_verified is False
+    assert observed.known_calls == 1
+    assert db.read_bytes() == before
+
+
+def test_716_fully_unpriced_audit_is_part_of_coverage(tmp_path) -> None:
+    """Even an all-failed eligible AUD lowers coverage, not the price median."""
+    import sqlite3
+
+    from rasai.cost_forecast import _read_local_run
+
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE audits(audit_id TEXT, created_at TEXT);"
+            "INSERT INTO audits VALUES('AUD-UNKNOWN','2026-11-19T10:00:00Z');"
+            "CREATE TABLE pages(page_id TEXT);"
+            "INSERT INTO pages VALUES('P1');"
+            "CREATE TABLE ai_provider_attempts("
+            "operation TEXT,provider TEXT,model TEXT,status TEXT,"
+            "estimated_cost REAL,cost_currency TEXT);"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES(?,?,?,?,?,?)",
+            [
+                ("SEMANTIC_M7", "", "", "TECHNICAL_ERROR", None, None),
+                ("SEMANTIC_M7", "", "", "TECHNICAL_ERROR", None, None),
+                ("DIRECTED_ANALYSIS", "", "", "TECHNICAL_ERROR", None, None),
+            ],
+        )
+    state = SimpleNamespace(
+        ai_provider="auto", ai_model=None, improvement_enabled=False,
+        content_remediation=False, search_ai_competitive=False,
+    )
+    before = db.read_bytes()
+    unknown = _read_local_run(state, db)
+    assert unknown is not None
+    assert unknown.known_calls == 0
+    assert unknown.unpriced_calls == 2
+    assert unknown.currency == ""
+    assert unknown.scope_verified is False
+    assert db.read_bytes() == before
+
+    known = [
+        HistoricalRunCost(f"AUD-KNOWN-{i}", 2, 0.1, 0.2, "USD", 2, 2)
+        for i in range(25)
+    ]
+    baseline = _forecast_from_runs(known, target_pages=3, source="synthetic")
+    combined = _forecast_from_runs(known + [unknown], target_pages=3, source="synthetic")
+    assert baseline.confidence == "BOA"
+    assert combined.confidence == "MODERADA"
+    assert combined.sample_runs == baseline.sample_runs == 25
+    assert combined.sample_calls == baseline.sample_calls == 50
+    assert combined.expected == baseline.expected
+    assert combined.likely_high == baseline.likely_high
+    assert any("2 tentativas sem valor comprovado" in x for x in combined.notes)
+    assert any("1 auditoria sem custo conhecido" in x for x in combined.notes)
+    assert any("excluídas da mediana monetária" in x for x in combined.notes)
+
+    unknown_only = _forecast_from_runs([unknown], target_pages=3, source="synthetic")
+    assert unknown_only.available is False
+    assert unknown_only.expected is None
+    assert unknown_only.currency is None
+    assert any("2 tentativas com valor monetário desconhecido" in x for x in unknown_only.notes)

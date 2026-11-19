@@ -56,7 +56,11 @@ Para cada auditoria histórica comparável, o RASAi calcula custo por página ma
 
 Essas taxas são multiplicadas pelo volume estimado de páginas da execução solicitada.
 
-A confiança depende da quantidade de execuções comparáveis: 1-4 baixa, 5-19 moderada, 20-49 boa e 50 ou mais alta. A confiança é reduzida quando menos de 80% das chamadas conhecidas podem ser reprecificadas a partir da telemetria atual de tokens.
+A confiança depende inicialmente da quantidade de execuções comparáveis: 1-4 baixa, 5-19 moderada, 20-49 boa e 50 ou mais alta. A confiança é reduzida quando menos de 80% das chamadas **com custo conhecido** podem ser reprecificadas a partir da telemetria atual de tokens.
+
+**Cobertura monetária e escopo (issue #716, histórico local):** uma tentativa elegível sem custo/moeda verificáveis é registrada como **valor desconhecido**, não como USD 0, e não entra na mediana monetária. Mesmo quando **todas** as tentativas de uma AUD são monetariamente desconhecidas, essa AUD continua no denominador de cobertura e pode limitar a confiança; sem custos conhecidos em nenhuma AUD, a previsão monetária fica indisponível. A prévia discrimina a quantidade de tentativas com valor conhecido e sem valor comprovado. Mesmo com dezenas de AUDs, a confiança é limitada a **moderada** se houver tentativas sem preço ou se o histórico não permitir comprovar paridade de configuração, escopo opcional, esforço e política de fallback. A amostra financeira permanece referente às tentativas precificadas; não se imputa cobrança nem altera preço de tentativa falhada. Dados históricos sem configuração completa continuam consultáveis sob limitação explícita, sem serem promovidos a comparáveis integralmente.
+
+A previsão principal exclui despesas opcionais/pós-AUD já segregadas; essa exclusão **não** representa estimativa dessas despesas, e fallback/retries sem telemetria continuam exposição desconhecida. O histórico utilizado para preços conhecidos não demonstra sozinho custo total da AUD ou cobrança final.
 
 ## Salvaguardas de cobrança
 
