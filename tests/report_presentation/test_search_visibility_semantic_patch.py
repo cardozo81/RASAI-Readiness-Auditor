@@ -4,7 +4,9 @@ import sqlite3
 
 from rasai.observability.store import observability_database_path
 from rasai.parallel_report.sanitization import sanitize
-from rasai.parallel_report.search_visibility_synthesis import render_search_visibility_synthesis
+from rasai.parallel_report.search_visibility_synthesis import (
+    _competitive_evidence_assessment, _competitive_summary, render_search_visibility_synthesis,
+)
 
 
 def test_css_class_identifiers_survive_without_leaking_secret_shapes():
@@ -154,3 +156,242 @@ def test_search_visibility_integration_artifact_has_identity_and_hash(tmp_path):
     assert 'artifacts/cc.json' in html
     assert 'c' * 64 in html
     assert 'N/D — solicitação não comprovada' in html
+
+def test_725_uncomparable_source_cannot_appear_as_zero_competitive_gaps(tmp_path):
+    """Persisted counts exist, but a noncomparable target is not a comparison."""
+    data = {
+        'serp_competitive_analyses': [{
+            'observation_id': 'SERP-X', 'comparison_status': 'CUSTOMER_CONTENT_NOT_COMPARABLE',
+            'gap_count': 0, 'observed_competitor_pages': 1,
+            'evidence_ref': 'artifacts/serp-x.json',
+        }],
+        'serp_competitive_pages': [
+            {'observation_id': 'SERP-X', 'role': 'CUSTOMER',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://client.example/'},
+            {'observation_id': 'SERP-X', 'role': 'COMPETITOR_CANDIDATE',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://candidate.example/'},
+        ],
+        'serp_competitive_results': [{
+            'observation_id': 'SERP-X', 'selected_for_content_comparison': 1,
+            'url': 'https://candidate.example/',
+        }],
+    }
+    observed = _competitive_evidence_assessment(data)
+    assert len(observed) == 1
+    assert observed[0]['content_comparison_verified'] is False
+    assert observed[0]['observed_gap_count'] is None
+    assert observed[0]['competitive_conclusion'] == 'INDETERMINATE'
+    assert observed[0]['reason'] == 'Conteúdo do alvo não comparável.'
+    assert next(row['value'] for row in _competitive_summary(data)
+                if row['indicator'] == 'Diferenças competitivas determinísticas') == 'N/D'
+    html = render_search_visibility_synthesis(tmp_path, data)
+    assert 'Conteúdo do alvo não comparável' in html
+    assert 'N/D' in html
+    assert 'artifacts/serp-x.json' in html
+    assert next(row['value'] for row in _competitive_summary(data)
+                if row['indicator'] == 'Páginas externas com conteúdo observado') == 1
+
+
+def test_725_consolidated_differences_require_observation_and_selected_url(tmp_path):
+    """A persisted CONSOLIDATED status alone never proves candidate coverage."""
+    data = {
+        'serp_competitive_analyses': [{
+            'observation_id': 'SERP-Y', 'comparison_status': 'CONSOLIDATED',
+            'gap_count': 0, 'observed_competitor_pages': 1,
+        }],
+        'serp_competitive_pages': [
+            {'observation_id': 'SERP-Y', 'role': 'CUSTOMER',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://client.example/'},
+            {'observation_id': 'SERP-Y', 'role': 'COMPETITOR_CANDIDATE',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://candidate.example/'},
+        ],
+        'serp_competitive_results': [{
+            'observation_id': 'SERP-Y', 'selected_for_content_comparison': True,
+            'url': 'https://different.example/',
+        }],
+    }
+    unverified = _competitive_evidence_assessment(data)[0]
+    assert unverified['content_comparison_verified'] is False
+    assert 'Sem conteúdo observado correspondente' in unverified['reason']
+    assert unverified['observed_gap_count'] is None
+
+    data['serp_competitive_results'][0]['url'] = 'https://candidate.example/'
+    verified = _competitive_evidence_assessment(data)[0]
+    assert verified['content_comparison_verified'] is True
+    assert verified['observed_gap_count'] == 0  # proven zero, not missing
+    assert verified['competitive_conclusion'] == 'INDETERMINATE'
+    html = render_search_visibility_synthesis(tmp_path, data)
+    assert 'Conteúdo comparável' in html
+    assert 'não demonstra ranking, mercado ou causalidade' in html
+    assert next(row['value'] for row in _competitive_summary(data)
+                if row['indicator'] == 'Diferenças competitivas determinísticas') == 0
+
+
+def test_725_absent_analysis_is_indeterminate_even_with_orphan_page(tmp_path):
+    data = {'serp_competitive_pages': [{
+        'observation_id': 'SERP-Z', 'role': 'COMPETITOR_CANDIDATE',
+        'fetch_status': 'OBSERVED', 'requested_url': 'https://candidate.example/',
+    }]}
+    assessed = _competitive_evidence_assessment(data)
+    assert assessed[0]['comparison_status'] == 'N/D'
+    assert assessed[0]['content_comparison_verified'] is False
+    assert assessed[0]['observed_gap_count'] is None
+    assert 'Análise comparativa não persistida' in assessed[0]['reason']
+    assert 'N/D' in render_search_visibility_synthesis(tmp_path, data)
+    assert 'conclusão competitiva indeterminada' in render_search_visibility_synthesis(tmp_path, {})
+
+def test_725_mixed_cohort_keeps_observed_pages_and_qualifies_partial_gaps():
+    """One verified observation cannot certify a whole mixed cohort."""
+    data = {
+        'serp_competitive_analyses': [
+            {'observation_id': 'A', 'comparison_status': 'CONSOLIDATED',
+             'gap_count': 2, 'observed_competitor_pages': 1},
+            {'observation_id': 'B', 'comparison_status': 'CUSTOMER_CONTENT_UNAVAILABLE',
+             'gap_count': 0, 'observed_competitor_pages': 1},
+        ],
+        'serp_competitive_pages': [
+            {'observation_id': 'A', 'role': 'CUSTOMER',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://client.example/'},
+            {'observation_id': 'A', 'role': 'COMPETITOR_CANDIDATE',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://first.example/'},
+            {'observation_id': 'B', 'role': 'COMPETITOR_CANDIDATE',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://second.example/'},
+        ],
+        'serp_competitive_results': [
+            {'observation_id': 'A', 'selected_for_content_comparison': 1,
+             'url': 'https://first.example/'},
+            {'observation_id': 'B', 'selected_for_content_comparison': 1,
+             'url': 'https://second.example/'},
+        ],
+    }
+    summary = {
+        item['indicator']: item['value']
+        for item in _competitive_summary(data)
+    }
+    assert summary['Páginas externas com conteúdo observado'] == 2
+    assert summary['Diferenças competitivas determinísticas'] == (
+        '2 (parcial: 1 de 2 observações)'
+    )
+    assessed = _competitive_evidence_assessment(data)
+    assert [row['content_comparison_verified'] for row in assessed] == [True, False]
+    assert assessed[0]['observed_gap_count'] == 2
+    assert assessed[1]['observed_gap_count'] is None
+    assert all(row['competitive_conclusion'] == 'INDETERMINATE'
+               for row in assessed)
+
+def test_725_gap_descriptions_are_visible_only_with_reconciled_evidence(tmp_path):
+    """An actual gap is descriptive and bound to one observed selected page."""
+    data = {
+        'serp_competitive_analyses': [{
+            'observation_id': 'SERP-G', 'comparison_status': 'CONSOLIDATED',
+            'gap_count': 1, 'observed_competitor_pages': 1,
+            'evidence_ref': 'artifacts/comparison-g.json',
+            'gaps_json': json.dumps([{
+                'code': 'TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS',
+                'message': 'Título apresenta menos termos observados na consulta.',
+                'customer_value': 0, 'leader_reference': 2,
+                'evidence_urls': ['https://candidate.example/final',
+                                  'https://unrelated.example/'],
+            }]),
+        }],
+        'serp_competitive_pages': [
+            {'observation_id': 'SERP-G', 'role': 'CUSTOMER',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://client.example/'},
+            {'observation_id': 'SERP-G', 'role': 'COMPETITOR_CANDIDATE',
+             'fetch_status': 'OBSERVED',
+             'requested_url': 'https://candidate.example/original',
+             'final_url': 'https://candidate.example/final'},
+        ],
+        'serp_competitive_results': [{
+            'observation_id': 'SERP-G', 'selected_for_content_comparison': 1,
+            'url': 'https://candidate.example/original',
+        }],
+    }
+    assessed = _competitive_evidence_assessment(data)[0]
+    assert assessed['content_comparison_verified'] is True
+    assert assessed['difference_detail_state'] == 'PERSISTED_GAPS_RECONCILED'
+    assert len(assessed['observed_differences']) == 1
+    assert assessed['observed_differences'][0]['reference'] == 2
+    assert assessed['observed_differences'][0]['evidence'] == 'https://candidate.example/final'
+    html = render_search_visibility_synthesis(tmp_path, data)
+    assert 'Título apresenta menos termos observados na consulta' in html
+    assert 'artifacts/comparison-g.json' in html
+    assert 'https://unrelated.example/' not in html
+    assert 'Menor correspondência dos termos da consulta no título' in html
+    # Raw canonical codes remain in the technical modal/annex; only the
+    # visible comparison table must use the human interpretation.
+    visible_table = html.split('<caption>Diferenças observadas e rastreáveis</caption>', 1)[1].split('</table>', 1)[0]
+    assert 'TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS' not in visible_table
+    assert 'Menor correspondência dos termos da consulta no título' in visible_table
+    assert assessed['observed_differences'][0]['code'] == (
+        'TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS'
+    )
+    assert 'Não representam' in html
+
+    # Corrupt or incomplete gap ledgers must not be converted into prose.
+    data['serp_competitive_analyses'][0]['gaps_json'] = json.dumps([])
+    incomplete = _competitive_evidence_assessment(data)[0]
+    assert incomplete['content_comparison_verified'] is True
+    assert incomplete['difference_detail_state'] == 'NOT_VERIFIABLE'
+    assert incomplete['observed_differences'] == []
+    missing = render_search_visibility_synthesis(tmp_path, data)
+    assert 'Título apresenta menos termos observados na consulta' not in missing
+    assert 'detalhamento persistido não pôde ser conciliado' in missing
+
+
+def test_733_competitive_ai_effort_matches_only_unique_persisted_request(tmp_path):
+    analyses = [
+        {'observation_id': 'SERP-EXACT', 'state': 'SUCCESS', 'provider': 'OPENAI',
+         'model': 'model-a', 'provider_request_id': 'req-exact',
+         'summary': 'Síntese observada.', 'opportunity_count': 0},
+        {'observation_id': 'SERP-UNKNOWN', 'state': 'SUCCESS', 'provider': 'OPENAI',
+         'model': 'model-a', 'summary': 'Síntese sem vínculo.', 'opportunity_count': 0},
+    ]
+    attempts = [
+        {'operation': 'COMPETITIVE_INTELLIGENCE',
+         'semantic_contract_version': 'COMPETITIVE-AI-001',
+         'request_id': 'req-exact', 'status': 'SUCCESS', 'provider': 'OPENAI',
+         'model': 'model-a', 'reasoning_profile': 'HIGH'},
+        {'operation': 'COMPETITIVE_INTELLIGENCE',
+         'semantic_contract_version': 'COMPETITIVE-AI-001',
+         'request_id': 'req-other', 'status': 'SUCCESS', 'provider': 'OPENAI',
+         'model': 'model-a', 'reasoning_profile': 'LOW'},
+    ]
+    before = json.dumps((analyses, attempts), sort_keys=True)
+    html = render_search_visibility_synthesis(tmp_path, {
+        'serp_competitive_ai_analyses': analyses,
+        'ai_provider_attempts': attempts,
+    })
+    assert 'Esforço solicitado' in html
+    assert html.count('Esforço alto solicitado') >= 1
+    assert 'Esforço baixo solicitado' not in html
+    assert 'não possui vínculo inequívoco' in html
+    assert json.dumps((analyses, attempts), sort_keys=True) == before
+
+
+def test_733_competitive_ai_effort_never_guesses_ambiguous_attempt(tmp_path):
+    row = {'observation_id': 'SERP-A', 'state': 'SUCCESS',
+           'provider': 'OPENAI', 'model': 'model-a',
+           'provider_request_id': 'req-duplicate', 'summary': 'Verificar.',
+           'opportunity_count': 0}
+    attempt = {'operation': 'COMPETITIVE_INTELLIGENCE',
+               'semantic_contract_version': 'COMPETITIVE-AI-001',
+               'request_id': 'req-duplicate', 'status': 'SUCCESS',
+               'provider': 'OPENAI', 'model': 'model-a',
+               'reasoning_profile': 'HIGH'}
+    for candidate in ([attempt, {**attempt, 'reasoning_profile': 'LOW'}],
+                      [{**attempt, 'operation': 'SEMANTIC_M7'}],
+                      [{**attempt, 'request_id': 'not-the-request'}]):
+        html = render_search_visibility_synthesis(tmp_path, {
+            'serp_competitive_ai_analyses': [row],
+            'ai_provider_attempts': candidate,
+        })
+        assert 'Esforço alto solicitado' not in html
+        assert 'Esforço baixo solicitado' not in html
+
+    explicit = {**row, 'reasoning_profile': 'PROVIDER_DEFAULT',
+                'provider_request_id': None}
+    html = render_search_visibility_synthesis(tmp_path, {
+        'serp_competitive_ai_analyses': [explicit],
+    })
+    assert 'Padrão do provedor (nível não comprovado)' in html

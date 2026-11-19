@@ -9,6 +9,7 @@ from hashlib import sha256
 
 from .components import kv, text
 from .read_model import PAGES, destination
+from .search_visibility_synthesis import _competitive_evidence_assessment
 from .templates import label as public_label
 
 
@@ -274,6 +275,13 @@ def build_editorial_review(tables, editorial_receipt, analytical_receipt,
         'technical_only_topics': topic_review,
         'absent_or_unexecuted_topics': absent_topics,
         'families': families,
+        'competitive_comparability': {
+            'source': 'serp_competitive_analyses + serp_competitive_pages + serp_competitive_results',
+            'observations': _competitive_evidence_assessment(tables),
+            'competitive_ranking_or_market_conclusion': 'INDETERMINATE',
+            'editorial_interpretation_certified': False,
+            'human_editorial_acceptance': 'PENDING',
+        },
         'certifies_editorial_completeness': False,
         'human_editorial_acceptance': 'PENDING',
         'limitations': [
