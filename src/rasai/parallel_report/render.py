@@ -44,16 +44,29 @@ def shell(page, title, body, audit_id=None):
 
 
 def _record_link_name(href, lookup):
+    """Interpret a related record's public name without changing its identity."""
     target = lookup.get(href)
     if target is None:
         return 'Detalhe: referência ' + href
     data = thaw(target.data)
-    name = next((str(data[key]) for key in
-                 ('title', 'label', 'rule_id', 'metric_id', 'dimension', 'name', 'action_id')
-                 if data.get(key) not in (None, '')), target.table)
-    dimension = str(data.get('dimension') or data.get('device') or '')
-    return 'Detalhe: ' + target.table + ' · ' + name + (
-        ' · ' + dimension if dimension else '') + ' · ' + target.anchor
+    name_field = next((
+        key for key in ('title', 'label', 'rule_id', 'metric_id',
+                        'dimension', 'name', 'action_id')
+        if data.get(key) not in (None, '')
+    ), None)
+    # The dimension/device domains have canonical public labels. Free-text
+    # titles and provenance IDs are preserved, not globally substituted.
+    name = (str(public_value(data[name_field], name_field))
+            if name_field else public_label(target.table))
+    qualifier_field = ('dimension' if data.get('dimension') not in (None, '')
+                       else 'device')
+    qualifier = data.get(qualifier_field)
+    qualifier = (
+        str(public_value(qualifier, qualifier_field))
+        if qualifier not in (None, '') and qualifier_field != name_field else ''
+    )
+    return 'Detalhe: ' + public_label(target.table) + ' · ' + name + (
+        ' · ' + qualifier if qualifier else '') + ' · ' + target.anchor
 
 
 def _redact_nonpublic_platform_identifiers(data):
