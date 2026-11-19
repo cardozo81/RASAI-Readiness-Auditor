@@ -250,6 +250,42 @@ def _competitive_evidence_assessment(tables):
             reason = 'Quantidade de diferenças não verificável na análise persistida.'
         else:
             reason = 'Comparação descritiva de conteúdo registrada; não demonstra ranking, mercado ou causalidade.'
+        # Detail text is eligible only if the canonical persisted gap ledger
+        # reconciles to its count. Never invent a description from a number.
+        details = []
+        detail_state = 'NOT_APPLICABLE' if comparable and gaps == 0 else 'NOT_VERIFIABLE'
+        raw_gaps = _json(analysis.get('gaps_json')) if comparable and gaps else None
+        if (comparable and type(gaps) is int and 0 < gaps <= 20
+                and isinstance(raw_gaps, list) and len(raw_gaps) == gaps
+                and all(isinstance(item, dict) and
+                        isinstance(item.get('message'), str) and
+                        item['message'].strip() for item in raw_gaps)):
+            # Gap references use a final URL if available, as recorded by the
+            # content comparator; URLs from other observations are not proof.
+            verified_urls = {
+                str(row.get('final_url') or row.get('requested_url') or '')
+                for row in observed
+                if row.get('role') == 'COMPETITOR_CANDIDATE'
+                and row.get('fetch_status') == 'OBSERVED'
+                and str(row.get('requested_url') or '') in selected_urls
+            }
+            for gap in raw_gaps:
+                references = gap.get('evidence_urls')
+                refs = (references if isinstance(references, list) else [])
+                trusted = [
+                    str(url) for url in refs
+                    if isinstance(url, str) and url in verified_urls
+                ]
+                details.append({
+                    'observation': identifier,
+                    'kind': str(gap.get('code') or 'N/D')[:120],
+                    'difference': gap['message'][:700],
+                    'customer': gap.get('customer_value'),
+                    'reference': gap.get('leader_reference'),
+                    'evidence': ', '.join(trusted[:5]) if trusted else 'N/D — referência não conciliada',
+                    'receipt': analysis.get('evidence_ref') or 'N/D',
+                })
+            detail_state = 'PERSISTED_GAPS_RECONCILED'
         output.append({
             'observation_id': identifier,
             'comparison_status': state or 'N/D',
@@ -260,6 +296,8 @@ def _competitive_evidence_assessment(tables):
             'observed_selected_candidate_pages': candidate_count,
             'observed_page_records': len(observed),
             'observed_gap_count': gaps if comparable else None,
+            'difference_detail_state': detail_state,
+            'observed_differences': details,
             'competitive_conclusion': 'INDETERMINATE',
             'evidence_ref': analysis.get('evidence_ref') or None,
             'source_families': ('serp_competitive_analyses', 'serp_competitive_pages',
@@ -383,6 +421,28 @@ def render_search_visibility_synthesis(root, tables):
                        ('reference', 'Evidência persistida')], full_text=True)
     else:
         html += '<p class="rf">N/D — nenhuma análise ou página comparativa persistida; conclusão competitiva indeterminada.</p>'
+    explained = [gap for row in comparable_rows for gap in row['observed_differences']]
+    if explained:
+        html += (
+            '<h3>Diferenças descritivas registradas por observação</h3>'
+            '<p class="rf">Apenas diferenças do registro persistido conciliadas '
+            'com a mesma observação e páginas selecionadas. Não representam '
+            'vantagem competitiva, relação causal, resultado de mercado ou '
+            'recomendação aprovada.</p>'
+        )
+        html += table('Diferenças observadas e rastreáveis',
+                      sanitize(explained),
+                      [('observation', 'Observação SERP'),
+                       ('kind', 'Diferença registrada'),
+                       ('difference', 'Descrição persistida'),
+                       ('customer', 'Valor do alvo'),
+                       ('reference', 'Referência observada'),
+                       ('evidence', 'URL de evidência conciliada'),
+                       ('receipt', 'Artefato persistido')], full_text=True)
+    if any(row['content_comparison_verified'] and
+           row['difference_detail_state'] == 'NOT_VERIFIABLE'
+           for row in comparable_rows):
+        html += '<p class="rf">N/D — há contagens de diferenças, mas o detalhamento persistido não pôde ser conciliado integralmente; não se inferem descrições.</p>'
     comparisons = []
     for item in tables.get('geo_observation_runs', ()):
         projection = _json(item.get('projection_json'))
