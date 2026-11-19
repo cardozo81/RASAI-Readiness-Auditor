@@ -425,8 +425,14 @@ def test_728_governance_card_contextual_labels_do_not_modify_evidence():
         ('Condição técnica não catalogada', 'Condição técnica não catalogada',
          'Condição técnica não catalogada'),
     )
+    from rasai.parallel_report.annex_payloads import collect_payloads
     for record, (decision, target, reason) in zip(records, expected):
-        html = record_html(record, {record.href: ()})
+        with collect_payloads() as annexes:
+            html = record_html(record, {record.href: ()})
+        assert len(annexes) == 1
+        raw_annex = next(iter(annexes.values())).decode('utf-8')
+        assert record.data['decision'] in raw_annex
+        assert record.data['target_class'] in raw_annex
         summary = html.split('<details>', 1)[0]
         for label, value in (('Decisão', decision), ('Alvo', target),
                              ('Motivo', reason)):
