@@ -129,7 +129,7 @@ def test_generation_seals_editorial_review_receipt_and_keeps_sources(tmp_path):
     manifest = json.loads((out/'_geracao.json').read_text(encoding='utf-8'))
     receipt_file = out/'anexos/dados-de-apoio/editorial-review.json'
     receipt = json.loads(receipt_file.read_text(encoding='utf-8'))
-    assert manifest['generator_version'] == '0.4.24.post1'
+    assert manifest['generator_version'] == '0.4.26'
     assert manifest['sha256_per_file']['anexos/dados-de-apoio/editorial-review.json'] == sha256(receipt_file.read_bytes()).hexdigest()
     assert receipt['families_total'] == 5
     assert receipt['families_classified'] == 5
@@ -186,3 +186,51 @@ def test_725_competitive_receipt_has_source_bound_indeterminate_observations():
     assert evidence['observations'][0]['observed_gap_count'] is None
     assert receipt['families']['serp_competitive_pages']['classification'] == 'REQUIRES_EXECUTIVE_REVIEW'
     assert receipt['certifies_editorial_completeness'] is False
+
+def test_722_source_specific_status_inventory_keeps_absence_and_evidence_separate():
+    """Fetch, comparison and SERP observation state are not generic row status."""
+    tables, names, editorial = _inputs()
+    tables['serp_competitive_pages'] = [
+        {'observation_id': 'OBS-A', 'fetch_status': 'OBSERVED'},
+        {'observation_id': 'OBS-B', 'fetch_status': 'FUTURE_UNVERIFIED_STATE'},
+        {'observation_id': 'OBS-C', 'fetch_status': None},
+    ]
+    tables['serp_competitive_analyses'] = [{
+        'observation_id': 'OBS-A',
+        'comparison_status': 'CUSTOMER_CONTENT_NOT_COMPARABLE',
+        'gap_count': 0,
+    }]
+    tables['serp_observations'] = [
+        {'observation_id': 'OBS-A', 'observation_status': 'SUCCESS'},
+        {'observation_id': 'OBS-B', 'observation_status': ''},
+    ]
+    for name in ('serp_competitive_pages', 'serp_competitive_analyses',
+                 'serp_observations'):
+        names[name] = sha256(
+            json.dumps(tables[name], sort_keys=True).encode()
+        ).hexdigest() + '.json'
+    before = json.dumps(tables, sort_keys=True)
+    rendered, receipt = build_editorial_review(
+        tables, editorial, {}, names, {'pages': {}},
+    )
+    pages = receipt['families']['serp_competitive_pages']
+    analysis = receipt['families']['serp_competitive_analyses']
+    serp = receipt['families']['serp_observations']
+    assert pages['status_fields_consulted'] == ['fetch_status']
+    assert pages['status_field_observations'] == {
+        'OBSERVED': 1, 'OTHER_RECORDED_STATE': 1,
+    }
+    assert (pages['rows_with_recorded_status'],
+            pages['rows_without_recorded_status']) == (2, 1)
+    assert analysis['status_fields_consulted'] == ['comparison_status']
+    assert analysis['status_field_observations'] == {
+        'CUSTOMER_CONTENT_NOT_COMPARABLE': 1,
+    }
+    assert serp['status_fields_consulted'] == ['observation_status']
+    assert serp['status_field_observations'] == {'SUCCESS': 1}
+    assert serp['rows_without_recorded_status'] == 1
+    assert receipt['certifies_editorial_completeness'] is False
+    assert receipt['human_editorial_acceptance'] == 'PENDING'
+    assert 'serp_competitive_pages' in receipt['open_decision_gaps']
+    assert json.dumps(tables, sort_keys=True) == before
+    assert 'report-catalog' not in ''.join(rendered.values())
