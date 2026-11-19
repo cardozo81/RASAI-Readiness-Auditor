@@ -318,7 +318,11 @@ def test_725_gap_descriptions_are_visible_only_with_reconciled_evidence(tmp_path
     assert 'artifacts/comparison-g.json' in html
     assert 'https://unrelated.example/' not in html
     assert 'Menor correspondência dos termos da consulta no título' in html
-    assert 'TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS' not in html
+    # Raw canonical codes remain in the technical modal/annex; only the
+    # visible comparison table must use the human interpretation.
+    visible_table = html.split('<caption>Diferenças observadas e rastreáveis</caption>', 1)[1].split('</table>', 1)[0]
+    assert 'TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS' not in visible_table
+    assert 'Menor correspondência dos termos da consulta no título' in visible_table
     assert assessed['observed_differences'][0]['code'] == (
         'TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS'
     )
