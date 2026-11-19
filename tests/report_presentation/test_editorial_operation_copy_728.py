@@ -21,7 +21,7 @@ def test_known_operation_copy_is_human_on_all_eleven_presentation_surfaces():
             '</article>'
         )
         rendered = humanize_module_references_html(html)
-        assert rendered.count('Análise semântica por IA') == 5, page
+        assert rendered.count('Análise semântica por IA') == 6, page
         assert 'SEMANTIC_M7' not in rendered, page
         assert f'data-page="{page}"' in rendered
         assert humanize_module_references_html(rendered) == rendered
