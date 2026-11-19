@@ -182,12 +182,103 @@ def _nonnegative_integer(value):
     return value if type(value) is int and value >= 0 else None
 
 
+def _competitive_evidence_assessment(tables):
+    """Source-only comparison gate: no market, ranking or causal conclusion.
+
+    Match by observation AND selected requested URL, not by number of
+    harvested pages. A persisted count of zero is not proof of comparability.
+    """
+    analyses = {
+        str(row['observation_id']): row
+        for row in tables.get('serp_competitive_analyses', ())
+        if isinstance(row, dict) and row.get('observation_id')
+    }
+    pages = {}
+    for row in tables.get('serp_competitive_pages', ()):
+        if isinstance(row, dict) and row.get('observation_id'):
+            pages.setdefault(str(row['observation_id']), []).append(row)
+    selected = {}
+    for row in tables.get('serp_competitive_results', ()):
+        if (isinstance(row, dict) and row.get('observation_id')
+                and row.get('selected_for_content_comparison') in (1, True)
+                and row.get('url')):
+            selected.setdefault(str(row['observation_id']), set()).add(str(row['url']))
+
+    identifiers = sorted(set(analyses) | set(pages) | set(selected))
+    reasons = {
+        'SERP_OBSERVATION_UNAVAILABLE': 'Observação SERP indisponível nesta coleta.',
+        'CONTENT_COMPARISON_DISABLED': 'Comparação de conteúdo não solicitada.',
+        'CUSTOMER_URL_REQUIRED': 'URL do alvo não estava disponível para comparação.',
+        'CUSTOMER_CONTENT_UNAVAILABLE': 'Conteúdo do alvo indisponível.',
+        'CUSTOMER_CONTENT_NOT_COMPARABLE': 'Conteúdo do alvo não comparável.',
+        'NO_ELIGIBLE_COMPETITOR_CANDIDATES': 'Nenhum candidato elegível foi selecionado.',
+        'COMPETITOR_CONTENT_UNAVAILABLE': 'Conteúdo dos candidatos não foi observado de forma comparável.',
+    }
+    output = []
+    for identifier in identifiers:
+        analysis = analyses.get(identifier) or {}
+        state = str(analysis.get('comparison_status') or '').upper()
+        observed = pages.get(identifier, [])
+        customer = any(
+            row.get('role') == 'CUSTOMER' and row.get('fetch_status') == 'OBSERVED'
+            for row in observed
+        )
+        selected_urls = selected.get(identifier, set())
+        candidate_count = sum(
+            row.get('role') == 'COMPETITOR_CANDIDATE'
+            and row.get('fetch_status') == 'OBSERVED'
+            and str(row.get('requested_url') or '') in selected_urls
+            for row in observed
+        )
+        gaps = analysis.get('gap_count')
+        comparable = bool(
+            state == 'CONSOLIDATED'
+            and customer and selected_urls and candidate_count > 0
+            and type(gaps) is int and gaps >= 0
+        )
+        if not state:
+            reason = 'Análise comparativa não persistida para esta observação.'
+        elif state != 'CONSOLIDATED':
+            reason = reasons.get(state, 'Estado persistido sem comparabilidade suficiente.')
+        elif not customer:
+            reason = 'Sem captura observada do conteúdo do alvo nesta evidência.'
+        elif not selected_urls:
+            reason = 'Sem seleção persistida dos candidatos comparáveis.'
+        elif not candidate_count:
+            reason = 'Sem conteúdo observado correspondente aos candidatos selecionados.'
+        elif not comparable:
+            reason = 'Quantidade de diferenças não verificável na análise persistida.'
+        else:
+            reason = 'Comparação descritiva de conteúdo registrada; não demonstra ranking, mercado ou causalidade.'
+        output.append({
+            'observation_id': identifier,
+            'comparison_status': state or 'N/D',
+            'content_comparison_verified': comparable,
+            'content_comparison': 'Conteúdo comparável' if comparable else 'N/D — não comprovada',
+            'reason': reason,
+            'selected_candidate_count': len(selected_urls),
+            'observed_selected_candidate_pages': candidate_count,
+            'observed_page_records': len(observed),
+            'observed_gap_count': gaps if comparable else None,
+            'competitive_conclusion': 'INDETERMINATE',
+            'evidence_ref': analysis.get('evidence_ref') or None,
+            'source_families': ('serp_competitive_analyses', 'serp_competitive_pages',
+                                'serp_competitive_results'),
+        })
+    return output
+
+
 def _competitive_summary(tables):
     analyses = [r for r in tables.get('serp_competitive_analyses', ())
                 if isinstance(r, dict)]
+    # A zero or nonzero counter from an incomplete analysis must not read
+    # as a verified comparison. The per-observation gate below holds the proof.
+    assessed = _competitive_evidence_assessment(tables)
+    verified = bool(assessed) and all(item['content_comparison_verified'] for item in assessed)
+
     def reported_total(field):
         values = [_nonnegative_integer(a.get(field)) for a in analyses]
-        return sum(values) if values and all(v is not None for v in values) else 'N/D'
+        return sum(values) if verified and values and all(v is not None for v in values) else 'N/D'
     results = tables.get('serp_results')
     selected = [r for r in tables.get('serp_competitive_results', ())
                 if isinstance(r, dict) and
@@ -248,6 +339,39 @@ def render_search_visibility_synthesis(root, tables):
                   _competitive_summary(tables),
                   [('indicator', 'Indicador'), ('value', 'Valor'),
                    ('basis', 'Fonte / campo')])
+    comparable_rows = _competitive_evidence_assessment(tables)
+    html += (
+        '<h3>Verificação da comparabilidade por observação</h3>'
+        '<p class="rf">A presença de candidatos SERP não prova concorrência comercial. '
+        'Somente uma análise consolidada, com conteúdo do alvo observado e '
+        'conteúdo observado de candidato selecionado na mesma observação, '
+        'permite apresentar diferenças descritivas. Conclusões sobre ranking, '
+        'mercado e causalidade permanecem indeterminadas.</p>'
+    )
+    if comparable_rows:
+        html += table('Condições verificadas da comparação de conteúdo',
+                      sanitize([
+                          {'observation': row['observation_id'],
+                           'status': row['comparison_status'],
+                           'comparison': row['content_comparison'],
+                           'reason': row['reason'],
+                           'observed_pages': row['observed_page_records'],
+                           'selected_pages': row['observed_selected_candidate_pages'],
+                           'gaps': (row['observed_gap_count']
+                                    if row['content_comparison_verified'] else 'N/D'),
+                           'reference': row['evidence_ref'] or 'N/D'}
+                          for row in comparable_rows
+                      ]),
+                      [('observation', 'Observação SERP'),
+                       ('status', 'Estado da análise'),
+                       ('comparison', 'Comparabilidade do conteúdo'),
+                       ('reason', 'Limitação e interpretação'),
+                       ('observed_pages', 'Registros de páginas'),
+                       ('selected_pages', 'Candidatos selecionados com conteúdo'),
+                       ('gaps', 'Diferenças observadas'),
+                       ('reference', 'Evidência persistida')], full_text=True)
+    else:
+        html += '<p class="rf">N/D — nenhuma análise ou página comparativa persistida; conclusão competitiva indeterminada.</p>'
     comparisons = []
     for item in tables.get('geo_observation_runs', ()):
         projection = _json(item.get('projection_json'))
