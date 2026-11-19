@@ -58,5 +58,16 @@ def test_acceptance_source_path_survives_editorial_family_iteration(tmp_path):
     assert receipt["checks"]["editorial_families_classified"] == 5
     assert receipt["checks"]["table_families_reconciled"] == 5
     assert receipt["checks"]["pages"] == 11
+    triage = json.loads((output / "editorial-surface-inventory.json").read_text(encoding="utf-8"))
+    assert triage["pages_reviewed"] == 11
+    assert set(triage["pages"]) == {
+        "index.html", "extracao.html", "descoberta.html", "indices.html",
+        "conteudo.html", "performance.html", "rede.html", "-".join(("search", "geo")) + ".html",
+        "seguranca.html", "plano.html", "ia-custos.html",
+    }
+    assert triage["certifies_humanization"] is False
+    assert triage["raw_snippets_included"] is False
+    assert receipt["checks"]["editorial_surface_candidates"] == triage["candidate_count"]
+    assert receipt["editorial_surface_triage"]["human_editorial_acceptance"] == "PENDING"
     assert receipt["checks"]["catalog_links"] == 0
     assert sha256(db_path.read_bytes()).hexdigest() == original_sha
