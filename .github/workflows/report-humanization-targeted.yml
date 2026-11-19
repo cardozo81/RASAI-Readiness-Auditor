@@ -38,4 +38,5 @@ jobs:
           tests/report_presentation/test_presentation_catalog_language.py
           tests/report_presentation/test_theme_persistence.py
           tests/report_presentation/test_editorial.py
+          tests/report_presentation/test_editorial_operation_copy.py
           tests/report_presentation/test_content_reconciliation.py
