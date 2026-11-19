@@ -126,6 +126,8 @@ def inspect_presentation(folder):
     totals = Counter()
     candidates, pages = [], {}
     for page in files:
+        if not page.resolve().is_relative_to(root):
+            raise ValueError("presentation HTML escapes its directory")
         original = page.read_bytes()
         scan = _Surface(page.name)
         scan.feed(original.decode("utf-8"))
@@ -171,6 +173,9 @@ def main(argv=None):
     target = args.output.resolve()
     if target.is_relative_to(source) or source.is_relative_to(target):
         parser.error("output must be outside the presentation folder")
+    # Existing real AUD root is immutable even for local-only receipts.
+    if (source.parent / "audit.db").is_file() and target.is_relative_to(source.parent):
+        parser.error("output must be outside the original audit directory")
     if target.exists():
         parser.error("new output file required; existing receipts cannot be overwritten")
     report = inspect_presentation(source)

@@ -65,6 +65,9 @@ def test_728_cli_refuses_receipt_inside_source_and_never_overwrites(tmp_path):
         main(["--presentation", str(root), "--output", str(receipt)])
     with pytest.raises(SystemExit):
         main(["--presentation", str(root), "--output", str(root / "unsafe.json")])
+    (root.parent / "audit.db").write_bytes(b"fixture only")
+    with pytest.raises(SystemExit):
+        main(["--presentation", str(root), "--output", str(root.parent / "unsafe-audit.json")])
 
 
 def test_728_incomplete_html_package_is_never_reported_as_all_eleven(tmp_path):
@@ -72,4 +75,17 @@ def test_728_incomplete_html_package_is_never_reported_as_all_eleven(tmp_path):
     root.mkdir()
     (root / "index.html").write_text("<p>CAT-03</p>", encoding="utf-8")
     with pytest.raises(ValueError, match="eleven expected"):
+        inspect_presentation(root)
+
+
+def test_728_html_symlink_cannot_escape_scanned_directory(tmp_path):
+    root = _package(tmp_path, "<html><p>normal</p></html>")
+    destination = tmp_path / "external.html"
+    destination.write_text("<h2>SEMANTIC_M7</h2>", encoding="utf-8")
+    (root / "index.html").unlink()
+    try:
+        (root / "index.html").symlink_to(destination)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink unavailable on this filesystem")
+    with pytest.raises(ValueError, match="escapes"):
         inspect_presentation(root)
