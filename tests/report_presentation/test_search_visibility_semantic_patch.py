@@ -317,7 +317,11 @@ def test_725_gap_descriptions_are_visible_only_with_reconciled_evidence(tmp_path
     assert 'Título apresenta menos termos observados na consulta' in html
     assert 'artifacts/comparison-g.json' in html
     assert 'https://unrelated.example/' not in html
-    assert 'não representam' not in html  # avoid falsely broad claims in the table
+    assert 'Menor correspondência dos termos da consulta no título' in html
+    assert 'TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS' not in html
+    assert assessed['observed_differences'][0]['code'] == (
+        'TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS'
+    )
     assert 'Não representam' in html
 
     # Corrupt or incomplete gap ledgers must not be converted into prose.
