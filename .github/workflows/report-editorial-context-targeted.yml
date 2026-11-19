@@ -9,6 +9,7 @@ on:
       - 'src/rasai/parallel_report/__init__.py'
       - 'src/rasai/parallel_report/publication.py'
       - 'tests/report_presentation/test_temporal_locale.py'
+      - 'tests/report_presentation/test_analytical_values.py'
       - 'tests/report_presentation/test_search_visibility_semantic_patch.py'
       - 'tests/report_presentation/test_editorial_review.py'
       - 'tests/report_presentation/test_parallel_report.py'
@@ -31,6 +32,7 @@ jobs:
         run: >-
           python -m pytest -q
           tests/report_presentation/test_temporal_locale.py
+          tests/report_presentation/test_analytical_values.py
           tests/report_presentation/test_search_visibility_semantic_patch.py
           tests/report_presentation/test_editorial_review.py
           tests/report_presentation/test_parallel_report.py
