@@ -114,8 +114,10 @@ def _forecast_from_runs(
     extra = list(notes)
     if unpriced:
         extra.append(
-            f"cobertura monetária parcial: {calls} tentativas com valor conhecido; "
-            f"{unpriced} sem valor comprovado; custos desconhecidos não são zero"
+            f"cobertura monetária parcial: {calls} "
+            f"{'tentativa' if calls == 1 else 'tentativas'} com valor conhecido; "
+            f"{unpriced} {'tentativa' if unpriced == 1 else 'tentativas'} "
+            "sem valor comprovado; custos desconhecidos não são zero"
         )
     if not scope_verified:
         extra.append(
