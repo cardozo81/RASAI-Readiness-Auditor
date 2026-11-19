@@ -10,7 +10,8 @@ from .presentation_labels import public_value
 # These are observable fields, not every storage/configuration column. Their
 # exact scope and all remaining fields are published in the receipt below.
 FIELDS = {
- 'audit_execution_configurations': 'schema_version configuration_kind configuration_hash changed_fields_json created_at',
+ # Internal configuration ledgers remain available in source annexes only.
+ # Do not display hashes, schema versions or changed-field control metadata.
  'audit_input_summary': 'input_mode supplied_count normalized_unique_count',
  'audit_input_urls': 'position input_url normalized_url',
  'page_snapshots': 'title canonical device captured_at http_status rendering_mode architecture_classification preview_browser preview_viewport preview_runtime_count preview_visual_ref',
@@ -63,7 +64,6 @@ FIELDS = {
 
 }
 TITLES = {
- 'audit_execution_configurations':'Configuração registrada da execução',
  'audit_input_summary':'Resumo das URLs fornecidas', 'audit_input_urls':'URLs fornecidas',
  'audit_fulfillment_attempts':'Tentativas das etapas da auditoria',
  'audit_execution_sessions':'Sessões da execução', 'audit_fulfillment_work_items':'Requisitos e pendências da execução',
