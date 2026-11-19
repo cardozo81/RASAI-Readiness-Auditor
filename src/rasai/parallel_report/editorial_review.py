@@ -67,13 +67,22 @@ CONTEXTUAL_RENDERERS = {
 }
 
 # Only source-field statuses are exposed. No inferential execution status.
+# Only canonical statuses with a known source meaning are grouped by code.
+# Unknown values remain counted without inventing an execution outcome.
+SOURCE_STATUS_FIELDS = {
+    'serp_competitive_pages': ('fetch_status',),
+    'serp_competitive_analyses': ('comparison_status',),
+    'serp_observations': ('observation_status',),
+}
+
 STATUS_TOKENS = frozenset("""
 SUCCESS COMPLETE COMPLETED PARTIAL FAILED ERROR BLOCKED PENDING
 NOT_REQUESTED NOT_EXECUTED REQUESTED_NOT_EXECUTED SKIPPED
 NOT_APPLICABLE UNKNOWN RUNNING IN_PROGRESS FAILED_RETRYABLE
 FAILED_PERMANENT TECHNICAL_ERROR CONTRACT_ERROR
 PASS WARNING FAIL FINAL PRELIMINARY NOT_COMPARABLE
-CONSOLIDATED NOT_CONSOLIDATED
+CONSOLIDATED NOT_CONSOLIDATED OBSERVED
+CUSTOMER_CONTENT_NOT_COMPARABLE CUSTOMER_CONTENT_UNAVAILABLE
 """.split())
 
 CLASS_LABELS = {
@@ -98,15 +107,18 @@ REASONS = {
 }
 
 
-def _row_statuses(rows):
-    fields = ('status', 'state', 'processing_status')
+def _row_statuses(rows, source=None):
+    """Count recorded source statuses only; never infer execution from row count."""
+    fields = SOURCE_STATUS_FIELDS.get(
+        source, ('status', 'state', 'processing_status'),
+    )
     counts = Counter()
     for row in rows:
         if not isinstance(row, dict):
             continue
         for field in fields:
             raw = row.get(field)
-            if isinstance(raw, str):
+            if isinstance(raw, str) and raw.strip():
                 token = raw.strip().upper()
                 counts[token if token in STATUS_TOKENS else 'OTHER_RECORDED_STATE'] += 1
                 break
@@ -183,6 +195,7 @@ def build_editorial_review(tables, editorial_receipt, analytical_receipt,
         direct = list(analytical.get('direct_fields') or ())
         classification = _classification(name, rows,
                                          {topic['state'] for topic in topics}, direct)
+        recorded_states = _row_statuses(rows, name)
         families[name] = {
             'family': name,
             'source': 'audit.db',
@@ -190,7 +203,11 @@ def build_editorial_review(tables, editorial_receipt, analytical_receipt,
             'page': page + '.html' if page is not None else None,
             'href': _reference(name, table_annexes),
             'annex': 'anexos/' + table_annexes[name],
-            'status_field_observations': _row_statuses(rows),
+            'status_field_observations': recorded_states,
+            'status_fields_consulted': list(SOURCE_STATUS_FIELDS.get(
+                name, ('status', 'state', 'processing_status'))),
+            'rows_with_recorded_status': sum(recorded_states.values()),
+            'rows_without_recorded_status': len(rows) - sum(recorded_states.values()),
             'materialization': [{'page': entry['page'], 'state': entry['state'],
                                  'topic': entry['topic']} for entry in topics],
             'analytical_direct_fields': direct,
