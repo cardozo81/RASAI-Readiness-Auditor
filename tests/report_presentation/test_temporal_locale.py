@@ -25,7 +25,7 @@ def _records(tables):
 
 
 def test_only_typed_instants_and_civil_dates_are_localized():
-    assert __version__ == '0.4.25'
+    assert __version__ == '0.4.26'
     raw = '2026-11-17T15:41:12+00:00'
     local = '17/11/2026 12:41:12 (America/Sao_Paulo)'
     for field in ('collection_window_start', 'collection_window_end', 'started_at'):

@@ -415,7 +415,7 @@ def test_historical_package_migrates_on_explicit_open(tmp_path, monkeypatch, ver
     assert inventory(root) == before
 
 
-@pytest.mark.parametrize("historical_version", ["0.4.3", "0.4.24.post1"])
+@pytest.mark.parametrize("historical_version", ["0.4.3", "0.4.24.post1", "0.4.25"])
 def test_previous_generator_version_is_upgraded_from_history(tmp_path, historical_version):
     from rasai import console_artifacts
     from rasai.parallel_report import __version__
@@ -424,7 +424,7 @@ def test_previous_generator_version_is_upgraded_from_history(tmp_path, historica
     root = fixture(tmp_path / 'AUD-SYNTHETIC')
     package = generate(root)
     original = json.loads((package / '_geracao.json').read_text(encoding='utf-8'))
-    assert __version__ == '0.4.25'
+    assert __version__ == '0.4.26'
     original['generator_version'] = historical_version
     (package / '_geracao.json').write_text(json.dumps(original), encoding='utf-8')
     assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()
