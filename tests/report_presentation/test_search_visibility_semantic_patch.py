@@ -278,3 +278,54 @@ def test_725_mixed_cohort_keeps_observed_pages_and_qualifies_partial_gaps():
     assert assessed[1]['observed_gap_count'] is None
     assert all(row['competitive_conclusion'] == 'INDETERMINATE'
                for row in assessed)
+
+def test_725_gap_descriptions_are_visible_only_with_reconciled_evidence(tmp_path):
+    """An actual gap is descriptive and bound to one observed selected page."""
+    data = {
+        'serp_competitive_analyses': [{
+            'observation_id': 'SERP-G', 'comparison_status': 'CONSOLIDATED',
+            'gap_count': 1, 'observed_competitor_pages': 1,
+            'evidence_ref': 'artifacts/comparison-g.json',
+            'gaps_json': json.dumps([{
+                'code': 'TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS',
+                'message': 'Título apresenta menos termos observados na consulta.',
+                'customer_value': 0, 'leader_reference': 2,
+                'evidence_urls': ['https://candidate.example/final',
+                                  'https://unrelated.example/'],
+            }]),
+        }],
+        'serp_competitive_pages': [
+            {'observation_id': 'SERP-G', 'role': 'CUSTOMER',
+             'fetch_status': 'OBSERVED', 'requested_url': 'https://client.example/'},
+            {'observation_id': 'SERP-G', 'role': 'COMPETITOR_CANDIDATE',
+             'fetch_status': 'OBSERVED',
+             'requested_url': 'https://candidate.example/original',
+             'final_url': 'https://candidate.example/final'},
+        ],
+        'serp_competitive_results': [{
+            'observation_id': 'SERP-G', 'selected_for_content_comparison': 1,
+            'url': 'https://candidate.example/original',
+        }],
+    }
+    assessed = _competitive_evidence_assessment(data)[0]
+    assert assessed['content_comparison_verified'] is True
+    assert assessed['difference_detail_state'] == 'PERSISTED_GAPS_RECONCILED'
+    assert len(assessed['observed_differences']) == 1
+    assert assessed['observed_differences'][0]['reference'] == 2
+    assert assessed['observed_differences'][0]['evidence'] == 'https://candidate.example/final'
+    html = render_search_visibility_synthesis(tmp_path, data)
+    assert 'Título apresenta menos termos observados na consulta' in html
+    assert 'artifacts/comparison-g.json' in html
+    assert 'https://unrelated.example/' not in html
+    assert 'não representam' not in html  # avoid falsely broad claims in the table
+    assert 'Não representam' in html
+
+    # Corrupt or incomplete gap ledgers must not be converted into prose.
+    data['serp_competitive_analyses'][0]['gaps_json'] = json.dumps([])
+    incomplete = _competitive_evidence_assessment(data)[0]
+    assert incomplete['content_comparison_verified'] is True
+    assert incomplete['difference_detail_state'] == 'NOT_VERIFIABLE'
+    assert incomplete['observed_differences'] == []
+    missing = render_search_visibility_synthesis(tmp_path, data)
+    assert 'Título apresenta menos termos observados na consulta' not in missing
+    assert 'detalhamento persistido não pôde ser conciliado' in missing
