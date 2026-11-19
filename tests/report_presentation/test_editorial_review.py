@@ -187,7 +187,6 @@ def test_725_competitive_receipt_has_source_bound_indeterminate_observations():
     assert receipt['families']['serp_competitive_pages']['classification'] == 'REQUIRES_EXECUTIVE_REVIEW'
     assert receipt['certifies_editorial_completeness'] is False
 
-
 def test_722_source_specific_status_inventory_keeps_absence_and_evidence_separate():
     """Fetch, comparison and SERP observation state are not generic row status."""
     tables, names, editorial = _inputs()

@@ -415,7 +415,7 @@ def test_historical_package_migrates_on_explicit_open(tmp_path, monkeypatch, ver
     assert inventory(root) == before
 
 
-@pytest.mark.parametrize('historical_version', ['0.4.3', '0.4.24.post1', '0.4.25'])
+@pytest.mark.parametrize("historical_version", ["0.4.3", "0.4.24.post1", "0.4.25"])
 def test_previous_generator_version_is_upgraded_from_history(tmp_path, historical_version):
     from rasai import console_artifacts
     from rasai.parallel_report import __version__
