@@ -306,9 +306,14 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
             comparison_configuration
             and all(key in comparison_configuration for key in (
                 "ai_provider", "device", "content_remediation",
-                "search_ai_competitive", "ai_model"
+                "search_ai_competitive", "ai_model", "improvement_enabled",
+                "reasoning_profile", "fallback_policy"
             ))
             and str(getattr(state, "ai_provider", "")).casefold() != "auto"
+            and str(comparison_configuration["reasoning_profile"]).upper()
+                == str(getattr(state, "ai_reasoning_effort", "")).upper()
+            and str(comparison_configuration["fallback_policy"]).upper()
+                == str(getattr(state, "ai_fallback_policy", "")).upper()
         )
         improvement_contract, old_improvement_provider, old_improvement_model = _improvement_history(connection)
         # Explicit primary selection must remain comparable to the effective historical
