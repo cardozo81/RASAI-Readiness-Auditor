@@ -21,6 +21,7 @@ from rasai.parallel_report.artifact_reader import digest, inventory
 from rasai.parallel_report.generator import generate
 from rasai.parallel_report.sqlite_reader import read_database
 from rasai.parallel_report.sanitization import sanitize
+from presentation_surface_inventory import inspect_presentation
 
 
 class Document(HTMLParser):
@@ -247,6 +248,13 @@ def main():
     try:
         output=generate(copy)
         manifest,docs,checks=validate_package(output)
+        # Issue #728/A: non-blocking, read-only review of all human-facing
+        # surfaces. This is a PRIVATE receipt outside the generated package.
+        surface_review=inspect_presentation(output)
+        (work/'editorial-surface-inventory.json').write_text(
+            json.dumps(surface_review,ensure_ascii=False,indent=2),encoding='utf-8')
+        checks['editorial_surfaces_reviewed']=surface_review['pages_reviewed']
+        checks['editorial_surface_candidates']=surface_review['candidate_count']
         # Reconcile every table with its exact sanitized UTF-8 annex bytes,
         # not just a row count or a digest provided by the same manifest.
         for table,rows in tables.items():
@@ -279,6 +287,10 @@ def main():
             sqlite_integrity=integrity,sqlite_tables=len(tables),sqlite_rows=sum(map(len,tables.values())),
             checks=checks,comparison=comparison,editorial=receipt['editorial'],
             original_source_preserved=False,copy_source_preserved=True,human_acceptance='PENDING',
+            editorial_surface_triage=dict(
+                receipt='editorial-surface-inventory.json',
+                candidates=surface_review['candidate_count'],
+                certifies_humanization=False, human_editorial_acceptance='PENDING'),
             network_requests=0,provider_calls=0,score_recomputed=False)
         if args.browser:
             browser_phase[0] = True
