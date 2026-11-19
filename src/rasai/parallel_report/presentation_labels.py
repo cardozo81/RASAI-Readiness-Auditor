@@ -266,6 +266,12 @@ COMPETITIVE_CLASSES = {
     'MARKETPLACE': 'Marketplace (candidato à comparação de conteúdo)',
     'NON_ORGANIC': 'Resultado não orgânico',
 }
+APDEX_CLASSIFICATION_LABELS = {
+    'SATISFIED': 'Amostra satisfatória',
+    'TOLERATING': 'Amostra tolerável',
+    'FRUSTRATED': 'Amostra frustrada',
+}
+
 COMPETITIVE_REASONS = {
     'matches configured customer domain': 'Pertence ao domínio configurado para a auditoria.',
     'public-authority domain heuristic': 'Domínio identificado por regra como fonte de autoridade pública.',
@@ -454,7 +460,7 @@ def public_value(value, field=None, timezone_name=None):
             return 'Sim' if value else 'Não'
         return 'Não determinado'
     if field == 'classification' and isinstance(value, str):
-        return COMPETITIVE_CLASSES.get(value.upper(), value)
+        return COMPETITIVE_CLASSES.get(value.upper(), APDEX_CLASSIFICATION_LABELS.get(value.upper(), value))
     if field == 'reason' and isinstance(value, str):
         if value == 'SMALL_GROUP_BELOW_NORMAL_MINIMUM':
             return 'Grupo pequeno, abaixo do mínimo normal de amostras'
