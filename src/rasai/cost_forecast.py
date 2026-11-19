@@ -312,8 +312,15 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
                 "reasoning_profile", "fallback_policy"
             ))
             and str(getattr(state, "ai_provider", "")).casefold() != "auto"
+            and bool(str(getattr(state, "ai_model", "") or "").strip())
+            and str(comparison_configuration["ai_model"]).strip()
+                == str(getattr(state, "ai_model", "")).strip()
+            and type(comparison_configuration["improvement_enabled"]) is bool
+            and comparison_configuration["improvement_enabled"] == improvement_enabled
+            and bool(str(getattr(state, "ai_reasoning_effort", "") or "").strip())
             and str(comparison_configuration["reasoning_profile"]).upper()
                 == str(getattr(state, "ai_reasoning_effort", "")).upper()
+            and bool(str(getattr(state, "ai_fallback_policy", "") or "").strip())
             and str(comparison_configuration["fallback_policy"]).upper()
                 == str(getattr(state, "ai_fallback_policy", "")).upper()
         )
