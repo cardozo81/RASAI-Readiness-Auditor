@@ -78,11 +78,30 @@ def test_competitor_page_and_root_cause_precision_are_source_backed_projections(
     assert {'role','fetch_status','http_status','word_count'} <= set(search['direct_fields'])
     assert 'Página cliente' in html[SEARCH_PAGE]
     assert 'other.example' in html[SEARCH_PAGE]
+    # #728: these fields are human-facing execution states, not raw evidence.
+    assert '<td title="Observado">Observado</td>' in html[SEARCH_PAGE]
+    assert '<td title="Falhou">Falhou</td>' in html[SEARCH_PAGE]
     assert plan['analytical_records']==1
     assert 'reason_code' in plan['direct_fields']
     assert 'observed_element_status' in plan['direct_fields']
     assert 'target_selector' in plan['direct_fields']
     assert 'observed_selector' not in plan['direct_fields']
     assert 'CANONICAL_ABSENT' in html['plano']
+    assert '<td title="Ausente">Ausente</td>' in html['plano']
     assert 'head &gt; link' in html['plano']
+    # Original facts/identifiers are not rewritten when a cell is humanized.
+    assert tables['serp_competitive_pages'][0]['fetch_status'] == 'OBSERVED'
+    assert tables['root_cause_precision'][0]['observed_element_status'] == 'ABSENT'
     assert plan['executive_interpretation_certified'] is False
+
+
+def test_728_contextual_state_labels_do_not_rewrite_literal_evidence():
+    from rasai.parallel_report.presentation_labels import public_value
+
+    assert public_value('OBSERVED', 'fetch_status') == 'Observado'
+    assert public_value('ERROR', 'fetch_status') == 'Falhou'
+    assert public_value('ABSENT', 'observed_element_status') == 'Ausente'
+    assert public_value('NOT_APPLICABLE', 'observed_element_status') == 'Não aplicável'
+    assert public_value('OBSERVED', 'observed_value') == 'OBSERVED'
+    assert public_value('ABSENT', 'observed_value') == 'ABSENT'
+    assert public_value('CANONICAL_ABSENT', 'reason_code') == 'CANONICAL_ABSENT'
