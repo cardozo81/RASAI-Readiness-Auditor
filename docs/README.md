@@ -115,6 +115,10 @@ A referência central consolidada de variáveis é [`ENVIRONMENT_VARIABLES.md`](
 
 A seleção de testes por risco das pull requests, os critérios de *fail-closed* e a preservação dos checks de contrato são descritos na [política de CI por risco](CI_POLICY.md). Essa política operacional não altera o contrato público do produto nem substitui os gates de integração e homologação aplicáveis.
 
+## Aceite editorial da apresentação (#722)
+
+A [matriz de decisão editorial por família](EDITORIAL_DECISION_GATE_722.md) define como qualificar cada fonte persistida como A (técnica deliberada), B (ausente/não executada), C (projeção analítica necessária) ou D (síntese executiva necessária), com evidência e aceite humano/visual. **O recibo automatizado não certifica completude por si só.**
+
 ## Ordem de leitura recomendada
 
 1. [`GLOSSARY.md`](GLOSSARY.md) - siglas, identificadores, taxonomia e significado dos termos usados pelo RASAi.
