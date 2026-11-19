@@ -1,4 +1,5 @@
 """Issue #722: high-value analytical projections, source rows only."""
+import json
 from rasai.parallel_report.read_model import build, SEARCH_PAGE
 from rasai.parallel_report.analytical_views import build_analytical_views
 
@@ -105,3 +106,57 @@ def test_728_contextual_state_labels_do_not_rewrite_literal_evidence():
     assert public_value('OBSERVED', 'observed_value') == 'OBSERVED'
     assert public_value('ABSENT', 'observed_value') == 'ABSENT'
     assert public_value('CANONICAL_ABSENT', 'reason_code') == 'CANONICAL_ABSENT'
+
+
+def test_internal_configuration_control_metadata_is_annex_only():
+    """#728: internal control metadata is not decision-facing analytic content."""
+    from rasai.parallel_report.annex_payloads import collect_payloads
+    from rasai.parallel_report.render import record_html
+    from rasai.parallel_report.read_model import thaw
+
+    settings = {
+        'config_id': 'CFG-PRIVATE',
+        'schema_version': 'INTERNAL_SCHEMA_V6',
+        'configuration_kind': 'INTERNAL_EXECUTION_POLICY',
+        'configuration_hash': 'HASH_INTERNAL_ONLY_123',
+        'changed_fields_json': '["SECRET_INTERNAL_POLICY_FLAG"]',
+        'created_at': '2026-11-19T10:00:00+00:00',
+    }
+    source = {'audit_execution_configurations': [dict(settings)],
+              'ai_provider_native_usage': [{
+                  'attempt_id': 'AI-PUBLIC', 'provider': 'Provider A',
+                  'estimated_cost': 0.02, 'cost_currency': 'USD',
+              }]}
+    schema = {
+        name: {'columns': list(rows[0]), 'primary_key': ['config_id']
+               if name == 'audit_execution_configurations' else ['attempt_id'],
+               'foreign_keys': []}
+        for name, rows in source.items()
+    }
+    original = {name: [dict(row) for row in rows] for name, rows in source.items()}
+    records = build(source, schema)
+    html, receipt = build_analytical_views(source, records, schema, 'UTC')
+    technical = receipt['ia-custos.html']['audit_execution_configurations']
+
+    assert technical['records_available'] == 1
+    assert technical['analytical_records'] == 0
+    assert technical['direct_fields'] == []
+    assert set(settings).issubset(technical['fields_not_in_this_projection'])
+    assert technical['executive_interpretation_certified'] is False
+    assert 'data-analytical-family="audit_execution_configurations"' not in html['ia-custos']
+    for raw in ('INTERNAL_SCHEMA_V6', 'INTERNAL_EXECUTION_POLICY',
+                'HASH_INTERNAL_ONLY_123', 'SECRET_INTERNAL_POLICY_FLAG'):
+        assert raw not in html['ia-custos']
+    assert 'AI-PUBLIC' in html['ia-custos']
+    config_record = next(record for record in records
+                         if record.table == 'audit_execution_configurations')
+    with collect_payloads() as annexes:
+        detail = record_html(config_record, {config_record.href: ()})
+    assert 'Dados persistidos e proveniência' in detail
+    assert 'anexos/' in detail
+    payload = next(iter(annexes.values())).decode('utf-8')
+    assert settings['configuration_hash'] in payload
+    assert json.loads(payload)['changed_fields_json'] == json.loads(settings['changed_fields_json'])
+    assert thaw(config_record.data) == {**settings, 'changed_fields_json': json.loads(settings['changed_fields_json'])}
+    assert source == original
+
