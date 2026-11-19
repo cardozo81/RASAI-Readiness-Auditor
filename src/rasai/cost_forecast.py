@@ -32,6 +32,9 @@ class HistoricalRunCost:
     currency: str
     known_calls: int
     repriced_calls: int
+    # Additive metadata: legacy known-cost samples remain compatible.
+    unpriced_calls: int = 0
+    scope_verified: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,8 +108,20 @@ def _forecast_from_runs(
     baseline = median(success_rates) * pages
     calls = sum(run.known_calls for run in items)
     repriced = sum(run.repriced_calls for run in items)
+    unpriced = sum(max(run.unpriced_calls, 0) for run in items)
+    scope_verified = all(run.scope_verified for run in items)
     share = repriced / calls if calls else 0.0
     extra = list(notes)
+    if unpriced:
+        extra.append(
+            f"cobertura monetária parcial: {calls} tentativas com valor conhecido; "
+            f"{unpriced} sem valor comprovado; custos desconhecidos não são zero"
+        )
+    if not scope_verified:
+        extra.append(
+            "comparabilidade parcial: não há configuração histórica completa "
+            "para certificar equivalência de escopo, esforço e fallback"
+        )
     if share < 1:
         extra.append("parte do histórico não pôde ser reprecificada por tokens e usou o custo técnico persistido")
     extra.append("estimativa técnica histórica; não substitui invoice/fatura do provider")
@@ -114,7 +129,10 @@ def _forecast_from_runs(
     return CostForecast(
         monetary, monetary, next(iter(currencies)), round(baseline, 8), round(expected, 8),
         round(low, 8), round(high, 8), round(potential, 8), len(items), calls, pages,
-        _confidence(len(items), share), source, round(share, 4), tuple(dict.fromkeys(extra)),
+        ("MODERADA" if (unpriced or not scope_verified)
+         and _confidence(len(items), share) in {"BOA", "ALTA"}
+         else _confidence(len(items), share)),
+        source, round(share, 4), tuple(dict.fromkeys(extra)),
     )
 
 
@@ -279,8 +297,19 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
     except sqlite3.Error:
         return None
     try:
-        if not _local_comparable(state, _projection(connection)):
+        comparison_configuration = _projection(connection)
+        if not _local_comparable(state, comparison_configuration):
             return None
+        # Missing/partial snapshots are admissible as historical samples, but
+        # cannot alone attest equivalence of every cost-driving scope.
+        scope_verified = bool(
+            comparison_configuration
+            and all(key in comparison_configuration for key in (
+                "ai_provider", "device", "content_remediation",
+                "search_ai_competitive", "ai_model"
+            ))
+            and str(getattr(state, "ai_provider", "")).casefold() != "auto"
+        )
         improvement_contract, old_improvement_provider, old_improvement_model = _improvement_history(connection)
         # Explicit primary selection must remain comparable to the effective historical
         # provider/model used by Improvement. AUTO deliberately preserves the observed mix.
@@ -309,7 +338,7 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
                 pass
 
         success = total = 0.0
-        known = repriced = 0
+        known = repriced = unpriced = 0
         currency: str | None = None
         for family, row in rows:
             if family == "semantic" and _is_separately_authorized_ai_cost(row):
@@ -343,6 +372,9 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
                     continue
             amount, item_currency, was_repriced = _current_cost(row)
             if amount is None or not item_currency:
+                # This is an eligible attempt with unknown monetary telemetry,
+                # not an observed zero-cost request.
+                unpriced += 1
                 continue
             if currency is None:
                 currency = item_currency
@@ -357,6 +389,7 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
         return HistoricalRunCost(
             str(audit[0]) if audit and audit[0] else database.parent.name,
             page_count, success, total, currency, known, repriced,
+            unpriced_calls=unpriced, scope_verified=scope_verified,
         )
     finally:
         connection.close()
