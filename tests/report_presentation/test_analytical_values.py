@@ -117,3 +117,47 @@ def test_apdex_sample_classification_uses_human_labels_without_changing_evidence
         )
     # Unrelated literal evidence fields are not treated as Apdex categories.
     assert public_value('SATISFIED', 'observed_value') == 'SATISFIED'
+
+
+def test_728_m24_state_and_scope_labels_are_typed_and_literal_sources_unchanged():
+    """M24 state names need domain-specific interpretation, not generic enums."""
+    from rasai.parallel_report.presentation_labels import public_value
+
+    examples = [
+        ('PRESENT', 'Arquivo llms.txt encontrado (proposta comunitária)'),
+        ('ABSENT', 'Arquivo llms.txt não encontrado (não obrigatório)'),
+        ('UNAVAILABLE', 'Consulta a llms.txt indisponível'),
+        ('SKIPPED_SOURCE_BLOCKER', 'llms.txt não consultado por bloqueio técnico da origem'),
+    ]
+    for raw, label in examples:
+        assert public_value(raw, 'llms_state') == label
+    assert public_value('DISABLED', 'ai_state') == 'IA não habilitada nesta execução'
+    assert public_value('WAITING_FOR_DATA', 'ai_state') == 'IA aguardando evidências técnicas'
+    assert public_value('NONE', 'scoring_impact') == 'Nenhum impacto de IA registrado na pontuação'
+    assert 'efeito no índice não comprovado' in public_value(
+        'BOUNDED_AI_RESOURCE_ASSESSMENT', 'scoring_impact')
+    assert public_value('PRESENT', 'observed_value') == 'PRESENT'
+    assert public_value('BOUNDED_AI_RESOURCE_ASSESSMENT', 'reason_code') == (
+        'BOUNDED_AI_RESOURCE_ASSESSMENT')
+
+    row = {
+        'audit_id': 'AUD-M24-SYNTH',
+        'status': 'SUCCESS',
+        'llms_state': 'SKIPPED_SOURCE_BLOCKER',
+        'ai_enabled': False,
+        'ai_state': 'DISABLED',
+        'scoring_impact': 'NONE',
+        'diagnostics_count': 1,
+    }
+    original = row.copy()
+    html, receipt = project('m24_runs', [row])
+    visible = html['descoberta'].split('<dialog')[0]
+    for label in (
+        'llms.txt não consultado por bloqueio técnico da origem',
+        'IA não habilitada nesta execução',
+        'Nenhum impacto de IA registrado na pontuação',
+    ):
+        assert label in visible
+    assert 'SKIPPED_SOURCE_BLOCKER</td>' not in visible
+    assert row == original
+    assert receipt['descoberta.html']['m24_runs']['analytical_records'] == 1

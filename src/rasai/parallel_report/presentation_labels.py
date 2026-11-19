@@ -208,6 +208,29 @@ FIELD_ENUM_LABELS['source'].update({'DETERMINISTIC-RULES-ENGINE':'Motor de regra
 FIELD_ENUM_LABELS['method'].update({'PASSIVE_READ_ONLY':'Leitura da captura passiva já registrada',
                                    'EXPLICIT_DNS_TCP_TLS_PROBE':'Sonda autorizada de DNS, TCP e TLS',
                                    'WINDOWS_TRACERT':'Rastreamento ICMP registrado pelo tracert'})
+# M24 execution fields are not generic statuses. These interpretations are
+# specific to their persisted domain; no cross-field substitution of raw facts.
+FIELD_ENUM_LABELS.update({
+    'llms_state': {
+        'PRESENT': 'Arquivo llms.txt encontrado (proposta comunitária)',
+        'ABSENT': 'Arquivo llms.txt não encontrado (não obrigatório)',
+        'UNAVAILABLE': 'Consulta a llms.txt indisponível',
+        'SKIPPED_SOURCE_BLOCKER': 'llms.txt não consultado por bloqueio técnico da origem',
+    },
+    'ai_state': {
+        'AVAILABLE': 'Resultado da IA disponível',
+        'PARTIAL': 'Resultado parcial da IA',
+        'NOT_CONFIGURED': 'IA sem provedor configurado',
+        'UNAVAILABLE': 'Resultado da IA indisponível',
+        'DISABLED': 'IA não habilitada nesta execução',
+        'WAITING_FOR_DATA': 'IA aguardando evidências técnicas',
+    },
+    'scoring_impact': {
+        'NONE': 'Nenhum impacto de IA registrado na pontuação',
+        'BOUNDED_AI_RESOURCE_ASSESSMENT':
+            'Avaliação de recursos limitada por IA registrada; efeito no índice não comprovado',
+    },
+})
 FIELD_ENUM_LABELS['last_error_code'] = {
     'PLANNED_WORK_NOT_EXECUTED':'Execução encerrada antes de uma tentativa efetiva',
     'AI_NOT_CONFIGURED':'Nenhum provedor de IA apto configurado',
@@ -252,6 +275,7 @@ SEMANTIC_ENUM_FIELDS = ENUM_FIELDS | {
     'decision', 'required', 'domain', 'source', 'source_kind',
     # Field-bound public states: never humanize literal evidence or status codes in IDs.
     'fetch_status', 'observed_element_status',
+    'llms_state', 'ai_state', 'scoring_impact',
     'source_mode', 'origin_kind', 'measurement_origin', 'purpose', 'operation',
     'error_scope', 'domain_status', 'service_state', 'event_state',
     'rule_result', 'provider_state', 'hop_state', 'provenance',
