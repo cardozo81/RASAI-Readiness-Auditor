@@ -7,7 +7,7 @@ from .components import kv
 from .coverage import display, state
 from .read_model import PAGES, destination, thaw, SEARCH_PAGE
 from .templates import label as public_label
-from .presentation_labels import public_value, timezone_for_records, metric_label, presentation_timestamps
+from .presentation_labels import public_value, timezone_for_records, metric_label, presentation_timestamps, MACHINE_TOKEN
 from .annex_payloads import register_payload, table_annex_filename
 
 
@@ -95,6 +95,16 @@ def _redact_nonpublic_platform_identifiers(data):
     return {**data, 'identifiers_json': protected}
 
 
+def _public_status_reason(value):
+    """Use field-scoped public copy; unknown machine codes stay in annexes only."""
+    if not isinstance(value, str):
+        return value
+    label = public_value(value, 'reason')
+    if label == value and MACHINE_TOKEN.fullmatch(value):
+        return 'Motivo técnico não catalogado'
+    return label
+
+
 def record_html(record, links, physical_links=(), timezone_name=None, governance=None, lookup=None):
     data = thaw(record.data)
     if record.table == 'passive_security_platforms':
@@ -107,9 +117,11 @@ def record_html(record, links, physical_links=(), timezone_name=None, governance
             if data.get(key) == title:
                 title = public_value(title, key, timezone_name)
                 break
-    status = state(data.get('status', data.get('state', data.get('consolidation_status'))), data.get('reason'))
+    # Status prose is public; the literal reason remains in the source annex.
+    status_reason = _public_status_reason(data.get('reason'))
+    status = state(data.get('status', data.get('state', data.get('consolidation_status'))), status_reason)
     if record.table == 'serp_observations':
-        status = ('Observado' if data.get('observation_status') == 'OBSERVED' else state(data.get('observation_status'), data.get('reason')))
+        status = ('Observado' if data.get('observation_status') == 'OBSERVED' else state(data.get('observation_status'), status_reason))
     if record.table.startswith('synthetic_') and record.table.endswith('_summaries') and data.get('apdex_score') is not None:
         status = 'Índice medido'
     origin = 'Regra' if record.table in {'rule_executions', 'findings', 'score_contributions'} else 'Medido'
