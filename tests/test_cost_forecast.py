@@ -273,7 +273,7 @@ def test_unpriced_local_attempt_is_unknown_not_a_zero_cost(tmp_path) -> None:
     assert forecast.expected == 0.24
     assert forecast.sample_calls == 1
     assert any("1 tentativa com valor conhecido" in x for x in forecast.notes)
-    assert any("2 sem valor comprovado" in x for x in forecast.notes)
+    assert any("2 tentativas sem valor comprovado" in x for x in forecast.notes)
     assert any("custos desconhecidos não são zero" in x for x in forecast.notes)
 
 
@@ -300,7 +300,7 @@ def test_confidence_requires_known_monetary_coverage_and_verified_scope() -> Non
         assert result.sample_calls == complete.sample_calls
         assert result.expected == complete.expected
         assert result.likely_high == complete.likely_high
-    assert any("25 sem valor comprovado" in x for x in partial_cost.notes)
+    assert any("25 tentativas sem valor comprovado" in x for x in partial_cost.notes)
     assert any("comparabilidade parcial" in x for x in partial_scope.notes)
 
 
