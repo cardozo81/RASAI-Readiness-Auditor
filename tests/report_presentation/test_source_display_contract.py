@@ -397,3 +397,50 @@ def test_crosslinks_keep_unmapped_trace_identifiers_but_label_technical_family()
     assert 'Valor do conteúdo' in links
     assert 'CONTENT_VALUE' not in links
     assert 'href="' + target.href + '"' in links
+
+def test_728_governance_card_contextual_labels_do_not_modify_evidence():
+    """Only the public summary is interpreted; the persisted enums remain exact."""
+    source = {'recommendation_governance': [
+        {'governance_id': 'G-ACCEPT', 'decision': 'ACCEPTED',
+         'target_class': 'TARGET_SITE', 'rejection_reason': None},
+        {'governance_id': 'G-VERIFY', 'decision': 'VERIFY_DECIDE',
+         'target_class': 'EXTERNAL_PROVIDER',
+         'rejection_reason': 'CANONICAL_PREFERRED_URL_NOT_PROVEN'},
+        {'governance_id': 'G-REJECT', 'decision': 'REJECTED',
+         'target_class': 'AUDITOR_INTERNAL',
+         'rejection_reason': 'AUDITOR_INTERNAL_NOT_CLIENT_ACTION'},
+        {'governance_id': 'G-UNKNOWN', 'decision': 'UNCLASSIFIED_DECISION',
+         'target_class': 'UNKNOWN_TARGET',
+         'rejection_reason': 'UNKNOWN_REASON_CODE'},
+    ]}
+    original = json.loads(json.dumps(source))
+    records, _ = model(source)
+    expected = (
+        ('Aceita', 'Site / propriedade auditada', 'N/D'),
+        ('Verificar / decidir antes de implementar',
+         'Fornecedor / dependência externa',
+         'URL canônica preferencial não comprovada — decidir antes de implementar'),
+        ('Rejeitada', 'Auditor RASAi',
+         'Ação interna do auditor — excluída do plano do cliente'),
+        ('Condição técnica não catalogada', 'Condição técnica não catalogada',
+         'Condição técnica não catalogada'),
+    )
+    from rasai.parallel_report.annex_payloads import collect_payloads
+    for record, (decision, target, reason) in zip(records, expected):
+        with collect_payloads() as annexes:
+            html = record_html(record, {record.href: ()})
+        assert len(annexes) == 1
+        raw_annex = next(iter(annexes.values())).decode('utf-8')
+        assert record.data['decision'] in raw_annex
+        assert record.data['target_class'] in raw_annex
+        summary = html.split('<details>', 1)[0]
+        for label, value in (('Decisão', decision), ('Alvo', target),
+                             ('Motivo', reason)):
+            assert '<dt>' + label + '</dt><dd>' + value + '</dd>' in summary
+        assert 'UNKNOWN_REASON_CODE' not in summary
+        assert 'CANONICAL_PREFERRED_URL_NOT_PROVEN' not in summary
+        assert 'VERIFY_DECIDE' not in summary
+        assert record.anchor in html
+        assert 'Dados persistidos e proveniência' in html
+        assert 'anexos/' in html
+    assert source == original

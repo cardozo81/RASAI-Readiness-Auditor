@@ -126,8 +126,14 @@ def record_html(record, links, physical_links=(), timezone_name=None, governance
     if governance is not None and record.table in {'improvement_intelligence_recommendations', 'directed_analysis_actions', 'recommendations', 'content_remediation_suggestions', 'jsonld_remediation_suggestions'}:
         summary += '<dt>Governança</dt><dd>' + esc(governance.disposition(record.table, data)) + '</dd>'
     if record.table == 'recommendation_governance':
-        summary += ''.join(f'<dt>{esc(label)}</dt><dd>{esc(value)}</dd>' for label, value in (
-            ('Decisão', data.get('decision')), ('Alvo', data.get('target_class')), ('Motivo', data.get('rejection_reason'))))
+        # Interpret only the typed public summary; annex/source retain raw facts.
+        summary += ''.join(
+            f'<dt>{esc(label)}</dt><dd>{esc(public_value(data.get(field), field, timezone_name))}</dd>'
+            for label, field in (
+                ('Decisão', 'decision'), ('Alvo', 'target_class'),
+                ('Motivo', 'rejection_reason'),
+            )
+        )
     lookup = lookup or {}
     refs = ''.join(
         f'<a class="tech-link" href="{esc(target)}" '
