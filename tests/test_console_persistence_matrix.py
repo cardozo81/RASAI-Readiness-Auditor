@@ -914,3 +914,86 @@ def test_727_perplexity_explicit_environment_has_precedence_over_saved_ini(tmp_p
         assert resolve_request_options(dict(os.environ))["country"] == "US"
         assert restarted.perplexity_queries == ()
         assert ini.read_bytes() == immutable
+
+def test_727_public_gsc_client_id_restores_into_real_oauth_reader_without_secrets(tmp_path):
+    """A public OAuth client ID survives INI; secrets and consent never do."""
+    from rasai.gsc_oauth import (
+        CLIENT_ID_ENV, CLIENT_SECRET_ENV, REFRESH_TOKEN_ENV,
+        MODE_INCOMPLETE, MODE_REFRESH_TOKEN, credential_state,
+    )
+
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ[CLIENT_ID_ENV] = "synthetic-public-client-727"
+        os.environ[CLIENT_SECRET_ENV] = "synthetic-secret-never-in-ini"
+        os.environ[REFRESH_TOKEN_ENV] = "synthetic-refresh-never-in-ini"
+
+        ini = tmp_path / "gsc-client-id.ini"
+        console_settings.save_console_config(SearchConsoleState(), ini)
+        persisted = ini.read_bytes()
+        parser = ConfigParser(interpolation=None)
+        parser.optionxform = str
+        parser.read(ini, encoding="utf-8")
+        assert parser["environment"][CLIENT_ID_ENV] == "synthetic-public-client-727"
+        assert CLIENT_SECRET_ENV not in parser["environment"]
+        assert REFRESH_TOKEN_ENV not in parser["environment"]
+        assert b"synthetic-secret-never-in-ini" not in persisted
+        assert b"synthetic-refresh-never-in-ini" not in persisted
+
+        os.environ.clear()  # independent console startup without secret store
+        restarted = SearchConsoleState()
+        loaded = console_settings.load_console_config(restarted, ini)
+        assert not loaded.created and loaded.warnings == ()
+        assert os.environ[CLIENT_ID_ENV] == "synthetic-public-client-727"
+        oauth = credential_state(dict(os.environ))
+        assert oauth.mode == MODE_INCOMPLETE
+        assert not oauth.configured
+        assert CLIENT_SECRET_ENV in oauth.missing
+        assert REFRESH_TOKEN_ENV in oauth.missing
+        assert restarted.perplexity_queries == ()
+        assert not restarted.geo_ai_requested
+
+        # Inspect actual credential resolution with synthetic ephemeral secrets,
+        # not HTTP/OAuth exchange; no secret is ever written to the INI.
+        auth = dict(os.environ)
+        auth.update({
+            CLIENT_SECRET_ENV: "synthetic-secret-not-persisted",
+            REFRESH_TOKEN_ENV: "synthetic-refresh-not-persisted",
+        })
+        resolved = credential_state(auth)
+        assert resolved.mode == MODE_REFRESH_TOKEN and resolved.configured
+        assert ini.read_bytes() == persisted
+
+
+def test_727_serp_and_perplexity_saved_source_binding_reaches_scope_consumer(tmp_path):
+    """Cross the physical INI; a different target must not silently rebind inputs."""
+    from rasai.target_scope_reconciliation import bind, consumer_status
+
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        source = SearchConsoleState(target="https://source.example.org/a")
+        source.search_queries = ("comparison term",)
+        source.perplexity_draft_queries = ("optional advisory term",)
+        source.perplexity_draft_search_type = "fast"
+        bind(source, "SERP")
+        bind(source, "PERPLEXITY")
+
+        ini = tmp_path / "independent-sources.ini"
+        console_settings.save_console_config(source, ini)
+        original = ini.read_bytes()
+
+        os.environ.clear()
+        restarted = SearchConsoleState()
+        loaded = console_settings.load_console_config(restarted, ini)
+        assert not loaded.created and loaded.warnings == ()
+        assert consumer_status(restarted, "SERP") == "SAME_TARGET"
+        assert consumer_status(restarted, "PERPLEXITY") == "SAME_TARGET"
+        assert restarted.perplexity_queries == ()
+        assert not restarted.geo_ai_requested
+
+        restarted.target = "https://different.example.org/a"
+        assert consumer_status(restarted, "SERP") == "ORIGIN_CHANGED"
+        assert consumer_status(restarted, "PERPLEXITY") == "ORIGIN_CHANGED"
+        assert restarted.search_queries == ("comparison term",)
+        assert restarted.perplexity_draft_queries == ("optional advisory term",)
+        assert ini.read_bytes() == original
