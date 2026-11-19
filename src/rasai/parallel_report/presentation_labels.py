@@ -346,6 +346,22 @@ def timezone_provenance(reason):
 def public_value(value, field=None, timezone_name=None):
     if value is None:
         return 'N/D'
+    if field == 'materiality_reason':
+        # Interpret only documented capture-quality values. Preserve all
+        # unknown legacy codes in the canonical technical evidence.
+        return {
+            'EMPTY_MAIN_WITH_EXTERNAL_PRIMARY_CONTENT':
+                'Conteúdo principal identificado fora da região principal declarada',
+            'PRIMARY_CONTENT_MATERIAL': 'Conteúdo principal suficiente para avaliação',
+            'CHROME_ONLY': 'Somente navegação e interface; conteúdo principal insuficiente',
+            'TRANSIENT_SHELL': 'Carregamento incompleto; conteúdo principal ainda não disponível',
+            'PRIMARY_CONTENT_WEAK': 'Conteúdo principal insuficiente para avaliação',
+            'SLOW_HYDRATION': 'Conteúdo principal apareceu após carregamento tardio',
+            'LATE_SAME_SESSION_PRIMARY_CONTENT':
+                'Conteúdo principal disponibilizado depois da captura inicial',
+            'SAME_SESSION_LAZY_CONTENT_RECOVERED':
+                'Conteúdo complementar recuperado durante a mesma captura',
+        }.get(str(value).strip().upper(), 'N/D — motivo sem descrição pública validada')
     if field == 'reasoning_profile':
         profile = str(value).strip().upper()
         if not profile:
@@ -382,10 +398,10 @@ def public_value(value, field=None, timezone_name=None):
         return f'{value:,.0f}'.replace(',', ' ')
     if field == 'domain_status' and value == 'NOT_FOUND_WITHIN_DEPTH':
         return 'Não encontrado na profundidade consultada'
-    if (field in TIMESTAMPS or (isinstance(field, str) and field.endswith(('_at', '_utc', '_timestamp')))) and isinstance(value,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?',value):
+    if (field in TIMESTAMPS or (isinstance(field, str) and field.endswith(('_at', '_utc', '_timestamp')))) and isinstance(value,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?',value.strip()):
         if timezone_name:
             try:
-                return format_presentation_timestamp(value,timezone_name=timezone_name)
+                return format_presentation_timestamp(value.strip(),timezone_name=timezone_name)
             except (ValueError,OverflowError):
                 pass
     if field in CIVIL_DATES and isinstance(value, str):

@@ -362,6 +362,35 @@ def _competitive_summary(tables):
     ]
 
 
+def _competitive_ai_reasoning_profile(row, attempts):
+    """Use a source-owned profile or a unique exact request-ID match only.
+
+    Provider/model coincidence and current configuration never prove the
+    effort used, especially after retries or fallback.
+    """
+    value = row.get('reasoning_profile')
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    request_id = str(row.get('provider_request_id') or '').strip()
+    if not request_id:
+        return None
+    matches = [
+        attempt for attempt in attempts
+        if isinstance(attempt, dict)
+        and str(attempt.get('request_id') or '').strip() == request_id
+        and str(attempt.get('operation') or '').upper() == 'COMPETITIVE_INTELLIGENCE'
+        and str(attempt.get('semantic_contract_version') or '').upper() == 'COMPETITIVE-AI-001'
+        and str(attempt.get('status') or '').upper() == 'SUCCESS'
+        and str(attempt.get('provider') or '').casefold() ==
+            str(row.get('provider') or '').casefold()
+        and str(attempt.get('model') or '') == str(row.get('model') or '')
+    ]
+    if len(matches) != 1:
+        return None
+    profile = matches[0].get('reasoning_profile')
+    return str(profile).strip() if isinstance(profile, str) and profile.strip() else None
+
+
 def render_search_visibility_synthesis(root, tables):
     """Contextual sections only; full source records remain in technical inventory."""
     html = (
@@ -383,7 +412,7 @@ def render_search_visibility_synthesis(root, tables):
     for name, family in [('SERP', 'serp_observations'),
                          ('Perplexity / Search API', 'perplexity_search_runs'),
                          ('Inteligência competitiva', 'serp_competitive_analyses'),
-                         ('Competitive AI', 'serp_competitive_ai_analyses')]:
+                         ('Análises competitivas por IA', 'serp_competitive_ai_analyses')]:
         records = tables.get(family)
         source_status.append({'source': name,
                               'count': len(records) if records is not None else 'N/D',
@@ -493,6 +522,7 @@ def render_search_visibility_synthesis(root, tables):
                        ('gaps', 'Diferenças'), ('reference', 'Arquivo de evidência'),
                        ('sha', 'SHA-256')])
     ai, opportunities = [], []
+    attempts = tables.get('ai_provider_attempts', ())
     for row in tables.get('serp_competitive_ai_analyses', ()):
         if not isinstance(row, dict):
             continue
@@ -500,6 +530,7 @@ def render_search_visibility_synthesis(root, tables):
             'observation': row.get('observation_id'),
             'status': row.get('state'),
             'provider': row.get('provider'), 'model': row.get('model'),
+            'reasoning_profile': _competitive_ai_reasoning_profile(row, attempts),
             'summary': row.get('summary'),
             'opportunity_count': row.get('opportunity_count'),
             'reference': row.get('evidence_ref'),
@@ -522,16 +553,20 @@ def render_search_visibility_synthesis(root, tables):
                 })
     if ai:
         html += (
-            '<h2>Propostas semânticas de Competitive AI</h2>'
+            '<h2>Propostas consultivas de análise competitiva por IA</h2>'
             '<p class="rf">Análise persistida produzida por IA, de caráter consultivo; '
             'não constitui ação aprovada pela governança ou prova causal.</p>'
         )
         html += table('Sínteses de IA já materializadas', sanitize(ai),
                       [('observation', 'Observação SERP'), ('status', 'Estado'),
                        ('provider', 'Provedor'), ('model', 'Modelo'),
+                       ('reasoning_profile', 'Esforço solicitado'),
                        ('summary', 'Síntese consultiva'),
                        ('opportunity_count', 'Propostas declaradas'),
                        ('reference', 'Artefato'), ('sha', 'SHA-256')], full_text=True)
+        html += ('<p class="rf">O esforço indica a configuração registrada da tentativa, '
+                 'não a profundidade efetivamente observada. N/D quando esta síntese '
+                 'não possui vínculo inequívoco com uma tentativa de IA.</p>')
     if opportunities:
         # The full list is still available in the canonical row and annex;
         # this is an editorial preview in persisted order, not a new ranking.

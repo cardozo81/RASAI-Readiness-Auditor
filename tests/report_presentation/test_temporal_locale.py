@@ -174,3 +174,67 @@ def test_technical_detail_only_converts_typed_dates_not_literal_headlines():
     assert '17/11/2026 12:41:12 (America/Sao_Paulo)' in html
     assert '2026-11-17T15:41:12+00:00' in html
     assert source['source_date'] == '2026-10-11'
+
+
+def test_733_materiality_codes_are_public_and_original_metadata_is_preserved(tmp_path):
+    reasons = {
+        'EMPTY_MAIN_WITH_EXTERNAL_PRIMARY_CONTENT': 'fora da região principal',
+        'PRIMARY_CONTENT_MATERIAL': 'Conteúdo principal suficiente',
+        'CHROME_ONLY': 'Somente navegação e interface',
+        'TRANSIENT_SHELL': 'Carregamento incompleto',
+        'PRIMARY_CONTENT_WEAK': 'Conteúdo principal insuficiente',
+        'SLOW_HYDRATION': 'carregamento tardio',
+        'LATE_SAME_SESSION_PRIMARY_CONTENT': 'depois da captura inicial',
+        'SAME_SESSION_LAZY_CONTENT_RECOVERED': 'durante a mesma captura',
+    }
+    for raw, phrase in reasons.items():
+        label = public_value(raw, 'materiality_reason')
+        assert phrase in label
+        assert raw not in label
+    assert public_value('UNKNOWN_FUTURE_CAPTURE', 'materiality_reason').startswith('N/D')
+    original = {'capture_quality': {
+        'state': 'READY', 'materiality_reason': 'CHROME_ONLY',
+        'final': {'main_text_length': 0, 'primary_text_length': 0},
+    }}
+    tables = {'page_snapshots': [{'canonical': 'https://example.test',
+                                  'browser_metadata': json.dumps(original)}]}
+    displayed, _ = executive_evidence.summaries(
+        tmp_path, tables, {}, (), {'state': 'SOURCE_ABSENT', 'sources': []},
+        timezone_name=ZONE)
+    for page in ('extracao', 'conteudo', SEARCH_PAGE):
+        assert 'Condição do conteúdo capturado' in displayed[page]
+        assert 'Somente navegação e interface' in displayed[page]
+        assert 'CHROME_ONLY' not in displayed[page]
+    assert tables['page_snapshots'][0]['browser_metadata'] == json.dumps(original)
+
+
+def test_733_serp_observation_uses_audit_timezone_with_offset_without_colon(monkeypatch):
+    monkeypatch.setenv('RASAI_PRESENTATION_TIMEZONE', 'America/Los_Angeles')
+    raw = '2026-11-17T23:15:00+0000 '
+    tables = {
+        'audits': [{'audit_id': 'AUD-TZ'}],
+        'audit_execution_configurations': [{
+            'audit_id': 'AUD-TZ',
+            'configuration_json': json.dumps({
+                'settings': {'presentation': {'timezone': 'Asia/Tokyo'}},
+            }),
+        }],
+        'serp_observations': [{
+            'observation_id': 'OBS-TZ', 'query': 'consulta',
+            'collected_at': raw,
+            'quality_metadata': json.dumps({
+                'collection_window_start': raw,
+                'collection_window_end': raw,
+            }),
+        }],
+    }
+    model, schema = _records(tables)
+    zone, _ = timezone_for_records(model)
+    assert zone == 'Asia/Tokyo'
+    rendered, _ = build_analytical_views(tables, model, schema, zone)
+    visible = rendered[SEARCH_PAGE]
+    local = '18/11/2026 08:15:00 (Asia/Tokyo)'
+    assert visible.count(local) >= 3
+    assert raw not in visible
+    assert tables['serp_observations'][0]['collected_at'] == raw
+    assert public_value('2026-11-17', 'created_at', zone) == '2026-11-17'
