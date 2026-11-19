@@ -341,3 +341,63 @@ def test_partial_local_projection_does_not_prove_effort_or_fallback_scope(tmp_pa
     assert observed.known_calls == 1
     assert db.read_bytes() == before
 
+
+def test_716_fully_unpriced_audit_is_part_of_coverage(tmp_path) -> None:
+    """Even an all-failed eligible AUD lowers coverage, not the price median."""
+    import sqlite3
+
+    from rasai.cost_forecast import _read_local_run
+
+    db = tmp_path / "audit.db"
+    with sqlite3.connect(db) as con:
+        con.executescript(
+            "CREATE TABLE audits(audit_id TEXT, created_at TEXT);"
+            "INSERT INTO audits VALUES('AUD-UNKNOWN','2026-11-19T10:00:00Z');"
+            "CREATE TABLE pages(page_id TEXT);"
+            "INSERT INTO pages VALUES('P1');"
+            "CREATE TABLE ai_provider_attempts("
+            "operation TEXT,provider TEXT,model TEXT,status TEXT,"
+            "estimated_cost REAL,cost_currency TEXT);"
+        )
+        con.executemany(
+            "INSERT INTO ai_provider_attempts VALUES(?,?,?,?,?,?)",
+            [
+                ("SEMANTIC_M7", "", "", "TECHNICAL_ERROR", None, None),
+                ("SEMANTIC_M7", "", "", "TECHNICAL_ERROR", None, None),
+                ("DIRECTED_ANALYSIS", "", "", "TECHNICAL_ERROR", None, None),
+            ],
+        )
+    state = SimpleNamespace(
+        ai_provider="auto", ai_model=None, improvement_enabled=False,
+        content_remediation=False, search_ai_competitive=False,
+    )
+    before = db.read_bytes()
+    unknown = _read_local_run(state, db)
+    assert unknown is not None
+    assert unknown.known_calls == 0
+    assert unknown.unpriced_calls == 2
+    assert unknown.currency == ""
+    assert unknown.scope_verified is False
+    assert db.read_bytes() == before
+
+    known = [
+        HistoricalRunCost(f"AUD-KNOWN-{i}", 2, 0.1, 0.2, "USD", 2, 2)
+        for i in range(25)
+    ]
+    baseline = _forecast_from_runs(known, target_pages=3, source="synthetic")
+    combined = _forecast_from_runs(known + [unknown], target_pages=3, source="synthetic")
+    assert baseline.confidence == "BOA"
+    assert combined.confidence == "MODERADA"
+    assert combined.sample_runs == baseline.sample_runs == 25
+    assert combined.sample_calls == baseline.sample_calls == 50
+    assert combined.expected == baseline.expected
+    assert combined.likely_high == baseline.likely_high
+    assert any("2 tentativas sem valor comprovado" in x for x in combined.notes)
+    assert any("1 auditoria sem custo conhecido" in x for x in combined.notes)
+    assert any("excluídas da mediana monetária" in x for x in combined.notes)
+
+    unknown_only = _forecast_from_runs([unknown], target_pages=3, source="synthetic")
+    assert unknown_only.available is False
+    assert unknown_only.expected is None
+    assert unknown_only.currency is None
+    assert any("2 tentativas com valor monetário desconhecido" in x for x in unknown_only.notes)

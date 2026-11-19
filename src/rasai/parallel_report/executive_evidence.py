@@ -100,7 +100,7 @@ def summaries(root, tables, inventory, records, capture, timezone_name=None):
             final = object_value(quality.get('final'))
             body += kv([('Canonical persistida', snapshot.get('canonical')),
                         ('Qualidade da captura persistida', state_label(quality.get('state'))),
-                        ('Motivo de materialidade persistido', quality.get('materiality_reason')),
+                        ('Condição do conteúdo capturado', public_value(quality.get('materiality_reason'), 'materiality_reason')),
                         ('Texto no main (caracteres observados)', final.get('main_text_length')),
                         ('Texto primário (caracteres observados)', final.get('primary_text_length'))])
         for sidecar in capture.get('sources', ()):

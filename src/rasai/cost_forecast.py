@@ -88,9 +88,21 @@ def _confidence(runs: int, repriced_share: float) -> str:
 def _forecast_from_runs(
     runs: Iterable[HistoricalRunCost], *, target_pages: int, source: str, notes: Iterable[str] = ()
 ) -> CostForecast:
-    items = [run for run in runs if run.page_count > 0 and run.known_calls > 0]
+    # A fully unpriced AUD has no monetary rate, but must still contribute
+    # to sample coverage and confidence. Keep price quantiles known-only.
+    eligible = [run for run in runs if run.page_count > 0
+                and (run.known_calls > 0 or run.unpriced_calls > 0)]
+    items = [run for run in eligible if run.known_calls > 0]
+    unpriced = sum(max(run.unpriced_calls, 0) for run in eligible)
     if not items:
-        return unavailable_forecast(*tuple(notes), "sem histórico financeiro comparável", source=source)
+        coverage = (
+            f"{unpriced} {'tentativa' if unpriced == 1 else 'tentativas'} "
+            "com valor monetário desconhecido; sem estimativa de custo zero"
+        ) if unpriced else ""
+        return unavailable_forecast(
+            *tuple(notes), "sem histórico financeiro comparável", coverage,
+            source=source,
+        )
     currencies = {run.currency for run in items if run.currency}
     if len(currencies) != 1:
         return unavailable_forecast(
@@ -108,8 +120,10 @@ def _forecast_from_runs(
     baseline = median(success_rates) * pages
     calls = sum(run.known_calls for run in items)
     repriced = sum(run.repriced_calls for run in items)
-    unpriced = sum(max(run.unpriced_calls, 0) for run in items)
-    scope_verified = all(run.scope_verified for run in items)
+    scope_verified = all(run.scope_verified for run in eligible)
+    unpriced_only_runs = sum(
+        run.known_calls == 0 and run.unpriced_calls > 0 for run in eligible
+    )
     share = repriced / calls if calls else 0.0
     extra = list(notes)
     if unpriced:
@@ -118,6 +132,12 @@ def _forecast_from_runs(
             f"{'tentativa' if calls == 1 else 'tentativas'} com valor conhecido; "
             f"{unpriced} {'tentativa' if unpriced == 1 else 'tentativas'} "
             "sem valor comprovado; custos desconhecidos não são zero"
+        )
+    if unpriced_only_runs:
+        extra.append(
+            f"{unpriced_only_runs} "
+            f"{'auditoria sem custo conhecido' if unpriced_only_runs == 1 else 'auditorias sem custo conhecido'} "
+            "incluídas na cobertura, mas excluídas da mediana monetária"
         )
     if not scope_verified:
         extra.append(
@@ -398,11 +418,13 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
             repriced += int(was_repriced)
             total += amount
             success += amount if str(_value(row, "status") or "").upper() in _SUCCESS else 0.0
-        if not currency or not known:
+        if not known and not unpriced:
             return None
+        # An unpriced-only AUD has no established currency; never supply a
+        # fictitious currency or include it in the monetary median.
         return HistoricalRunCost(
             str(audit[0]) if audit and audit[0] else database.parent.name,
-            page_count, success, total, currency, known, repriced,
+            page_count, success, total, currency or "", known, repriced,
             unpriced_calls=unpriced, scope_verified=scope_verified,
         )
     finally:
@@ -439,7 +461,13 @@ def forecast_local_cost(state: Any) -> CostForecast:
         notes.append("Improvement Intelligence usa a mesma seleção principal de IA; em AUTO o histórico preserva o mix efetivo de providers/modelos")
     if bool(getattr(state, "search_ai_competitive", False)):
         notes.append("Competitive Intelligence usa a mesma seleção principal de IA e somente evidência determinística consolidada")
-    return _forecast_from_runs(runs, target_pages=_target_local(state, runs), source="local-audit-history", notes=notes)
+    # Preserve the original page-volume forecast: AUDs without known money
+    # affect coverage, not the median used to size the next paid run.
+    priced_runs = [run for run in runs if run.known_calls > 0]
+    return _forecast_from_runs(
+        runs, target_pages=_target_local(state, priced_runs),
+        source="local-audit-history", notes=notes,
+    )
 
 
 def _job_payload(job: Any) -> dict[str, Any] | None:
