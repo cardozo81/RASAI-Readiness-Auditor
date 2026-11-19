@@ -250,6 +250,8 @@ SEMANTIC_ENUM_FIELDS = ENUM_FIELDS | {
     'entity_type', 'component', 'dimension', 'scope', 'scope_key', 'audit_mode',
     'url_scope', 'analysis_method', 'confidence_scope', 'method',
     'decision', 'required', 'domain', 'source', 'source_kind',
+    # Field-bound public states: never humanize literal evidence or status codes in IDs.
+    'fetch_status', 'observed_element_status',
     'source_mode', 'origin_kind', 'measurement_origin', 'purpose', 'operation',
     'error_scope', 'domain_status', 'service_state', 'event_state',
     'rule_result', 'provider_state', 'hop_state', 'provenance',
