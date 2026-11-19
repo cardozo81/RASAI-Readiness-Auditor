@@ -26,19 +26,37 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Determine fail-closed PR regression scope
+        id: risk
+        env:
+          CI_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python scripts/ci_pr_risk_scope.py || echo "mode=full" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@v5
+        if: steps.risk.outputs.mode == 'full'
         with:
           python-version: '3.13'
           cache: 'pip'
       - name: Install package and tests
+        if: steps.risk.outputs.mode == 'full'
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e . pytest
       - name: Compile SCORE-GEO-005 surface
+        if: steps.risk.outputs.mode == 'full'
         run: |
           python -m compileall -q src/rasai/score_geo.py src/rasai/scoring.py src/rasai/scoring_v004.py src/rasai/scoring_v005.py src/rasai/score_geo_cli.py src/rasai/score_geo_reporting.py src/rasai/m9.py src/rasai/entrypoint.py
       - name: SCORE-GEO-005 directed tests
+        if: steps.risk.outputs.mode == 'full'
         run: |
           python -m pytest -q tests/test_score_geo_v005_optional_seo.py tests/test_score_geo.py tests/test_score_geo_applicability.py tests/test_score_geo_reopenability.py tests/test_m9_scoring.py tests/test_rasai_runtime_branding_and_reports.py tests/test_rasai_sari_branding.py
       - name: Current scoring inspection
+        if: steps.risk.outputs.mode == 'full'
         run: python -m rasai scoring inspect
+
+      - name: Derived-only PR - SCORE-GEO suite not applicable
+        if: steps.risk.outputs.mode != 'full'
+        run: echo "SCORE-GEO tests intentionally skipped for proven docs/presentation-only changes"
