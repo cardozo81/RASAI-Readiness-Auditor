@@ -271,14 +271,25 @@ def _competitive_evidence_assessment(tables):
 def _competitive_summary(tables):
     analyses = [r for r in tables.get('serp_competitive_analyses', ())
                 if isinstance(r, dict)]
-    # A zero or nonzero counter from an incomplete analysis must not read
-    # as a verified comparison. The per-observation gate below holds the proof.
     assessed = _competitive_evidence_assessment(tables)
-    verified = bool(assessed) and all(item['content_comparison_verified'] for item in assessed)
+    comparable = [item for item in assessed if item['content_comparison_verified']]
 
-    def reported_total(field):
-        values = [_nonnegative_integer(a.get(field)) for a in analyses]
-        return sum(values) if verified and values and all(v is not None for v in values) else 'N/D'
+    def observed_pages_total():
+        # Observed competitor content is a source fact even if the customer's
+        # content cannot be compared. Do not erase valid collection coverage.
+        values = [_nonnegative_integer(a.get('observed_competitor_pages'))
+                  for a in analyses]
+        return sum(values) if values and all(v is not None for v in values) else 'N/D'
+
+    def verified_gaps_total():
+        # A zero is meaningful only for comparable observations. In a mixed
+        # cohort, label the numerator as partial instead of inventing a total.
+        if not comparable:
+            return 'N/D'
+        total = sum(item['observed_gap_count'] for item in comparable)
+        if len(comparable) != len(assessed):
+            return f'{total} (parcial: {len(comparable)} de {len(assessed)} observações)'
+        return total
     results = tables.get('serp_results')
     selected = [r for r in tables.get('serp_competitive_results', ())
                 if isinstance(r, dict) and
@@ -291,10 +302,10 @@ def _competitive_summary(tables):
          'value': len(selected) if tables.get('serp_competitive_results') is not None else 'N/D',
          'basis': 'serp_competitive_results'},
         {'indicator': 'Páginas externas com conteúdo observado',
-         'value': reported_total('observed_competitor_pages'),
+         'value': observed_pages_total(),
          'basis': 'serp_competitive_analyses.observed_competitor_pages'},
         {'indicator': 'Diferenças competitivas determinísticas',
-         'value': reported_total('gap_count'),
+         'value': verified_gaps_total(),
          'basis': 'serp_competitive_analyses.gap_count'},
     ]
 
