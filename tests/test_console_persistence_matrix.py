@@ -800,3 +800,117 @@ def test_external_environment_precedence_over_saved_ini_survives_new_load(
         assert not result.warnings
         assert os.environ["RASAI_SERP_MAX_REQUESTS"] == windows_override
     assert ini.read_bytes() == original
+
+# Issue #727 (part B): prove each reusable Perplexity provider filter reaches
+# the same canonical request-options consumer after INI save and a fresh load.
+# All inputs are synthetic; no transport, API credential, AUD or paid consent.
+@pytest.mark.parametrize(
+    ("env_name", "raw", "request_field", "expected"),
+    [
+        ("RASAI_PERPLEXITY_MAX_RESULTS", "7", "max_results", 7),
+        ("RASAI_PERPLEXITY_COUNTRY", "BR", "country", "BR"),
+        (
+            "RASAI_PERPLEXITY_SEARCH_LANGUAGE_FILTER",
+            "pt,en",
+            "search_language_filter",
+            ["pt", "en"],
+        ),
+        (
+            "RASAI_PERPLEXITY_SEARCH_DOMAIN_FILTER",
+            "example.org,example.com",
+            "search_domain_filter",
+            ["example.org", "example.com"],
+        ),
+        ("RASAI_PERPLEXITY_SEARCH_RECENCY_FILTER", "week", "search_recency_filter", "week"),
+        ("RASAI_PERPLEXITY_SEARCH_AFTER_DATE", "01/10/2026", "search_after_date_filter", "01/10/2026"),
+        ("RASAI_PERPLEXITY_SEARCH_BEFORE_DATE", "10/10/2026", "search_before_date_filter", "10/10/2026"),
+        ("RASAI_PERPLEXITY_LAST_UPDATED_AFTER", "01/10/2026", "last_updated_after_filter", "01/10/2026"),
+        ("RASAI_PERPLEXITY_LAST_UPDATED_BEFORE", "10/10/2026", "last_updated_before_filter", "10/10/2026"),
+        ("RASAI_PERPLEXITY_MAX_CONTENT_UNITS", "256", "max_tokens", 256),
+        ("RASAI_PERPLEXITY_MAX_CONTENT_UNITS_PER_PAGE", "64", "max_tokens_per_page", 64),
+    ],
+)
+def test_727_perplexity_public_filter_save_reload_reaches_request_policy(
+    tmp_path, env_name, raw, request_field, expected,
+):
+    from rasai.console_provider_environment import environment_specs
+    from rasai.search_intelligence.perplexity_request_policy import (
+        resolve_request_options,
+    )
+
+    _install_config_contract()
+    registered = {spec.name: spec for spec in environment_specs()}
+    assert env_name in registered
+    assert not registered[env_name].sensitive
+
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ[env_name] = raw
+        ini = tmp_path / "perplexity-filter.ini"
+        console_settings.save_console_config(SearchConsoleState(), ini)
+        immutable = ini.read_bytes()
+        parser = ConfigParser(interpolation=None)
+        parser.optionxform = str
+        parser.read(ini, encoding="utf-8")
+        assert parser["environment"][env_name] == raw
+
+        # A fresh console process has no request intent or commercial consent.
+        os.environ.clear()
+        restarted = SearchConsoleState()
+        result = console_settings.load_console_config(restarted, ini)
+        assert result.warnings == ()
+        assert not result.created
+        assert os.environ[env_name] == raw
+        assert resolve_request_options(dict(os.environ), search_type="web")[request_field] == expected
+        assert restarted.perplexity_queries == ()
+        assert restarted.geo_ai_requested is False
+        assert restarted.perplexity_last_status == "NOT_REQUESTED"
+        assert ini.read_bytes() == immutable
+
+
+@pytest.mark.parametrize(
+    ("value", "effective"),
+    [("true", True), ("false", False)],
+)
+def test_727_perplexity_activation_preference_restores_without_paid_consent(
+    tmp_path, value, effective,
+):
+    from rasai.console_search_intelligence import perplexity_enabled
+
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ["RASAI_PERPLEXITY_ENABLED"] = value
+        ini = tmp_path / "perplexity-enabled.ini"
+        console_settings.save_console_config(SearchConsoleState(), ini)
+        immutable = ini.read_bytes()
+        os.environ.clear()
+        restarted = SearchConsoleState()
+        loaded = console_settings.load_console_config(restarted, ini)
+        assert loaded.warnings == ()
+        assert perplexity_enabled(dict(os.environ)) is effective
+        assert restarted.perplexity_queries == ()
+        assert restarted.geo_ai_requested is False
+        assert ini.read_bytes() == immutable
+
+
+def test_727_perplexity_explicit_environment_has_precedence_over_saved_ini(tmp_path):
+    from rasai.search_intelligence.perplexity_request_policy import (
+        resolve_request_options,
+    )
+
+    _install_config_contract()
+    with patch.dict(os.environ, {}, clear=True):
+        os.environ["RASAI_PERPLEXITY_COUNTRY"] = "BR"
+        ini = tmp_path / "perplexity-precedence.ini"
+        console_settings.save_console_config(SearchConsoleState(), ini)
+        immutable = ini.read_bytes()
+
+        # A new process has a higher-priority explicit environment setting.
+        os.environ.clear()
+        os.environ["RASAI_PERPLEXITY_COUNTRY"] = "US"
+        restarted = SearchConsoleState()
+        loaded = console_settings.load_console_config(restarted, ini)
+        assert loaded.warnings == ()
+        assert os.environ["RASAI_PERPLEXITY_COUNTRY"] == "US"
+        assert resolve_request_options(dict(os.environ))["country"] == "US"
+        assert restarted.perplexity_queries == ()
+        assert ini.read_bytes() == immutable
