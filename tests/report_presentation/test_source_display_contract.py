@@ -444,3 +444,40 @@ def test_728_governance_card_contextual_labels_do_not_modify_evidence():
         assert 'Dados persistidos e proveniência' in html
         assert 'anexos/' in html
     assert source == original
+
+
+def test_728_public_status_reason_uses_typed_copy_and_keeps_annex():
+    """Literal reason codes stay verifiable without leaking into status prose."""
+    from rasai.parallel_report.annex_payloads import collect_payloads
+
+    cases = (
+        ('scores', {'score_id': 'S-KNOWN', 'status': 'NOT_APPLICABLE',
+                    'reason': 'SMALL_GROUP_BELOW_NORMAL_MINIMUM'},
+         'Não aplicável — Grupo pequeno, abaixo do mínimo normal de amostras'),
+        ('scores', {'score_id': 'S-UNKNOWN', 'status': 'PARTIAL',
+                    'reason': 'UNRECOGNIZED_INTERNAL_CONDITION'},
+         'Parcial — Motivo técnico não catalogado'),
+        ('serp_observations', {'observation_id': 'SERP-UNKNOWN',
+                              'observation_status': 'PARTIAL',
+                              'reason': 'UNRECOGNIZED_SEARCH_CONDITION'},
+         'Parcial — Motivo técnico não catalogado'),
+        ('scores', {'score_id': 'S-PROSE', 'status': 'FAILED',
+                    'reason': 'Amostra incompleta no contexto consultado'},
+         'Falhou — Amostra incompleta no contexto consultado'),
+    )
+    for family, row, expected_status in cases:
+        source = {family: [row]}
+        before = json.loads(json.dumps(source))
+        records, _ = model(source)
+        record = records[0]
+        with collect_payloads() as annexes:
+            html = record_html(record, {record.href: ()})
+        public_card = html.split('<details>', 1)[0]
+        assert '<p>' + expected_status + '</p>' in public_card
+        if row['reason'].startswith('UNRECOGNIZED_'):
+            assert row['reason'] not in public_card
+        assert record.anchor in html
+        assert len(annexes) == 1
+        exact_annex = next(iter(annexes.values())).decode('utf-8')
+        assert row['reason'] in exact_annex
+        assert source == before
