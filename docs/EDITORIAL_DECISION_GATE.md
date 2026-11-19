@@ -1,4 +1,4 @@
-# Gate de decisão editorial por família — issue #722
+# Gate de decisão editorial por família - issue #722
 
 ## Finalidade e escopo
 
@@ -16,12 +16,12 @@ Para cada família de `families` no recibo, verificar na **cópia isolada** da A
 
 | Decisão | Critério demonstrável | Destino da revisão |
 | --- | --- | --- |
-| **A — Técnica deliberada** | Informação existe, tem finalidade de proveniência, diagnóstico ou rastreabilidade, e a decisão do usuário já é atendida por síntese específica quando necessária | Manter no anexo/detalhe técnico, justificando por que uma nova visualização **não** acrescenta decisão relevante; verificar link acessível |
-| **B — Ausente/não executada** | A fonte e o contrato de execução comprovam ausência, não solicitação ou não execução; `row_count=0` isoladamente **não** comprova esse estado | Comunicar N/D ou estado real com limitação; não fabricar taxa, zero, falha ou gráfico |
-| **C — Projeção analítica necessária** | Há campos/valores persistidos pertinentes à decisão, mas a apresentação não permite comparar, segmentar ou entender denominador, moeda, tempo ou escopo | Especificar campos exatos, tabela/sidecar e uma visualização analítica mínima usando componentes existentes |
-| **D — Síntese executiva necessária** | Uma pergunta decisória material permanece sem resposta contextualizada, apesar de evidência suficiente ou de limitação relevante registrada | Especificar pergunta, resposta suportada, ressalvas, proveniência e posição entre as onze páginas; não converter observação em recomendação aprovada |
+| **A - Técnica deliberada** | Informação existe, tem finalidade de proveniência, diagnóstico ou rastreabilidade, e a decisão do usuário já é atendida por síntese específica quando necessária | Manter no anexo/detalhe técnico, justificando por que uma nova visualização **não** acrescenta decisão relevante; verificar link acessível |
+| **B - Ausente/não executada** | A fonte e o contrato de execução comprovam ausência, não solicitação ou não execução; `row_count=0` isoladamente **não** comprova esse estado | Comunicar N/D ou estado real com limitação; não fabricar taxa, zero, falha ou gráfico |
+| **C - Projeção analítica necessária** | Há campos/valores persistidos pertinentes à decisão, mas a apresentação não permite comparar, segmentar ou entender denominador, moeda, tempo ou escopo | Especificar campos exatos, tabela/sidecar e uma visualização analítica mínima usando componentes existentes |
+| **D - Síntese executiva necessária** | Uma pergunta decisória material permanece sem resposta contextualizada, apesar de evidência suficiente ou de limitação relevante registrada | Especificar pergunta, resposta suportada, ressalvas, proveniência e posição entre as onze páginas; não converter observação em recomendação aprovada |
 
-Se a evidência não permitir escolher A/B/C/D, marcar **PENDENTE — evidência insuficiente**, registrar exatamente o que falta e **não** contabilizar a família como aceita. A decisão é editorial, não produz alteração de `classification` no recibo original nem modifica `human_editorial_acceptance=PENDING` ou `certifies_editorial_completeness=false`.
+Se a evidência não permitir escolher A/B/C/D, marcar **PENDENTE - evidência insuficiente**, registrar exatamente o que falta e **não** contabilizar a família como aceita. A decisão é editorial, não produz alteração de `classification` no recibo original nem modifica `human_editorial_acceptance=PENDING` ou `certifies_editorial_completeness=false`.
 
 ## Registro privado e aprovação
 
