@@ -423,7 +423,7 @@ def test_previous_generator_version_is_upgraded_from_history(tmp_path):
     root = fixture(tmp_path / 'AUD-SYNTHETIC')
     package = generate(root)
     original = json.loads((package / '_geracao.json').read_text(encoding='utf-8'))
-    assert __version__ == '0.4.24'
+    assert __version__ == '0.4.24.post1'
     original['generator_version'] = '0.4.3'
     (package / '_geracao.json').write_text(json.dumps(original), encoding='utf-8')
     assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()

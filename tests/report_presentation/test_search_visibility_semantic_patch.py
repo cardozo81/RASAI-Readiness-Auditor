@@ -337,3 +337,61 @@ def test_725_gap_descriptions_are_visible_only_with_reconciled_evidence(tmp_path
     missing = render_search_visibility_synthesis(tmp_path, data)
     assert 'Título apresenta menos termos observados na consulta' not in missing
     assert 'detalhamento persistido não pôde ser conciliado' in missing
+
+
+def test_733_competitive_ai_effort_matches_only_unique_persisted_request(tmp_path):
+    analyses = [
+        {'observation_id': 'SERP-EXACT', 'state': 'SUCCESS', 'provider': 'OPENAI',
+         'model': 'model-a', 'provider_request_id': 'req-exact',
+         'summary': 'Síntese observada.', 'opportunity_count': 0},
+        {'observation_id': 'SERP-UNKNOWN', 'state': 'SUCCESS', 'provider': 'OPENAI',
+         'model': 'model-a', 'summary': 'Síntese sem vínculo.', 'opportunity_count': 0},
+    ]
+    attempts = [
+        {'operation': 'COMPETITIVE_INTELLIGENCE',
+         'semantic_contract_version': 'COMPETITIVE-AI-001',
+         'request_id': 'req-exact', 'status': 'SUCCESS', 'provider': 'OPENAI',
+         'model': 'model-a', 'reasoning_profile': 'HIGH'},
+        {'operation': 'COMPETITIVE_INTELLIGENCE',
+         'semantic_contract_version': 'COMPETITIVE-AI-001',
+         'request_id': 'req-other', 'status': 'SUCCESS', 'provider': 'OPENAI',
+         'model': 'model-a', 'reasoning_profile': 'LOW'},
+    ]
+    before = json.dumps((analyses, attempts), sort_keys=True)
+    html = render_search_visibility_synthesis(tmp_path, {
+        'serp_competitive_ai_analyses': analyses,
+        'ai_provider_attempts': attempts,
+    })
+    assert 'Esforço solicitado' in html
+    assert html.count('Esforço alto solicitado') >= 1
+    assert 'Esforço baixo solicitado' not in html
+    assert 'não possui vínculo inequívoco' in html
+    assert json.dumps((analyses, attempts), sort_keys=True) == before
+
+
+def test_733_competitive_ai_effort_never_guesses_ambiguous_attempt(tmp_path):
+    row = {'observation_id': 'SERP-A', 'state': 'SUCCESS',
+           'provider': 'OPENAI', 'model': 'model-a',
+           'provider_request_id': 'req-duplicate', 'summary': 'Verificar.',
+           'opportunity_count': 0}
+    attempt = {'operation': 'COMPETITIVE_INTELLIGENCE',
+               'semantic_contract_version': 'COMPETITIVE-AI-001',
+               'request_id': 'req-duplicate', 'status': 'SUCCESS',
+               'provider': 'OPENAI', 'model': 'model-a',
+               'reasoning_profile': 'HIGH'}
+    for candidate in ([attempt, {**attempt, 'reasoning_profile': 'LOW'}],
+                      [{**attempt, 'operation': 'SEMANTIC_M7'}],
+                      [{**attempt, 'request_id': 'not-the-request'}]):
+        html = render_search_visibility_synthesis(tmp_path, {
+            'serp_competitive_ai_analyses': [row],
+            'ai_provider_attempts': candidate,
+        })
+        assert 'Esforço alto solicitado' not in html
+        assert 'Esforço baixo solicitado' not in html
+
+    explicit = {**row, 'reasoning_profile': 'PROVIDER_DEFAULT',
+                'provider_request_id': None}
+    html = render_search_visibility_synthesis(tmp_path, {
+        'serp_competitive_ai_analyses': [explicit],
+    })
+    assert 'Padrão do provedor (nível não comprovado)' in html
