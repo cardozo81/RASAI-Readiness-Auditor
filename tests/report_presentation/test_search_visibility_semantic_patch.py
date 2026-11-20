@@ -186,6 +186,7 @@ def test_725_uncomparable_source_cannot_appear_as_zero_competitive_gaps(tmp_path
                 if row['indicator'] == 'Diferenças competitivas determinísticas') == 'N/D'
     html = render_search_visibility_synthesis(tmp_path, data)
     assert 'Conteúdo do alvo não comparável' in html
+    assert 'Zero diferenças determinísticas foram registradas' not in html
     assert 'N/D' in html
     assert 'artifacts/serp-x.json' in html
     assert next(row['value'] for row in _competitive_summary(data)
@@ -221,7 +222,10 @@ def test_725_consolidated_differences_require_observation_and_selected_url(tmp_p
     assert verified['observed_gap_count'] == 0  # proven zero, not missing
     assert verified['competitive_conclusion'] == 'INDETERMINATE'
     html = render_search_visibility_synthesis(tmp_path, data)
-    assert 'Conteúdo comparável' in html
+    assert 'Comparação técnica registrada' in html
+    assert 'Zero diferenças determinísticas foram registradas' in html
+    assert 'não comprova' in html
+    assert 'Recomendações de IA são consultivas e independentes' in html
     assert 'não demonstra ranking, mercado ou causalidade' in html
     assert next(row['value'] for row in _competitive_summary(data)
                 if row['indicator'] == 'Diferenças competitivas determinísticas') == 0
