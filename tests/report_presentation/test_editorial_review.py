@@ -129,7 +129,7 @@ def test_generation_seals_editorial_review_receipt_and_keeps_sources(tmp_path):
     manifest = json.loads((out/'_geracao.json').read_text(encoding='utf-8'))
     receipt_file = out/'anexos/dados-de-apoio/editorial-review.json'
     receipt = json.loads(receipt_file.read_text(encoding='utf-8'))
-    assert manifest['generator_version'] == '0.4.34'
+    assert manifest['generator_version'] == '0.4.35'
     assert manifest['sha256_per_file']['anexos/dados-de-apoio/editorial-review.json'] == sha256(receipt_file.read_bytes()).hexdigest()
     assert receipt['families_total'] == 5
     assert receipt['families_classified'] == 5
