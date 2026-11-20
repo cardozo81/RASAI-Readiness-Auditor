@@ -261,7 +261,7 @@ def _competitive_evidence_assessment(tables):
         elif not comparable:
             reason = 'Quantidade de diferenças não verificável na análise persistida.'
         else:
-            reason = 'Comparação descritiva de conteúdo registrada; não demonstra ranking, mercado ou causalidade.'
+            reason = 'Há comparação técnica descritiva registrada; a captura HTTP não comprova conteúdo principal substantivo ou equivalência editorial e não demonstra ranking, mercado ou causalidade.'
         # Detail text is eligible only if the canonical persisted gap ledger
         # reconciles to its count. Never invent a description from a number.
         details = []
@@ -304,7 +304,7 @@ def _competitive_evidence_assessment(tables):
             'observation_id': identifier,
             'comparison_status': state or 'N/D',
             'content_comparison_verified': comparable,
-            'content_comparison': 'Conteúdo comparável' if comparable else 'N/D — não comprovada',
+            'content_comparison': 'Comparação técnica registrada' if comparable else 'N/D — não comprovada',
             'reason': reason,
             'selected_candidate_count': len(selected_urls),
             'observed_selected_candidate_pages': candidate_count,
@@ -437,8 +437,9 @@ def render_search_visibility_synthesis(root, tables):
         '<p class="rf">A presença de candidatos SERP não prova concorrência comercial. '
         'Somente uma análise consolidada, com conteúdo do alvo observado e '
         'conteúdo observado de candidato selecionado na mesma observação, '
-        'permite apresentar diferenças descritivas. Conclusões sobre ranking, '
-        'mercado e causalidade permanecem indeterminadas.</p>'
+        'permite apresentar diferenças descritivas. A captura HTTP não comprova '
+        'conteúdo principal substantivo ou equivalência editorial; conclusões '
+        'sobre ranking, mercado e causalidade permanecem indeterminadas.</p>'
     )
     if comparable_rows:
         html += table('Condições verificadas da comparação de conteúdo',
@@ -464,6 +465,14 @@ def render_search_visibility_synthesis(root, tables):
                        ('reference', 'Evidência persistida')], full_text=True)
     else:
         html += '<p class="rf">N/D — nenhuma análise ou página comparativa persistida; conclusão competitiva indeterminada.</p>'
+    if any(row['content_comparison_verified'] and row['observed_gap_count'] == 0
+           for row in comparable_rows):
+        html += ('<p class="rf">Zero diferenças determinísticas foram registradas '
+                 'em uma ou mais comparações técnicas. Isso não comprova '
+                 'equivalência substantiva das páginas, ausência de lacunas '
+                 'editoriais, qualidade do conteúdo principal ou vantagem '
+                 'competitiva. Recomendações de IA são consultivas e independentes '
+                 'desse resultado.</p>')
     explained = [gap for row in comparable_rows for gap in row['observed_differences']]
     if explained:
         html += (
