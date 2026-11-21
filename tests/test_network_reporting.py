@@ -330,3 +330,126 @@ def test_network_time_evidence_panel_is_discoverable_without_inference(tmp_path,
     observation["capture_time_state"] = "NOT_OBSERVED"
     rejected = report.network_report_body(tmp_path, "AUD-659")
     assert "N/D (instante não comprovado)" in rejected
+
+def _origin_fixtures():
+    passive = {
+        "audit_id": "AUD-751", "target_host": "example.org", "device": "MOBILE",
+        "capture_utc": "2026-10-26T09:00:00Z", "capture_time_state": "OBSERVED",
+        "metrics": {
+            "connected_public_ip": {"state": "OBSERVED", "value": "8.8.4.4"},
+        },
+    }
+    probe = {
+        "audit_id": "AUD-751", "hostname": "example.org", "port": 80,
+        "capture_utc": "2026-10-26T09:15:00Z",
+        "measurement_origin": "LOCAL_OPERATOR_PROCESS",
+        "method": "EXPLICIT_DNS_TCP_TLS_PROBE",
+        "source": "LOCAL_SOCKET_STACK", "state": "OBSERVED",
+        "metrics": {
+            "connected_public_ip": {"state": "OBSERVED", "value": "8.8.8.8"},
+            "local_socket_ip": {
+                "state": "OBSERVED", "value": "10.17.0.24",
+                "source": "SOCKET_GETSOCKNAME_AFTER_CONNECT",
+            },
+        },
+    }
+    return passive, probe
+
+
+def test_origin_classifies_browser_process_remote_and_egress_separately():
+    from rasai.network_connection_origin import origin_evidence
+
+    passive, probe = _origin_fixtures()
+    origin = origin_evidence([passive], [probe])
+    assert len(origin) == 2
+    assert origin[0]["kind"] == "Navegador da auditoria"
+    assert origin[0]["remote_ip"] == "8.8.4.4"
+    assert origin[0]["local_ip"] is None
+    assert origin[0]["local_state"] == "NOT_OBSERVED"
+    assert origin[1]["kind"] == "Processo executor"
+    assert origin[1]["remote_ip"] == "8.8.8.8"
+    assert origin[1]["local_ip"] == "10.17.0.24"
+    assert origin[1]["local_state"] == "OBSERVED"
+    assert all(row["egress_ip"] is None for row in origin)
+    assert all(row["egress_state"] == "NOT_OBSERVED" for row in origin)
+
+    legacy = dict(probe, metrics={"connected_public_ip": probe["metrics"]["connected_public_ip"]})
+    assert origin_evidence([], [legacy])[0]["local_state"] == "NOT_OBSERVED"
+
+    wrong_source = dict(probe, metrics={
+        **probe["metrics"],
+        "local_socket_ip": {**probe["metrics"]["local_socket_ip"],
+                            "source": "UNVERIFIED_EXTERNAL_RESULT"},
+    })
+    rejected = origin_evidence([], [wrong_source])[0]
+    assert rejected["local_ip"] is None
+    assert rejected["local_state"] == "INCONCLUSIVE"
+    invalid_ip = dict(probe, metrics={
+        **probe["metrics"],
+        "local_socket_ip": {**probe["metrics"]["local_socket_ip"], "value": "<script>alert(1)</script>"},
+    })
+    assert origin_evidence([], [invalid_ip])[0]["local_state"] == "INCONCLUSIVE"
+    assert origin_evidence([], [invalid_ip])[0]["local_ip"] is None
+    assert origin_evidence([], []) == []
+
+
+def test_origin_catalog_humanized_in_audit_timezone_without_network(tmp_path, monkeypatch):
+    """No network access, no writes to original AUD, no public-egress inference."""
+    import sqlite3
+    from rasai import network_reporting as reporting
+
+    with sqlite3.connect(tmp_path / "audit.db") as cx:
+        cx.execute(
+            "CREATE TABLE audit_execution_configurations "
+            "(audit_id TEXT, configuration_kind TEXT, configuration_json TEXT)"
+        )
+        cx.execute(
+            "INSERT INTO audit_execution_configurations VALUES (?,?,?)",
+            ("AUD-751", "CONSOLE", json.dumps({"settings": {
+                "presentation": {"timezone": "America/Sao_Paulo"},
+            }})),
+        )
+    source_before = (tmp_path / "audit.db").read_bytes()
+    passive, probe = _origin_fixtures()
+    monkeypatch.setattr(reporting, "read_network_observations", lambda *_: [passive])
+    monkeypatch.setattr(reporting, "read_authorized_probes", lambda *_: [probe])
+
+    page = reporting.network_report_body(tmp_path, "AUD-751")
+
+    assert "<h2>Origem da conexão</h2>" in page
+    assert "10.17.0.24" in page and "8.8.8.8" in page
+    assert "IP público de saída não identificado" in page
+    assert "26/10/2026 06:15:00 (America/Sao_Paulo)" in page
+    assert "SOCKET_GETSOCKNAME_AFTER_CONNECT" not in page
+    assert (tmp_path / "audit.db").read_bytes() == source_before
+
+
+def test_origin_presentation_reuses_verified_probes_and_never_uses_map_to_infer_ip(
+    tmp_path, monkeypatch,
+):
+    from rasai.parallel_report import scope_context as view
+
+    passive, probe = _origin_fixtures()
+    monkeypatch.setattr(view, "read_network_observations", lambda *_: [passive])
+    monkeypatch.setattr(view, "read_authorized_probes", lambda *_: [probe])
+    monkeypatch.setattr(view, "build_network_assessment", lambda *_: None)
+    monkeypatch.setattr(view, "network_geographic_panel", lambda *_a, **_k: "")
+    monkeypatch.setattr(view, "unlocated_world_map", lambda **_k: "")
+    monkeypatch.setattr(view, "register_payload", lambda *_: None)
+    primary = {}
+
+    body, events, inventory = view.network_context(
+        tmp_path, "AUD-751", "America/Sao_Paulo", primary=primary,
+    )
+
+    assert "Origem da conexão" in primary["rede:primary"]
+    assert "10.17.0.24" in primary["rede:primary"]
+    assert "IP público de saída" in primary["rede:primary"]
+    assert "Não identificado" in primary["rede:primary"]
+    assert "26/10/2026 06:15:00" in primary["rede:primary"]
+    assert "Navegador da auditoria" in primary["rede:primary"]
+    assert "Processo executor" in primary["rede:primary"]
+    assert "SOCKET_GETSOCKNAME_AFTER_CONNECT" not in primary["rede:primary"]
+    assert "Origem da conexão" not in body
+    assert events and inventory
+
