@@ -325,7 +325,7 @@ def test_network_time_evidence_panel_is_discoverable_without_inference(tmp_path,
     html = report.network_report_body(tmp_path, "AUD-659")
     assert "id='network-time-evidence'" in html
     assert "Datas e horários da rede" in html
-    assert "2026-10-25T12:00:00Z" in html
+    assert "25/10/2026 09:00:00 (America/Sao_Paulo)" in html
     assert html.index("Datas e horários da rede") < html.index("Observação do dispositivo")
     observation["capture_time_state"] = "NOT_OBSERVED"
     rejected = report.network_report_body(tmp_path, "AUD-659")
