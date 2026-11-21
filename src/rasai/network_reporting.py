@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import sqlite3
 
-from rasai.network_observation import snapshots_from_audit
+from rasai.network_observation import _utc_capture_time, snapshots_from_audit
 from rasai.network_observation_store import read_network_observations
 from rasai.catalog_source_dependencies import record_source_dependency
 from rasai.network_active_probe import read_authorized_probes
@@ -88,10 +88,11 @@ def _network_timezone(workspace: Path, audit_id: str) -> str:
 
 
 def _network_time(value: object, timezone_name: str) -> str:
-    if not isinstance(value, str) or not value:
+    aware = _utc_capture_time(value)
+    if aware is None:
         return "N/D (instante não comprovado)"
     try:
-        return format_presentation_timestamp(value, timezone_name=timezone_name)
+        return format_presentation_timestamp(aware, timezone_name=timezone_name)
     except (ValueError, TypeError, OverflowError):
         return "N/D (instante não comprovado)"
 
