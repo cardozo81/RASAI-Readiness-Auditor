@@ -388,7 +388,7 @@ def test_network_independent_passive_ip_without_probe_has_explicit_limit(monkeyp
     monkeypatch.setattr(network,'read_authorized_probes',lambda *_:[])
     monkeypatch.setattr(network,'build_network_assessment',lambda *_:None)
     html,_,_=network.network_context(tmp_path,'AUD-X','UTC')
-    assert 'IP público observado</dt><dd>1 captura(s) passiva(s); 0 sonda(s) complementar(es)' in html
+    assert 'IP remoto público observado</dt><dd>1 captura(s) passiva(s); 0 sonda(s) complementar(es)' in html
     assert 'Origem da ausência de sonda</dt><dd>Não comprovada pelos registros desta AUD' in html
     assert '8.8.8.8' in html
     assert 'Rastreamentos registrados</dt><dd>0</dd>' in html
