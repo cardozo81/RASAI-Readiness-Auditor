@@ -122,7 +122,8 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
     started = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     metrics = {
         "dns_resolution": _metric(), "dns_elapsed_ms": _metric(),
-        "connected_public_ip": _metric(), "tcp_handshake_ms": _metric(),
+        "connected_public_ip": _metric(), "local_socket_ip": _metric(),
+        "tcp_handshake_ms": _metric(),
         "tls_handshake_ms": _metric(), "tls_protocol": _metric(),
         "traceroute": _metric(), "asn": _metric(), "geoip": _metric(),
     }
@@ -184,6 +185,20 @@ def _worker_probe(host: str, port: int, *, include_traceroute: bool = False) -> 
         t0 = time.monotonic()
         sock.connect(target)
         tcp_ms = round((time.monotonic() - t0) * 1000, 2)
+        # Only the existing, explicitly authorized TCP connection is inspected.
+        # This is the interface address chosen by the OS, NOT the public
+        # Internet egress IP; NAT/proxy/VPN may alter the latter.
+        try:
+            local = sock.getsockname()
+            local_ip = ipaddress.ip_address(local[0])
+            if not local_ip.is_unspecified:
+                metrics["local_socket_ip"] = {
+                    **_metric("OBSERVED", str(local_ip).split("%", 1)[0]),
+                    "source": "SOCKET_GETSOCKNAME_AFTER_CONNECT",
+                }
+        except (OSError, ValueError, TypeError, AttributeError, IndexError):
+            # Absence is not a TCP failure and must never be inferred.
+            pass
         metrics["connected_public_ip"] = _metric("OBSERVED", ip)
         metrics["tcp_handshake_ms"] = _metric("OBSERVED", tcp_ms)
         if port == 443:
