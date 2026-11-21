@@ -407,7 +407,10 @@ def _build_outcome(state: Any, forecast: CostForecast) -> _CostOutcome | None:
     if not str(getattr(state, "audit_id", "") or "").strip():
         return None
     workspace, _ = artifact_status(state)
-    usage = actual_usage(workspace)
+    # The forecast excludes separately authorized Perplexity and Directed
+    # Analysis. Compare only the same primary-AUD ledger scope; full usage
+    # remains available unchanged to the post-run usage and cost reports.
+    usage = actual_usage(workspace, primary_audit_only=True)
     if workspace is None or usage is None:
         return None
     return _evaluate_cost_outcome(
