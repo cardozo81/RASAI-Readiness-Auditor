@@ -333,3 +333,38 @@ def test_common_crawl_final_binding_collects_preseal_after_late_owner(monkeypatc
     assert result["services"]["common-crawl"]["datasets"] == ["DATASET-CC-1"]
     assert persisted and persisted[0]["service_id"] == "common-crawl"
 
+def test_cost_guard_accepts_non_applicable_and_disabled_required_items(monkeypatch, tmp_path: Path) -> None:
+    """A COMPLETE AUD must not lose financial comparability on excluded items."""
+    from rasai import console_cost_confirmation as cost
+
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """CREATE TABLE audit_fulfillment_work_items(
+                audit_id TEXT, required INTEGER, status TEXT
+            )"""
+        )
+        connection.executemany(
+            "INSERT INTO audit_fulfillment_work_items VALUES (?,?,?)",
+            [
+                ("AUD-X", 1, "SUCCESS"),
+                ("AUD-X", 1, "NOT_APPLICABLE"),
+                ("AUD-X", 1, "DISABLED"),
+                ("AUD-OTHER", 1, "FAILED_RETRYABLE"),
+            ],
+        )
+
+    original = cost._CostOutcome(
+        comparable=True, currency="USD", expected=0.10, actual=0.10,
+        deviation=0.0, deviation_percent=0.0,
+        status="DENTRO DO ESPERADO", relation="dentro da faixa",
+        forecast_pages=1, actual_pages=1, unpriced_ai_attempts=0, notes=(),
+    )
+    monkeypatch.setattr(cost, "_build_outcome", lambda state, forecast: original)
+    monkeypatch.setattr(cost, "artifact_status", lambda state: (tmp_path, None))
+    closure._install_cost_fulfillment_guard()
+
+    actual = cost._build_outcome(SimpleNamespace(audit_id="AUD-X"), SimpleNamespace())
+    assert actual is original
+    assert actual.comparable is True
+    assert actual.status == "DENTRO DO ESPERADO"
