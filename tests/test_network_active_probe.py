@@ -307,3 +307,59 @@ def test_dns_failure_after_transient_retry_preserves_actual_attempt_count(monkey
     assert result["metrics"]["dns_resolution"]["error"] == "DNS_RESOLVER_OS_ERROR"
     assert result["resolver_diagnostics"]["attempts"] == 2
     assert "second system error" not in json.dumps(result)
+
+def test_authorized_worker_records_actual_local_socket_not_public_egress(monkeypatch):
+    """An existing approved TCP socket is inspected without any echo request."""
+    monkeypatch.setattr(p.socket, "getaddrinfo", lambda *_a, **_k: [
+        (p.socket.AF_INET, p.socket.SOCK_STREAM, p.socket.IPPROTO_TCP, "",
+         ("8.8.8.8", 80)),
+    ])
+    operations = []
+    class Socket:
+        def settimeout(self, seconds):
+            operations.append(("timeout", seconds))
+        def connect(self, address):
+            operations.append(("connect", address))
+        def getsockname(self):
+            operations.append(("getsockname",))
+            return ("10.17.0.24", 53221)
+        def close(self):
+            operations.append(("close",))
+    monkeypatch.setattr(p.socket, "socket", lambda *_a, **_k: Socket())
+
+    result = p._worker_probe("website.example.org", 80)
+
+    assert result["state"] == "OBSERVED"
+    assert result["metrics"]["local_socket_ip"] == {
+        "state": "OBSERVED", "value": "10.17.0.24", "error": None,
+        "source": "SOCKET_GETSOCKNAME_AFTER_CONNECT",
+    }
+    assert result["metrics"]["connected_public_ip"]["value"] == "8.8.8.8"
+    assert "public_egress_ip" not in result["metrics"]
+    assert operations.index(("connect", ("8.8.8.8", 80))) < operations.index(("getsockname",))
+    assert operations.count(("getsockname",)) == 1
+
+
+def test_worker_unavailable_local_endpoint_does_not_fail_tcp(monkeypatch):
+    monkeypatch.setattr(p.socket, "getaddrinfo", lambda *_a, **_k: [
+        (p.socket.AF_INET, p.socket.SOCK_STREAM, p.socket.IPPROTO_TCP, "",
+         ("8.8.8.8", 80)),
+    ])
+    class Socket:
+        def settimeout(self, _value):
+            pass
+        def connect(self, _target):
+            pass
+        def getsockname(self):
+            raise OSError("local endpoint unavailable")
+        def close(self):
+            pass
+    monkeypatch.setattr(p.socket, "socket", lambda *_a, **_k: Socket())
+
+    result = p._worker_probe("website.example.org", 80)
+
+    assert result["state"] == "OBSERVED"
+    assert result["metrics"]["local_socket_ip"]["state"] == "NOT_OBSERVED"
+    assert result["metrics"]["local_socket_ip"]["value"] is None
+    assert result["metrics"]["connected_public_ip"]["state"] == "OBSERVED"
+

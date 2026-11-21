@@ -53,7 +53,7 @@ def test_passive_snapshot_host_and_utc_are_scoped_to_original_capture(tmp_path):
     assert rows[0]["capture_utc"] == "2026-10-26T09:00:00Z"
     assert rows[0]["metrics"]["dns_resolution"]["state"] == "NOT_OBSERVED"
     page = network_report_body(tmp_path, "AUD-X")
-    assert "public.example" in page and "2026-10-26T09:00:00Z" in page
+    assert "public.example" in page and "26/10/2026 06:00:00 (America/Sao_Paulo)" in page
     assert "SECRET" not in page and "password" not in page
     assert db.read_bytes() == original
 

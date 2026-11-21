@@ -6,10 +6,15 @@ import json
 from pathlib import Path
 import sqlite3
 
-from rasai.network_observation import snapshots_from_audit
+from rasai.network_observation import _utc_capture_time, snapshots_from_audit
 from rasai.network_observation_store import read_network_observations
 from rasai.catalog_source_dependencies import record_source_dependency
 from rasai.network_active_probe import read_authorized_probes
+from rasai.network_connection_origin import origin_evidence
+from rasai.time_contract import (
+    DEFAULT_PRESENTATION_TIMEZONE, format_presentation_timestamp,
+    presentation_timezone_for_audit,
+)
 from rasai.network_map import network_geographic_panel
 from rasai.network_progression import route_panels, temporal_panel
 
@@ -60,6 +65,87 @@ def _display_observed_metric(key: str, value: object) -> str:
     if key == "tls_protocol" and isinstance(value, str) and value.startswith("TLSv"):
         return "TLS " + value.removeprefix("TLSv")
     return str(value)
+
+
+
+def _network_timezone(workspace: Path, audit_id: str) -> str:
+    """Use the audit's sealed zone, never the current machine's timezone."""
+    database = workspace / "audit.db"
+    if workspace.is_symlink() or database.is_symlink() or not database.is_file():
+        return DEFAULT_PRESENTATION_TIMEZONE
+    try:
+        with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=1) as cx:
+            cx.execute("PRAGMA query_only=ON")
+            row = cx.execute(
+                "SELECT configuration_json FROM audit_execution_configurations "
+                "WHERE audit_id=? AND configuration_kind='CONSOLE'",
+                (audit_id,),
+            ).fetchone()
+        raw = json.loads(row[0]) if row and isinstance(row[0], str) else None
+        return presentation_timezone_for_audit(raw)[0]
+    except (OSError, sqlite3.Error, ValueError, TypeError, AttributeError):
+        return DEFAULT_PRESENTATION_TIMEZONE
+
+
+def _network_time(value: object, timezone_name: str) -> str:
+    aware = _utc_capture_time(value)
+    if aware is None:
+        return "N/D (instante não comprovado)"
+    try:
+        return format_presentation_timestamp(aware, timezone_name=timezone_name)
+    except (ValueError, TypeError, OverflowError):
+        return "N/D (instante não comprovado)"
+
+
+def _origin_section(observations: list[dict], probes: list[dict], timezone_name: str) -> str:
+    """Public, offline origin summary without exposing internal contract codes."""
+    rows = []
+    for item in origin_evidence(observations, probes):
+        local = item["local_ip"] or "Não identificada"
+        status = (
+            "Endereço local observado na conexão do processo"
+            if item["local_state"] == "OBSERVED"
+            else "Registro local inconclusivo"
+            if item["local_state"] == "INCONCLUSIVE"
+            else "Origem local não identificada"
+        )
+        values = (
+            item["kind"], item["context"], local,
+            "Não identificado", item["remote_ip"] or "Não identificado",
+            item["destination"] or "Destino não identificado",
+            _network_time(item["captured_at"], timezone_name),
+            item["method"], item["provenance"], status,
+        )
+        rows.append("<tr>" + "".join(
+            "<td>" + escape(str(value)) + "</td>" for value in values
+        ) + "</tr>")
+    introduction = (
+        "<section class='panel' id='network-connection-origin'>"
+        "<h2>Origem da conexão</h2>"
+        "<p>O endereço local pertence à interface escolhida pelo sistema para "
+        "uma sondagem autorizada, quando registrado. Ele não comprova o IP público "
+        "de saída: NAT, proxy e VPN podem alterar a origem visível na Internet. "
+        "O IP remoto identifica o destino, nunca o ponto inicial. "
+        "A captura do navegador é independente da sonda do processo executor.</p>"
+    )
+    if not rows:
+        return introduction + (
+            "<p><strong>Não identificada.</strong> Não há captura ou sondagem "
+            "verificável para demonstrar a origem. A ausência de evidência "
+            "não indica falha de rede.</p></section>"
+        )
+    return introduction + (
+        "<div class='table-wrap'><table><thead><tr>"
+        "<th>Ambiente</th><th>Contexto</th><th>Endereço local</th>"
+        "<th>IP público de saída</th><th>IP remoto do destino</th>"
+        "<th>Destino</th><th>Instante</th><th>Método</th>"
+        "<th>Proveniência</th><th>Conclusão</th>"
+        "</tr></thead><tbody>" + "".join(rows) +
+        "</tbody></table></div>"
+        "<p>IP público de saída não identificado: nenhuma verificação externa "
+        "específica, autorizada e vinculada a estas conexões foi persistida. "
+        "Não é deduzido por DNS, IP do destino, GeoIP ou traceroute.</p></section>"
+    )
 
 
 def _incomplete_network_consent_notice(workspace: Path, audit_id: str) -> str:
@@ -114,24 +200,28 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
     # freshness, including when the probes directory was previously absent.
     record_source_dependency(packet)
     record_source_dependency(root / "artifacts" / "network" / "probes")
+    timezone_name = _network_timezone(root, audit_id)
     observations = read_network_observations(root, audit_id)
     if not observations and not packet.exists() and not packet.is_symlink():
         observations = snapshots_from_audit(root / "audit.db", audit_id)
     from rasai.network_intelligence_reporting import network_intelligence_section
-    blocks = [network_intelligence_section(root, audit_id)]
-    # Surface the provenance of capture time; never infer an unobserved instant.
     probes = read_authorized_probes(root, audit_id)
+    blocks = [
+        _origin_section(observations, probes, timezone_name),
+        network_intelligence_section(root, audit_id),
+    ]
+    # Surface the provenance of capture time; never infer an unobserved instant.
     time_rows = []
     for item in observations[:12]:
         raw = item.get("capture_utc")
         observed = item.get("capture_time_state") == "OBSERVED"
-        when = escape(str(raw)[:80]) if observed and raw else "N/D (instante não comprovado)"
+        when = escape(_network_time(raw, timezone_name)) if observed and raw else "N/D (instante não comprovado)"
         source = escape(str(item.get("device") or "N/D")[:40])
         time_rows.append("<tr><th scope='row'>Captura " + source + "</th><td>"
                          + when + "</td><td>Navegador da auditoria</td></tr>")
     for item in probes[:12]:
         raw = item.get("capture_utc")
-        when = escape(str(raw)[:80]) if raw else "N/D (instante não comprovado)"
+        when = escape(_network_time(raw, timezone_name)) if raw else "N/D (instante não comprovado)"
         time_rows.append("<tr><th scope='row'>Medição complementar</th><td>"
                          + when + "</td><td>Coleta independente autorizada</td></tr>")
     if time_rows:
@@ -170,7 +260,7 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
         host_label = escape(str(host)) if host else "Destino não identificado"
         timestamp = item.get("capture_utc")
         capture_label = (
-            "Registro da captura: " + escape(str(timestamp))
+            "Registro da captura: " + escape(_network_time(timestamp, timezone_name))
             if timestamp and item.get("capture_time_state") == "OBSERVED"
             else "Data da captura não comprovada"
         )
@@ -250,7 +340,7 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             "<section class='panel'><h2>Medição complementar autorizada</h2>"
             "<p>Destino: " + escape(str(probe.get("hostname") or "não informado")) +
             ". Coleta independente da auditoria, a partir do processo executor em " +
-            escape(str(probe.get("capture_utc") or "data não comprovada")) +
+            escape(_network_time(probe.get("capture_utc"), timezone_name)) +
             ". Não demonstra localização física, rota de rede ou desempenho do usuário.</p>"
             "<div class='table-wrap'><table><thead><tr><th>Indicador</th>"
             "<th>Resultado</th><th>Situação</th></tr></thead><tbody>" +

@@ -11,6 +11,7 @@ from rasai.catalog_report_search_trust import (
 from rasai.network_intelligence import build_network_assessment
 from rasai.network_map import network_geographic_panel, network_map_locations, map_reference_for_hop
 from rasai.network_active_probe import read_authorized_probes
+from rasai.network_connection_origin import origin_evidence
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
 from .components import kv, table, text, technical_link
@@ -373,7 +374,7 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
     html = '<h2>Escopo e proveniência de rede</h2>' + kv([
         ('Capturas passivas verificadas', len(observations)),
         ('Sondas complementares autorizadas', len(probes)),
-        ('IP público observado', str(passive_ip_count) + ' captura(s) passiva(s); '
+        ('IP remoto público observado', str(passive_ip_count) + ' captura(s) passiva(s); '
          + str(probe_ip_count) + ' sonda(s) complementar(es)'),
         ('Rastreamentos registrados', trace_count),
         ('Origem da ausência de sonda',
@@ -412,6 +413,46 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
                 'provenance': (metrics.get('connected_public_ip') or {}).get('source') or item.get('measurement_origin'),
                 '_ref': '#network-' + kind + '-' + str(index),
             })
+    origin_html = (
+        '<h2>Origem da conexão</h2>'
+        '<p>O endereço da interface usado por uma sonda autorizada não é '
+        'necessariamente o IP público de saída. O IP remoto pertence ao destino. '
+        'Captura do navegador e sonda do processo executor são independentes; '
+        'NAT, proxy ou VPN podem alterar a origem visível na Internet.</p>'
+    )
+    origin_rows = origin_evidence(observations, probes)
+    if not origin_rows:
+        origin_html += (
+            '<p><strong>Não identificada.</strong> Não há registro de origem '
+            'verificável nesta auditoria. Isso não indica falha de rede.</p>'
+        )
+    for row in origin_rows[:24]:
+        local_status = (
+            'Endereço local observado na conexão do processo'
+            if row['local_state'] == 'OBSERVED'
+            else 'Registro de origem inconclusivo'
+            if row['local_state'] == 'INCONCLUSIVE'
+            else 'Não identificada'
+        )
+        origin_html += kv([
+            ('Ambiente', row['kind']),
+            ('Contexto', public_value(row['context'], 'device')),
+            ('Endereço local da conexão', row['local_ip'] or 'Não identificada'),
+            ('IP público de saída', 'Não identificado'),
+            ('IP remoto do destino', row['remote_ip'] or 'Não identificado'),
+            ('Destino', row['destination'] or 'Destino não identificado'),
+            ('Instante registrado', public_value(row['captured_at'], 'captured_at', timezone_name)
+             if row['captured_at'] else 'N/D (instante não comprovado)'),
+            ('Método', row['method']),
+            ('Proveniência', row['provenance']),
+            ('Conclusão sobre a origem', local_status),
+        ])
+        origin_html += '<p>' + technical_link(row['ref'], 'Consultar evidência da conexão') + '</p>'
+    origin_html += (
+        '<p class="rf">IP público de saída não identificado: não existe medição '
+        'externa específica, autorizada e vinculada à conexão nestes pacotes. '
+        'DNS, traceroute, GeoIP e IP remoto não são provas da origem pública.</p>'
+    )
     connection_html = '<h2>Conexões e cronologia verificadas</h2>'
     connection_html += '<p>O IP é o peer remoto observado, não o IP do usuário. O instante indica a captura; não mede latência ou RTT. Cada linha conserva sua própria origem.</p>'
     for connection in sanitize(connections):
@@ -425,9 +466,9 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
     if not connections:
         connection_html += '<p>N/D — nenhuma conexão verificável nas fontes disponíveis.</p>'
     if primary is None:
-        html += connection_html
+        html += origin_html + connection_html
     else:
-        primary['rede:primary'] = connection_html
+        primary['rede:primary'] = origin_html + connection_html
 
     metric_rows = _network_metric_rows(observations, probes, timezone_name)
     html += '<h2>Indicadores observados</h2>' + table(
