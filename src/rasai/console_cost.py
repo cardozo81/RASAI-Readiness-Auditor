@@ -315,6 +315,8 @@ def _usage_from_table(
     connection: sqlite3.Connection,
     table: str,
     native_table: str | None = None,
+    *,
+    where: str = "",
 ) -> dict[str, int | dict[str, float]]:
     if not _table_exists(connection, table):
         return {
@@ -341,6 +343,7 @@ def _usage_from_table(
                         AND (input_tokens IS NOT NULL OR output_tokens IS NOT NULL)
                         THEN 1 ELSE 0 END)
         FROM {table}
+        {f"WHERE {where}" if where else ""}
         """
     ).fetchone()
     native_cost_exclusion = (
@@ -356,6 +359,7 @@ def _usage_from_table(
             FROM {table}
             WHERE estimated_cost IS NOT NULL AND cost_currency IS NOT NULL
             {native_cost_exclusion}
+            {f"AND {where}" if where else ""}
             GROUP BY cost_currency ORDER BY cost_currency
             """
         ).fetchall()
@@ -376,6 +380,8 @@ def _usage_from_table(
 def _native_usage_from_table(
     connection: sqlite3.Connection,
     table: str,
+    *,
+    where: str = "",
 ) -> tuple[dict[str, float], dict[str, float], int]:
     if not _table_exists(connection, table):
         return {}, {}, 0
@@ -386,6 +392,7 @@ def _native_usage_from_table(
                SUM(CASE WHEN estimated_cost IS NULL THEN 1 ELSE 0 END)
         FROM {table}
         WHERE component_type IN ('REQUEST','CONSUMPTION')
+          {f"AND {where}" if where else ""}
         GROUP BY native_usage_unit
         """
     ).fetchall()
@@ -400,6 +407,7 @@ def _native_usage_from_table(
             WHERE component_type IN ('REQUEST','CONSUMPTION')
               AND estimated_cost IS NOT NULL
               AND cost_currency IS NOT NULL
+              {f"AND {where}" if where else ""}
             GROUP BY cost_currency ORDER BY cost_currency
             """
         ).fetchall()
@@ -424,8 +432,14 @@ def _web_usage(
     return sum(count for _, count in services), services
 
 
-def actual_usage(workspace: Path | None) -> ActualUsage | None:
-    """Aggregate existing AI/Web telemetry without persisting duplicate totals."""
+def actual_usage(
+    workspace: Path | None, *, primary_audit_only: bool = False,
+) -> ActualUsage | None:
+    """Aggregate usage, optionally limited to the comparable primary AUD scope.
+
+    The default preserves full usage/cost reporting. The opt-in scope excludes
+    separately authorized M18 activities using the forecast's canonical rule.
+    """
     if workspace is None:
         return None
     database = workspace / "audit.db"
@@ -434,10 +448,35 @@ def actual_usage(workspace: Path | None) -> ActualUsage | None:
     try:
         connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=0.5)
         try:
+            ai_where = ""
+            native_ai_where = ""
+            if primary_audit_only:
+                # Reuse exactly the same post-AUD exclusion contract as the
+                # historical forecast, including future contract prefixes.
+                from rasai.cost_forecast import _is_separately_authorized_ai_cost
+
+                connection.create_function(
+                    "rasai_primary_ai_attempt",
+                    2,
+                    lambda operation, contract: int(
+                        not _is_separately_authorized_ai_cost({
+                            "operation": operation,
+                            "semantic_contract_version": contract,
+                        })
+                    ),
+                )
+                ai_where = (
+                    "rasai_primary_ai_attempt(operation, semantic_contract_version)=1"
+                )
+                native_ai_where = (
+                    "attempt_id IN (SELECT attempt_id FROM ai_provider_attempts "
+                    f"WHERE {ai_where})"
+                )
             semantic = _usage_from_table(
                 connection,
                 "ai_provider_attempts",
                 "ai_provider_native_usage",
+                where=ai_where,
             )
             content = _usage_from_table(
                 connection,
@@ -447,6 +486,7 @@ def actual_usage(workspace: Path | None) -> ActualUsage | None:
             semantic_native, semantic_native_costs, semantic_native_unpriced = _native_usage_from_table(
                 connection,
                 "ai_provider_native_usage",
+                where=native_ai_where,
             )
             content_native, content_native_costs, content_native_unpriced = _native_usage_from_table(
                 connection,

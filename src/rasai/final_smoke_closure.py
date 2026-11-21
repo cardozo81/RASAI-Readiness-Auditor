@@ -387,7 +387,8 @@ def _install_cost_fulfillment_guard() -> None:
                 """SELECT COUNT(*) FROM audit_fulfillment_work_items
                    WHERE audit_id=? AND required=1
                      AND UPPER(COALESCE(status,'')) NOT IN
-                         ('SUCCESS','COMPLETE','COMPLETED','FINAL')""",
+                         ('SUCCESS','COMPLETE','COMPLETED','FINAL',
+                          'DISABLED','NOT_APPLICABLE')""",
                 (str(getattr(state, "audit_id", "") or ""),),
             ).fetchone()
             incomplete = int(row[0] or 0) if row else 0
