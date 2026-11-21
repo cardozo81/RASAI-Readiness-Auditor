@@ -645,3 +645,83 @@ def test_319_actual_pages_missing_source_or_legacy_schema_abstain(tmp_path):
     alt = tmp_path / "noncanon"
     alt.mkdir()
     assert _actual_page_count(alt) is None
+
+def test_post_run_adherence_excludes_separate_search_and_directed_costs(
+    monkeypatch, tmp_path,
+) -> None:
+    """Read-only SQLite fixture; Perplexity native request must not be double-counted."""
+    from rasai.console_cost import actual_usage
+
+    database = tmp_path / "audit.db"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """CREATE TABLE ai_provider_attempts(
+                attempt_id TEXT PRIMARY KEY, status TEXT,
+                input_tokens INTEGER, cached_input_tokens INTEGER,
+                output_tokens INTEGER, reasoning_tokens INTEGER,
+                total_tokens INTEGER, estimated_cost REAL, cost_currency TEXT,
+                operation TEXT, semantic_contract_version TEXT
+            )"""
+        )
+        connection.executemany(
+            """INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            [
+                ("A-CORE", "SUCCESS", 100, 0, 50, 0, 150, 0.12, "USD",
+                 "SEMANTIC_M7", "M18-SEMANTIC-22-v1"),
+                ("A-DIRECT", "SUCCESS", 50, 0, 20, 0, 70, 0.08, "USD",
+                 "DIRECTED_ANALYSIS", "DIRECTED-ANALYSIS-001"),
+                ("A-PX", "SUCCESS", None, None, None, None, None, 0.005,
+                 "USD", "SEARCH_INTELLIGENCE", "RASAI-PERPLEXITY-SEARCH-1"),
+            ],
+        )
+        connection.execute(
+            """CREATE TABLE ai_provider_native_usage(
+                attempt_id TEXT, component_type TEXT,
+                native_usage_unit TEXT, native_usage_quantity REAL,
+                estimated_cost REAL, cost_currency TEXT
+            )"""
+        )
+        connection.execute(
+            """INSERT INTO ai_provider_native_usage VALUES (?,?,?,?,?,?)""",
+            ("A-PX", "REQUEST", "PERPLEXITY_SEARCH_REQUEST", 1.0, 0.005, "USD"),
+        )
+
+    overall = actual_usage(tmp_path)
+    comparable = actual_usage(tmp_path, primary_audit_only=True)
+    assert overall is not None and comparable is not None
+    assert overall.ai_attempts == 3
+    assert comparable.ai_attempts == 1
+    assert overall.native_usage == (("PERPLEXITY_SEARCH_REQUEST", 1.0),)
+    assert comparable.native_usage == ()
+    assert abs(dict(overall.costs)["USD"] - 0.205) < 1e-10
+    assert comparable.costs == (("USD", 0.12),)
+
+    monkeypatch.setattr(
+        console_cost_confirmation, "artifact_status",
+        lambda state: (tmp_path, None),
+    )
+    outcome = console_cost_confirmation._build_outcome(
+        SimpleNamespace(audit_id="AUD-TEST"), _forecast(),
+    )
+    assert outcome is not None
+    assert outcome.comparable is True
+    assert outcome.status == "DENTRO DO ESPERADO"
+    assert abs(outcome.actual - 0.12) < 1e-10
+
+    # An unknown-price core attempt remains an unknown cost, never free.
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            ("A-UNKNOWN", "FAILED_RETRYABLE", 100, 0, 50, 0, 150, None, None,
+             "TECHNICAL_AI", "M24-TECHNICAL-REMEDIATION-v2"),
+        )
+    core_with_gap = actual_usage(tmp_path, primary_audit_only=True)
+    assert core_with_gap is not None
+    assert core_with_gap.unpriced_ai_attempts == 1
+    unpriced_outcome = console_cost_confirmation._build_outcome(
+        SimpleNamespace(audit_id="AUD-TEST"), _forecast(),
+    )
+    assert unpriced_outcome is not None
+    assert unpriced_outcome.comparable is False
+    assert unpriced_outcome.status == "NÃO COMPARÁVEL"
+
