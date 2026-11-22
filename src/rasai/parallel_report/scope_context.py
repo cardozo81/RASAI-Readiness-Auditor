@@ -12,6 +12,7 @@ from rasai.network_intelligence import build_network_assessment
 from rasai.network_map import network_geographic_panel, network_map_locations, map_reference_for_hop
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_connection_origin import origin_evidence
+from rasai.network_logical_topology import logical_network_sections
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
 from .components import kv, table, text, technical_link
@@ -453,6 +454,7 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
         'externa específica, autorizada e vinculada à conexão nestes pacotes. '
         'DNS, traceroute, GeoIP e IP remoto não são provas da origem pública.</p>'
     )
+    origin_html += logical_network_sections(observations, probes, timezone_name)
     connection_html = '<h2>Conexões e cronologia verificadas</h2>'
     connection_html += '<p>O IP é o peer remoto observado, não o IP do usuário. O instante indica a captura; não mede latência ou RTT. Cada linha conserva sua própria origem.</p>'
     for connection in sanitize(connections):
