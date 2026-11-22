@@ -66,7 +66,7 @@ def test_invalid_packet_is_explicitly_reported(tmp_path):
     page = network_report_body(tmp_path, "AUD-X")
     assert "Dados de rede não verificáveis" in page
     assert "não passou na validação" in page
-    assert "Endereço público da conexão observada</th><td>" not in page
+    assert "IP remoto público da captura</th><td>" not in page
 
 
 def test_reader_handles_missing_and_oversized_packet(tmp_path):
@@ -452,4 +452,98 @@ def test_origin_presentation_reuses_verified_probes_and_never_uses_map_to_infer_
     assert "SOCKET_GETSOCKNAME_AFTER_CONNECT" not in primary["rede:primary"]
     assert "Origem da conexão" not in body
     assert events and inventory
+
+def test_logical_topology_and_ip_inventory_evidence_bound_offline():
+    from rasai.network_logical_topology import logical_network_sections
+
+    passive, probe = _origin_fixtures()
+    probe["metrics"]["dns_resolution"] = {
+        "state": "OBSERVED", "value": ["8.8.8.8", "1.1.1.1", "10.0.0.1"],
+    }
+    probe["metrics"]["traceroute"] = {
+        "state": "OBSERVED",
+        "value": {"target_reached": False, "hops": [
+            {"hop": 1, "state": "PRIVATE_HOP_REDACTED", "public_ip": None},
+            {"hop": 2, "state": "PUBLIC_HOP", "public_ip": "9.9.9.9"},
+            {"hop": 3, "state": "NO_REPLY", "public_ip": None},
+        ]},
+    }
+
+    html = logical_network_sections([passive], [probe], "America/Sao_Paulo")
+
+    assert "<h2>Topologia lógica observada</h2>" in html
+    assert "<h2>Inventário de endereços IP observados</h2>" in html
+    assert "Ponto inicial: endereço local do navegador não identificado" in html
+    assert html.index("Ponto inicial do processo: 10.17.0.24") < html.index("Salto 1:")
+    assert html.index("Salto 1:") < html.index("Salto 2: 9.9.9.9")
+    assert html.index("Salto 3: sem resposta") < html.index("Destino da conexão TCP: 8.8.8.8")
+    assert "Chegada pelo traceroute não confirmada" in html
+    assert "Candidato DNS (conexão não comprovada)" in html
+    assert "1.1.1.1" in html and "8.8.4.4" in html
+    assert "Salto público 2" in html
+    assert "10.0.0.1" not in html  # DNS privado nunca vira observação pública
+    assert "26/10/2026 06:15:00 (America/Sao_Paulo)" in html
+    assert "SOCKET_GETSOCKNAME_AFTER_CONNECT" not in html
+    assert "IP público de saída: <strong>Não identificado</strong>" in html
+
+
+def test_logical_topology_abstains_on_legacy_invalid_and_missing_evidence():
+    from rasai.network_logical_topology import logical_network_sections
+
+    passive, probe = _origin_fixtures()
+    legacy = dict(probe, metrics={
+        "connected_public_ip": {"state": "NOT_OBSERVED", "value": "8.8.8.8"},
+        "dns_resolution": {"state": "COLLECTION_FAILED", "value": ["1.1.1.1"]},
+        "local_socket_ip": {"state": "OBSERVED", "value": "10.17.0.24", "source": "UNKNOWN"},
+        "traceroute": {"state": "OBSERVED", "value": {"hops": [
+            {"hop": 1, "state": "PUBLIC_HOP", "public_ip": "bad<script>"},
+            {"hop": 2, "state": "NO_REPLY", "public_ip": "9.9.9.9"},
+        ]}},
+    })
+    html = logical_network_sections([], [legacy], "UTC")
+    assert "Ponto inicial do processo: Não identificado" in html
+    assert "Destino da conexão TCP: não identificado" in html
+    assert "endereço não verificável" in html
+    assert "10.17.0.24" not in html
+    assert "8.8.8.8" not in html and "1.1.1.1" not in html
+    assert "9.9.9.9" not in html  # NO_REPLY never becomes a public hop
+    assert "<script>" not in html
+    assert "Nenhum endereço IP verificável identificado" in html
+    assert "Não identificado" in logical_network_sections([], [], "UTC")
+
+
+def test_logical_inventory_is_shared_by_both_reports_without_new_network(
+    tmp_path, monkeypatch,
+):
+    from rasai import network_reporting as report
+    from rasai.parallel_report import scope_context as view
+
+    passive, probe = _origin_fixtures()
+    probe["metrics"]["dns_resolution"] = {
+        "state": "OBSERVED", "value": ["8.8.8.8", "1.1.1.1"],
+    }
+    monkeypatch.setattr(report, "read_network_observations", lambda *_: [passive])
+    monkeypatch.setattr(report, "read_authorized_probes", lambda *_: [probe])
+    monkeypatch.setattr(view, "read_network_observations", lambda *_: [passive])
+    monkeypatch.setattr(view, "read_authorized_probes", lambda *_: [probe])
+    monkeypatch.setattr(view, "build_network_assessment", lambda *_: None)
+    monkeypatch.setattr(view, "network_geographic_panel", lambda *_a, **_k: "")
+    monkeypatch.setattr(view, "unlocated_world_map", lambda **_k: "")
+    monkeypatch.setattr(view, "register_payload", lambda *_: None)
+    db = tmp_path / "audit.db"
+    db.write_bytes(b"original-sealed-placeholder")
+    previous = db.read_bytes()
+
+    catalog = report.network_report_body(tmp_path, "AUD-751")
+    primary = {}
+    _body, _events, _inventory = view.network_context(
+        tmp_path, "AUD-751", "America/Sao_Paulo", primary=primary,
+    )
+    presentation = primary["rede:primary"]
+    for page in (catalog, presentation):
+        assert "Topologia lógica observada" in page
+        assert "Inventário de endereços IP observados" in page
+        assert "10.17.0.24" in page and "1.1.1.1" in page
+        assert "IP público de saída: <strong>Não identificado</strong>" in page
+    assert db.read_bytes() == previous
 
