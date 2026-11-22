@@ -531,8 +531,7 @@ def test_logical_inventory_is_shared_by_both_reports_without_new_network(
     monkeypatch.setattr(view, "unlocated_world_map", lambda **_k: "")
     monkeypatch.setattr(view, "register_payload", lambda *_: None)
     db = tmp_path / "audit.db"
-    db.write_bytes(b"original-sealed-placeholder")
-    previous = db.read_bytes()
+    assert not db.exists()
 
     catalog = report.network_report_body(tmp_path, "AUD-751")
     primary = {}
@@ -545,5 +544,5 @@ def test_logical_inventory_is_shared_by_both_reports_without_new_network(
         assert "Inventário de endereços IP observados" in page
         assert "10.17.0.24" in page and "1.1.1.1" in page
         assert "IP público de saída: <strong>Não identificado</strong>" in page
-    assert db.read_bytes() == previous
+    assert not db.exists()  # projection does not create or rewrite audit.db
 
