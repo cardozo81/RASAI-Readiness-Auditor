@@ -9,6 +9,7 @@ from html import escape
 from typing import Any
 
 from rasai.network_connection_origin import _validated_ip, origin_evidence
+from rasai.network_public_egress import verified_families
 from rasai.network_observation import _utc_capture_time
 from rasai.time_contract import format_presentation_timestamp
 
@@ -93,6 +94,18 @@ def logical_network_sections(
             "Ponto inicial do processo: " + (local_ip or "Não identificado")
             + " (interface local; não é o IP público de saída)."
         )]
+        externally_observed = verified_families(probe.get("public_egress"))
+        for family, observation in sorted(externally_observed.items()):
+            add_ip(environment, observation["ip"],
+                   "IP público de saída IPv" + str(family) + " (consulta HTTPS externa)",
+                   "Serviço externo de identificação; não é a conexão ao destino",
+                   _display_time(observation.get("capture_utc"), timezone_name))
+            steps.append(_li(
+                "Saída pública IPv" + str(family) + " observada pelo serviço externo: "
+                + observation["ip"] + " (não comprova a rota desta conexão TCP)."
+            ))
+        if isinstance(probe.get("public_egress"), dict) and not externally_observed:
+            steps.append(_li("Saída pública externa: não identificada nesta medição."))
         trace = _metric(probe, "traceroute")
         hops = trace.get("hops") if isinstance(trace, dict) else None
         if isinstance(hops, list):
@@ -137,7 +150,8 @@ def logical_network_sections(
         "<p>A origem local do executor só é indicada quando o socket da sonda autorizada "
         "a registrou. O navegador é outra sessão. A ordem dos saltos é apenas a ordem "
         "observada pelo traceroute, não um caminho físico confirmado. "
-        "IP público de saída: <strong>Não identificado</strong>.</p>"
+        "IP público de saída só é apresentado quando observado em consulta HTTPS "
+        "externa e autorizada, independente da conexão ao destino.</p>"
     )
     if not diagrams:
         start += "<p>Não há medições de rede verificáveis. Isso não comprova falha de conexão.</p>"
