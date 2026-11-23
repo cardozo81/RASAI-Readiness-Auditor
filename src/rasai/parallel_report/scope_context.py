@@ -499,6 +499,14 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
     for item in map_probes:
         if isinstance(item, dict):
             item['capture_utc'] = public_value(item.get('capture_utc'), 'captured_at', timezone_name)
+            egress = item.get('public_egress')
+            families = egress.get('families') if isinstance(egress, dict) else None
+            if isinstance(families, dict):
+                for observation in families.values():
+                    if isinstance(observation, dict) and observation.get('capture_utc'):
+                        # Keep the exact family-specific timestamp in the audit timezone.
+                        observation['capture_utc'] = public_value(
+                            observation['capture_utc'], 'captured_at', timezone_name)
     map_locations = network_map_locations(map_probes)
     hop_rows = _network_hop_rows(probes, timezone_name, map_locations=map_locations)
     if hop_rows:
