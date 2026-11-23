@@ -48,6 +48,8 @@ def test_stack_and_editorial_ownership():
     assert 'class="cat1"' in html and 'class="cat2"' in html
     assert 'class="z1"' not in html and 'class="z2"' not in html
     assert 'stack-legend' in html
+    assert html.count('data-explanation=') == 4  # Two bars and two legend entries.
+    assert 'title=' not in html  # Avoid a competing native browser tooltip.
     assert len(SECTIONS) == 8  # dashboard and indices have dedicated metric composition
     assert SECTIONS['plano'][0][1] == ['directed_analysis_actions']
 
