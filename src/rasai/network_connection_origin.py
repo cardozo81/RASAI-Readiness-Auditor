@@ -10,6 +10,7 @@ import ipaddress
 from typing import Any, Mapping
 
 from rasai.network_observation import _utc_capture_time
+from rasai.network_public_egress_view import egress_label
 
 _SOCKET_SOURCE = "SOCKET_GETSOCKNAME_AFTER_CONNECT"
 _PROBE_METHOD = "EXPLICIT_DNS_TCP_TLS_PROBE"
@@ -91,6 +92,7 @@ def origin_evidence(
         if not isinstance(item, dict):
             continue
         local_ip, state = _local_endpoint(item)
+        public_ips = egress_label(item.get("public_egress"))
         output.append({
             "kind": "Processo executor",
             "context": "Sondagem independente autorizada",
@@ -98,8 +100,8 @@ def origin_evidence(
             "remote_ip": _peer(item),
             "local_ip": local_ip,
             "local_state": state,
-            "egress_ip": None,
-            "egress_state": "NOT_OBSERVED",
+            "egress_ip": public_ips,
+            "egress_state": "OBSERVED" if public_ips else "NOT_OBSERVED",
             "captured_at": _utc_capture_time(item.get("capture_utc")),
             "method": "Conexão TCP/TLS de sondagem autorizada",
             "provenance": (
