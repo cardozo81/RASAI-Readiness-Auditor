@@ -52,7 +52,7 @@ SETTINGS = {
 def test_disabled_globally_performs_no_external_request():
     opener = ScriptedOpener({})
     assert e.discover_public_egress({e.ENABLED: "false"}, opener=opener)["state"] == "NOT_REQUESTED"
-    assert e.discover_public_egress({}, opener=opener)["state"] == "NOT_REQUESTED"
+    assert e.discover_public_egress({e.ENABLED: "false"}, opener=opener)["state"] == "NOT_REQUESTED"
     assert not opener.calls
 
 
@@ -134,53 +134,91 @@ def test_total_service_failure_does_not_forge_results():
     assert "IPv4" in e.error_summary(result) and "IPv6" in e.error_summary(result)
 
 
-def test_packet_persisted_with_provenance_and_unmodified_main_db(tmp_path, monkeypatch):
+def test_default_enabled_can_be_disabled_per_session_or_ini():
+    assert e.enabled_providers({}) == ("IPIFY", "IDENTME")
+    assert e.enabled_providers({e.ENABLED: "false"}) == ()
+    assert e.enabled_providers({e.ENABLED: "true", e.IPIFY_ENABLED: "false"}) == ("IDENTME",)
+    assert e.enabled_providers({e.ENABLED: "true", e.IDENTME_ENABLED: "false"}) == ("IPIFY",)
+
+
+def test_standalone_packet_persisted_with_provenance_unmodified_main_db(tmp_path, monkeypatch):
+    from rasai import network_public_egress_capture as capture
     workspace = tmp_path / "AUD-TEST"
     workspace.mkdir()
     db = workspace / "audit.db"
     with sqlite3.connect(db) as cx:
         cx.execute("CREATE TABLE audits (audit_id TEXT)")
         cx.execute("INSERT INTO audits VALUES ('AUD-TEST')")
-        cx.execute("CREATE TABLE pages (audit_id TEXT, normalized_url TEXT)")
-        cx.execute("INSERT INTO pages VALUES ('AUD-TEST', 'https://www.example.org')")
     baseline = db.read_bytes()
-    record = {
-        "contract": probe.CONTRACT, "hostname": "www.example.org",
-        "port": 443, "capture_utc": "2026-11-23T10:00:00Z",
-        "measurement_origin": "LOCAL_OPERATOR_PROCESS",
-        "method": "EXPLICIT_DNS_TCP_TLS_PROBE", "source": "LOCAL_SOCKET_STACK",
-        "state": "OBSERVED", "metrics": {
-            "connected_public_ip": {"state": "OBSERVED", "value": "1.1.1.1"},
-            "local_socket_ip": {"state": "OBSERVED", "value": "192.168.0.7",
-                "source": "SOCKET_GETSOCKNAME_AFTER_CONNECT"},
-        },
-    }
-    def fake_run(*_, **__):
-        return SimpleNamespace(returncode=0, stdout=json.dumps(record))
-    monkeypatch.setattr(probe.subprocess, "run", fake_run)
-    monkeypatch.setattr(probe, "local_databases", lambda: {"city_database": None, "asn_database": None})
-    monkeypatch.setenv(e.ENABLED, "true")
-    monkeypatch.setenv(e.IPIFY_ENABLED, "true")
-    monkeypatch.setenv(e.IDENTME_ENABLED, "false")
-    monkeypatch.setattr(e, "_opener", lambda: ScriptedOpener({
-        e.ENDPOINTS["IPIFY"][4]: b'{"ip":"8.8.8.8"}',
-        e.ENDPOINTS["IPIFY"][6]: URLError(TimeoutError()),
-    }))
-    saved = probe.collect_authorized_probe(
-        workspace, "AUD-TEST", "www.example.org",
-        permitted_hostname="www.example.org", authorized=True,
+    expected = e.discover_public_egress(
+        SETTINGS, opener=ScriptedOpener({
+            e.ENDPOINTS["IPIFY"][4]: b'{"ip":"8.8.8.8"}',
+            e.ENDPOINTS["IPIFY"][6]: URLError(TimeoutError()),
+            e.ENDPOINTS["IDENTME"][6]: URLError(TimeoutError()),
+        })
     )
-    assert saved.is_file()
+    assert expected["state"] == "PARTIAL"
+    monkeypatch.setattr(capture, "collect_bounded", lambda _env: expected)
+    # The GeoIP import happens inside capture: disable enrichment explicitly.
+    monkeypatch.setenv("RASAI_NETWORK_GEOIP_SOURCE", "DISABLED")
+    monkeypatch.setenv(e.ENABLED, "true")
+    path = capture.capture_public_egress(workspace, "AUD-TEST")
+    assert path is not None and path.is_file()
     assert db.read_bytes() == baseline
-    loaded = probe.read_authorized_probes(workspace, "AUD-TEST")
-    assert len(loaded) == 1
-    assert loaded[0]["public_egress"]["state"] == "PARTIAL"
-    assert origin_evidence([], loaded)[0]["egress_ip"] == "IPv4: 8.8.8.8"
-    topology = logical_network_sections([], loaded, "America/Sao_Paulo")
+    assert capture.capture_public_egress(workspace, "AUD-TEST") is None
+    probe_row = capture.read_public_egress_probe(workspace, "AUD-TEST")
+    assert probe_row and probe_row["hostname"] is None
+    assert probe_row["metrics"] == {}
+    assert origin_evidence([], [probe_row])[0]["egress_ip"] == "IPv4: 8.8.8.8"
+    topology = logical_network_sections([], [probe_row], "America/Sao_Paulo")
     assert "IPv4" in topology and "8.8.8.8" in topology
-    assert "192.168.0.7" in topology
-    assert "1.1.1.1" in topology
+    assert "Destino da conexão TCP" not in topology
+    assert "8.8.8.8" in public_egress_panel([probe_row], "America/Sao_Paulo")
+    tampered = path.read_text(encoding="utf-8").replace("8.8.8.8", "1.1.1.1")
+    path.write_text(tampered, encoding="utf-8")
+    assert capture.read_public_egress_probe(workspace, "AUD-TEST") is None
 
+
+def test_auto_dispatch_default_without_target_probe_and_saved_disable(tmp_path, monkeypatch):
+    from rasai import network_auto_probe as auto
+    from rasai import network_public_egress_capture as capture
+    root = tmp_path / "AUD-TEST"
+    root.mkdir()
+    (root / "audit.db").write_bytes(b"fixture")
+    monkeypatch.setattr(auto, "_approved_host", lambda: None)
+    monkeypatch.setattr(auto, "resolve_config_path", lambda: tmp_path / "rasai-console.ini")
+    monkeypatch.delenv(e.ENABLED, raising=False)
+    monkeypatch.delenv(e.IPIFY_ENABLED, raising=False)
+    monkeypatch.delenv(e.IDENTME_ENABLED, raising=False)
+    observed = []
+    monkeypatch.setattr(auto.subprocess, "Popen", lambda cmd, **kw: observed.append((cmd,kw)))
+    result = auto.dispatch_for_new_audit(root, "AUD-TEST")
+    assert result["state"] == "NOT_AUTHORIZED"  # Target TCP probe stays disabled.
+    assert result["egress_state"] == "DISPATCHED"
+    assert len(observed) == 1
+    assert "rasai.network_public_egress_capture" in observed[0][0]
+    assert observed[0][1]["env"][e.ENABLED] == "true"
+    assert "HTTPS_PROXY" not in observed[0][1]["env"]
+    assert "RASAI_PROVIDER_API_KEY" not in observed[0][1]["env"]
+    config = tmp_path / "rasai-console.ini"
+    config.write_text(
+        "[environment]\\nRASAI_NETWORK_EGRESS_ENABLED = false\\n",
+        encoding="utf-8",
+    )
+    observed.clear()
+    result = auto.dispatch_for_new_audit(root, "AUD-TEST")
+    assert result["egress_state"] == "DISABLED"
+    assert not observed
+
+
+def test_whole_external_subprocess_timeout_does_not_block_audit(monkeypatch):
+    import subprocess
+    def forced_timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(args[0], timeout=kwargs["timeout"])
+    monkeypatch.setattr(e.subprocess, "run", forced_timeout)
+    result = e.collect_bounded(SETTINGS)
+    assert result["state"] == "UNAVAILABLE"
+    assert "prazo" in e.error_summary(result)
 
 def test_geoip_map_only_for_verified_egress_position():
     packet = {
