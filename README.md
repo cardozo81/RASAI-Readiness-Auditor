@@ -66,6 +66,29 @@ A CLI documenta os demais comandos e parâmetros: [Referência CLI](docs/CLI_REF
 
 O `audit.db` e seus artefatos são a fonte de evidência. Relatórios são projeções, não realizam coleta durante a renderização e não devem substituir medições indisponíveis por resultados estimados. Os estados `N/D`, parcial e não comparável são preservados quando aplicáveis.
 
+### Rede e conectividade: origem, topologia e inventário de IPs
+
+A coleta de rede diferencia a **captura passiva do navegador** da **sonda complementar autorizada**. O endereço local obtido pelo socket da sonda (quando comprovado) é o ponto inicial **lógico do processo executor**, não o IP público de saída nem, necessariamente, a origem da conexão do navegador. O IP público de saída permanece **não identificado** sem medição externa específica e autorizada; não é inferido por DNS, traceroute, GeoIP ou IP do destino.
+
+- `report-catalog/network.html` e `report-presentation/rede.html` exibem a topologia lógica observada e o inventário de IPs com papéis distintos: origem local da sonda, peer remoto da captura, peer TCP da sonda, candidatos DNS (não equivalentes a conexões) e saltos públicos efetivamente registrados.
+- O traceroute mostra a ordem dos saltos e os estados de ausência/ocultação; **não comprova** continuidade física da rota nem que o destino respondeu. Saltos privados/reservados são ocultados e endereços não observados não são inventados.
+- O mapa geográfico usa somente coordenadas GeoIP persistidas e qualificadas como **aproximadas**. Um IP privado, um candidato DNS ou um endereço sem coordenadas verificadas não cria marcador geográfico.
+
+**Regenerar relatórios históricos sem nova auditoria:** usar o entrypoint canônico para gerar um catálogo em **cópia externa**, seguido do gerador da apresentação sobre essa cópia. No PowerShell, dentro do checkout atualizado (com a `.venv` instalada):
+
+```powershell
+$AuditId = "AUD-EXEMPLO"
+$Fonte = Join-Path (Get-Location) "audits\$AuditId"
+$Saida = Join-Path $env:TEMP ("RASAI-REGEN-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+& .\.venv\Scripts\python.exe -B -m rasai rematerialize-report --audit-dir $Fonte --output-root $Saida
+if ($LASTEXITCODE -ne 0) { throw "Falha na regeneracao do catalogo" }
+$Copia = Join-Path $Saida $AuditId
+& .\.venv\Scripts\python.exe -B -m rasai.parallel_report --audit-dir $Copia
+if ($LASTEXITCODE -ne 0) { throw "Falha na regeneracao da apresentacao" }
+```
+
+A AUD original, seu `audit.db`, os sidecars, os custos e as pontuações não devem ser reescritos. Não executar com escritor ativo ou sem a integridade necessária; o gerador pode recusar a cópia. Saídas anteriores e novas devem ser comparadas como **projeções de versões diferentes**, não como novas evidências. Referências: [rematerialização isolada](docs/REPORT_REMATERIALIZATION.md) e [apresentação offline](src/rasai/parallel_report/README.md).
+
 **Distribuição externa:** o ZIP canônico do `report-catalog` pode conter `integrity/audit-snapshot.db` e evidências restritas. **Não distribua esse pacote integral externamente** enquanto não houver um exportador público verificado; a separação está acompanhada na [issue #717](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/717).
 
 **Reanálise offline de AUD encerrada**, sem chamar provedores nem alterar a auditoria original:
