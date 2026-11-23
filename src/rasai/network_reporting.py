@@ -11,6 +11,7 @@ from rasai.network_observation_store import read_network_observations
 from rasai.catalog_source_dependencies import record_source_dependency
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_connection_origin import origin_evidence
+from rasai.network_logical_topology import logical_network_sections
 from rasai.time_contract import (
     DEFAULT_PRESENTATION_TIMEZONE, format_presentation_timestamp,
     presentation_timezone_for_audit,
@@ -20,7 +21,7 @@ from rasai.network_progression import route_panels, temporal_panel
 
 _PAGE = "network.html"
 _LABELS = {
-    "connected_public_ip": "Endereço público da conexão observada",
+    "connected_public_ip": "IP remoto público da captura",
     "http_protocol": "Protocolo HTTP",
     "tls_protocol": "Versão TLS",
     "http_status": "Resposta HTTP",
@@ -208,6 +209,7 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
     probes = read_authorized_probes(root, audit_id)
     blocks = [
         _origin_section(observations, probes, timezone_name),
+        logical_network_sections(observations, probes, timezone_name),
         network_intelligence_section(root, audit_id),
     ]
     # Surface the provenance of capture time; never infer an unobserved instant.
@@ -295,7 +297,7 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
         for key, label in (
             ("dns_resolution", "Endereços públicos resolvidos"),
             ("dns_elapsed_ms", "Consulta de nomes (ms)"),
-            ("connected_public_ip", "Endereço de conexão"),
+            ("connected_public_ip", "IP remoto da conexão TCP"),
             ("tcp_handshake_ms", "Conexão TCP (ms)"),
             ("tls_handshake_ms", "Negociação TLS (ms)"),
             ("tls_protocol", "Versão TLS"),
