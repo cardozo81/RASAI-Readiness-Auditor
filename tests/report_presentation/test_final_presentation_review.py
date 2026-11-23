@@ -172,8 +172,10 @@ def test_verified_persisted_probe_is_read_without_executing_a_probe(tmp_path, mo
     before = path.read_bytes()
     body, _, detail = network_context(tmp_path, audit_id, 'UTC')
     visible = ' '.join(Surface(body).values)
-    for phrase in ('4,25', '9,5', '7,25', 'RTT (ms)', 'ICMP', 'WINDOWS_TRACERT', '8.8.8.8'):
-        assert phrase in body  # the raw method also stays in modal provenance
+    for phrase in ('4,25', '9,5', '7,25', 'RTT (ms)', 'ICMP', '8.8.8.8'):
+        assert phrase in body
+    # The method remains intact in the sealed sidecar, but is humanized in HTML.
+    assert 'WINDOWS_TRACERT' not in visible
     assert 'Sonda autorizada de DNS, TCP e TLS' in visible
     assert 'Rastreamento ICMP registrado pelo tracert' in visible
     assert 'caminho completo não confirmado' in visible
