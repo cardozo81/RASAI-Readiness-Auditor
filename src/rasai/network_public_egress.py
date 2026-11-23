@@ -1,4 +1,4 @@
-"""Optional, authorized public egress discovery for the post-AUD network probe.
+"""Default-enabled, reversible public IP discovery after a completed AUD.
 
 Only fixed HTTPS endpoints; no audit URL, keys, cookies or private identifiers.
 This observation belongs to the *external echo request*, not the browser or
@@ -60,8 +60,8 @@ def _stamp() -> str:
 
 
 def enabled_providers(environment: Mapping[str, str]) -> tuple[str, ...]:
-    """A separate, explicit opt-in and independently reversible provider flags."""
-    if environment.get(ENABLED, "false").strip().lower() != "true":
+    """Enabled by default, with explicit per-session/INI opt-out and per-provider switches."""
+    if environment.get(ENABLED, "true").strip().lower() != "true":
         return ()
     return tuple(
         name for name, flag in PROVIDER_FLAGS.items()
@@ -126,7 +126,7 @@ def discover_public_egress(
 ) -> dict[str, Any]:
     """One request per enabled provider/family, in precedence order.
 
-    No new request occurs without the separately enabled operator opt-in.
+    Explicitly disabled services are never called; no request on render.
     No retries, redirects, proxies, user-supplied URLs, or requests on render.
     """
     providers = enabled_providers(environment)
@@ -199,7 +199,7 @@ def collect_bounded(environment: Mapping[str, str]) -> dict[str, Any]:
                  "TEMP", "TMP", "USERPROFILE", "HOME", "LOCALAPPDATA", "APPDATA"}
     child_env = {k: v for k, v in os.environ.items() if k.upper() in permitted}
     for name in (ENABLED, IPIFY_ENABLED, IDENTME_ENABLED):
-        child_env[name] = str(environment.get(name, "false" if name == ENABLED else "true"))
+        child_env[name] = str(environment.get(name, "true"))
     options = {}
     if os.name == "nt":
         options["creationflags"] = subprocess.CREATE_NO_WINDOW
