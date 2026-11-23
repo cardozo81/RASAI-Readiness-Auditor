@@ -107,7 +107,7 @@ def strategic_context(rows, governance):
 
 
 def consultative_search_opportunities(rows, timezone_name):
-    """Read-only Search/GEO proposals: never infer governance approval or action IDs."""
+    """Read-only competitive SERP proposals; no inferred governance or action IDs."""
     analyses = rows(['serp_competitive_ai_analyses'])
     html = '<h2>Oportunidades consultivas de Search e GEO</h2>'
     html += ('<p class="rf">Propostas já registradas pela IA na comparação competitiva. '
