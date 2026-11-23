@@ -80,6 +80,30 @@ def _authorized_worker_environment() -> dict[str, str]:
             "RASAI_NETWORK_GEOIP_SOURCE", source)
     except ValueError:
         child_env["RASAI_NETWORK_GEOIP_SOURCE"] = "DISABLED"
+    # Consent is independent of the audit-target network probe, and remains
+    # reversible even when the operator reopens the console from an INI file.
+    flags = ("RASAI_NETWORK_EGRESS_ENABLED",
+             "RASAI_NETWORK_EGRESS_IPIFY_ENABLED",
+             "RASAI_NETWORK_EGRESS_IDENTME_ENABLED")
+    stored = {}
+    path = resolve_config_path()
+    if not path.is_symlink() and path.is_file():
+        try:
+            if path.stat().st_size <= 500_000:
+                parser = ConfigParser(interpolation=None)
+                parser.optionxform = str
+                parser.read(path, encoding="utf-8-sig")
+                stored = {flag: parser.get("environment", flag, fallback="")
+                          for flag in flags}
+        except (OSError, ConfigError, ValueError, UnicodeError):
+            stored = {}
+    for flag in flags:
+        default = "false" if flag == flags[0] else "true"
+        raw = os.environ.get(flag, stored.get(flag) or default)
+        try:
+            child_env[flag] = validate_network_setting(flag, raw)
+        except (ValueError, TypeError):
+            child_env[flag] = "false"
     return child_env
 
 
