@@ -310,6 +310,20 @@ def collect_authorized_probe(
             {"OBSERVED", "INCONCLUSIVE", "BLOCKED", "COLLECTION_FAILED"}):
         raise RuntimeError("Proveniência da sondagem inválida")
     record["audit_id"] = audit_id
+    # Separate, explicit consent. External HTTPS egress measurement is optional
+    # and independent from this vetted target TCP/TLS/traceroute observation.
+    # Never let service failures invalidate a successful original probe.
+    if os.environ.get("RASAI_NETWORK_EGRESS_ENABLED", "false").strip().lower() == "true":
+        from rasai.network_public_egress import discover_public_egress
+        try:
+            record["public_egress"] = discover_public_egress(os.environ)
+        except Exception:
+            record["public_egress"] = {
+                "state": "UNAVAILABLE", "families": {},
+                "method": "FIXED_HTTPS_IP_ECHO_NO_PROXY",
+                "measurement_origin": "LOCAL_OPERATOR_PROCESS",
+                "scope": "EXTERNAL_ECHO_REQUEST_ONLY_NOT_BROWSER_OR_TARGET_TCP",
+            }
     if series_id is not None:
         record["series_id"] = series_id
     # Only local, already-provisioned databases are inspected. Never update
@@ -351,6 +365,19 @@ def collect_authorized_probe(
                 enriched_by_ip[normalized] = enrich_public_ip(
                     normalized, asn_database=asn_database, city_database=city_database)
             hop["enrichment"] = enriched_by_ip[normalized]
+    # Reuse the already provisioned local MMDBs for the *independent* egress
+    # IPs. GeoIP failure cannot erase a valid external HTTPS IP observation.
+    egress = record.get("public_egress")
+    if isinstance(egress, dict):
+        from rasai.network_public_egress import verified_families
+        for family, observation in verified_families(egress).items():
+            try:
+                egress["families"]["ipv" + str(family)]["enrichment"] = enrich_public_ip(
+                    observation["ip"], asn_database=asn_database,
+                    city_database=city_database,
+                )
+            except (OSError, ValueError, TypeError, RuntimeError):
+                pass
     # Digest is for integrity, never identity of the collector/author.
     record["sha256"] = hashlib.sha256(_canonical(record)).hexdigest()
     record["digest_scope"] = "INTEGRITY_ONLY_NOT_AUTHORSHIP"
