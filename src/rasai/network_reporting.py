@@ -12,6 +12,7 @@ from rasai.catalog_source_dependencies import record_source_dependency
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_connection_origin import origin_evidence
 from rasai.network_public_egress_view import public_egress_panel
+from rasai.network_public_egress_capture import egress_path, read_public_egress_probe
 from rasai.network_logical_topology import logical_network_sections
 from rasai.time_contract import (
     DEFAULT_PRESENTATION_TIMEZONE, format_presentation_timestamp,
@@ -207,16 +208,19 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
     # freshness, including when the probes directory was previously absent.
     record_source_dependency(packet)
     record_source_dependency(root / "artifacts" / "network" / "probes")
+    record_source_dependency(egress_path(root))
     timezone_name = _network_timezone(root, audit_id)
     observations = read_network_observations(root, audit_id)
     if not observations and not packet.exists() and not packet.is_symlink():
         observations = snapshots_from_audit(root / "audit.db", audit_id)
     from rasai.network_intelligence_reporting import network_intelligence_section
     probes = read_authorized_probes(root, audit_id)
+    echo = read_public_egress_probe(root, audit_id)
+    visible = probes + ([echo] if echo is not None else [])
     blocks = [
-        _origin_section(observations, probes, timezone_name),
-        public_egress_panel(probes, timezone_name),
-        logical_network_sections(observations, probes, timezone_name),
+        _origin_section(observations, visible, timezone_name),
+        public_egress_panel(visible, timezone_name),
+        logical_network_sections(observations, visible, timezone_name),
         network_intelligence_section(root, audit_id),
     ]
     # Surface the provenance of capture time; never infer an unobserved instant.
@@ -418,7 +422,7 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
             )
     # Geographic context follows the measured tables rather than separating
     # the capture from its authorized complementary observations.
-    blocks.append(network_geographic_panel(probes))
+    blocks.append(network_geographic_panel(visible))
     if probes:
         route_html = route_panels(probes)
         history_html = temporal_panel(probes)
