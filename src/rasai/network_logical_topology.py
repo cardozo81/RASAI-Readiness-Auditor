@@ -76,6 +76,26 @@ def logical_network_sections(
         origin = origin_evidence([], [probe])[0]
         environment = "Executor · sonda " + str(index)
         stamp = _display_time(origin["captured_at"], timezone_name)
+        if probe.get("method") == "INDEPENDENT_EXTERNAL_HTTPS_IP_ECHO":
+            remote_echo = verified_families(probe.get("public_egress"))
+            steps = []
+            for version, observed in sorted(remote_echo.items()):
+                add_ip(environment, observed["ip"],
+                       "IPv" + str(version) + " público observado externamente",
+                       "Serviço externo HTTPS; não corresponde à conexão TCP com o destino",
+                       _display_time(observed.get("capture_utc"), timezone_name))
+                steps.append(_li("IP público IPv" + str(version) + " visto pelo "
+                                 "serviço externo: " + observed["ip"] + "."))
+            if not steps:
+                steps.append(_li("Endereço público de saída não identificado "
+                                 "nesta consulta externa."))
+            diagrams.append(
+                "<h3>" + escape(environment) + " · identificação externa</h3>"
+                "<ol>" + "".join(steps) + "</ol>"
+                "<p>A consulta externa não comprova a origem do navegador "
+                "nem a rota ou interface da conexão TCP ao destino.</p>"
+            )
+            continue
         local_ip = origin["local_ip"] if origin["local_state"] == "OBSERVED" else None
         peer_ip = origin["remote_ip"]
         add_ip(environment, local_ip, "Endereço local do socket TCP",
