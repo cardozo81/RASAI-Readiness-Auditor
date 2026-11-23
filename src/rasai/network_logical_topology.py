@@ -144,14 +144,20 @@ def logical_network_sections(
             "Não representam enlaces físicos verificados nem sequência TCP comprovada.</p>"
         )
 
+    egress_intro = (
+        "IP público de saída observado em consulta HTTPS externa autorizada; "
+        "a conexão ao destino e a do navegador são independentes."
+        if any(verified_families(p.get("public_egress"))
+               for p in probes if isinstance(p, dict))
+        else "IP público de saída: <strong>Não identificado</strong>."
+    )
     start = (
         "<section class='panel' id='network-logical-topology'>"
         "<h2>Topologia lógica observada</h2>"
         "<p>A origem local do executor só é indicada quando o socket da sonda autorizada "
         "a registrou. O navegador é outra sessão. A ordem dos saltos é apenas a ordem "
         "observada pelo traceroute, não um caminho físico confirmado. "
-        "IP público de saída só é apresentado quando observado em consulta HTTPS "
-        "externa e autorizada, independente da conexão ao destino.</p>"
+        + egress_intro + "</p>"
     )
     if not diagrams:
         start += "<p>Não há medições de rede verificáveis. Isso não comprova falha de conexão.</p>"
