@@ -271,7 +271,7 @@ def stack(parts, title='Composição proporcional', unit=None, note=None):
         aria_parts.append(description)
         spans.append(
             f'<span class="{tone}" data-width="{percentage:g}" '
-            f'title="{text(description)}" data-explanation="{text(description)}" '
+            f'data-explanation="{text(description)}" '
             'aria-hidden="true"></span>'
         )
         # Metadata remains readable without hover and keyboard users receive
