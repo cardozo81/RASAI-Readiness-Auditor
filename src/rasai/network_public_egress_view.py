@@ -64,6 +64,17 @@ def public_egress_panel(probes: list[dict], timezone_name: str) -> str:
             rows.append("<tr>" + "".join("<td>" + escape(str(v)) +
                         "</td>" for v in values_html) + "</tr>")
     if not rows:
+        for probe in probes[:32]:
+            packet = probe.get("public_egress") if isinstance(probe, dict) else None
+            message = error_summary(packet)
+            if message:
+                return (
+                    "<section class='panel' id='network-public-egress'>"
+                    "<h2>Verificação externa do IP público indisponível</h2>"
+                    "<p role='status'>Descoberta de IPs parcial ou indisponível: "
+                    + escape(message) +
+                    " As demais observações de rede foram preservadas.</p></section>"
+                )
         return ""
     warnings = []
     for index, probe in enumerate(probes[:32], 1):
