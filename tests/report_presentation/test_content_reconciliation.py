@@ -468,3 +468,48 @@ def test_verified_geoip_keeps_existing_map_with_exactly_one_marker(monkeypatch,t
     assert html.count('<circle') == 1
     assert 'data-map-layer=\'land\'' in html
     assert 'Mapa geográfico aproximado disponível' in html
+
+def test_network_executive_labels_are_humanized_without_changing_source_payloads():
+    """No network, SQLite or render pipeline: only the touched presentation mapper."""
+    from copy import deepcopy
+    from rasai.parallel_report.scope_context import _network_metric_rows, _network_value
+
+    metrics = {
+        'connected_public_ip': {'state': 'OBSERVED', 'value': '54.207.44.85'},
+        'tls_protocol': {'state': 'OBSERVED', 'value': 'TLSv1.3'},
+        'traceroute': {'state': 'OBSERVED', 'value': {
+            'method': 'WINDOWS_TRACERT', 'probe_protocol': 'ICMP',
+            'target_reached': False, 'max_hops': 16,
+            'hops': [{'hop': 1, 'state': 'NO_REPLY'}],
+        }},
+        'geoip': {'state': 'OBSERVED', 'value': {
+            'latitude': -23.5475, 'longitude': -46.6361,
+            'accuracy_radius_km': 20.0, 'source': 'LOCAL_MMDB_CITY',
+        }},
+    }
+    original = deepcopy(metrics)
+    probe = {
+        'hostname': 'example.org', 'port': 443,
+        'capture_utc': '2026-11-22T22:55:46Z',
+        'method': 'EXPLICIT_DNS_TCP_TLS_PROBE',
+        'metrics': metrics,
+    }
+    assert _network_value('tls_protocol', metrics['tls_protocol']) == 'TLS 1.3'
+    trace = _network_value('traceroute', metrics['traceroute'])
+    assert 'Rastreamento ICMP registrado pelo tracert' in trace
+    assert 'WINDOWS_TRACERT' not in trace
+    geo = _network_value('geoip', metrics['geoip'])
+    assert 'fonte Base geográfica local' in geo
+    assert 'LOCAL_MMDB_CITY' not in geo
+
+    rows = _network_metric_rows([], [probe], 'America/Sao_Paulo')
+    assert any(row['indicator'] == 'IP remoto público observado'
+               and row['value'] == '54.207.44.85' for row in rows)
+    assert not any(row['indicator'] == 'Endereço público da conexão' for row in rows)
+    assert metrics == original  # original evidence stays byte-for-byte representable
+
+    unknown = {'state': 'OBSERVED', 'value': {
+        'latitude': 0.0, 'longitude': 0.0, 'source': 'UNKNOWN_INTERNAL_SOURCE',
+    }}
+    assert 'UNKNOWN_INTERNAL_SOURCE' not in _network_value('geoip', unknown)
+
