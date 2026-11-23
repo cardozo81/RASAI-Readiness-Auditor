@@ -11,7 +11,7 @@ from rasai.parallel_report.thresholds import load
 from rasai.parallel_report.cost_reconciliation import reconcile
 from rasai.parallel_report.execution_context import build_execution_context
 from rasai.parallel_report.analytical_views import build_analytical_views
-from rasai.parallel_report.action_plan import render_plan
+from rasai.parallel_report.action_plan import render_plan, consultative_search_opportunities
 from rasai.parallel_report.governance import Governance
 from rasai.parallel_report.render import record_html
 
@@ -147,6 +147,78 @@ def test_root_groups_and_occurrences_do_not_authorize_client_execution():
     assert 'Prioridade do motor' in html
     assert 'Prioridade do plano direcionado' in html
     assert 'Plano aprovado pela governança' in html
+
+
+
+def test_consultative_search_geo_plan_exposes_all_seven_without_dialog_or_approval():
+    proposal = {
+        'title': 'Oportunidade editorial repetida',
+        'priority': 'HIGH',
+        'recommendation': 'Publicar conteúdo verificável e específico.',
+        'rationale': 'Diferença observada entre páginas, sem causalidade comprovada.',
+        'causality_note': 'Não garante posição nem citação.',
+        'confidence': 0.91,
+        'evidence_ids': ['CE-CUSTOMER', 'CE-COMP-001'],
+    }
+    row = {
+        'observation_id': 'SERP-TEST',
+        'state': 'AVAILABLE',
+        'opportunity_count': 7,
+        'opportunities_json': json.dumps([proposal] * 7),
+        '_ref': 'search-geo.html#record-test',
+    }
+    html = consultative_search_opportunities(
+        lambda names: [row] if names == ['serp_competitive_ai_analyses'] else [], 'UTC'
+    )
+    assert 'Propostas materializadas:</strong> 7' in html
+    assert html.split('<tbody>', 1)[1].split('</tbody>', 1)[0].count('<tr>') == 7
+    assert html.count('Publicar conteúdo verificável e específico.') == 14  # cell and title
+    assert 'Não garante posição nem citação.' in html
+    assert '0.91' in html and 'Confiança autodeclarada (não estatística)' in html
+    assert 'search-geo.html#record-test' in html
+    assert 'detail-dialog' not in html
+    assert 'não ações do plano aprovado' in html
+    assert 'Plano aprovado pela governança' not in html
+
+
+def test_consultative_search_geo_abstains_and_flags_inconsistent_evidence():
+    rows = [
+        {'state': 'FAILED', 'opportunity_count': 1,
+         'opportunities_json': '[{"title":"Não publicar"}]'},
+        {'state': 'AVAILABLE', 'opportunity_count': 1,
+         'opportunities_json': 'não é JSON'},
+        {'state': 'AVAILABLE', 'opportunity_count': 2,
+         'opportunities_json': '[{"title":"Oportunidade presente"}]'},
+    ]
+    html = consultative_search_opportunities(
+        lambda names: rows if names == ['serp_competitive_ai_analyses'] else [], 'UTC'
+    )
+    assert 'Propostas materializadas:</strong> 1' in html
+    assert 'Oportunidade presente' in html and 'Não publicar' not in html
+    assert '2 análise(s) indisponível(is) ou ilegível(is)' in html
+    assert '1 divergência(s)' in html
+    empty = consultative_search_opportunities(lambda _: [], 'UTC')
+    assert 'nenhuma proposta competitiva de IA disponível' in empty
+    assert 'Propostas materializadas:' not in empty
+
+
+def test_consultative_search_geo_survives_absent_directed_plan():
+    proposals = [{
+        'title': 'Criar página educacional',
+        'priority': 'MEDIUM',
+        'recommendation': 'Validar fatos antes da publicação.',
+    }]
+    rows_by_table = {'serp_competitive_ai_analyses': [{
+        'state': 'AVAILABLE', 'opportunity_count': 1,
+        'opportunities_json': proposals,
+        '_ref': 'search-geo.html#record-test',
+    }]}
+    def rows(names):
+        return [item for name in names for item in rows_by_table.get(name, [])]
+    html = render_plan(rows, 'UTC', Governance([]))
+    assert 'Plano de ação não materializado' in html
+    assert 'Criar página educacional' in html
+    assert 'Plano aprovado pela governança' not in html
 
 
 def test_crosslinked_records_use_unique_accessible_link_names():
