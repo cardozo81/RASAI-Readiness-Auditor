@@ -203,7 +203,9 @@ def table(caption, rows, columns, timezone_name=None, *, full_text=False):
                 title_value = public_value(value,key,timezone_name)
             elif key == '_ref':
                 title_value = 'Abrir vínculo de rastreabilidade técnica'
-            cells.append('<td title="' + text(title_value) + '">' + cell + '</td>')
+            # The chip already owns the native tooltip; avoid a competing parent title.
+            title_attr = '' if key in {'status', 'state', 'result', 'severity', 'priority', 'priority_class'} else ' title="' + text(title_value) + '"'
+            cells.append('<td' + title_attr + '>' + cell + '</td>')
         if has_details:
             trigger, dialog = _detail_dialog(caption, row, columns, index, timezone_name)
             cells.append('<td class="detail-cell">' + (trigger or 'N/D') + '</td>')

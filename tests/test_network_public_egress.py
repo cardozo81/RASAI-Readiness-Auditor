@@ -243,3 +243,46 @@ def test_geoip_map_only_for_verified_egress_position():
     assert "Ponto" in html
     packet["families"]["ipv4"]["enrichment"]["geoip"]["value"]["accuracy_radius_km"] = None
     assert network_map_locations(probes) == {}
+
+
+def test_dual_stack_map_preserves_two_geopoints_and_independent_capture_times(
+    tmp_path, monkeypatch,
+):
+    """One logical executor, two independently timed HTTPS observations."""
+    from rasai.parallel_report import scope_context as context
+
+    def geo(latitude, longitude):
+        return {"state": "OBSERVED", "value": {
+            "latitude": latitude, "longitude": longitude,
+            "accuracy_radius_km": 20, "source": "LOCAL_MMDB_CITY",
+        }}
+    packet = {"state": "OBSERVED", "families": {
+        "ipv4": {"state": "OBSERVED", "ip": "8.8.8.8", "provider": "IPIFY",
+                 "capture_utc": "2026-11-23T12:36:31Z",
+                 "enrichment": {"geoip": geo(-30.027, -51.235)}},
+        "ipv6": {"state": "OBSERVED", "ip": "2606:4700:4700::1111", "provider": "IPIFY",
+                 "capture_utc": "2026-11-23T12:36:32Z",
+                 "enrichment": {"geoip": geo(-29.909, -50.957)}},
+    }}
+    echo = {"hostname": None, "capture_utc": "2026-11-23T12:36:31Z",
+            "metrics": {}, "public_egress": packet}
+    map_html = network_geographic_panel([echo], presentation_mode=True)
+    assert map_html.count("data-point-number=") == 2
+    assert "mesma origem lógica: processo executor" in map_html
+    assert "medições HTTPS IPv4 e IPv6 independentes" in map_html
+    assert "Coleta: 2026-11-23T12:36:31Z" in map_html
+    assert "Coleta: 2026-11-23T12:36:32Z" in map_html
+
+    monkeypatch.setattr(context, "sidecar_path", lambda root: root / "absent.json")
+    monkeypatch.setattr(context, "read_network_observations", lambda *_: [])
+    monkeypatch.setattr(context, "read_authorized_probes", lambda *_: [])
+    monkeypatch.setattr(context, "read_public_egress_probe", lambda *_: echo)
+    monkeypatch.setattr(context, "build_network_assessment", lambda *_: None)
+    html, _, _ = context.network_context(
+        tmp_path, "AUD-SYNTHETIC", "America/Sao_Paulo"
+    )
+    map_section = html.split("Mapa geográfico consultivo", 1)[1]
+    assert "Coleta: 23/11/2026 09:36:31" in map_section
+    assert "Coleta: 23/11/2026 09:36:32" in map_section
+    assert map_section.count("data-point-number=") == 2
+    assert "mesma origem lógica: processo executor" in map_section

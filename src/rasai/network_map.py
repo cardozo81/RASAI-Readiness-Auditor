@@ -137,13 +137,15 @@ def network_geographic_panel(probes: list[dict], *, presentation_mode: bool = Fa
         hops = trace_value.get("hops") if isinstance(trace_value, dict) else None
         candidates = [("Destino: " + str(probe.get("hostname") or "público"),
                        measurements.get("geoip"), measurements.get("asn"), None, None)]
-        for family, observation in sorted(verified_families(
-                probe.get("public_egress")).items()):
+        egress_families = verified_families(probe.get("public_egress"))
+        egress_captures = {}
+        for family, observation in sorted(egress_families.items()):
             enrichment = observation.get("enrichment")
             if isinstance(enrichment, dict):
+                name = "Saída pública IPv" + str(family) + ": " + observation["ip"]
+                egress_captures[name] = observation.get("capture_utc")
                 candidates.append((
-                    "Saída pública IPv" + str(family) + ": " + observation["ip"],
-                    enrichment.get("geoip"), enrichment.get("asn"), None, None
+                    name, enrichment.get("geoip"), enrichment.get("asn"), None, None
                 ))
         if isinstance(hops, list):
             for hop in hops[:MAX_HOPS_HARD_LIMIT]:
@@ -180,13 +182,18 @@ def network_geographic_panel(probes: list[dict], *, presentation_mode: bool = Fa
                 prior_position = None
                 continue
             origin = _public_source_label(value.get("source"))
-            capture = str(probe.get("capture_utc") or "Data não comprovada")
+            # Public IPv4/IPv6 use their independent HTTPS observation timestamps.
+            capture = str(egress_captures.get(name) or probe.get("capture_utc")
+                          or "Data não comprovada")
             asn_value = asn.get("value") if isinstance(asn, dict) and asn.get("state") == "OBSERVED" else None
             organization = (("AS" + str(asn_value.get("number")) + " " +
                              str(asn_value.get("organization") or ""))
                             if isinstance(asn_value, dict) else "ASN indisponível")
             timing = str(rtt) + " ms" if type(rtt) in (int, float) and isfinite(rtt) and 0 <= rtt <= 60000 else "RTT indisponível"
             detail = organization + "; " + timing
+            if presentation_mode and name in egress_captures and len(egress_families) == 2:
+                detail += ("; mesma origem lógica: processo executor; "
+                           "medições HTTPS IPv4 e IPv6 independentes")
             desc = (f"{name}. {detail}. Posição estimada {lat:.3f}°, {lon:.3f}°. "
                     f"Precisão: raio de {radius:g} km. Fonte: {origin}. "
                     f"Coleta: {capture}. Não é posição física comprovada.")

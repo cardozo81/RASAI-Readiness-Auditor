@@ -1,5 +1,5 @@
 from pathlib import Path
-from rasai.parallel_report.components import ruler, stack
+from rasai.parallel_report.components import ruler, stack, table
 from rasai.parallel_report.page_views import SECTIONS, _metric_proposal
 from rasai.parallel_report.thresholds import load
 
@@ -52,6 +52,17 @@ def test_stack_and_editorial_ownership():
     assert 'title=' not in html  # Avoid a competing native browser tooltip.
     assert len(SECTIONS) == 8  # dashboard and indices have dedicated metric composition
     assert SECTIONS['plano'][0][1] == ['directed_analysis_actions']
+
+
+
+def test_status_chip_owns_single_native_tooltip_in_table():
+    html = table('Estados', [
+        {'status': 'SUCCESS', 'source': 'Captura externa'},
+    ], [('status', 'Estado'), ('source', 'Origem')])
+    assert '<td><span class="chip ok" title="Concluído">Concluído</span></td>' in html
+    assert '<td title="Concluído"><span' not in html
+    assert '<td title="Captura externa">Captura externa</td>' in html
+    assert 'data-explanation=' not in html
 
 
 def test_prototype_tokens_and_components():
