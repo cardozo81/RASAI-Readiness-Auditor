@@ -136,6 +136,14 @@ def _origin_section(observations: list[dict], probes: list[dict], timezone_name:
             "verificável para demonstrar a origem. A ausência de evidência "
             "não indica falha de rede.</p></section>"
         )
+    legacy_notice = (
+        "<p>IP público de saída não identificado: nenhuma verificação externa "
+        "específica, autorizada e vinculada a estas conexões foi persistida. "
+        "Não é deduzido por DNS, IP do destino, GeoIP ou traceroute.</p>"
+        if not any(row.get("egress_ip") for row in origin_evidence(observations, probes))
+        else "<p>IP público observado externamente corresponde somente à solicitação "
+             "HTTPS autorizada do processo executor, não ao navegador ou ao destino.</p>"
+    )
     return introduction + (
         "<div class='table-wrap'><table><thead><tr>"
         "<th>Ambiente</th><th>Contexto</th><th>Endereço local</th>"
@@ -143,10 +151,7 @@ def _origin_section(observations: list[dict], probes: list[dict], timezone_name:
         "<th>Destino</th><th>Instante</th><th>Método</th>"
         "<th>Proveniência</th><th>Conclusão</th>"
         "</tr></thead><tbody>" + "".join(rows) +
-        "</tbody></table></div>"
-        "<p>Somente verificações externas explicitamente autorizadas comprovam "
-        "o endereço observado por cada serviço, sem vinculação automática ao navegador "
-        "ou à conexão com o destino.</p></section>"
+        "</tbody></table></div>" + legacy_notice + "</section>"
     )
 
 
