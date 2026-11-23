@@ -105,6 +105,71 @@ def strategic_context(rows, governance):
     return html
 
 
+
+def consultative_search_opportunities(rows, timezone_name):
+    """Read-only Search/GEO proposals: never infer governance approval or action IDs."""
+    analyses = rows(['serp_competitive_ai_analyses'])
+    html = '<h2>Oportunidades consultivas de Search e GEO</h2>'
+    html += ('<p class="rf">Propostas já registradas pela IA na comparação competitiva. '
+             'São hipóteses editoriais consultivas, não ações do plano aprovado, '
+             'decisões de governança ou efeitos de posicionamento comprovados. '
+             'Prioridade e confiança são declarações da fonte, não avaliações '
+             'independentes do RASAi.</p>')
+    opportunities = []
+    unavailable = 0
+    malformed = 0
+    divergent = 0
+    sources = []
+    for run in analyses:
+        proposals = _persisted_json(run.get('opportunities_json'), list)
+        if str(run.get('state') or '').upper() != 'AVAILABLE' or proposals is None:
+            unavailable += 1
+            continue
+        source_count = 0
+        for item in proposals:
+            if not isinstance(item, dict):
+                malformed += 1
+                continue
+            references = item.get('evidence_ids')
+            opportunities.append({
+                'priority': item.get('priority'),
+                'title': item.get('title'),
+                'recommendation': item.get('recommendation'),
+                'rationale': item.get('rationale'),
+                'causality_note': item.get('causality_note'),
+                'confidence': item.get('confidence'),
+                'evidence_count': len(references) if isinstance(references, list) else None,
+            })
+            source_count += 1
+        declared = run.get('opportunity_count')
+        if type(declared) is int and declared != source_count:
+            divergent += 1
+        if run.get('_ref'):
+            sources.append(technical_link(run['_ref'], 'Consultar síntese e evidências originais'))
+    if opportunities:
+        html += '<p><strong>Propostas materializadas:</strong> ' + str(len(opportunities)) + '.</p>'
+        html += table('Propostas consultivas materializadas', opportunities, [
+            ('priority', 'Prioridade declarada pela IA'),
+            ('title', 'Oportunidade'),
+            ('recommendation', 'Recomendação consultiva'),
+            ('rationale', 'Justificativa registrada'),
+            ('causality_note', 'Limite causal declarado'),
+            ('confidence', 'Confiança autodeclarada (não estatística)'),
+            ('evidence_count', 'Referências de evidência registradas'),
+        ], timezone_name, full_text=True)
+        if sources:
+            html += '<p class="rf">Rastreabilidade da análise: ' + ' · '.join(sources) + '</p>'
+    else:
+        html += '<p>N/D — nenhuma proposta competitiva de IA disponível em fonte verificável nesta auditoria.</p>'
+    if unavailable or malformed or divergent:
+        html += ('<p class="callout w">Cobertura limitada da síntese competitiva: '
+                 + str(unavailable) + ' análise(s) indisponível(is) ou ilegível(is); '
+                 + str(malformed) + ' proposta(s) inválida(s); '
+                 + str(divergent) + ' divergência(s) entre a quantidade declarada e a materializada. '
+                 'Nenhum dado ausente foi inferido.</p>')
+    return html
+
+
 def render_plan(rows, timezone_name, governance):
     if not rows(['directed_analysis_runs', 'directed_analysis_actions',
                  'recommendations', 'improvement_intelligence_recommendations',
@@ -124,7 +189,8 @@ def render_plan(rows, timezone_name, governance):
                 '<p>Recomendações e textos sugeridos precisam de decisão de governança '
                 'vinculada para integrar o plano aprovado. Não executado, não configurado '
                 'e não aprovado são condições distintas. Nenhuma decisão foi inferida. '
-                'O inventário técnico integral permanece acessível nesta apresentação.</p></details>')
+                'O inventário técnico integral permanece acessível nesta apresentação.</p></details>'
+                + consultative_search_opportunities(rows, timezone_name))
     groups=grouped_actions(rows(['directed_analysis_actions']))
     priorities=Counter(group[0].get('priority') for group in groups)
     html = '<h2>Causas-raiz e prioridades do motor</h2>'
@@ -181,6 +247,7 @@ def render_plan(rows, timezone_name, governance):
                 ('Decisões rejeitadas', sum(d.get('decision') == 'REJECTED' for d in decisions) if decisions else None)])
     html += '<p>Os IDs contam o inventário técnico. Apenas a decisão vinculada identifica uma ação aceita. Itens excluídos permanecem no detalhe técnico.</p>'
     html += strategic_context(rows, governance)
+    html += consultative_search_opportunities(rows, timezone_name)
     # Governance is a decision boundary, not a priority or source-kind heuristic.
     # Technical recommendations without a decision remain consultable but never
     # appear under the client's approved execution plan.
