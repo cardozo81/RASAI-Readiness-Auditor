@@ -236,3 +236,46 @@ def test_console_report_open_preserves_other_pages_and_no_unsolicited_probe(tmp_
     general.parent.mkdir(parents=True)
     general.write_text("<html></html>", encoding="utf-8")
     assert artifacts._synchronize_network_report_before_open(general) == "NOT_APPLICABLE"
+
+
+def test_console_open_reprojects_new_independent_egress_without_target_probe(
+    monkeypatch, tmp_path,
+):
+    """Default-on egress must become visible even without TCP probe consent."""
+    from types import SimpleNamespace
+    from rasai import console_artifacts as artifacts
+    from rasai import catalog_report_site as catalog
+    from rasai import network_active_probe as probes
+    from rasai import network_public_egress_capture as egress
+    from rasai import persistence, report_completion
+
+    audit = tmp_path / "AUD-ONLY-EGRESS"
+    report = audit / "report-catalog"
+    report.mkdir(parents=True)
+    (audit / "audit.db").write_bytes(b"sealed-audit-placeholder")
+    index = report / "index.html"
+    index.write_text("<html></html>", encoding="utf-8")
+    (report / "manifest.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(persistence.AuditWorkspace, "open", staticmethod(
+        lambda path: SimpleNamespace(root=path, database=path / "audit.db")
+    ))
+    monkeypatch.setattr(probes, "read_authorized_probes", lambda *_: [])
+    monkeypatch.setattr(egress, "read_public_egress_probe", lambda *_: {
+        "public_egress": {"state": "PARTIAL", "families": {}},
+        "method": "INDEPENDENT_EXTERNAL_HTTPS_IP_ECHO",
+    })
+    monkeypatch.setattr(auto, "_approved_host", lambda: None)
+    fresh = [False]
+    monkeypatch.setattr(catalog, "catalog_report_is_fresh", lambda **_: fresh[0])
+    projected = []
+
+    def project(*, audit_id, workspace, read_only):
+        projected.append((audit_id, read_only))
+        fresh[0] = True
+        return SimpleNamespace(renderer_errors=())
+
+    monkeypatch.setattr(
+        report_completion, "materialize_catalog_report_projection", project
+    )
+    assert artifacts._synchronize_network_report_before_open(index) == "READY"
+    assert projected == [("AUD-ONLY-EGRESS", True)]

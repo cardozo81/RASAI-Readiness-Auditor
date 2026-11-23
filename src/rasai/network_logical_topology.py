@@ -9,6 +9,7 @@ from html import escape
 from typing import Any
 
 from rasai.network_connection_origin import _validated_ip, origin_evidence
+from rasai.network_public_egress import verified_families
 from rasai.network_observation import _utc_capture_time
 from rasai.time_contract import format_presentation_timestamp
 
@@ -75,6 +76,26 @@ def logical_network_sections(
         origin = origin_evidence([], [probe])[0]
         environment = "Executor · sonda " + str(index)
         stamp = _display_time(origin["captured_at"], timezone_name)
+        if probe.get("method") == "INDEPENDENT_EXTERNAL_HTTPS_IP_ECHO":
+            remote_echo = verified_families(probe.get("public_egress"))
+            steps = []
+            for version, observed in sorted(remote_echo.items()):
+                add_ip(environment, observed["ip"],
+                       "IPv" + str(version) + " público observado externamente",
+                       "Serviço externo HTTPS; não corresponde à conexão TCP com o destino",
+                       _display_time(observed.get("capture_utc"), timezone_name))
+                steps.append(_li("IP público IPv" + str(version) + " visto pelo "
+                                 "serviço externo: " + observed["ip"] + "."))
+            if not steps:
+                steps.append(_li("Endereço público de saída não identificado "
+                                 "nesta consulta externa."))
+            diagrams.append(
+                "<h3>" + escape(environment) + " · identificação externa</h3>"
+                "<ol>" + "".join(steps) + "</ol>"
+                "<p>A consulta externa não comprova a origem do navegador "
+                "nem a rota ou interface da conexão TCP ao destino.</p>"
+            )
+            continue
         local_ip = origin["local_ip"] if origin["local_state"] == "OBSERVED" else None
         peer_ip = origin["remote_ip"]
         add_ip(environment, local_ip, "Endereço local do socket TCP",
@@ -93,6 +114,18 @@ def logical_network_sections(
             "Ponto inicial do processo: " + (local_ip or "Não identificado")
             + " (interface local; não é o IP público de saída)."
         )]
+        externally_observed = verified_families(probe.get("public_egress"))
+        for family, observation in sorted(externally_observed.items()):
+            add_ip(environment, observation["ip"],
+                   "IP público de saída IPv" + str(family) + " (consulta HTTPS externa)",
+                   "Serviço externo de identificação; não é a conexão ao destino",
+                   _display_time(observation.get("capture_utc"), timezone_name))
+            steps.append(_li(
+                "Saída pública IPv" + str(family) + " observada pelo serviço externo: "
+                + observation["ip"] + " (não comprova a rota desta conexão TCP)."
+            ))
+        if isinstance(probe.get("public_egress"), dict) and not externally_observed:
+            steps.append(_li("Saída pública externa: não identificada nesta medição."))
         trace = _metric(probe, "traceroute")
         hops = trace.get("hops") if isinstance(trace, dict) else None
         if isinstance(hops, list):
@@ -131,13 +164,20 @@ def logical_network_sections(
             "Não representam enlaces físicos verificados nem sequência TCP comprovada.</p>"
         )
 
+    egress_intro = (
+        "IP público de saída observado em consulta HTTPS externa autorizada; "
+        "a conexão ao destino e a do navegador são independentes."
+        if any(verified_families(p.get("public_egress"))
+               for p in probes if isinstance(p, dict))
+        else "IP público de saída: <strong>Não identificado</strong>."
+    )
     start = (
         "<section class='panel' id='network-logical-topology'>"
         "<h2>Topologia lógica observada</h2>"
         "<p>A origem local do executor só é indicada quando o socket da sonda autorizada "
         "a registrou. O navegador é outra sessão. A ordem dos saltos é apenas a ordem "
         "observada pelo traceroute, não um caminho físico confirmado. "
-        "IP público de saída: <strong>Não identificado</strong>.</p>"
+        + egress_intro + "</p>"
     )
     if not diagrams:
         start += "<p>Não há medições de rede verificáveis. Isso não comprova falha de conexão.</p>"

@@ -35,7 +35,9 @@ def hostname_from_audit_url(value: str) -> str:
 
 def validate_network_setting(name: str, value: str) -> str:
     text = str(value).strip()
-    if name in ("RASAI_NETWORK_ACTIVE_ENABLED", "RASAI_GEOIP_ACQUIRE_TOOLS"):
+    if name in ("RASAI_NETWORK_ACTIVE_ENABLED", "RASAI_GEOIP_ACQUIRE_TOOLS",
+                "RASAI_NETWORK_EGRESS_ENABLED", "RASAI_NETWORK_EGRESS_IPIFY_ENABLED",
+                "RASAI_NETWORK_EGRESS_IDENTME_ENABLED"):
         if text.lower() not in ("true", "false"):
             raise ValueError("Use true ou false")
         return text.lower()

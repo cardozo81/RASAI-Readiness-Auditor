@@ -12,6 +12,8 @@ from rasai.network_intelligence import build_network_assessment
 from rasai.network_map import network_geographic_panel, network_map_locations, map_reference_for_hop
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_connection_origin import origin_evidence
+from rasai.network_public_egress_view import public_egress_panel
+from rasai.network_public_egress_capture import read_public_egress_probe
 from rasai.network_logical_topology import logical_network_sections
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
@@ -367,6 +369,8 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
             except (OSError, ValueError, TypeError, sqlite3.Error):
                 observations = []
     probes = read_authorized_probes(root, audit_id)
+    echo = read_public_egress_probe(root, audit_id)
+    visible_probes = probes + ([echo] if echo is not None else [])
     events = [('Sonda de rede complementar',
                public_value(item.get('capture_utc'), 'captured_at', timezone_name))
               for item in probes]
@@ -432,7 +436,7 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
         'Captura do navegador e sonda do processo executor são independentes; '
         'NAT, proxy ou VPN podem alterar a origem visível na Internet.</p>'
     )
-    origin_rows = origin_evidence(observations, probes)
+    origin_rows = origin_evidence(observations, visible_probes)
     if not origin_rows:
         origin_html += (
             '<p><strong>Não identificada.</strong> Não há registro de origem '
@@ -450,7 +454,7 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
             ('Ambiente', row['kind']),
             ('Contexto', public_value(row['context'], 'device')),
             ('Endereço local da conexão', row['local_ip'] or 'Não identificada'),
-            ('IP público de saída', 'Não identificado'),
+            ('IP público de saída', row['egress_ip'] or 'Não identificado'),
             ('IP remoto do destino', row['remote_ip'] or 'Não identificado'),
             ('Destino', row['destination'] or 'Destino não identificado'),
             ('Instante registrado', public_value(row['captured_at'], 'captured_at', timezone_name)
@@ -461,11 +465,12 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
         ])
         origin_html += '<p>' + technical_link(row['ref'], 'Consultar evidência da conexão') + '</p>'
     origin_html += (
-        '<p class="rf">IP público de saída não identificado: não existe medição '
-        'externa específica, autorizada e vinculada à conexão nestes pacotes. '
-        'DNS, traceroute, GeoIP e IP remoto não são provas da origem pública.</p>'
+        '<p class="rf">A origem pública é identificada somente para as solicitações '
+        'HTTPS externas autorizadas; não representa automaticamente o navegador '
+        'nem a conexão TCP com o destino. DNS, traceroute e GeoIP não provam a origem.</p>'
     )
-    origin_html += logical_network_sections(observations, probes, timezone_name)
+    origin_html += public_egress_panel(visible_probes, timezone_name)
+    origin_html += logical_network_sections(observations, visible_probes, timezone_name)
     connection_html = '<h2>Conexões e cronologia verificadas</h2>'
     connection_html += '<p>O IP é o peer remoto observado, não o IP do usuário. O instante indica a captura; não mede latência ou RTT. Cada linha conserva sua própria origem.</p>'
     for connection in sanitize(connections):
@@ -490,7 +495,7 @@ def network_context(root, audit_id, timezone_name, *, primary=None):
          ('captured_at', 'Instante'), ('indicator', 'Indicador'), ('state', 'Estado'),
          ('value', 'Valor'), ('method','Método'), ('provenance', 'Fonte'),
          ('reason', 'Motivo / limite'),('_ref','Evidência')])
-    map_probes = sanitize(probes)
+    map_probes = sanitize(visible_probes)
     for item in map_probes:
         if isinstance(item, dict):
             item['capture_utc'] = public_value(item.get('capture_utc'), 'captured_at', timezone_name)

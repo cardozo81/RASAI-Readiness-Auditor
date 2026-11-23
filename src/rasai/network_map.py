@@ -9,6 +9,7 @@ from typing import Any
 
 from rasai.network_world_land import WORLD_LAND_SVG_PATH
 from rasai.network_traceroute import MAX_HOPS_HARD_LIMIT
+from rasai.network_public_egress import verified_families
 
 
 def _coordinate(value: Any, lower: float, upper: float) -> float | None:
@@ -75,6 +76,12 @@ def network_map_locations(probes: list[dict]) -> dict[tuple[float, float], dict]
         destination = _geo_position(metrics.get("geoip"))
         if destination is not None:
             coords.add(destination)
+        for observation in verified_families(probe.get("public_egress")).values():
+            enrichment = observation.get("enrichment")
+            geo = enrichment.get("geoip") if isinstance(enrichment, dict) else None
+            position = _geo_position(geo)
+            if position is not None:
+                coords.add(position)
         trace = metrics.get("traceroute")
         detail = trace.get("value") if isinstance(trace, dict) else None
         hops = detail.get("hops") if isinstance(detail, dict) else None
@@ -130,6 +137,14 @@ def network_geographic_panel(probes: list[dict], *, presentation_mode: bool = Fa
         hops = trace_value.get("hops") if isinstance(trace_value, dict) else None
         candidates = [("Destino: " + str(probe.get("hostname") or "público"),
                        measurements.get("geoip"), measurements.get("asn"), None, None)]
+        for family, observation in sorted(verified_families(
+                probe.get("public_egress")).items()):
+            enrichment = observation.get("enrichment")
+            if isinstance(enrichment, dict):
+                candidates.append((
+                    "Saída pública IPv" + str(family) + ": " + observation["ip"],
+                    enrichment.get("geoip"), enrichment.get("asn"), None, None
+                ))
         if isinstance(hops, list):
             for hop in hops[:MAX_HOPS_HARD_LIMIT]:
                 if not isinstance(hop, dict):

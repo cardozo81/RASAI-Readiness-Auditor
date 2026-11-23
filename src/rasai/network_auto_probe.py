@@ -80,25 +80,86 @@ def _authorized_worker_environment() -> dict[str, str]:
             "RASAI_NETWORK_GEOIP_SOURCE", source)
     except ValueError:
         child_env["RASAI_NETWORK_GEOIP_SOURCE"] = "DISABLED"
+    # Default-on IP discovery is independent of the audit-target network probe, and remains
+    # reversible even when the operator reopens the console from an INI file.
+    flags = ("RASAI_NETWORK_EGRESS_ENABLED",
+             "RASAI_NETWORK_EGRESS_IPIFY_ENABLED",
+             "RASAI_NETWORK_EGRESS_IDENTME_ENABLED")
+    stored = {}
+    path = resolve_config_path()
+    if not path.is_symlink() and path.is_file():
+        try:
+            if path.stat().st_size <= 500_000:
+                parser = ConfigParser(interpolation=None)
+                parser.optionxform = str
+                parser.read(path, encoding="utf-8-sig")
+                stored = {flag: parser.get("environment", flag, fallback="")
+                          for flag in flags}
+        except (OSError, ConfigError, ValueError, UnicodeError):
+            stored = {}
+    for flag in flags:
+        default = "true"
+        raw = os.environ.get(flag, stored.get(flag) or default)
+        try:
+            child_env[flag] = validate_network_setting(flag, raw)
+        except (ValueError, TypeError):
+            child_env[flag] = "false"
     return child_env
 
 
+def _dispatch_default_egress(workspace: Path, audit_id: str) -> str:
+    """Independent, default-on post-AUD echo, even without a target probe."""
+    from rasai.network_public_egress import enabled_providers
+    from rasai.network_public_egress_capture import egress_path
+
+    env = _authorized_worker_environment()
+    if not enabled_providers(env):
+        return "DISABLED"
+    db = workspace / "audit.db"
+    if (workspace.is_symlink() or db.is_symlink() or not db.is_file()
+            or (workspace / "artifacts").is_symlink()):
+        return "AUDIT_NOT_READY"
+    output = egress_path(workspace)
+    if output.exists() or output.is_symlink():
+        return "ALREADY_COLLECTED"
+    cmd = [
+        sys.executable, "-m", "rasai.network_public_egress_capture",
+        "--workspace", str(workspace), "--audit-id", audit_id,
+    ]
+    options = {"env": env}
+    if os.name == "nt":
+        options["creationflags"] = subprocess.CREATE_NO_WINDOW
+    else:
+        options["start_new_session"] = True
+    try:
+        subprocess.Popen(
+            cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, close_fds=True, **options,
+        )
+    except OSError:
+        return "DISPATCH_FAILED"
+    return "DISPATCHED"
+
+
 def dispatch_for_new_audit(workspace: str | Path, audit_id: str) -> dict:
-    """Non-blocking best-effort sidecar dispatch once the initial AUD is sealed."""
+    """Dispatch optional target probe plus independent default-on public IP echo."""
+    root = Path(workspace)
+    # The independent provider check does not require active probing consent
+    # for the audited target. Both tasks are nonblocking for the main AUD.
+    egress_state = _dispatch_default_egress(root, audit_id)
     host = _approved_host()
     if host is None:
-        return {"state": "NOT_AUTHORIZED"}
+        return {"state": "NOT_AUTHORIZED", "egress_state": egress_state}
     from rasai.network_active_probe import _audit_has_target, probe_path
-    root = Path(workspace)
     # A previously authorized host may appear only as a redirect in a new AUD;
     # check the sealed primary URL, not just any observed page/redirect.
     if _sealed_primary_host(root, audit_id) != host:
-        return {"state": "OUT_OF_SCOPE"}
+        return {"state": "OUT_OF_SCOPE", "egress_state": egress_state}
     if not _audit_has_target(root, audit_id, host):
-        return {"state": "OUT_OF_SCOPE"}
+        return {"state": "OUT_OF_SCOPE", "egress_state": egress_state}
     existing = probe_path(root, audit_id, host, 443)
     if existing.exists() or existing.is_symlink():
-        return {"state": "ALREADY_COLLECTED"}
+        return {"state": "ALREADY_COLLECTED", "egress_state": egress_state}
     cmd = [sys.executable, "-m", "rasai.network_acceptance",
            "--workspace", str(root), "--audit-id", audit_id,
            "--host", host, "--permit-exact-host", host,
@@ -113,5 +174,5 @@ def dispatch_for_new_audit(workspace: str | Path, audit_id: str) -> dict:
         subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, close_fds=True, **options)
     except OSError:
-        return {"state": "DISPATCH_FAILED"}
-    return {"state": "DISPATCHED"}
+        return {"state": "DISPATCH_FAILED", "egress_state": egress_state}
+    return {"state": "DISPATCHED", "egress_state": egress_state}

@@ -219,6 +219,9 @@ ENV_NAMES = tuple(
             "RASAI_NETWORK_ACTIVE_HOST",
             "RASAI_NETWORK_GEOIP_SOURCE",
             "RASAI_NETWORK_MAX_HOPS",
+            "RASAI_NETWORK_EGRESS_ENABLED",
+            "RASAI_NETWORK_EGRESS_IPIFY_ENABLED",
+            "RASAI_NETWORK_EGRESS_IDENTME_ENABLED",
         )
     )
 )
@@ -691,6 +694,19 @@ def environment_specs() -> tuple[EnvironmentSpec, ...]:
                         "Teto de saltos na medição ativa autorizada.",
                         "inteiro 1..16", default="8",
                         impact="Limite maior pode ampliar a duração da sonda, máximo 16."),
+        EnvironmentSpec("RASAI_NETWORK_EGRESS_ENABLED", "Search Intelligence / Observability",
+                        "Descoberta HTTPS do IP público do processo executor após nova AUD.",
+                        "booleano", ("true", "false"), "true",
+                        impact="Habilitado por padrão. Consulta endpoints externos sem bloquear a AUD; "
+                               "pode ser desligado nesta sessão ou salvo no INI."),
+        EnvironmentSpec("RASAI_NETWORK_EGRESS_IPIFY_ENABLED", "Search Intelligence / Observability",
+                        "Habilita o serviço gratuito ipify para IPv4/IPv6.",
+                        "booleano", ("true", "false"), "true",
+                        impact="Desative para interromper consultas ao ipify sem afetar outras sondas."),
+        EnvironmentSpec("RASAI_NETWORK_EGRESS_IDENTME_ENABLED", "Search Intelligence / Observability",
+                        "Habilita o serviço gratuito ident.me como alternativa ao ipify.",
+                        "booleano", ("true", "false"), "true",
+                        impact="Desative para interromper consultas ao ident.me sem afetar outras sondas."),
     ):
         known[spec.name] = spec
     return tuple(
@@ -791,7 +807,8 @@ def _absolute_url(value: str, *, https_only: bool = False, loopback_http: bool =
 def _validate(name: str, raw: str) -> str:
     if name in {"RASAI_GEOIP_ACQUIRE_TOOLS", "RASAI_NETWORK_ACTIVE_ENABLED",
                 "RASAI_NETWORK_ACTIVE_HOST", "RASAI_NETWORK_GEOIP_SOURCE",
-                "RASAI_NETWORK_MAX_HOPS"}:
+                "RASAI_NETWORK_MAX_HOPS", "RASAI_NETWORK_EGRESS_ENABLED",
+                "RASAI_NETWORK_EGRESS_IPIFY_ENABLED", "RASAI_NETWORK_EGRESS_IDENTME_ENABLED"}:
         from rasai.network_active_policy import validate_network_setting
         return validate_network_setting(name, raw)
     value = validate_existing(name, raw)

@@ -131,13 +131,15 @@ def _synchronize_network_report_before_open(path: Path) -> str:
     try:
         from rasai.catalog_report_site import catalog_report_is_fresh
         from rasai.network_active_probe import probe_path, read_authorized_probes
+        from rasai.network_public_egress_capture import read_public_egress_probe
         from rasai.network_auto_probe import _approved_host, _sealed_primary_host
         from rasai.persistence import AuditWorkspace
 
         audit_id = root.name
         workspace = AuditWorkspace.open(root)
         current_probes = read_authorized_probes(root, audit_id)
-        if current_probes and catalog_report_is_fresh(audit_id=audit_id, workspace=workspace):
+        independent_echo = read_public_egress_probe(root, audit_id)
+        if (current_probes or independent_echo) and catalog_report_is_fresh(audit_id=audit_id, workspace=workspace):
             return "READY"
 
         # An older historical AUD is never delayed waiting for a new probe.
@@ -163,11 +165,11 @@ def _synchronize_network_report_before_open(path: Path) -> str:
 
         # Only persisted, integrity-checked probes may trigger a read-only
         # projection. The active worker remains the sole network collector.
-        if read_authorized_probes(root, audit_id):
+        if read_authorized_probes(root, audit_id) or independent_echo:
             if catalog_report_is_fresh(audit_id=audit_id, workspace=workspace):
                 return "READY"
             # Do not compete with a recent worker still staging its tree.
-            if not recent:
+            if not recent or (independent_echo is not None and not pending):
                 from rasai.report_completion import materialize_catalog_report_projection
                 result = materialize_catalog_report_projection(
                     audit_id=audit_id, workspace=workspace, read_only=True)
