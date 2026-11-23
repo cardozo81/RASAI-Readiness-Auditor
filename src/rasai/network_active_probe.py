@@ -314,9 +314,9 @@ def collect_authorized_probe(
     # and independent from this vetted target TCP/TLS/traceroute observation.
     # Never let service failures invalidate a successful original probe.
     if os.environ.get("RASAI_NETWORK_EGRESS_ENABLED", "false").strip().lower() == "true":
-        from rasai.network_public_egress import discover_public_egress
+        from rasai.network_public_egress import collect_bounded
         try:
-            record["public_egress"] = discover_public_egress(os.environ)
+            record["public_egress"] = collect_bounded(os.environ)
         except Exception:
             record["public_egress"] = {
                 "state": "UNAVAILABLE", "families": {},
