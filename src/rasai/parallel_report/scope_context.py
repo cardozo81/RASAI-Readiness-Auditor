@@ -122,7 +122,7 @@ def editorial_evidence(root, tables, projection=None):
 
 
 _NETWORK_METRICS = (
-    ('connected_public_ip', 'Endereço público da conexão'),
+    ('connected_public_ip', 'IP remoto público observado'),
     ('http_protocol', 'Protocolo HTTP'),
     ('http_status', 'Status HTTP'),
     ('redirect_count', 'Redirecionamentos HTTP'),
@@ -177,14 +177,23 @@ def _network_value(key, metric):
         if value.get('accuracy_radius_km') is not None:
             parts.append('precisão ±' + str(value['accuracy_radius_km']) + ' km')
         if value.get('source'):
-            parts.append('fonte ' + str(value['source']))
+            source = str(value['source'])
+            label = {
+                'LOCAL_MMDB_CITY': 'Base geográfica local',
+                'LOCAL_MAXMIND_MMDB': 'Base geográfica local',
+                'MAXMIND_MMDB': 'Base geográfica local',
+            }.get(source, 'Base não especificada')
+            parts.append('fonte ' + label)
         return ' · '.join(parts) or None
     if key == 'traceroute' and isinstance(value, dict):
         hops = value.get('hops') if isinstance(value.get('hops'), list) else []
         reached = 'destino alcançado' if value.get('target_reached') is True else 'caminho completo não confirmado'
         parts = [str(len(hops)) + ' salto(s) registrado(s)', reached]
         if value.get('method'):
-            parts.append('método ' + str(value['method']))
+            method = str(value['method'])
+            parts.append('método ' + (
+                public_value(method, 'method') if method == 'WINDOWS_TRACERT'
+                else 'Não especificado'))
         if value.get('probe_protocol'):
             parts.append('protocolo ' + str(value['probe_protocol']))
         if type(value.get('max_hops')) is int:
@@ -192,6 +201,8 @@ def _network_value(key, metric):
         return ' · '.join(parts)
     if isinstance(value, list):
         return ', '.join(str(item) for item in value[:32])
+    if key == 'tls_protocol' and isinstance(value, str) and value.startswith('TLSv'):
+        return 'TLS ' + value.removeprefix('TLSv')
     return value
 
 
