@@ -229,4 +229,4 @@ def error_summary(packet: Any) -> str | None:
         reason = " / ".join(ERROR_REASONS[code] for code in reasons)
         failures.append("IPv" + str(family) + ": " +
                         (reason or "Sem resultado verificável."))
-    return " ".join(failures) if failures else None
+    return " ".join(failures) if failures else "A medição externa não produziu resultados verificáveis."
