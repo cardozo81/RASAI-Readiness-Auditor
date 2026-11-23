@@ -21,6 +21,9 @@ _FIELDS = (
     "RASAI_NETWORK_MAX_HOPS",
     "RASAI_NETWORK_GEOIP_SOURCE",
     "RASAI_GEOIP_ACQUIRE_TOOLS",
+    "RASAI_NETWORK_EGRESS_ENABLED",
+    "RASAI_NETWORK_EGRESS_IPIFY_ENABLED",
+    "RASAI_NETWORK_EGRESS_IDENTME_ENABLED",
 )
 
 
@@ -141,6 +144,10 @@ def network_settings_menu(console: Any, state: Any) -> None:
             print(f"{label}:", Path(chosen).name if chosen else
                   "AUSENTE OU INVÁLIDA (verifique MMDB/metadados; máximo de 2 bases)")
         print("Aquisição do utilitário MaxMind:", os.environ.get("RASAI_GEOIP_ACQUIRE_TOOLS", "false"))
+        print("IP público por serviço externo (autorização adicional):",
+              os.environ.get("RASAI_NETWORK_EGRESS_ENABLED", "false"))
+        print("ipify habilitado:", os.environ.get("RASAI_NETWORK_EGRESS_IPIFY_ENABLED", "true"))
+        print("ident.me habilitado:", os.environ.get("RASAI_NETWORK_EGRESS_IDENTME_ENABLED", "true"))
         print("\nO hostname é extraído da URL: HTTPS, caminhos e parâmetros não são copiados.")
         print("A captura passiva não depende da autorização. Sonda ativa: destino exato,")
         print("porta 443, sem autorizar redirecionamentos ou outros domínios.")
@@ -149,6 +156,9 @@ def network_settings_menu(console: Any, state: Any) -> None:
         print("3. Configurar limite de hops")
         print("4. Configurar fonte GeoIP local")
         print("5. Configurar aquisição autorizada do utilitário MaxMind")
+        print("6. Autorizar/desabilitar descoberta externa do IP público (padrão: desabilitada)")
+        print("7. Habilitar/desabilitar API ipify")
+        print("8. Habilitar/desabilitar API ident.me (fallback)")
         print("V. Voltar (sem modificar configuração)")
         choice = input("Escolha: ").strip().upper()
         if choice == "V":
@@ -173,7 +183,7 @@ def network_settings_menu(console: Any, state: Any) -> None:
                 continue
             _apply_consent(console, state, host=None)
             continue
-        if choice in {"3", "4", "5"}:
+        if choice in {"3", "4", "5", "6", "7", "8"}:
             env.refresh_specs()
             name = _FIELDS[int(choice) - 3]
             spec = env.SPEC_BY_NAME.get(name)
