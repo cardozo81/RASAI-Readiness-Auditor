@@ -11,6 +11,7 @@ from rasai.network_observation_store import read_network_observations
 from rasai.catalog_source_dependencies import record_source_dependency
 from rasai.network_active_probe import read_authorized_probes
 from rasai.network_connection_origin import origin_evidence
+from rasai.network_public_egress_view import public_egress_panel
 from rasai.network_logical_topology import logical_network_sections
 from rasai.time_contract import (
     DEFAULT_PRESENTATION_TIMEZONE, format_presentation_timestamp,
@@ -112,7 +113,7 @@ def _origin_section(observations: list[dict], probes: list[dict], timezone_name:
         )
         values = (
             item["kind"], item["context"], local,
-            "Não identificado", item["remote_ip"] or "Não identificado",
+            item["egress_ip"] or "Não identificado", item["remote_ip"] or "Não identificado",
             item["destination"] or "Destino não identificado",
             _network_time(item["captured_at"], timezone_name),
             item["method"], item["provenance"], status,
@@ -143,9 +144,9 @@ def _origin_section(observations: list[dict], probes: list[dict], timezone_name:
         "<th>Proveniência</th><th>Conclusão</th>"
         "</tr></thead><tbody>" + "".join(rows) +
         "</tbody></table></div>"
-        "<p>IP público de saída não identificado: nenhuma verificação externa "
-        "específica, autorizada e vinculada a estas conexões foi persistida. "
-        "Não é deduzido por DNS, IP do destino, GeoIP ou traceroute.</p></section>"
+        "<p>Somente verificações externas explicitamente autorizadas comprovam "
+        "o endereço observado por cada serviço, sem vinculação automática ao navegador "
+        "ou à conexão com o destino.</p></section>"
     )
 
 
@@ -209,6 +210,7 @@ def network_report_body(workspace: str | Path, audit_id: str) -> str:
     probes = read_authorized_probes(root, audit_id)
     blocks = [
         _origin_section(observations, probes, timezone_name),
+        public_egress_panel(probes, timezone_name),
         logical_network_sections(observations, probes, timezone_name),
         network_intelligence_section(root, audit_id),
     ]
