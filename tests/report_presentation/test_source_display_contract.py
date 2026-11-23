@@ -171,7 +171,7 @@ def test_consultative_search_geo_plan_exposes_all_seven_without_dialog_or_approv
         lambda names: [row] if names == ['serp_competitive_ai_analyses'] else [], 'UTC'
     )
     assert 'Propostas materializadas:</strong> 7' in html
-    assert html.count('<tr>') == 7
+    assert html.split('<tbody>', 1)[1].split('</tbody>', 1)[0].count('<tr>') == 7
     assert html.count('Publicar conteúdo verificável e específico.') == 14  # cell and title
     assert 'Não garante posição nem citação.' in html
     assert '0.91' in html and 'Confiança autodeclarada (não estatística)' in html
