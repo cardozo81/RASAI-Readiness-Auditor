@@ -9,8 +9,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import ipaddress
 import json
+import os
 import socket
 import ssl
+import subprocess
+import sys
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import (
@@ -182,6 +185,61 @@ def discover_public_egress(
     }
 
 
+def collect_bounded(environment: Mapping[str, str]) -> dict[str, Any]:
+    """Bound the *whole* optional discovery in a disposable local subprocess.
+
+    DNS resolution is not guaranteed to respect per-socket urllib timeouts.
+    Killing only this helper preserves the already completed target probe.
+    """
+    providers = enabled_providers(environment)
+    if not providers:
+        return discover_public_egress(environment)
+    permitted = {"PATH", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR",
+                 "PYTHONPATH", "PYTHONIOENCODING", "VIRTUAL_ENV",
+                 "TEMP", "TMP", "USERPROFILE", "HOME", "LOCALAPPDATA", "APPDATA"}
+    child_env = {k: v for k, v in os.environ.items() if k.upper() in permitted}
+    for name in (ENABLED, IPIFY_ENABLED, IDENTME_ENABLED):
+        child_env[name] = str(environment.get(name, "false" if name == ENABLED else "true"))
+    options = {}
+    if os.name == "nt":
+        options["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    def failed(reason: str) -> dict:
+        return {
+            "state": "UNAVAILABLE", "method": _METHOD,
+            "measurement_origin": "LOCAL_OPERATOR_PROCESS",
+            "scope": "EXTERNAL_ECHO_REQUEST_ONLY_NOT_BROWSER_OR_TARGET_TCP",
+            "providers_enabled": list(providers),
+            "families": {
+                "ipv" + str(version): {
+                    "state": "UNAVAILABLE", "ip": None, "provider": None,
+                    "capture_utc": None,
+                    "attempts": [{"provider": providers[0], "reason": reason,
+                                  "state": "UNAVAILABLE"}],
+                } for version in (4, 6)
+            },
+        }
+
+    try:
+        child = subprocess.run(
+            [sys.executable, "-m", "rasai.network_public_egress", "--worker"],
+            capture_output=True, text=True, timeout=10, check=False,
+            env=child_env, stdin=subprocess.DEVNULL, **options,
+        )
+        if child.returncode or len(child.stdout) > 8192:
+            return failed("PROBE_ERROR")
+        record = json.loads(child.stdout)
+        if (not isinstance(record, dict) or record.get("method") != _METHOD
+                or record.get("state") not in {"OBSERVED", "PARTIAL", "UNAVAILABLE"}
+                or not isinstance(record.get("families"), dict)):
+            return failed("PROBE_ERROR")
+        return record
+    except subprocess.TimeoutExpired:
+        return failed("TIMEOUT")
+    except (OSError, ValueError, TypeError, UnicodeError):
+        return failed("PROBE_ERROR")
+
+
 def verified_families(packet: Any) -> dict[int, dict]:
     """Read-only minimal validation of an integrity-checked probe's observations."""
     if not isinstance(packet, dict):
@@ -230,3 +288,9 @@ def error_summary(packet: Any) -> str | None:
         failures.append("IPv" + str(family) + ": " +
                         (reason or "Sem resultado verificável."))
     return " ".join(failures) if failures else "A medição externa não produziu resultados verificáveis."
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] != ["--worker"] or not enabled_providers(os.environ):
+        raise SystemExit(2)
+    print(json.dumps(discover_public_egress(os.environ), ensure_ascii=False))
