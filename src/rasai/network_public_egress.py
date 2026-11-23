@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import ipaddress
 import json
+import errno
 import os
 import socket
 import ssl
@@ -98,8 +99,13 @@ def _reason(exc: Exception) -> str:
     if isinstance(source, socket.gaierror):
         return "DNS_UNAVAILABLE"
     if isinstance(source, OSError):
-        if source.errno in (getattr(__import__("errno"), name) for name in
-                            ("ENETUNREACH", "EHOSTUNREACH", "EAFNOSUPPORT")):
+        if source.errno in tuple(
+            value for value in (
+                getattr(errno, "ENETUNREACH", None),
+                getattr(errno, "EHOSTUNREACH", None),
+                getattr(errno, "EAFNOSUPPORT", None),
+            ) if value is not None
+        ):
             return "NETWORK_UNREACHABLE"
     return "UNAVAILABLE"
 
