@@ -491,6 +491,17 @@ ausência ou revogação desabilita novas sondagens. Não existe fallback pago i
 | `RASAI_NETWORK_ACTIVE_HOST` | Não definido | Hostname público exato da URL principal auditada; obrigatório com sondagem ativa. Entrada pode ser URL `http://` ou `https://`, normalizada para apenas hostname; o INI não persiste esquema/caminho. |
 | `RASAI_NETWORK_GEOIP_SOURCE` | `LOCAL_FIRST` | `LOCAL_FIRST` usa City/ASN locais; `DISABLED` impede enriquecimento. |
 | `RASAI_NETWORK_MAX_HOPS` | `8` | Limite de hops de 1 a 16 com orçamento de tempo limitado. |
+| `RASAI_NETWORK_EGRESS_ENABLED` | `true` | Descoberta gratuita e independente do IP público de saída do processo após nova AUD; desligue na sessão ou salve `false` no INI. Não exige habilitar sonda ativa do hostname auditado. |
+| `RASAI_NETWORK_EGRESS_IPIFY_ENABLED` | `true` | Habilita ipify via HTTPS para IPv4 e IPv6. Pode ser desligado sem afetar o fallback ou os motores. |
+| `RASAI_NETWORK_EGRESS_IDENTME_ENABLED` | `true` | Habilita ident.me via HTTPS como fallback para cada família; pode ser desligado sem alterar a medição principal. |
+
+Os três controles de descoberta externa são independentes da sonda ativa ao hostname e
+persistem através do catálogo canônico de configurações. Não são enviadas URLs
+auditadas, chaves nem tokens aos serviços de eco. A coleta registra a origem vista
+pelos serviços externos naquela conexão e não infere a origem de cada requisição
+do navegador. Falhas, como timeout, resposta inválida ou DNS indisponível,
+não bloqueiam AUD e são humanizadas nos relatórios a partir do pacote persistido.
+Desabilitar ambos os fornecedores interrompe a descoberta externa sem erro.
 
 A configuração guiada está em `PREPARAR AUDITORIA > CAT-01 > N. Rede e conectividade`.
 O console exibe o hostname derivado da URL selecionada e a autorização efetiva.
