@@ -202,7 +202,7 @@ def test_auto_dispatch_default_without_target_probe_and_saved_disable(tmp_path, 
     assert "RASAI_PROVIDER_API_KEY" not in observed[0][1]["env"]
     config = tmp_path / "rasai-console.ini"
     config.write_text(
-        "[environment]\\nRASAI_NETWORK_EGRESS_ENABLED = false\\n",
+        "[environment]\nRASAI_NETWORK_EGRESS_ENABLED = false\n",
         encoding="utf-8",
     )
     observed.clear()
