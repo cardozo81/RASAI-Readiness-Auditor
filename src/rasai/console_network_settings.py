@@ -144,7 +144,7 @@ def network_settings_menu(console: Any, state: Any) -> None:
             print(f"{label}:", Path(chosen).name if chosen else
                   "AUSENTE OU INVÁLIDA (verifique MMDB/metadados; máximo de 2 bases)")
         print("Aquisição do utilitário MaxMind:", os.environ.get("RASAI_GEOIP_ACQUIRE_TOOLS", "false"))
-        print("IP público por serviço externo (autorização adicional):",
+        print("Descoberta de IP público (habilitada por padrão; desativação reversível):",
               os.environ.get("RASAI_NETWORK_EGRESS_ENABLED", "true"))
         print("ipify habilitado:", os.environ.get("RASAI_NETWORK_EGRESS_IPIFY_ENABLED", "true"))
         print("ident.me habilitado:", os.environ.get("RASAI_NETWORK_EGRESS_IDENTME_ENABLED", "true"))
