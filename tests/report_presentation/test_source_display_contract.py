@@ -174,7 +174,8 @@ def test_consultative_serp_plan_exposes_all_seven_without_dialog_or_approval():
     assert html.split('<tbody>', 1)[1].split('</tbody>', 1)[0].count('<tr>') == 7
     assert html.count('Publicar conteúdo verificável e específico.') == 14  # cell and title
     assert 'Não garante posição nem citação.' in html
-    assert '0,91' in html and 'Confiança autodeclarada (não estatística)' in html
+    assert '0,91' in html and 'Confiança declarada na fonte' in html
+    assert 'Prioridade e confiança são declarações da fonte' in html
     assert 'search' '-geo.html#record-test' in html
     assert 'detail-dialog' not in html
     assert 'não ações do plano aprovado' in html
