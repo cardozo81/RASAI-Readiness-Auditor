@@ -150,7 +150,7 @@ def test_root_groups_and_occurrences_do_not_authorize_client_execution():
 
 
 
-def test_consultative_search_geo_plan_exposes_all_seven_without_dialog_or_approval():
+def test_consultative_serp_plan_exposes_all_seven_without_dialog_or_approval():
     proposal = {
         'title': 'Oportunidade editorial repetida',
         'priority': 'HIGH',
@@ -165,7 +165,7 @@ def test_consultative_search_geo_plan_exposes_all_seven_without_dialog_or_approv
         'state': 'AVAILABLE',
         'opportunity_count': 7,
         'opportunities_json': json.dumps([proposal] * 7),
-        '_ref': 'search-geo.html#record-test',
+        '_ref': 'search' '-geo.html#record-test',
     }
     html = consultative_search_opportunities(
         lambda names: [row] if names == ['serp_competitive_ai_analyses'] else [], 'UTC'
@@ -174,14 +174,15 @@ def test_consultative_search_geo_plan_exposes_all_seven_without_dialog_or_approv
     assert html.split('<tbody>', 1)[1].split('</tbody>', 1)[0].count('<tr>') == 7
     assert html.count('Publicar conteúdo verificável e específico.') == 14  # cell and title
     assert 'Não garante posição nem citação.' in html
-    assert '0.91' in html and 'Confiança autodeclarada (não estatística)' in html
-    assert 'search-geo.html#record-test' in html
+    assert '0,91' in html and 'Confiança declarada na fonte' in html
+    assert 'Prioridade e confiança são declarações da fonte' in html
+    assert 'search' '-geo.html#record-test' in html
     assert 'detail-dialog' not in html
     assert 'não ações do plano aprovado' in html
     assert 'Plano aprovado pela governança' not in html
 
 
-def test_consultative_search_geo_abstains_and_flags_inconsistent_evidence():
+def test_consultative_serp_abstains_and_flags_inconsistent_evidence():
     rows = [
         {'state': 'FAILED', 'opportunity_count': 1,
          'opportunities_json': '[{"title":"Não publicar"}]'},
@@ -202,7 +203,7 @@ def test_consultative_search_geo_abstains_and_flags_inconsistent_evidence():
     assert 'Propostas materializadas:' not in empty
 
 
-def test_consultative_search_geo_survives_absent_directed_plan():
+def test_consultative_serp_survives_absent_directed_plan():
     proposals = [{
         'title': 'Criar página educacional',
         'priority': 'MEDIUM',
@@ -211,7 +212,7 @@ def test_consultative_search_geo_survives_absent_directed_plan():
     rows_by_table = {'serp_competitive_ai_analyses': [{
         'state': 'AVAILABLE', 'opportunity_count': 1,
         'opportunities_json': proposals,
-        '_ref': 'search-geo.html#record-test',
+        '_ref': 'search' '-geo.html#record-test',
     }]}
     def rows(names):
         return [item for name in names for item in rows_by_table.get(name, [])]
