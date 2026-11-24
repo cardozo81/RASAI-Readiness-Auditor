@@ -214,7 +214,8 @@ def test_presentation_nearby_geoip_points_are_individually_visible_without_chang
     refs = network_map_locations(probes)
     html = network_geographic_panel(probes, presentation_mode=True)
     assert len(refs) == 3 and html.count("data-point-number=") == 3
-    assert html.count("data-map-layer='marker-offset-guide'") == 2
+    # The destination pin is also within 18 SVG units of the IPv4 pin.
+    assert html.count("data-map-layer='marker-offset-guide'") == 3
     assert "não representam rotas de rede" in html
     assert "Saída pública IPv4: 8.8.8.8" in html
     assert "Saída pública IPv6: 2606:4700:4700::1111" in html
