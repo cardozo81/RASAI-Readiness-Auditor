@@ -231,10 +231,69 @@ def network_geographic_panel(probes: list[dict], *, presentation_mode: bool = Fa
             "estão detalhados nas tabelas de rede, quando disponíveis.</p>"
             "</section>"
         )
+    # Presentation-only deconfliction: preserve the measured geographic anchors.
+    # Two distinct nearby coordinates can project to virtually the same SVG pixel.
+    # Move the drawn symbols, not the recorded coordinates or their map identity.
+    display_positions = {}
+    offset_guides = []
+    if presentation_mode:
+        from math import hypot
+
+        plotted = list(markers.items())
+        def radius(group):
+            return 11 if len(group["names"]) > 1 else 7
+
+        crowded = {
+            key for key, group in plotted
+            if any(
+                key != other_key
+                and hypot(group["x"] - other["x"], group["y"] - other["y"])
+                < radius(group) + radius(other) + 4
+                for other_key, other in plotted
+            )
+        }
+        occupied = [
+            (group["x"], group["y"], radius(group))
+            for key, group in plotted if key not in crowded
+        ]
+        for key, group in plotted:
+            if key not in crowded:
+                continue
+            base_x, base_y, r = group["x"], group["y"], radius(group)
+            placed = False
+            for ring in range(1, max(12, len(crowded) * 2) + 1):
+                step = 16 * ring
+                offsets = (
+                    (-step, 0), (step, 0), (0, -step), (0, step),
+                    (-step, -step), (step, -step), (-step, step), (step, step),
+                )
+                for dx, dy in offsets:
+                    x, y = base_x + dx, base_y + dy
+                    if not (40 + r <= x <= 840 - r and 20 + r <= y <= 380 - r):
+                        continue
+                    if any(hypot(x - px, y - py) < r + pr + 4
+                           for px, py, pr in occupied):
+                        continue
+                    display_positions[key] = (x, y)
+                    occupied.append((x, y, r))
+                    offset_guides.append(
+                        f"<line data-map-layer='marker-offset-guide' "
+                        f"x1='{base_x:.2f}' y1='{base_y:.2f}' "
+                        f"x2='{x:.2f}' y2='{y:.2f}' stroke='#52677e' "
+                        "stroke-width='1.2' stroke-dasharray='2 3' "
+                        "pointer-events='none'/>"
+                    )
+                    placed = True
+                    break
+                if placed:
+                    break
+            if not placed:
+                occupied.append((base_x, base_y, r))
+
     svg_markers = []
     for position, group in markers.items():
         n = len(group["names"])
-        x, y = group["x"], group["y"]
+        x, y = display_positions.get(position, (group["x"], group["y"]))
         point = point_refs.get(position) if presentation_mode else None
         label = (f"{n} registros na mesma posição geográfica: "
                  + ", ".join(group["names"])) if n > 1 else group["descriptions"][0]
@@ -244,6 +303,9 @@ def network_geographic_panel(probes: list[dict], *, presentation_mode: bool = Fa
         )
         color = point["color"] if point else "#24578b"
         accessible = (point["label"] + ". " + label) if point else label
+        if position in display_positions:
+            accessible += (" Marcador deslocado no desenho; a linha auxiliar "
+                           "indica a coordenada geográfica estimada original.")
         svg_markers.append(
             f"<g role='group'{identity} data-marker-count='{n}' "
             f"aria-label='{escape(accessible, quote=True)}'>"
@@ -284,12 +346,15 @@ def network_geographic_panel(probes: list[dict], *, presentation_mode: bool = Fa
         "com precisão limitada pela base local; não representam necessariamente "
         "a sede, o centro de dados, a rota percorrida ou a posição de um usuário. "
         "Linhas tracejadas, quando presentes, apenas ilustram saltos consecutivos com coordenadas; não são rotas físicas medidas.</p>"
-        "<div class='table-wrap'><svg viewBox='0 0 880 430' role='img' "
+        + ("<p class='rf'>Pontos próximos foram separados visualmente para evitar sobreposição. "
+           "Guias curtos conectam cada símbolo deslocado à sua coordenada geográfica estimada original; "
+           "não representam rotas de rede.</p>" if offset_guides else "")
+        + "<div class='table-wrap'><svg viewBox='0 0 880 430' role='img' "
         "aria-label='Representação aproximada de locais com coordenadas documentadas' "
         "style='display:block;min-width:550px;max-width:100%;background:#f2f7fb'>"
         + "<path data-map-layer='land' d='" + WORLD_LAND_SVG_PATH +
         "' fill='#e1eee7' stroke='#91a7a0' stroke-width='0.7'/>" +
-        "".join(grid) + "".join(connections) + "".join(svg_markers) + "</svg></div>"
+        "".join(grid) + "".join(connections) + "".join(offset_guides) + "".join(svg_markers) + "</svg></div>"
         "<p>Mapa base simplificado Natural Earth, escala 1:110 milhões "
         "(referência cartográfica de domínio público, não evidência de rede). "
         "A posição estimada é representada apenas pelos marcadores; nenhuma "

@@ -187,3 +187,72 @@ def test_presentation_hop_table_links_only_truly_plotted_locations():
     assert html.count("Não localizado no mapa") >= 2
     assert f"fill=\"{positions[(10.0, 20.0)]['color']}\"" in html
     assert "href=\"#network-map-point-1\"" in html
+
+def test_presentation_nearby_geoip_points_are_individually_visible_without_changing_evidence():
+    """Real-world IPv4/IPv6 overlap must not hide the red point behind the blue one."""
+    import re
+    from math import hypot
+    from rasai.network_map import network_map_locations
+
+    def geo(lat, lon):
+        return {"state": "OBSERVED", "value": {
+            "latitude": lat, "longitude": lon,
+            "accuracy_radius_km": 20, "source": "LOCAL_MMDB_CITY",
+        }}
+
+    probes = [{"hostname": "example.test", "capture_utc": "2026-11-23T12:36:31Z",
+        "metrics": {"geoip": geo(-23.547, -46.636)},
+        "public_egress": {"state": "OBSERVED", "families": {
+            "ipv4": {"state": "OBSERVED", "ip": "8.8.8.8", "provider": "IPIFY",
+                     "capture_utc": "2026-11-23T12:36:31Z",
+                     "enrichment": {"geoip": geo(-30.027, -51.235)}},
+            "ipv6": {"state": "OBSERVED", "ip": "2606:4700:4700::1111",
+                     "provider": "IPIFY", "capture_utc": "2026-11-23T12:36:32Z",
+                     "enrichment": {"geoip": geo(-29.909, -50.957)}},
+        }},
+    }]
+    refs = network_map_locations(probes)
+    html = network_geographic_panel(probes, presentation_mode=True)
+    assert len(refs) == 3 and html.count("data-point-number=") == 3
+    assert html.count("data-map-layer='marker-offset-guide'") == 2
+    assert "não representam rotas de rede" in html
+    assert "Saída pública IPv4: 8.8.8.8" in html
+    assert "Saída pública IPv6: 2606:4700:4700::1111" in html
+    assert "Coleta: 2026-11-23T12:36:32Z" in html
+
+    rendered = {}
+    for coordinate, point in refs.items():
+        match = re.search(
+            rf"id='{point['id']}'[^>]*>.*?<circle cx='([0-9.]+)' "
+            rf"cy='([0-9.]+)' r='7' fill='{re.escape(point['color'])}'",
+            html,
+            re.DOTALL,
+        )
+        assert match is not None
+        rendered[coordinate] = (float(match.group(1)), float(match.group(2)))
+        assert f"href='#{point['id']}'" in html
+
+    ipv4 = rendered[(-30.027, -51.235)]
+    ipv6 = rendered[(-29.909, -50.957)]
+    assert hypot(ipv4[0] - ipv6[0], ipv4[1] - ipv6[1]) >= 18
+    assert "-30.027°, -51.235°" in html
+    assert "-29.909°, -50.957°" in html
+    assert "Ponto 1" in html and "Ponto 2" in html and "Ponto 3" in html
+
+    # Technical catalog renderer retains its previous, unshifted coordinates.
+    plain = network_geographic_panel(probes)
+    assert "marker-offset-guide" not in plain
+    assert "Pontos próximos foram separados" not in plain
+
+
+def test_presentation_nonoverlapping_map_does_not_add_offset_guides():
+    row = {"hostname": "example.test", "metrics": {"geoip": {
+        "state": "OBSERVED", "value": {
+            "latitude": -30.0, "longitude": -51.0,
+            "accuracy_radius_km": 20, "source": "LOCAL_MMDB_CITY",
+        },
+    }}}
+    html = network_geographic_panel([row], presentation_mode=True)
+    assert "data-marker-count='1'" in html
+    assert "marker-offset-guide" not in html
+    assert "Pontos próximos foram separados" not in html
