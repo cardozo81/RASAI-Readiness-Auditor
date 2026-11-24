@@ -1,6 +1,7 @@
 """Synthetic regressions for partial-AUD structure, fidelity and provenance."""
 from hashlib import sha256
 import json
+import re
 import socket
 import sqlite3
 import subprocess
@@ -142,7 +143,9 @@ def test_generation_projects_once_shares_pages_and_preserves_classification(tmp_
     for name in ('extracao.html','conteudo.html','search'+'-geo.html'):
         body = (out/name).read_text(encoding='utf-8')
         assert 'Observed heading' in body and 'Synthetic capture' in body
-        assert 'STRUCTURAL_EXTRACTION_ONLY' not in body  # explanatory prose belongs in UI
+        trace = re.findall(r'<summary>Rastreabilidade</summary><pre>.*?</pre>', body, re.S)
+        assert body.count('STRUCTURAL_EXTRACTION_ONLY') == sum(
+            block.count('STRUCTURAL_EXTRACTION_ONLY') for block in trace)
         assert 'Achados semânticos e acessibilidade' not in body
     assert 'DISCOVERY_ACCESS' in ''.join(p.read_text(encoding='utf-8') for p in (out/'anexos').glob('*.json'))
     assert inventory(root) == before

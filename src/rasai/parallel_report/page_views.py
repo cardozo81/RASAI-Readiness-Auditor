@@ -1,11 +1,13 @@
 """Editorial page compositions over the immutable model; no SQL or runtime helpers."""
-from .components import text, chip, origin, kv, ruler, table, stack
+from .components import (text, chip, origin, kv, ruler, table, stack, technical_link,
+                         traceability)
 from .read_model import thaw, SEARCH_PAGE
 from .templates import LABELS
-from .presentation_labels import public_value, timezone_for_records, timezone_provenance, metric_label
+from .presentation_labels import (public_value, timezone_for_records, timezone_provenance,
+                                  metric_label, monetary_value, format_money, LIGHTHOUSE_SCORE_FIELDS)
 from functools import partial
 from collections import Counter
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from datetime import datetime, timezone
 
 # Each page owns explicit editorial sections rather than a sequence of SQL tables.
@@ -25,7 +27,7 @@ def _metric_proposal(key, thresholds):
     by_id = {item.get('metric_id'): item for item in thresholds}
     if key == 'value':
         return by_id.get('SARI_PRESENTATION_PROPOSAL')
-    if key in {'performance_score', 'accessibility_score', 'best_practices_score', 'seo_score', 'agentic_browsing_score'}:
+    if key in LIGHTHOUSE_SCORE_FIELDS:
         return by_id.get('LIGHTHOUSE_CATEGORY_PERSISTED_CONTRACT')
     if key == 'apdex_score':
         return by_id.get('APDEX_RESULT_PERSISTED_CONTRACT')
@@ -33,23 +35,64 @@ def _metric_proposal(key, thresholds):
 
 
 def _money(value):
-    if value is None or isinstance(value, bool):
-        return None
-    try:
-        amount = Decimal(str(value))
-        return amount if amount.is_finite() and amount >= 0 else None
-    except (InvalidOperation, TypeError, ValueError):
-        return None
+    amount = monetary_value(value)
+    return amount if amount is not None and amount >= 0 else None
 
 
 def _timestamp(value):
-    if not value:
+    if not isinstance(value, str) or len(value) < 16:
         return None
     try:
-        result = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        result = datetime.fromisoformat(value.replace('Z', '+00:00'))
         return result if result.tzinfo else result.replace(tzinfo=timezone.utc)
     except (TypeError, ValueError):
         return None
+
+
+def _forecast_comparison(forecast, attempts, estimated, timezone_name):
+    evaluated = forecast.get('evaluated_at')
+    cutoff = _timestamp(evaluated)
+    currency = forecast.get('currency')
+    actual = _money(forecast.get('actual_cost'))
+    heading = 'Previsão calculada em ' + (
+        public_value(evaluated, 'evaluated_at', timezone_name) if cutoff else 'data não registrada')
+    pairs = [('Valor realizado registrado na previsão',
+              ' '.join(filter(None, (currency, format_money(actual))))),
+             ('Status registrado', forecast.get('status'))]
+    status = str(forecast.get('status') or '').strip().upper()
+    if (currency and currency in estimated and actual is not None
+            and status not in {'NOT_COMPARABLE', 'NÃO COMPARÁVEL', 'NAO COMPARAVEL'}):
+        pairs.append(('Diferença (estimado nas tentativas menos realizado na previsão)',
+                      f'{currency} {format_money(estimated[currency] - actual)}'))
+    html = '<h3>' + text(heading) + '</h3>' + kv(pairs)
+    if not cutoff:
+        html += '<p>Horário de origem indisponível para a comparação temporal.</p>'
+    for completed in (True, False):
+        entries = []
+        for attempt in attempts:
+            end = _timestamp(attempt.get('finished_at'))
+            if completed and not (end and cutoff and end > cutoff):
+                continue
+            if not completed and end:
+                continue
+            label = ' · '.join(str(attempt[key]) for key in ('provider', 'model') if attempt.get(key))
+            field = 'finished_at' if completed else 'started_at'
+            time = public_value(attempt.get(field), field, timezone_name)
+            entries.append('<li>' + text((label or 'Tentativa') + ' · ' + str(time)) +
+                           ' ' + technical_link(attempt.get('_ref')) + '</li>')
+        if entries:
+            title = ('Tentativas com conclusão posterior à previsão' if completed else
+                     'Tentativas sem horário de conclusão verificável (horário de início)')
+            html += '<h4>' + title + '</h4><ul>' + ''.join(entries) + '</ul>'
+            if not completed:
+                html += '<p>A conclusão temporal dessas tentativas não pode ser comprovada.</p>'
+        elif completed and cutoff:
+            html += '<p>Nenhuma tentativa tem conclusão registrada após a previsão.</p>'
+    raw_total = estimated.get(currency) if currency else None
+    return html + traceability(kv([('Horário de origem', evaluated),
+                                  ('Total estimado na mesma moeda', raw_total),
+                                  ('Valor realizado', forecast.get('actual_cost')),
+                                  ('Moeda', currency)], raw=True) + technical_link(forecast.get('_ref')))
 
 
 def editorial(page, records, costs, thresholds, governance=None):
@@ -97,7 +140,7 @@ def editorial(page, records, costs, thresholds, governance=None):
                     scope += ' · Amostras válidas / meta: ' + ' / '.join(str(v) if v is not None else 'N/D' for v in (data.get('valid_samples'), target))
                     thresholds_pair = (run.get('satisfied_threshold_seconds', run.get('threshold_seconds')), run.get('frustrated_threshold_seconds', run.get('frustration_seconds')))
                     if all(value is not None for value in thresholds_pair):
-                        scope += ' · T/F (s): ' + ' / '.join(str(v) for v in thresholds_pair)
+                        scope += ' · T/F (s): ' + ' / '.join(str(public_value(v)) for v in thresholds_pair)
                     if data.get('small_group'):
                         scope += ' · Grupo pequeno; generalização limitada'
                 html += ruler(metric_label(data,key,LABELS), data[key], 1 if key == 'apdex_score' else 100, proposal, scope, data['_ref'])
@@ -168,28 +211,17 @@ def editorial(page, records, costs, thresholds, governance=None):
         observed = [row for row in attempt_rows if _money(row.get('observed_cost')) is not None]
         html += kv([
             ('Custo estimado persistido',
-             ' · '.join(str(currency) + ' ' + format(total, 'f') for currency, total
+             ' · '.join(str(currency) + ' ' + format_money(total) for currency, total
                         in sorted(by_currency.items())) + ' em ' + str(len(priced)) +
              ' tentativas com preço' if priced else 'N/D — sem estimativas monetárias persistidas'),
             ('Custo observado pelo provedor',
              str(len(observed)) + ' tentativa(s) com valor observado' if observed else 'N/D — nenhum custo observado pelo provedor'),
         ])
+        if by_currency:
+            html += traceability(kv(list(sorted(by_currency.items()))))
         forecasts = rows(['console_cost_forecast_outcomes'])
         for forecast in forecasts:
-            evaluated = forecast.get('evaluated_at')
-            instant = _timestamp(evaluated)
-            newer = [row for row in attempt_rows
-                     if instant and _timestamp(row.get('started_at')) and
-                     _timestamp(row.get('started_at')) > instant]
-            amount = forecast.get('actual_cost')
-            html += kv([(
-                'Instantâneo do console em ' + (public_value(evaluated, 'evaluated_at', timezone_name)
-                                              if evaluated else 'data não registrada'),
-                (str(forecast.get('currency') or 'moeda não informada') + ' ' +
-                 (format(_money(amount), 'f') if _money(amount) is not None else 'N/D') +
-                 ' — anterior a ' + str(len(newer)) + ' tentativa(s)'
-                 if instant else 'data de avaliação não verificável; sem equivalência com custo final')
-            )])
+            html += _forecast_comparison(forecast, attempt_rows, by_currency, timezone_name)
         if page == 'ia-custos' and priced:
             html += '<h2>Tentativas com custo estimado persistido</h2>'
             html += local_table('Preço por tentativa — sem cobrança inferida', priced, [
@@ -199,7 +231,7 @@ def editorial(page, records, costs, thresholds, governance=None):
                 ('started_at', 'Início')
             ])
         for currency, amounts in costs['totals'].items():
-            html += kv([(f'{currency} · {kind}',public_value(value,'amount')) for kind,value in amounts.items() if kind != 'conciliado'])
+            html += kv([(f'{currency} · {kind}',format_money(monetary_value(value))) for kind,value in amounts.items() if kind != 'conciliado'])
             source_labels = {
                 'ai_provider_attempts': 'IA / integração',
                 'content_remediation_attempts': 'Remediação de conteúdo',

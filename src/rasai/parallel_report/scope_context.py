@@ -17,7 +17,7 @@ from rasai.network_public_egress_capture import read_public_egress_probe
 from rasai.network_logical_topology import logical_network_sections
 from rasai.network_observation import snapshots_from_audit
 from rasai.network_observation_store import read_network_observations, sidecar_path
-from .components import kv, table, text, technical_link
+from .components import kv, table, text, technical_link, traceability
 from .annex_payloads import register_payload
 from .presentation_labels import public_value, presentation_timestamps
 from .read_model import SEARCH_PAGE
@@ -68,58 +68,135 @@ def editorial_evidence(root, tables, projection=None):
         from .capture_projection import project_capture
         projection = project_capture(root, tables, inventory(root))
     state = projection.get('state', 'PROJECTION_ERROR')
+    html = ('<section aria-labelledby="analise-reversa-seo-geo">'
+            '<h2 id="analise-reversa-seo-geo">Análise reversa de conteúdo — SEO/GEO</h2>'
+            '<p>A leitura parte do conteúdo e das relações observadas na captura para identificar '
+            'o que precisa ser verificado antes de uma decisão editorial. Esta análise não comprova '
+            'ranking, indexação ou citação por sistemas de IA.</p>')
     if state not in {'AVAILABLE', 'PARTIAL'}:
         from .capture_projection import state_label
-        return ('<h2>Qualificação estrutural da captura</h2>'
+        return (html + '<h3>Qualificação estrutural da captura</h3>'
                 + kv([('Estado', state_label(state))])
                 + '<p>Não foi possível qualificar esta fonte. A ausência de projeção '
-                  'não demonstra ausência de conteúdo ou problemas.</p>')
-    faq = projection.get('faq_aria_v3', {}).get('counts', {})
-    semantic = projection.get('semantic_v2', {}).get('counts', {})
-    review = projection.get('reverse_review', {}).get('counts', {})
-    overview = subsection('FAQ ARIA e decisão editorial na captura', [
-        ('Controles observados', faq.get('controls')), ('Respostas presentes no DOM', faq.get('answer_present')),
-        ('Painéis não observados', faq.get('not_observed_nd')), ('Ambíguos', faq.get('ambiguous')),
-        ('Contextos qualificados v2', semantic.get('qualified')), ('Verificações editoriais', review.get('verification_tasks')),
-        ('Ações qualificadas v2', review.get('actionable_v2')), ('Histórico sem ação', review.get('historical_non_actionable')),
-        ('Histórico indeterminado', review.get('historical_undetermined'))],
-        'A captura descreve o DOM em um instante. Um painel não observado não prova ausência de resposta após interação. O histórico v1 não autoriza uma intervenção v2.')
+                  'não demonstra ausência de conteúdo ou problemas.</p></section>')
+    from .capture_projection import state_label
+    faq = projection.get('faq_aria_v3') or {}
+    semantic = projection.get('semantic_v2') or {}
+    structure = projection.get('content_structure_v3') or {}
+    review = (projection.get('reverse_review') or {}).get('counts', {})
+    captures = projection.get('captures') or []
+    structure_counts = structure.get('counts') or {}
+    categories = structure_counts.get('evidence_categories')
+    html += '<h3>Alcance e cobertura</h3>' + kv([
+        ('Estado da leitura', state_label(state)),
+        ('Capturas analisadas', len(captures)),
+        ('Contextos qualificados v2', (semantic.get('counts') or {}).get('qualified')),
+        ('Elementos title observados', structure_counts.get('title_elements')),
+        ('Títulos H1–H6 observados', structure_counts.get('headings')),
+        ('Títulos omitidos pelo limite da fonte', structure_counts.get('headings_omitted')),
+    ])
+    html += ('<p>As quantidades descrevem a seleção registrada das capturas. '
+             'A leitura do DOM não comprova visibilidade, acesso por robôs ou estado após interação.</p>'
+             '<h3>Intenção, coerência e estrutura de títulos</h3>'
+             '<p>Compare o título do documento, os cabeçalhos e os trechos principais para verificar '
+             'se descrevem a mesma página, o produto e a intenção de busca. Essa verificação exige '
+             'revisão humana. A comparação competitiva exige escopos equivalentes de mercado, idioma, '
+             'dispositivo e intenção.</p>')
+    scopes = {'MAIN_OR_ARTICLE': 'Área principal', 'NAVIGATION_OR_TEMPLATE': 'Navegação ou modelo',
+              'BODY_OR_UNDETERMINED': 'Corpo da página (escopo indeterminado)'}
+    for surface in structure.get('captures', ()):
+        html += subsection('Estrutura da captura', [
+            ('Dispositivo', public_value(surface.get('device'), 'device')),
+            ('Título do documento', (surface.get('title') or {}).get('text')),
+        ])
+        html += table('Títulos H1–H6', [
+            {**heading, 'scope': scopes.get(heading.get('scope'), 'Escopo não determinado')}
+            for heading in surface.get('headings', ())
+        ], [('tag', 'Nível'), ('text', 'Título observado'), ('scope', 'Escopo')],
+            detail_scope=surface['snapshot_id'])
+        html += traceability('<pre>' + text({'title': surface.get('title'),
+                                            'limitations': surface.get('limitations')}) + '</pre>')
+    for category, label in (
+        ('MAIN_CONTENT', 'Trechos de conteúdo principal'),
+        ('COMMERCIAL_CANDIDATE', 'Alegações comerciais candidatas'),
+        ('DOCUMENT_REFERENCE', 'Links documentais candidatos'),
+        ('CTA', 'Chamadas para ação (CTAs)'),
+    ):
+        rows = [{**row, 'snapshot_id': capture.get('snapshot_id'),
+                 'source_ref': capture.get('source_ref'), 'source_sha256': capture.get('source_sha256')}
+                for capture in captures for row in capture.get('occurrences', ())
+                if row.get('category') == category]
+        html += '<h3>' + label + '</h3>' + kv([('Na seleção da captura',
+                                                categories.get(category, 0) if categories is not None else None)])
+        html += table(label, rows, [('text', 'Texto observado'), ('resolved_url', 'Destino observado')])
+    html += ('<p>Ofertas e documentos precisam de confirmação de escopo, aplicabilidade e vigência. '
+             'Observar um link ou texto de oferta não autentica seu conteúdo.</p><h3>FAQ e disponibilidade das respostas</h3>')
+    counts = faq.get('counts') or {}
+    html += kv([
+        ('Controles ARIA observados', counts.get('controls')),
+        ('Respostas presentes no DOM', counts.get('answer_present')),
+        ('Painéis FAQ não observados', counts.get('not_observed_nd')),
+        ('Vínculos ambíguos', counts.get('ambiguous')),
+    ])
+    html += ('<p>A vinculação de pergunta e resposta em prosa e o vínculo de um controle ARIA '
+             'são observações distintas. Um painel não observado não demonstra ausência de resposta '
+             'após interação. A confirmação depende de verificar o controle no contexto de uso.</p>')
+    faq_states = {'ANSWER_PRESENT_IN_DOM': 'Resposta presente no DOM da captura',
+                  'NOT_OBSERVED_ND': 'Resposta não observada na captura'}
+    html += table('Controles FAQ observados', [
+        {**row, 'reading': faq_states.get(row.get('status'), 'Vínculo indeterminado')}
+        for row in faq.get('controls', ())
+    ], [('question', 'Pergunta observada'), ('reading', 'Leitura'), ('answer', 'Resposta observada')])
+    html += '<section id="editorial-verification"><h3>Verificações editoriais necessárias</h3>'
     tasks = (projection.get('reverse_review') or {}).get('tasks') or []
-    html = '<section id="editorial-verification"><h2>Verificações editoriais condicionais</h2>'
-    html += '<p>Tarefas de validação sustentadas pelo material de captura, não defeitos SEO/GEO comprovados. SPA, FAQ pós-interação, visibilidade e intenção permanecem condicionais.</p>'
-    if not isinstance(tasks, list) or not tasks:
-        return overview + html + '<p>N/D — nenhuma tarefa de verificação sustentada nesta captura.</p></section>'
-    html += '<p>' + text(len(tasks)) + ' tarefa(s) na revisão registrada da captura.</p>'
-    for item in tasks[:64]:
+    html += ('<p>Estas verificações indicam como confirmar evidências parciais ou insuficientes. '
+             'A captura isolada não confirma defeitos SEO/GEO nem o comportamento de uma aplicação após interação.</p>'
+             + kv([('Verificações editoriais', review.get('verification_tasks'))]))
+    if not tasks:
+        html += '<p>N/D — nenhuma tarefa de verificação sustentada nesta captura.</p>'
+    sufficiency = {'PARCIAL': 'Parcial', 'INSUFICIENTE': 'Insuficiente', 'SUFICIENTE': 'Suficiente'}
+    for item in tasks:
         if not isinstance(item, dict):
             continue
         task = sanitize(item)
         refs = task.get('evidence_refs') or []
         html += '<details><summary>' + text(task.get('title')) + '</summary>'
         html += kv([
-            ('Identificação', task.get('task_id')),
             ('Estado', public_value(task.get('status'), 'status')),
-            ('Suficiência da evidência', public_value(task.get('evidence_sufficiency'), 'status')),
+            ('Suficiência da evidência', sufficiency.get(task.get('evidence_sufficiency'))),
             ('Motivo observado', task.get('rationale')),
             ('Como validar', task.get('validation')),
             ('Referências total', task.get('evidence_refs_total')),
             ('Referências omitidas na origem', task.get('evidence_refs_omitted')),
         ])
-        for ref in refs[:16]:
+        for ref in refs:
             if not isinstance(ref, dict):
                 continue
             html += kv([
                 ('Elemento / trecho observado', ref.get('label')),
                 ('Texto observado', ref.get('text')),
-                ('Snapshot', ref.get('snapshot_id')),
-                ('Ocorrência / heading', ref.get('occurrence_id') or ref.get('heading_id')),
-                ('Arquivo fonte', ref.get('source_ref')),
-                ('SHA-256 da fonte', ref.get('source_sha256')),
             ])
-        html += '</details>'
-    if len(tasks) > 64:
-        html += '<p>Exibidas 64 verificações de ' + text(len(tasks)) + '; restante permanece no registro técnico.</p>'
-    return overview + html + '</section>'
+        html += traceability('<pre>' + text(task) + '</pre>') + '</details>'
+    html += '</section><h3>Hipóteses e ações qualificadas</h3>' + kv([
+        ('Hipóteses históricas não acionáveis', review.get('historical_non_actionable')),
+        ('Hipóteses históricas indeterminadas', review.get('historical_undetermined')),
+        ('Ações qualificadas v2', review.get('actionable_v2')),
+    ])
+    html += ('<p>As hipóteses técnicas históricas permanecem disponíveis para conferência. '
+             'Uma disposição contextual ou não acionável não autoriza intervenção editorial.</p>')
+    histories = {row['v1_recommendation_id']: row for row in semantic.get('recommendation_history', ())}
+    for hypothesis in projection.get('recommendations', ()):
+        history = histories.get(hypothesis['recommendation_id'], {})
+        html += ('<details><summary>' + text(hypothesis.get('problem')) + '</summary>'
+                 + kv([('Disposição', 'Não acionável' if history.get('not_actionable') else 'Indeterminada'),
+                       ('Trecho observado', hypothesis.get('observed_text')),
+                       ('Hipótese original', hypothesis.get('suggested_change')),
+                       ('Validação proposta', hypothesis.get('expected_validation'))])
+                 + traceability('<pre>' + text({'hypothesis': hypothesis, 'disposition': history}) + '</pre>')
+                 + '</details>')
+    html += traceability('<pre>' + text({'sources': projection.get('sources'),
+                                        'limitations': projection.get('limitations')}) + '</pre>')
+    return html + '</section>'
 
 
 
@@ -175,9 +252,9 @@ def _network_value(key, metric):
     if key == 'geoip' and isinstance(value, dict):
         parts = []
         if value.get('latitude') is not None and value.get('longitude') is not None:
-            parts.append(str(value['latitude']) + '°, ' + str(value['longitude']) + '°')
+            parts.append(str(public_value(value['latitude'])) + '° / ' + str(public_value(value['longitude'])) + '°')
         if value.get('accuracy_radius_km') is not None:
-            parts.append('precisão ±' + str(value['accuracy_radius_km']) + ' km')
+            parts.append('precisão ±' + str(public_value(value['accuracy_radius_km'])) + ' km')
         if value.get('source'):
             source = str(value['source'])
             label = {
@@ -655,11 +732,11 @@ def scope_context(root, raw_tables, timezone_name, costs, capture_projection=Non
     result[SEARCH_PAGE] = search_context(root, tables)
     review_html = editorial_evidence(root, tables, capture_projection)
     result['conteudo'] = review_html
-    if review_html:
-        result[SEARCH_PAGE] += ('<h2>Conteúdo observado e condições GEO/SEO</h2>'
-                                '<p>As mesmas tarefas de validação editorial estão disponíveis na superfície de conteúdo, '
-                                'sem equivaler a medição de ranking ou citação generativa.</p>'
-                                + review_html)
+    result[SEARCH_PAGE] += ('<h2>Conteúdo observado e condições GEO/SEO</h2>'
+                            '<p>Consulte a cobertura e as verificações editoriais disponíveis. '
+                            'Esta análise não comprova ranking, indexação ou citação por sistemas de IA.</p>'
+                            '<p><a href="conteudo.html#analise-reversa-seo-geo">'
+                            'Abrir análise reversa de conteúdo — SEO/GEO</a></p>')
     if result['conteudo']:
         result['conteudo'] += kv([('Instante da captura · ' + str(row.get('device') or 'N/D'), local(row.get('captured_at')))
                                   for row in tables.get('page_snapshots', ())])

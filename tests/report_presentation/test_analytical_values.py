@@ -161,3 +161,10 @@ def test_728_m24_state_and_scope_labels_are_typed_and_literal_sources_unchanged(
     assert 'SKIPPED_SOURCE_BLOCKER</td>' not in visible
     assert row == original
     assert receipt['descoberta.html']['m24_runs']['analytical_records'] == 1
+
+
+def test_763_analytical_record_count_uses_singular_and_plural():
+    for size, expected in [(1, 'O registro desta fonte'), (2, 'Todos os 2 registros desta fonte')]:
+        rows = [{'id': str(index), 'service': 'PAGESPEED_INSIGHTS'} for index in range(size)]
+        html, _ = project('web_performance_attempts', rows)
+        assert expected in html['performance']

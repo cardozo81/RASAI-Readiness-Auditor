@@ -415,7 +415,7 @@ def test_historical_package_migrates_on_explicit_open(tmp_path, monkeypatch, ver
     assert inventory(root) == before
 
 
-@pytest.mark.parametrize("historical_version", ["0.4.3", "0.4.24.post1", "0.4.25", "0.4.26", "0.4.28", "0.4.29"])
+@pytest.mark.parametrize("historical_version", ["0.4.3", "0.4.24.post1", "0.4.25", "0.4.26", "0.4.28", "0.4.29", "0.4.35"])
 def test_previous_generator_version_is_upgraded_from_history(tmp_path, historical_version):
     from rasai import console_artifacts
     from rasai.parallel_report import __version__
@@ -424,7 +424,7 @@ def test_previous_generator_version_is_upgraded_from_history(tmp_path, historica
     root = fixture(tmp_path / 'AUD-SYNTHETIC')
     package = generate(root)
     original = json.loads((package / '_geracao.json').read_text(encoding='utf-8'))
-    assert __version__ == '0.4.35'
+    assert __version__ == '0.4.36'
     original['generator_version'] = historical_version
     (package / '_geracao.json').write_text(json.dumps(original), encoding='utf-8')
     assert presentation_report_entrypoint(root) == (package / 'index.html').resolve()
@@ -633,10 +633,15 @@ def test_physical_file_groups_deduplicate_display_not_provenance(tmp_path):
     html = (presentation / 'extracao.html').read_text(encoding='utf-8')
     assert 'Arquivos referenciados: 2 caminho(s) único(s) - 6 referência(s) persistida(s).' in html
     assert html.count('class="physical-file-group"') == 2
-    assert html.count('<summary>artifacts/page.html <span class="rf">(') == 1
-    assert html.count('<summary>artifacts/secondary.html <span class="rf">(') == 1
-    assert 'artifacts/page.html <span class="rf">(4 referências)</span>' in html
-    assert 'artifacts/secondary.html <span class="rf">(2 referências)</span>' in html
+    for path, count in (('page.html', 4), ('secondary.html', 2)):
+        assert f'<summary>artifacts/{path}' not in html
+        pattern = (
+            r'<summary>Arquivo de evidência \d+ '
+            f'<span class="rf">\\({count} referências\\)</span></summary>'
+            r'<details class="in"><summary>Rastreabilidade</summary>'
+            f'<p>artifacts/{re.escape(path)}</p>'
+        )
+        assert len(re.findall(pattern, html)) == 1
     ids = re.findall(r'id="physical-([0-9]+)"', html)
     assert sorted(int(n) for n in ids) == list(range(len(occurrences)))
     assert len(set(ids)) == len(occurrences)
@@ -674,7 +679,9 @@ def test_grouped_evidence_keeps_missing_and_conflicting_hash_separate(tmp_path):
     assert 'SHA-256: N/D' in html
     assert 'Hashes divergentes' in html
     assert all(f'id="physical-{i}"' in html for i in range(4))
-    assert html.count('Proveniência completa') == 4
+    assert html.count('<summary>Rastreabilidade</summary>') == 6
+    for suffix in 'abcd':
+        assert f'href="extracao.html#record-{suffix}"' in html
 
 
 def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path):
@@ -702,7 +709,13 @@ def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path)
         html = (output / filename).read_text(encoding='utf-8')
         assert html.count('data-evidence-page="' + page + '"') == 1
         assert 'Evidências materializadas nesta página' in html
-        assert 'A ausência de registro não comprova ausência de problemas.' in html
+        disclaimer = 'A ausência de registro não comprova ausência de problemas.'
+        if page == 'index':
+            assert 'id="como-ler"' in html
+            assert html.count(disclaimer) == 1
+        else:
+            assert 'href="index.html#como-ler"' in html
+            assert disclaimer not in html
         assert 'href="#presentation-records"' in html
         import re
         hrefs = re.findall(r'<a\\b[^>]*\\bhref=["\\\']([^"\\\']+)', html)
@@ -716,7 +729,7 @@ def test_all_eleven_pages_have_source_evidence_receipt_without_catalog(tmp_path)
     assert 'PRIVATE_VALUE' not in json.dumps(receipt)
     assert receipt['pages']['plano.html']['evidence_state'] == 'COM_REGISTROS_PERSISTIDOS'
     assert receipt['pages']['index.html']['sqlite_record_count'] == 2
-    assert 'Projeções operacionais do console' in (output / 'index.html').read_text(encoding='utf-8')
+    assert 'Projeções operacionais da interface de auditoria' in (output / 'index.html').read_text(encoding='utf-8')
     assert 'anexos/dados-de-apoio/evidence-coverage.json' in manifest['generated_files']
     assert manifest['source_writes'] is False or manifest['source_writes'] == 0
     assert inventory(root) == before
@@ -740,10 +753,10 @@ def test_coverage_receipt_does_not_claim_completed_pipeline_for_empty_topic(tmp_
     assert receipt['pages']['plano.html']['evidence_state'] == 'SEM_REGISTROS_NAS_FONTES_DESTA_PAGINA'
     assert receipt['pages']['seguranca.html']['sqlite_record_count'] == 87
     assert '87' in html['seguranca:coverage']
-    assert 'não comprova ausência de problemas' in html['plano:coverage']
+    assert 'não comprova que a atividade tenha sido executada com resultado negativo' in html['plano:coverage']
     assert 'Nenhum registro verificável' in html['plano:coverage']
     assert '1' in html['rede:coverage']
-    assert 'não comprova ausência de problemas' in html['rede:coverage']
+    assert 'href="#presentation-records"' in html['rede:coverage']
 
 
 def test_evidence_coverage_excludes_unknown_tables_from_claims_and_reports_them(tmp_path, monkeypatch):

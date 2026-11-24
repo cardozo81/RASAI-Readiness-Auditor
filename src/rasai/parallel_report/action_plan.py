@@ -1,30 +1,32 @@
 """Operational action plan; exact canonical IDs, no title-based deduplication."""
 from collections import Counter
 import json
-from .components import text, kv, chip, origin, table, technical_link
-from .presentation_labels import public_value
+from .components import text, kv, chip, origin, table, technical_link, traceability
+from .presentation_labels import public_value, editorial_value
 
 
 def content(value, field=None):
     if value is None or value == []:
-        return '<p>N/D — conteúdo não persistido.</p>'
+        return '<p>não registrado.</p>'
     if isinstance(value,list):
         if field=='affected_dimensions_json':
             items=[]
             for item in value:
                 if isinstance(item,dict) and set(item)<={'dimension','expected_gain'}:
-                    items.append('<li>'+text(public_value(item.get('dimension'),'dimension'))+' · Ganho esperado na fonte: '+text(public_value(item.get('expected_gain'),'expected_gain'))+'</li>')
+                    items.append('<li>'+text(public_value(item.get('dimension'),'dimension'))+' · Ganho estimado: '+text(public_value(item.get('expected_gain'),'expected_gain'))+'</li>')
                 else:
                     items.append('<li>'+text(item)+'</li>')
             return '<ul>'+''.join(items)+'</ul>'
-        return '<ul>'+''.join('<li>'+text(item)+'</li>' for item in value)+'</ul>'
-    return '<p>'+text(value)+'</p>'
+        return '<ul>'+''.join('<li>'+content(item, field)+'</li>' for item in value)+'</ul>'
+    rendered = editorial_value(value, field or 'description')
+    plain = '<p>' + text(rendered) + '</p>'
+    return plain + traceability('<pre>' + text(value) + '</pre>') if rendered != value else plain
 
 
 def technical_reference(href):
     if not href:
         return ''
-    return '<details class="in"><summary>Referência técnica persistida</summary><p>' + technical_link(href) + '</p></details>'
+    return traceability('<p>' + technical_link(href) + '</p>')
 
 
 def grouped_actions(rows):
@@ -46,6 +48,55 @@ def _persisted_json(value, expected):
         except (ValueError, TypeError):
             pass
     return None
+
+
+def _actions_by_title(actions):
+    groups = {}
+    for row in actions:
+        title = ' '.join(str(row.get('title') or 'Título não registrado').split())
+        groups.setdefault(title.casefold(), []).append(row)
+    return groups.values()
+
+
+def _security_targets(rows):
+    from rasai.directed_analysis_reporting import _passive_security_finding_id
+
+    remediations = {row.get('remediation_id'): row for row in rows(['passive_security_remediations'])
+                    if row.get('remediation_id')}
+    findings = {row.get('finding_id'): row for row in rows(['passive_security_findings'])
+                if row.get('finding_id')}
+    resources = rows(['passive_security_resources'])
+    targets_by_finding = {}
+    available = {}
+    for identity, finding in findings.items():
+        title = finding.get('title')
+        details = _persisted_json(finding.get('details_json'), dict) or {}
+        target = details.get('target')
+        if isinstance(target, dict) and target.get('ref') and target.get('label'):
+            label = str(target['label'])
+            targets_by_finding[identity] = label
+            available.setdefault(title, set()).add(label)
+        if title != 'Recurso externo script sem SRI observado':
+            continue
+        for resource in resources:
+            if (resource.get('audit_id') != finding.get('audit_id')
+                    or resource.get('page_id') != finding.get('page_id')
+                    or resource.get('resource_kind') != 'SCRIPT'
+                    or resource.get('party') != 'THIRD_PARTY'
+                    or not resource.get('resource_id') or not resource.get('resource_url')):
+                continue
+            attributes = _persisted_json(resource.get('attributes_json'), dict)
+            if attributes is not None and not str(attributes.get('integrity') or '').strip():
+                available.setdefault(title, set()).add(resource['resource_url'])
+            # The existing report contract ties a SRI finding ID to a specific resource ID.
+            expected = _passive_security_finding_id(
+                finding['audit_id'], finding['page_id'], f"SRI_{resource['resource_id']}", title)
+            if expected == identity:
+                targets_by_finding[identity] = resource['resource_url']
+
+    targets_by_source = {key: targets_by_finding.get(row.get('finding_id'))
+                         for key, row in remediations.items()}
+    return targets_by_source, available
 
 
 def strategic_context(rows, governance):
@@ -72,10 +123,10 @@ def strategic_context(rows, governance):
             items = summary.get(key)
             if isinstance(items, list) and items:
                 html += '<h3>' + text(label) + '</h3><ul>'
-                html += ''.join('<li>' + text(item) + '</li>' for item in items[:30])
+                html += ''.join('<li>' + content(item) + '</li>' for item in items[:30])
                 html += '</ul>'
         if isinstance(summary.get('plan_overview'), str) and summary['plan_overview']:
-            html += '<p><strong>Encadeamento registrado:</strong> ' + text(summary['plan_overview']) + '</p>'
+            html += '<h3>Encadeamento registrado</h3>' + content(summary['plan_overview'])
     html += '<h2>Fases do roteiro persistido</h2>'
     if not roadmap:
         return html + '<p>N/D — sequência de fases não disponível; nenhuma ordem foi inferida.</p>'
@@ -227,18 +278,16 @@ def render_plan(rows, timezone_name, governance):
     title_groups = {}
     for row in action_occurrences:
         title_groups.setdefault(str(row.get('title') or 'Título não registrado'), []).append(row)
-    html += '<details><summary>Ocorrências por título do plano direcionado (' + (
-        str(len(action_occurrences)) + ' ocorrências / ' + str(len(title_groups)) +
-        ' títulos)</summary>')
-    html += '<p class="rf">Prioridade do plano direcionado (Alta/Média/Baixa): hierarquia independente da prioridade do motor. Todas as ocorrências são preservadas, sem fusão por título.</p>'
+    inventory = ('<p>Ocorrências por título do plano direcionado (' +
+                 str(len(action_occurrences)) + ' ocorrências / ' + str(len(title_groups)) +
+                 ' títulos)</p><p class="rf">Prioridade do plano direcionado (Alta/Média/Baixa): '
+                 'hierarquia independente da prioridade do motor. Todas as ocorrências são preservadas.</p>')
     for title, entries in sorted(title_groups.items()):
-        html += '<details><summary>' + text(title) + ' · ' + str(len(entries)) + ' ocorrência(s)</summary>'
-        html += table('Registros integrais por título: ' + title, entries, [
+        inventory += table('Registros integrais por título: ' + title, entries, [
             ('action_id', 'ID'), ('title', 'Título'), ('priority', 'Prioridade do plano direcionado'),
             ('source_id', 'Origem'), ('effort', 'Esforço'), ('_ref', 'Detalhe persistido')
         ], timezone_name)
-        html += '</details>'
-    html += '</details>'
+    html += traceability(inventory)
     html += '<h2>Visão geral</h2>'+origin('Calculado no relatório')
     html+=kv([('Ações (ocorrências)',sum(map(len,groups))),('Ações distintas por ID',sum(bool(g[0].get('action_id')) for g in groups)),('Ocorrências sem ID',sum(not g[0].get('action_id') for g in groups)),('Crítica',priorities['CRITICAL']),('Alta',priorities['HIGH']),('Média',priorities['MEDIUM']),('Baixa',priorities['LOW']),('Sem prioridade',priorities[None]+priorities['']),('Origem explicitamente IA de conteúdo',sum(g[0].get('source_kind')=='CONTENT_AI' for g in groups))])
     html+='<p class="rf">Contagens de apresentação por action_id; não há deduplicação por título. Ocorrências sem ID permanecem separadas, sem afirmar identidade distinta. Origens de IA não explícitas não são inferidas. Prioridades não reconhecidas permanecem no detalhe.</p>'
@@ -251,10 +300,14 @@ def render_plan(rows, timezone_name, governance):
     # Governance is a decision boundary, not a priority or source-kind heuristic.
     # Technical recommendations without a decision remain consultable but never
     # appear under the client's approved execution plan.
-    accepted = [g for g in groups if governance.disposition('directed_analysis_actions', g[0]) == 'Aceita pela governança']
-    undecided = [g for g in groups if not governance.excluded('directed_analysis_actions', g[0])
-                 and governance.disposition('directed_analysis_actions', g[0]) != 'Aceita pela governança']
     excluded = [g for g in groups if governance.excluded('directed_analysis_actions', g[0])]
+    ordered_actions = [row for group in groups for row in group]
+    accepted = list(_actions_by_title(row for row in ordered_actions
+                    if governance.disposition('directed_analysis_actions', row) == 'Aceita pela governança'))
+    undecided = list(_actions_by_title(row for row in ordered_actions
+                     if not governance.excluded('directed_analysis_actions', row)
+                     and governance.disposition('directed_analysis_actions', row) != 'Aceita pela governança'))
+    targets, available_targets = _security_targets(rows)
 
     def action_section(section_groups, heading, explanation, offset):
         result = '<h2>' + heading + '</h2><p>' + explanation + '</p>'
@@ -263,23 +316,54 @@ def render_plan(rows, timezone_name, governance):
         executive = [{**group[0], 'occurrences': len(group), '_ref': f'#action-card-{offset + index}',
                       'governance': governance.disposition('directed_analysis_actions', group[0])}
                      for index, group in enumerate(section_groups)]
-        result += table('Ações distintas e ocorrências', executive,
+        result += traceability(table('Ações distintas e ocorrências', executive,
                         [('priority','Prioridade'),('title','Ação'),('occurrences','Ocorrências'),
                          ('governance','Governança'),('primary_objective','Objetivo'),
                          ('effort','Esforço'),('confidence','Confiança'),('source_kind','Origem')],
-                        timezone_name)
+                        timezone_name))
         for index, group in enumerate(section_groups):
             row = group[0]
-            result += f'<details id="action-card-{offset + index}"><summary>{chip(row.get("priority"),"priority")} {text(row.get("title"))} ({len(group)})</summary>'
-            result += '<p><strong>Governança:</strong> ' + text(governance.disposition('directed_analysis_actions', row)) + '</p>'
-            for occurrence in group:
+            priority = row.get('priority')
+            badge = (chip(priority, 'priority') if priority else
+                     '<span class="chip">Prioridade não definida</span>')
+            title = text(public_value(row.get('title') or 'Título não registrado', 'title'))
+            count_label = '1 ocorrência' if len(group) == 1 else f'{len(group)} ocorrências'
+            result += (f'<details id="action-card-{offset + index}">'
+                       f'<summary>{title} <span class="chip">{count_label}</span>'
+                       f'{badge if len(group) == 1 else ""}</summary>')
+            missing_target = False
+            for number, occurrence in enumerate(group, 1):
+                result += f'<section class="card"><h3>Ocorrência {number}</h3>'
+                result += kv([
+                    ('Prioridade', public_value(occurrence['priority'], 'priority')
+                     if occurrence.get('priority') else 'Prioridade não definida'),
+                    ('Objetivo', occurrence.get('primary_objective')),
+                    ('Esforço', public_value(occurrence.get('effort'), 'effort')),
+                    ('Confiança', public_value(occurrence.get('confidence'), 'confidence')),
+                    ('Origem', public_value(occurrence.get('source_kind'), 'source_kind')),
+                ])
+                result += '<p><strong>Decisão interna:</strong> ' + text(
+                    governance.disposition('directed_analysis_actions', occurrence)) + '</p>'
+                if occurrence.get('source_kind') == 'SECURITY_REMEDIATION':
+                    target = targets.get(occurrence.get('source_id'))
+                    if target:
+                        result += kv([('Alvo vinculado', target)])
+                    else:
+                        missing_target = True
                 for key, label in [('reason','Por que importa / justificativa técnica'),
                                    ('affected_dimensions_json','Dimensões afetadas'),
-                                   ('confidence_rationale','Justificativa da confiança'),
+                                   ('confidence_rationale','Motivo da confiança'),
                                    ('implementation_guidance_json','Como fazer'),
                                    ('validation_steps_json','Como validar')]:
                     result += '<h3>' + label + '</h3>' + content(occurrence.get(key), key)
-                result += technical_reference(occurrence.get('_ref'))
+                result += technical_reference(occurrence.get('_ref')) + '</section>'
+            if missing_target:
+                result += '<p>O relatório não identifica qual alvo originou cada ocorrência deste grupo.</p>'
+                candidates = available_targets.get(row.get('title'), ())
+                if candidates:
+                    result += '<h3>Alvos disponíveis deste tipo</h3>' + content(sorted(candidates))
+                else:
+                    result += '<p>Nenhum alvo deste tipo está disponível nas evidências consultadas.</p>'
             result += '</details>'
         return result
 
@@ -305,7 +389,7 @@ def render_plan(rows, timezone_name, governance):
                     ('selector','Elemento'),('source','Origem'),('governance','Governança')], timezone_name)
              if pending_corrections else '<p>Nenhuma proposta pendente nesta classe.</p>')
     for row in corrections:
-        html+='<details><summary>'+chip(row.get('severity'),'severity')+' '+text(row.get('title'))+'</summary>'+origin('IA sugeriu' if row.get('source')=='AI' else 'Proposta persistida')+'<p>'+text('Aceita pela governança; publicação depende de validação humana.' if row['governance']=='Aceita pela governança' else 'Sugestão não aprovada')+'</p>'
+        html+='<details><summary>'+chip(row.get('severity'),'severity')+' '+text(public_value(row.get('title'), 'title'))+'</summary>'+origin('IA sugeriu' if row.get('source')=='AI' else 'Proposta persistida')+'<p>'+text('Aceita pela governança; publicação depende de validação humana.' if row['governance']=='Aceita pela governança' else 'Sugestão não aprovada')+'</p>'
         for key,label in [('recommendation','Recomendação'),('rationale','Justificativa técnica'),('verification','Verificação')]:
             html+='<h3>'+label+'</h3>'+content(row.get(key))
         for key,label in [('original_html','Atual'),('suggested_html','Sugerido'),('suggested_text','Texto sugerido')]:

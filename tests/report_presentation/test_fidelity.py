@@ -32,6 +32,15 @@ def test_metric_contracts_color_lighthouse_and_apdex_rulers():
         assert 'class="z0"' not in html
     assert 'PERSISTED_CONTRACT' in lighthouse_html
     assert 'PERSISTED_CONTRACT' in apdex_html
+    assert '>78 de 100<' in lighthouse_html
+    assert '>78,12345 de 100<' in ruler('Lighthouse', 78.12345, 100, lighthouse)
+    metric_table = table('Laboratório', [{
+        'performance_score': 78.0, 'cls_p75': 0.125, 'version': '1.23',
+        'ip': '192.0.2.12', 'url': 'https://example.test/1.23',
+    }], [('performance_score', 'Lighthouse'), ('cls_p75', 'CLS'), ('version', 'Versão'),
+         ('ip', 'IP'), ('url', 'URL')])
+    for value in ('78 de 100', '0,125', '1.23', '192.0.2.12', 'https://example.test/1.23'):
+        assert f'>{value}</td>' in metric_table
 
 
 def test_stack_and_editorial_ownership():

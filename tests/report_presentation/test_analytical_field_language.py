@@ -40,3 +40,26 @@ def test_728_humanized_column_names_preserve_literal_source_evidence():
     assert 'SOURCE_SYSTEM_ERROR' in html
     assert 'https://example.test/path' in html
     assert source == before
+
+
+def test_763_editorial_labels_keep_originals_in_traceability():
+    from rasai.parallel_report.components import table
+
+    url = 'https://example.invalid/snapshot/artifacts/RASAI_example'
+    html = table('Resultados', [{
+        'title': 'Avoid enormous network payloads',
+        'profile_id': 'RASAI_MOBILE_example',
+        'source_ref': 'artifacts/example.json',
+        'url': url,
+        'observed_value': {'ai_verdict': 'NEUTRAL', 'ai_confidence': 0.125, 'rationale_pt': 'Observação'},
+    }], [('title', 'Título'), ('profile_id', 'Perfil'), ('source_ref', 'Arquivo'), ('url', 'URL'),
+         ('observed_value', 'Parecer')])
+    visible, raw = html.split('<summary>Rastreabilidade</summary>', 1)
+    assert 'Evite transferências de rede muito grandes' in visible
+    assert 'Perfil: celular' in visible
+    assert 'Confiança declarada: 0,125' in visible
+    assert '0.125' in raw
+    assert url in visible
+    for value in ('Avoid enormous network payloads', 'RASAI_MOBILE_example', 'artifacts/example.json'):
+        assert value not in visible
+        assert value in raw

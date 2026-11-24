@@ -12,7 +12,7 @@ from .annex_payloads import table_annex_filename
 import json
 
 from .components import text, kv, table
-from .presentation_labels import public_value, STATUS_LABELS
+from .presentation_labels import public_value, STATUS_LABELS, format_money, monetary_value
 from .read_model import PAGES, SEARCH_PAGE
 
 # A component may contextualize more than one page. This is a small status
@@ -269,18 +269,6 @@ def _decision_summaries(page, rows, timezone_name=None):
             result = []
             for row in forecasts:
                 currency = row.get('currency')
-                currency = currency if currency in {'BRL', 'USD', 'EUR'} else 'N/D'
-                estimate = row.get('expected_cost')
-                reconciled = row.get('actual_cost')
-                status = str(row.get('status') or '').strip().upper()
-                financial_class = {
-                    'CRÍTICO': 'Crítico',
-                    'CRITICO': 'Crítico',
-                    'NOT_COMPARABLE': 'Não comparável',
-                    'NÃO COMPARÁVEL': 'Não comparável',
-                    'COMPARAVEL': 'Comparável',
-                    'COMPARÁVEL': 'Comparável',
-                }.get(status, 'Estado não classificado')
                 # Attempt telemetry and the forecast's reconciled technical amount
                 # are different contracts. Never promote an estimate to billing.
                 telemetry = [
@@ -292,35 +280,32 @@ def _decision_summaries(page, rows, timezone_name=None):
                 result.append({
                     'cutoff': public_value(row.get('evaluated_at'), 'evaluated_at', timezone_name),
                     'currency': currency,
-                    'forecast': public_value(estimate, 'estimated_cost')
-                                if type(estimate) in (int, float) else 'N/D',
-                    'snapshot': public_value(reconciled, 'amount')
-                                  if type(reconciled) in (int, float) else 'N/D',
+                    'forecast': format_money(monetary_value(row.get('expected_cost'))),
+                    'snapshot': format_money(monetary_value(row.get('actual_cost'))),
                     'telemetry': (str(len(telemetry)) + ' tentativa(s) com valor observado'
                                   if telemetry else 'N/D — sem telemetria monetária nesta moeda'),
-                    'classification': financial_class,
-                    'range': (' a '.join(public_value(row.get(k), 'estimated_cost')
-                                        if type(row.get(k)) in (int, float) else 'N/D'
+                    'classification': row.get('status'),
+                    'range': (' a '.join(format_money(monetary_value(row.get(k)))
                                         for k in ('likely_low', 'likely_high'))),
                     'basis': 'Histórico local de auditorias' if row.get('source') == 'local-audit-history'
                              else 'Consultar proveniência no registro técnico',
                 })
             output += (
                 '<h2>Previsão versus execução registrada</h2>'
-                '<p class="callout w">O instantâneo do console corresponde exclusivamente '
+                '<p class="callout w">O valor registrado na previsão corresponde exclusivamente '
                 'à data de avaliação exibida em cada linha. Não constitui custo final nem '
                 'cobrança observada pelo provedor. Comparações antigas podem anteceder '
                 'outras tentativas e a conclusão do contrato de execução.</p>'
                 + table('Comparação financeira, respeitando a cobertura',
                         result, [('cutoff', 'Avaliado em'), ('currency', 'Moeda'), ('forecast', 'Previsão anterior'),
-                                 ('snapshot', 'Instantâneo do console na data indicada'),
+                                 ('snapshot', 'Valor realizado registrado na previsão'),
                                  ('telemetry', 'Telemetria monetária observada'),
                                  ('classification', 'Classificação financeira persistida'),
                                  ('range', 'Faixa provável na moeda indicada'),
                                  ('basis', 'Origem da previsão')])
                 + '<p class="rf">A faixa provável e o cenário P90 são referências históricas, '
-                  'não garantias ou limites contratuais. Tentativas posteriores ao instantâneo '
-                  'devem ser consultadas no ledger persistido, não inferidas deste valor.</p>'
+                  'não garantias ou limites contratuais. Os horários das tentativas constam '
+                  'nos registros individuais.</p>'
             )
     return output
 
@@ -412,9 +397,6 @@ def build_execution_context(tables, coverage_receipt, timezone_name=None):
         html = (
             '<section class="execution-context" data-execution-page="' + text(page) + '">'
             '<h2>Situação da execução e limites dos resultados</h2>'
-            '<p class="rf">Estados derivados dos critérios de execução e dos requisitos registrados '
-            'nesta auditoria. Etapa concluída não garante que todos os '
-            'provedores ou análises complementares tenham produzido resultados.</p>'
         )
         if page == 'index':
             if contract is None:
