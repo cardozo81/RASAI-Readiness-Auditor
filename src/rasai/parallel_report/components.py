@@ -1,9 +1,12 @@
 """Prototype components; only persisted values enter these presentation views."""
 from html import escape
 from hashlib import sha256
+from decimal import Decimal
 import json
 import math
-from .presentation_labels import FIELD_LABELS, ORIGIN_LABELS, public_value, chip_tone, TECHNICAL_ONLY_FIELDS, presentation_timestamps
+from .presentation_labels import (FIELD_LABELS, ORIGIN_LABELS, public_value, chip_tone,
+                                  TECHNICAL_ONLY_FIELDS, presentation_timestamps, editorial_value,
+                                  lighthouse_score, format_money, monetary_value)
 from .annex_payloads import register_payload
 
 
@@ -25,8 +28,25 @@ def origin(value='Medido'):
     return f'<span class="org {kind}">{text(value)}</span>'
 
 
-def kv(pairs):
-    return '<dl class="kv">' + ''.join(f'<div><dt>{text(k)}</dt><dd>{text(v)}</dd></div>' for k, v in pairs) + '</dl>'
+def kv(pairs, *, raw=False):
+    entries = []
+    originals = []
+    for label, value in pairs:
+        display = value if raw else editorial_value(value, 'profile_id' if label == 'Perfil' else 'description')
+        rendered = public_value(display) if not raw and isinstance(display, (float, list)) else display
+        entries.append(f'<div><dt>{text(label)}</dt><dd>{text(rendered)}</dd></div>')
+        if display != value:
+            originals.append(f'<div><dt>{text(label)}</dt><dd>{text(value)}</dd></div>')
+    return ('<dl class="kv">' + ''.join(entries) + '</dl>'
+            + (traceability('<dl>' + ''.join(originals) + '</dl>') if originals else ''))
+
+
+def traceability(body):
+    return '<details class="in"><summary>Rastreabilidade</summary>' + body + '</details>'
+
+
+def records_quantity(count):
+    return f'{count} registro' + ('s' if count != 1 else '')
 
 
 def technical_link(href, label='Abrir registro técnico'):
@@ -68,9 +88,16 @@ def ruler(label, value, maximum=100, proposal=None, scope=None, href=None):
     reference = proposal['origin'] if proposal else 'PERSISTED_CONTRACT'
     labels = (proposal.get('range_text') or ' · '.join(f'{label}: {value}' for label, value in zip(proposal['labels'], zones))) if proposal else f'0–{maximum}'
     display_value = (format(value, '.2f').rstrip('0').rstrip('.').replace('.', ',') if valid else text(value))
+    if proposal and proposal.get('metric_id') == 'LIGHTHOUSE_CATEGORY_PERSISTED_CONTRACT':
+        display_value = lighthouse_score(value)
     title = text(label)
     technical = ('<p class="rf">' + technical_link(href) + '</p>') if href else ''
-    return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{text(_ruler_band(value, proposal))}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)} · {text(ORIGIN_LABELS.get(reference, reference))}</div><div class="rf">{text(scope)}</div><details class="in"><summary>Detalhes técnicos da faixa e limites</summary>{text(note)}<p><code>{text(reference)}</code></p>{technical}</details></div>'
+    origin_label = text(ORIGIN_LABELS.get(reference, reference))
+    visible_origin = '' if reference == 'PERSISTED_CONTRACT' else ' · ' + origin_label
+    provenance = traceability(text(note) + '<p>' + origin_label +
+                              ' · <code>' + text(reference) + '</code></p>' +
+                              kv([('Valor original', value)], raw=True) + technical)
+    return f'<div class="ruler"><div class="rh"><strong>{title}</strong><span class="rv" title="{text(value)}">{display_value}</span><span class="zl none">{text(_ruler_band(value, proposal))}</span></div><div class="bar">{bars}{marker}</div><div class="rf">{text(labels)}{visible_origin}</div><div class="rf">{text(scope)}</div>{provenance}</div>'
 
 
 def _detail_title(row, index):
@@ -78,9 +105,9 @@ def _detail_title(row, index):
         value = row.get(key)
         if value not in (None, ''):
             return str(public_value(value, key))
-    source = str(row.get('_source_table') or 'Registro persistido')
-    identifier = str(row.get('_ref') or '').split('#')[-1]
-    return source + (' · ' + identifier if identifier else ' · entrada ' + str(index + 1))
+    from .templates import label as public_label
+    source = public_label(row.get('_source_table') or 'Registro persistido')
+    return source + ' · entrada ' + str(index + 1)
 
 
 def _detail_dialog(caption, row, columns, index, timezone_name=None):
@@ -107,6 +134,8 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
         rendered = public_value(value, key, timezone_name)
         if isinstance(rendered, (dict, list)):
             rendered = json.dumps(rendered, ensure_ascii=False)
+        if key == 'status' and row.get('_source_table') == 'console_cost_forecast_outcomes':
+            rendered = value
         if key in TECHNICAL_ONLY_FIELDS:
             rendered = 'Conteúdo técnico registrado; consultar os dados técnicos abaixo.'
         visible.append((FIELD_LABELS.get(key, label), rendered))
@@ -116,6 +145,8 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
         f'<p class="rf">Tabela de origem: <code>{text(source)}</code></p>' if source else ''
     )
     original = presentation_timestamps(persisted, timezone_name)
+    editorial_originals = {key: value for key, value in persisted.items()
+                           if editorial_value(value, key) != value}
     annex = register_payload(original)
     if annex:
         filename, digest = annex
@@ -130,8 +161,8 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None):
         f'<h2 id="{title_id}">{text(title)}</h2><span class="modal-kicker">Registro {index + 1}</span></div>',
         '<button type="button" class="modal-close" data-modal-close aria-label="Fechar detalhes">×</button></div>',
         '<div class="modal-body">' + summary,
-        '<details class="in"><summary>Dados técnicos originais (rastreabilidade)</summary><p class="rf">Horários exibidos no fuso da auditoria; valores originais permanecem nos anexos.</p>'
-        + source_html + raw + '</details>',
+        traceability(source_html + raw + (
+            '<pre>' + text(editorial_originals) + '</pre>' if editorial_originals else '')),
         '</div><div class="modal-foot">',
         technical if technical else '<span class="rf">Sem referência técnica adicional.</span>',
         '<button type="button" class="modal-dismiss" data-modal-close>Fechar</button></div></dialog>',
@@ -168,6 +199,8 @@ def table(caption, rows, columns, timezone_name=None, *, full_text=False):
         row.get('_ref')
         or any(not key.startswith('_') and key not in {name for name, _ in columns} for key in row)
         or any(key in TECHNICAL_ONLY_FIELDS and row.get(key) is not None for key, _ in columns)
+        or any(editorial_value(row.get(key), key) != row.get(key) for key, _ in columns
+               if not key.startswith('_'))
         for row in rows
     )
     headings = ''.join(f'<th scope="col">{text(FIELD_LABELS.get(key,label))}</th>' for key, label in columns)
@@ -179,7 +212,9 @@ def table(caption, rows, columns, timezone_name=None, *, full_text=False):
         cells = []
         for key, _ in columns:
             value = row.get(key)
-            if key in {'status', 'state', 'result', 'severity', 'priority', 'priority_class'}:
+            if key == 'status' and row.get('_source_table') == 'console_cost_forecast_outcomes':
+                cell = text(value)
+            elif key in {'status', 'state', 'result', 'severity', 'priority', 'priority_class'}:
                 cell = chip(value,key)
             elif key == '_ref':
                 cell = technical_link(value) if value else 'N/D'
@@ -247,7 +282,7 @@ def stack(parts, title='Composição proporcional', unit=None, note=None):
     for index, (label, raw_value, detail, numeric, metadata) in enumerate(normalized):
         percentage = numeric / total * 100
         tone = f'cat{index % 8 + 1}'  # Palette only, never a CAT-xx identifier.
-        amount_label = (f'{unit} ' if unit else '') + str(public_value(str(raw_value), 'amount'))
+        amount_label = (f'{unit} ' if unit else '') + format_money(monetary_value(raw_value))
         percentage_label = f'{percentage:.1f}'.replace('.', ',') + '%'
         kind = {
             'observado': 'Custo observado pelo provedor',
@@ -289,10 +324,11 @@ def stack(parts, title='Composição proporcional', unit=None, note=None):
             f'<small class="stack-context">{text(visible)}</small></span>'
             f'<strong>{text(amount_label)}</strong><span>{percentage_label}</span></li>'
         )
-        if detail:
-            technical.append(f'<li><strong>{text(label)}</strong>: <code>{text(detail)}</code></li>')
+        technical.append(f'<li><strong>{text(label)}</strong> · <code>{text(detail)}</code> · '
+                         f'{text(unit or "")} <code>{text(raw_value)}</code></li>')
 
-    total_label = ((str(unit) + ' ') if unit else '') + format(total, '.10g').replace('.', ',')
+    raw_total = sum((monetary_value(item[1]) for item in normalized), Decimal(0))
+    total_label = ((str(unit) + ' ') if unit else '') + format_money(raw_total)
     aria = f'{title}. Total {total_label}. ' + '; '.join(aria_parts)
     html = (
         f'<div class="stack-head"><strong>{text(title)}</strong><span>{text(total_label)}</span></div>'
@@ -302,6 +338,5 @@ def stack(parts, title='Composição proporcional', unit=None, note=None):
     if note:
         html += f'<p class="rf">{text(note)}</p>'
     if technical:
-        html += ('<details class="in"><summary>Ver IDs técnicos das tentativas</summary>'
-                 '<ul class="stack-tech">' + ''.join(technical) + '</ul></details>')
+        html += traceability('<ul class="stack-tech">' + ''.join(technical) + '</ul>')
     return html

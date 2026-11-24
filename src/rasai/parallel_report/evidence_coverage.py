@@ -23,7 +23,7 @@ GROUPS = {
         ('Identidade e alvo', ('audits', 'audit_targets')),
         ('Requisitos de execução', ('audit_fulfillment_work_items', 'audit_fulfillment_contracts')),
         ('Índices registrados', ('scores',)),
-        ('Projeções operacionais do console', ('console_execution_projections',)),
+        ('Projeções operacionais da interface de auditoria', ('console_execution_projections',)),
     ),
     'extracao': (
         ('Capturas persistidas', ('page_snapshots',)),
@@ -175,10 +175,6 @@ def build_coverage(root: Path, audit_id: str | None, tables: dict):
         body = (
             '<section class="evidence-coverage" data-evidence-page="' + text(page) + '">'
             '<h2>Evidências materializadas nesta página</h2>'
-            '<p class="rf">Contagens das fontes persistidas, sem duplicar as linhas '
-            'do inventário técnico. Um registro não equivale a uma conclusão, '
-            'vulnerabilidade ou recomendação aprovada. '
-            'A ausência de registro não comprova ausência de problemas.</p>'
             '<dl class="kv">' + cards + '</dl>'
         )
         if not nonzero:

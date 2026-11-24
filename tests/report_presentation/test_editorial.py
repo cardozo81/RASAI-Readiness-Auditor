@@ -103,8 +103,34 @@ def test_action_plan_identity_and_literals():
     assert 'Proposta persistida' in html
     assert '>Cartão<' not in html
     assert 'Evidências e origem persistida' not in html
-    assert 'Referência técnica persistida' in html
+    assert '<summary>Rastreabilidade</summary>' in html
     assert 'Abrir registro técnico' in html
+
+
+def test_763_repeated_action_title_keeps_bound_and_unbound_occurrences():
+    title = 'Cookie sem HttpOnly observado'
+    actions = [
+        {'action_id': 'one', 'title': title, 'source_kind': 'SECURITY_REMEDIATION', 'source_id': 'rem-one'},
+        {'action_id': 'two', 'title': title, 'source_kind': 'SECURITY_REMEDIATION', 'source_id': 'unknown'},
+    ]
+    data = records({
+        'directed_analysis_actions': actions,
+        'passive_security_remediations': [{'remediation_id': 'rem-one', 'finding_id': 'f-one'}],
+        'passive_security_findings': [
+            {'finding_id': 'f-one', 'title': title, 'details_json': {'target': {'ref': 'cookie-1', 'label': 'cookie-a'}}},
+            {'finding_id': 'f-two', 'title': title, 'details_json': {'target': {'ref': 'cookie-2', 'label': 'cookie-b'}}},
+        ],
+    })
+    html = editorial('plano', data, {}, load())
+    card = html.split('<details id="action-card-0">')[1].split('<h2>', 1)[0]
+    assert f'{title} <span class="chip">2 ocorrências</span>' in card
+    assert 'action-card-1' not in html
+    assert card.count('Alvo vinculado') == 1
+    assert 'O relatório não identifica qual alvo originou cada ocorrência deste grupo.' in card
+    assert 'Alvos disponíveis deste tipo' in card and 'cookie-b' in card
+    for record in data:
+        if record.table == 'directed_analysis_actions':
+            assert record.href in card
 
 
 def test_typed_residual_values_and_customer_text():
@@ -115,10 +141,10 @@ def test_typed_residual_values_and_customer_text():
     assert public_value('P1','priority')=='Prioridade 1 (alta)'
     assert public_value('AI','source')=='IA'
     assert public_value('Original provider message','source')=='Original provider message'
-    assert public_value('0.0657104','estimated_cost')=='0,0657104'
+    assert public_value('0.0657104','estimated_cost')=='0,06571'
     dimensions=content([{'dimension':'SECURITY','expected_gain':'HIGH'}],'affected_dimensions_json')
-    assert 'Segurança · Ganho esperado na fonte: Alto' in dimensions
-    assert '<li title=' not in dimensions and 'Ganho esperado na fonte: Alto' in dimensions
+    assert 'Segurança · Ganho estimado: Alto' in dimensions
+    assert '<li title=' not in dimensions and 'Ganho estimado: Alto' in dimensions
 
 
 @pytest.mark.parametrize('field,raw,expected', [
@@ -151,7 +177,7 @@ def test_typed_labels_match_in_table_tooltip_and_modal(field, raw, expected):
     assert f'title="{expected}"' in html
     assert f'<dd>{expected}</dd>' in html
     assert '<dialog class="detail-dialog"' in html
-    assert 'Dados técnicos originais (rastreabilidade)' in html
+    assert 'Rastreabilidade' in html
 
 
 @pytest.mark.parametrize('field,raw', [
@@ -163,7 +189,7 @@ def test_typed_labels_match_in_table_tooltip_and_modal(field, raw, expected):
 ])
 def test_unmapped_machine_tokens_are_not_public_labels(field, raw):
     html = table('Dados da AUD', [{field:raw, 'additional':'extra'}], [(field,'Observação')])
-    assert raw not in html.split('<details class="in"><summary>Dados técnicos originais')[0]
+    assert raw not in html.split('<details class="in"><summary>Rastreabilidade')[0]
     assert public_value(raw,field) != raw
 
 
@@ -205,7 +231,7 @@ def test_public_labels_across_ten_pages(tmp_path):
     assert 'class="modal-open"' in html
     assert 'Ver detalhes' in html
     assert '<dialog class="detail-dialog"' in html
-    assert 'Dados técnicos originais (rastreabilidade)' in html
+    assert 'Rastreabilidade' in html
     assert 'Abrir registro técnico completo' in html
 
     for path in output.glob('*.html'):
@@ -226,7 +252,7 @@ def test_long_table_content_uses_modal_without_inline_expander():
     assert 'Ver detalhes' in html
     assert 'Conteúdo completo disponível em Ver detalhes' in html
     assert long_value.strip() in html
-    assert 'Dados técnicos originais (rastreabilidade)' in html
+    assert 'Rastreabilidade' in html
 
 
 def test_chip_palette_contrast():

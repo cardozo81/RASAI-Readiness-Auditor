@@ -9,6 +9,7 @@ from .governance import Governance
 from .history_projection import crux_history
 from .read_model import PAGES, SEARCH_PAGE, destination, thaw
 from .presentation_labels import public_value
+from .templates import label as public_label
 
 
 def summaries(root, tables, inventory, records, capture, timezone_name=None):
@@ -28,7 +29,7 @@ def summaries(root, tables, inventory, records, capture, timezone_name=None):
         links = [by_table[n][0] for n in families if by_table[n]]
         if links:
             html[page] += '<p class="rf">Fontes: ' + ' · '.join(
-                '<a class="tech-link" href="' + text(r.href) + '">' + text(r.table) + '</a>'
+                '<a class="tech-link" href="' + text(r.href) + '">' + text(public_label(r.table)) + '</a>'
                 for r in links) + '.</p>'
         html[page] += '</section>'
 
@@ -77,7 +78,7 @@ def summaries(root, tables, inventory, records, capture, timezone_name=None):
         body += table('Trechos persistidos dos elementos', [
             dict(tag=r.get('tag_name'), selector=r.get('selector'), excerpt=r.get('text_excerpt'),
                  snapshot=r.get('snapshot_id')) for r in elements],
-            [('tag','Elemento'), ('selector','Seletor persistido'), ('excerpt','Texto observado'), ('snapshot','Snapshot')])
+            [('tag','Elemento'), ('selector','Seletor persistido'), ('excerpt','Texto observado'), ('snapshot','Captura')])
     emit('extracao', 'Síntese factual da extração',
          ('page_snapshots', 'element_observations', 'evidence'), body)
 
@@ -89,7 +90,7 @@ def summaries(root, tables, inventory, records, capture, timezone_name=None):
             body += kv([('Título observado no DOM', title.get('text')),
                         ('Headings observados', surface.get('heading_count')),
                         ('Headings omitidos pelo limite', surface.get('headings_omitted')),
-                        ('Snapshot', surface.get('snapshot_id')),
+                        ('Captura', surface.get('snapshot_id')),
                         ('Fonte', surface.get('source_ref')), ('SHA-256', surface.get('source_sha256'))])
             if surface.get('headings'):
                 body += table('Headings capturados · ' + str(surface.get('snapshot_id')), surface['headings'],

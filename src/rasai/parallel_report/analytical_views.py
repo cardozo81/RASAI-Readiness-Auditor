@@ -3,9 +3,10 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 from .capture_projection import public_data, object_value
-from .components import table, text
+from .components import records_quantity, table, text
 from .read_model import PAGES, destination, thaw
-from .presentation_labels import public_value
+from .presentation_labels import FIELD_LABELS, public_value
+from .templates import label as public_label
 
 # These are observable fields, not every storage/configuration column. Their
 # exact scope and all remaining fields are published in the receipt below.
@@ -159,21 +160,19 @@ def build_analytical_views(tables, records, schema, timezone_name):
                     completion = max(newer, key=lambda value: as_time(value))
                     entry['notes'] = (
                         'Registrado em ' + str(public_value(recorded, 'evaluated_at', timezone_name)) +
-                        ' — superado pelo contrato de fulfillment concluído em ' +
+                        ' — superado pelo contrato de execução concluído em ' +
                         str(public_value(completion, 'completed_at', timezone_name)) + '. ' + str(row['notes'])
                     )
-            if name == 'console_cost_forecast_outcomes' and entry.get('status') in {'CRÍTICO', 'CRITICO'}:
-                # Financial classification is an independent enum, not a generic workflow status.
-                entry['status'] = 'Crítico'
             if name == 'standards_metric_observations' and entry.get('classification'):
                 entry['classification'] = public_value(entry['classification'], 'status')
             for k,v in list(entry.items()):
                 if isinstance(v, dict) or (isinstance(v, list) and any(isinstance(x,(dict,list)) for x in v)):
                     # Do not relabel arbitrary JSON as interpreted evidence.
                     structured.add(k)
-                    names = list(v) if isinstance(v,dict) else ['itens estruturados']
+                    names = [FIELD_LABELS.get(key, key) for key in v] if isinstance(v,dict) else ['itens estruturados']
                     entry[k] = 'Estrutura persistida; campos: ' + ', '.join(names) + '. Consulte a evidência vinculada.'
             entry['_ref'] = record.href
+            entry['_source_table'] = name
             entries.append(entry)
         def known(v):
             return v is not None and v != 'N/D' and v != ''
@@ -194,10 +193,11 @@ def build_analytical_views(tables, records, schema, timezone_name):
             limitation='EXPLICIT_FIELD_SCOPE_ONLY_NOT_FAMILY_COMPLETENESS')
         if not available:
             continue
-        title = TITLES.get(name, 'Observações por contexto · '+name.replace('_',' '))
+        title = TITLES.get(name, 'Observações por contexto · ' + public_label(name))
         # Existing table/filter/sort/modal components; no new visual system.
         rendered[page] += '<section data-analytical-family="'+text(name)+'"><h2>'+text(title)+'</h2>'
-        rendered[page] += '<p class="rf">Todos os '+text(len(entries))+' registros desta fonte, nos campos indicados. Dados persistidos, sem nova classificação ou conclusão. Campos estruturados não interpretados permanecem no vínculo de evidência.</p>'
+        quantity = 'O registro' if len(entries) == 1 else 'Todos os ' + records_quantity(len(entries))
+        rendered[page] += '<p class="rf">' + quantity + ' desta fonte, nos campos indicados. Dados persistidos, sem nova classificação ou conclusão. Campos estruturados não interpretados permanecem no vínculo de evidência.</p>'
         rendered[page] += table(title, entries, [(k,'Motivo' if k == 'reason' else k.replace('_',' ')) for k in available]+[('_ref','Evidência')],
                                 timezone_name=timezone_name, full_text=True)
         rendered[page] += '</section>'

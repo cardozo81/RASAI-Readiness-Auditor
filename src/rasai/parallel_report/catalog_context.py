@@ -4,7 +4,7 @@ No navigation or runtime dependency on report-catalog. Each preview has local
 modal details and an in-page link to the complete sanitized record inventory.
 """
 from collections import defaultdict
-from .components import table, text, technical_link
+from .components import records_quantity, table, text, technical_link
 from .read_model import SEARCH_PAGE
 from .sanitization import sanitize
 
@@ -189,8 +189,8 @@ def catalog_context(root, logical, audit_id, tables=None, timezone_name=None):
             sections[page] += (
                 '<details' + attrs + '><summary>' + text(title) + '</summary>'
                 + '<p class="rf">Fonte: registros persistidos na auditoria. '
-                + text(len(preview)) + ' de ' + text(len(rows))
-                + ' registros nesta prévia. Abra "Ver detalhes" para consultar '
+                + text(len(preview)) + ' de ' + records_quantity(len(rows))
+                + ' nesta prévia. Abra "Ver detalhes" para consultar '
                 'cada registro, ou use o inventário local para todos os dados.</p>'
                 + table(title, preview, fields, timezone_name=timezone_name)
                 + '<p><a class="tech-link" href="#presentation-records">'

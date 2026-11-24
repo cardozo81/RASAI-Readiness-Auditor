@@ -152,7 +152,7 @@ def test_internal_configuration_control_metadata_is_annex_only():
                          if record.table == 'audit_execution_configurations')
     with collect_payloads() as annexes:
         detail = record_html(config_record, {config_record.href: ()})
-    assert 'Dados persistidos e proveniência' in detail
+    assert 'Origem dos dados e horários' in detail
     assert 'anexos/' in detail
     payload = next(iter(annexes.values())).decode('utf-8')
     assert settings['configuration_hash'] in payload

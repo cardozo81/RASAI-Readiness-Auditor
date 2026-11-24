@@ -14,6 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from rasai.contextual_advisory import _worker
 from rasai.contextual_content import MAX_BYTES
+from rasai.contextual_editorial import recommendations
 from rasai.contextual_semantics import report_overlay
 from rasai.contextual_faq_aria import report_overlay as faq_overlay
 from rasai.contextual_page_structure import report_overlay as structure_overlay
@@ -210,7 +211,10 @@ def project_capture(root, tables, inventory):
                        'PROJECTION_ERROR' if 'PROJECTION_ERROR' in states else
                        'RESOURCE_LIMIT' if 'RESOURCE_LIMIT' in states else 'SOURCE_ABSENT')
     captures = result['captures']
-    result['semantic_v2'] = report_overlay(captures, [])
+    # Use the catalog's existing history contract on the same bounded capture
+    # packet. Grouping needs the original fragment destinations before redaction.
+    result['recommendations'] = recommendations(captures)
+    result['semantic_v2'] = report_overlay(captures, result['recommendations'])
     result['faq_aria_v3'] = faq_overlay(captures)
     result['content_structure_v3'] = structure_overlay(captures)
     # Conditional human checks over structure, not a semantic engine execution.

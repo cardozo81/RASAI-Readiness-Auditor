@@ -37,21 +37,35 @@ def test_costs_keep_estimate_and_dated_snapshot_distinct():
         'estimated_cost': 0.084055, 'observed_cost': None,
         'cost_currency': 'USD', 'started_at': '2026-11-17T17:31:00'
     }]
+    priced[0]['finished_at'] = '2026-11-17T17:35:00'
+    priced[1]['finished_at'] = '2026-11-17T16:00:00'
     tables = {
         'ai_provider_attempts': priced,
         'content_remediation_attempts': remediation,
         'console_cost_forecast_outcomes': [{
             'evaluated_at': '2026-11-17T16:09:25',
-            'actual_cost': 0.005, 'currency': 'USD'
+            'actual_cost': 0.005, 'currency': 'USD', 'status': 'CRÍTICO'
         }],
     }
     records, _ = model(tables)
     result = reconcile(tables)
     html = editorial('ia-custos', records, result, load())
-    assert 'USD 0.204055 em 7 tentativas com preço' in html
+    assert 'USD 0,204055 em 7 tentativas com preço' in html
     assert 'N/D — nenhum custo observado pelo provedor' in html
     assert '17/11/2026 13:09:25 (America/Sao_Paulo)' in html
-    assert 'anterior a 7 tentativa(s)' in html
+    assert 'Previsão calculada em 17/11/2026 13:09:25' in html
+    assert 'USD 0,005' in html and 'USD 0,199055' in html
+    assert 'Tentativas com conclusão posterior à previsão' in html
+    assert '17/11/2026 14:35:00' in html
+    assert 'Tentativas sem horário de conclusão verificável' in html
+    assert 'A conclusão temporal dessas tentativas não pode ser comprovada.' in html
+    assert 'CRÍTICO' in html and '0.204055' in html
+    tables['console_cost_forecast_outcomes'][0]['currency'] = 'BRL'
+    records, _ = model(tables)
+    assert 'Diferença (estimado nas tentativas' not in editorial('ia-custos', records, result, load())
+    tables['console_cost_forecast_outcomes'][0].update(currency='USD', status='NOT_COMPARABLE')
+    records, _ = model(tables)
+    assert 'Diferença (estimado nas tentativas' not in editorial('ia-custos', records, result, load())
     assert 'Custo técnico conciliado' not in html
     assert html.count('Preço por tentativa') >= 1
 
@@ -71,7 +85,7 @@ def test_forecast_note_is_superseded_only_when_contract_is_newer():
     pages, _ = build_analytical_views(tables, records, schema, 'UTC')
     html = pages['ia-custos']
     assert 'Registrado em 17/11/2026 16:09:25 (UTC)' in html
-    assert 'superado pelo contrato de fulfillment concluído em 17/11/2026 17:32:04 (UTC)' in html
+    assert 'superado pelo contrato de execução concluído em 17/11/2026 17:32:04 (UTC)' in html
     assert '5 requisitos obrigatórios incompletos' in html
 
 
@@ -506,7 +520,7 @@ def test_728_governance_card_contextual_labels_do_not_modify_evidence():
         raw_annex = next(iter(annexes.values())).decode('utf-8')
         assert record.data['decision'] in raw_annex
         assert record.data['target_class'] in raw_annex
-        summary = html.split('<details>', 1)[0]
+        summary = html.split('<details class="in"><summary>Rastreabilidade', 1)[0]
         for label, value in (('Decisão', decision), ('Alvo', target),
                              ('Motivo', reason)):
             assert '<dt>' + label + '</dt><dd>' + value + '</dd>' in summary
@@ -514,7 +528,7 @@ def test_728_governance_card_contextual_labels_do_not_modify_evidence():
         assert 'CANONICAL_PREFERRED_URL_NOT_PROVEN' not in summary
         assert 'VERIFY_DECIDE' not in summary
         assert record.anchor in html
-        assert 'Dados persistidos e proveniência' in html
+        assert 'Origem dos dados e horários' in html
         assert 'anexos/' in html
     assert source == original
 

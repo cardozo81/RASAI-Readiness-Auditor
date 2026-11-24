@@ -25,7 +25,7 @@ def _records(tables):
 
 
 def test_only_typed_instants_and_civil_dates_are_localized():
-    assert __version__ == '0.4.35'
+    assert __version__ == '0.4.36'
     raw = '2026-11-17T15:41:12+00:00'
     local = '17/11/2026 12:41:12 (America/Sao_Paulo)'
     for field in ('collection_window_start', 'collection_window_end', 'started_at'):
@@ -128,8 +128,9 @@ def test_financial_narrative_uses_frozen_timezone_with_provenance_unchanged(monk
     view = editorial('index', model, {
         'coverage': 'N/D', 'attempt_count': 0, 'totals': {}, 'entries': [],
     }, load())
-    assert 'Instantâneo do console em 17/11/2026 13:09:25 (America/Sao_Paulo)' in view
-    assert raw not in view
+    assert 'Previsão calculada em 17/11/2026 13:09:25 (America/Sao_Paulo)' in view
+    assert raw not in view.split('<summary>Rastreabilidade</summary>')[0]
+    assert raw in view.split('<summary>Rastreabilidade</summary>')[-1]
 
 
 def test_crux_civil_window_dates_keep_day_and_original_bytes(tmp_path, monkeypatch):

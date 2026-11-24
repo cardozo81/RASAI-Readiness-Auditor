@@ -140,7 +140,7 @@ def test_financial_critical_label_is_typed_only_in_financial_projection():
     }}
     records = build(tables, schema)
     html, receipt = build_analytical_views(tables, records, schema, 'UTC')
-    assert 'Crítico' in html['ia-custos']
+    assert 'CRÍTICO' in html['ia-custos']
     assert receipt['ia-custos.html']['console_cost_forecast_outcomes']['records_available'] == 1
     assert records[0].data['status'] == 'CRÍTICO'  # immutable original record
 

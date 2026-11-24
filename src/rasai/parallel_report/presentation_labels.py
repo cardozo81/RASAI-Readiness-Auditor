@@ -1,6 +1,7 @@
-"""Typed public labels only: never translate evidence or untyped free text."""
+"""Public labels and formatting for the presentation layer."""
 import json
 import re
+from decimal import Decimal, InvalidOperation
 from rasai.time_contract import (presentation_timezone_for_audit,
                                  format_presentation_timestamp,
                                  format_presentation_date_only)
@@ -123,6 +124,144 @@ FIELD_LABELS.update({
     'notes':'Ressalvas registradas', 'confidence':'Confiança declarada na fonte',
     'unpriced_ai_attempts':'Tentativas de IA sem preço',
 })
+
+LIGHTHOUSE_TITLES = {
+    'Accessibility tree is not well-formed': 'Árvore de acessibilidade malformada',
+    'Avoid large layout shifts': 'Evite grandes mudanças de layout',
+    'Background and foreground colors do not have a sufficient contrast ratio': 'Contraste insuficiente entre primeiro plano e fundo',
+    'Cumulative Layout Shift': 'Mudança cumulativa de layout (CLS)',
+    'Displays images with incorrect aspect ratio': 'Imagens exibidas com proporção incorreta',
+    'Elements with `role="dialog"` or `role="alertdialog"` do not have accessible names': 'Elementos de diálogo ou diálogo de alerta sem nome acessível',
+    'Elements with an ARIA `[role]` that require children to contain a specific `[role]` are missing some or all of those required children': 'Elementos ARIA sem parte ou todos os elementos filhos com função obrigatória',
+    'First Contentful Paint': 'Primeira exibição de conteúdo (FCP)',
+    'Font display': 'Exibição de fontes',
+    'Forced reflow': 'Recálculo forçado de layout',
+    'Heading elements are not in a sequentially-descending order': 'Níveis de cabeçalho fora da ordem sequencial',
+    'Image elements do not have `[alt]` attributes': 'Imagens sem atributo de texto alternativo',
+    'Largest Contentful Paint': 'Exibição do maior elemento de conteúdo (LCP)',
+    'Layout shift culprits': 'Elementos que causam mudanças de layout',
+    'LCP breakdown': 'Composição do tempo de LCP',
+    'Links are not crawlable': 'Links que não podem ser rastreados',
+    'Max Potential First Input Delay': 'Atraso máximo potencial da primeira interação',
+    'Minify CSS': 'Minifique o CSS',
+    'Minify JavaScript': 'Minifique o JavaScript',
+    'Missing source maps for large first-party JavaScript': 'Mapas de código ausentes em arquivos JavaScript próprios de grande porte',
+    'Speed Index': 'Índice de velocidade',
+    'Time to Interactive': 'Tempo até a interatividade',
+    'Total Blocking Time': 'Tempo total de bloqueio (TBT)',
+    '`[role]`s do not have all required `[aria-*]` attributes': 'Funções ARIA com atributos obrigatórios ausentes',
+    'Avoid enormous network payloads': 'Evite transferências de rede muito grandes',
+    'Document request latency': 'Latência da solicitação do documento',
+    'Reduce unused JavaScript': 'Reduza o JavaScript não utilizado',
+    'Reduce unused CSS': 'Reduza o CSS não utilizado',
+    'Eliminate render-blocking resources': 'Elimine recursos que bloqueiam a renderização',
+    'Render blocking requests': 'Solicitações que bloqueiam a renderização',
+    'Render-blocking requests': 'Solicitações que bloqueiam a renderização',
+    'Improve image delivery': 'Melhore a entrega de imagens',
+    'Use efficient cache lifetimes': 'Use prazos de cache eficientes',
+    'Network dependency tree': 'Árvore de dependências de rede',
+    'Legacy JavaScript': 'JavaScript legado',
+    'Minimize main-thread work': 'Reduza o trabalho da thread principal',
+    'Reduce JavaScript execution time': 'Reduza o tempo de execução de JavaScript',
+}
+LIGHTHOUSE_SCORE_FIELDS = frozenset({
+    'performance_score', 'accessibility_score', 'best_practices_score',
+    'seo_score', 'agentic_browsing_score',
+})
+MONEY_FIELDS = frozenset({
+    'estimated_cost', 'observed_cost', 'expected_cost', 'actual_cost',
+    'likely_low', 'likely_high', 'potential', 'amount',
+})
+
+
+def monetary_value(value):
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    return amount if amount.is_finite() else None
+
+
+def format_money(amount):
+    if amount is None:
+        return 'N/D'
+    rendered = format(amount, '.6f').rstrip('0').rstrip('.')
+    return '0' if rendered == '-0' else rendered.replace('.', ',')
+
+
+def lighthouse_score(value):
+    score = monetary_value(value)
+    if score is None:
+        return 'N/D'
+    rendered = format(score, 'f')
+    if '.' in rendered:
+        rendered = rendered.rstrip('0').rstrip('.')
+    return rendered.replace('.', ',') + ' de 100'
+
+_TECHNICAL_TEXT = re.compile(r'(?<![\w./:-])(?:artifacts/|record-|RASAI_)', re.I)
+_URL_TEXT = re.compile(r'(https?://[^\s<>"\']+)', re.I)
+_EDITORIAL_WORDS = {
+    'snapshot': 'instantâneo', 'snapshots': 'instantâneos',
+    'payload': 'conteúdo bruto', 'payloads': 'conteúdos brutos',
+    'fulfillment': 'conclusão',
+}
+_EDITORIAL_WORD = re.compile(r'\b(?:snapshots?|payloads?|fulfillment)\b', re.I)
+_EDITORIAL_FIELDS = {
+    'title', 'label', 'description', 'reason', 'reasoning_summary', 'notes',
+    'message', 'expected_condition', 'observed_value', 'current_risk',
+    'aggregation_method', 'method', 'methodology', 'validation', 'verification', 'remediation',
+    'confidence_rationale', 'narrative_notes', 'source_reference', 'criterion',
+    'aggregation_basis', 'numerator_definition', 'denominator_definition',
+}
+
+
+def editorial_prose(value):
+    if not isinstance(value, str):
+        return value
+    parts = _URL_TEXT.split(value)
+    for index in range(0, len(parts), 2):
+        parts[index] = _EDITORIAL_WORD.sub(
+            lambda match: _EDITORIAL_WORDS[match[0].casefold()], parts[index])
+    return ''.join(parts)
+
+
+def editorial_value(value, field):
+    if field == 'observed_value':
+        observed = value
+        if isinstance(value, str) and value.startswith('{') and '"ai_confidence"' in value:
+            try:
+                observed = json.loads(value)
+            except ValueError:
+                observed = None
+        if isinstance(observed, dict) and 'ai_confidence' in observed:
+            return ('Parecer de IA: ' + str(public_value(observed.get('ai_verdict'), 'status')) +
+                    ' · Confiança declarada: ' + str(public_value(observed.get('ai_confidence'), 'confidence')) +
+                    ' · ' + str(editorial_prose(observed.get('rationale_pt') or 'Motivo não registrado')))
+    if isinstance(value, (dict, list)):
+        serialized = json.dumps(value, ensure_ascii=False)
+        if _TECHNICAL_TEXT.search(serialized) or _EDITORIAL_WORD.search(serialized):
+            return 'Conteúdo disponível em Rastreabilidade'
+    if not isinstance(value, str):
+        return value
+    if field == 'profile_id' and value.startswith('RASAI_MOBILE_'):
+        return 'Perfil: celular'
+    if any(_TECHNICAL_TEXT.search(part) for part in _URL_TEXT.split(value)[::2]):
+        return 'Referência disponível em Rastreabilidade'
+    if field in {'title', 'label'}:
+        return LIGHTHOUSE_TITLES.get(value, LIGHTHOUSE_TITLES.get(value.rstrip('.'), editorial_prose(value)))
+    if field == 'request_message_summary' and value.startswith(('semantic_contract=', 'contract=')):
+        return 'Parâmetros técnicos disponíveis em Rastreabilidade'
+    if value in {'Google Search Console', 'google-search-console'}:
+        return 'Relatório de pesquisa do Google'
+    if value == 'page_snapshots.canonical':
+        return 'URL canônica da captura de página'
+    if value == 'page_snapshots.structured_data_ref':
+        return 'Referência aos dados estruturados da captura de página'
+    if field in _EDITORIAL_FIELDS:
+        return editorial_prose(value)
+    return value
 TYPED_LABELS = {
     'audit_mode': {'FULL':'Completo','QUICK':'Rápido'},
     'domain': {'ACCESSIBILITY':'Acessibilidade','CONTENT':'Conteúdo','SECURITY':'Segurança'},
@@ -196,7 +335,7 @@ FIELD_ENUM_LABELS = {
     'method': METHOD_LABELS,
     'source_kind': ORIGIN_LABELS,
     'origin_kind': ORIGIN_LABELS,
-    'source': {'AI':'IA', 'GSC':'Google Search Console',
+    'source': {'AI':'IA', 'GSC':'Relatório de pesquisa do Google',
                'SERP':'Resultados de busca', 'EXTERNAL':'Fonte externa'},
     'source_mode': {'AUTO':'Automático', 'MIXED':'Misto',
                     'PERSISTED':'Dados já registrados', 'MANUAL':'Manual'},
@@ -457,7 +596,7 @@ def timezone_for_records(records):
 
 def timezone_provenance(reason):
     if reason.startswith('settings.'):
-        return 'Persistido na configuração da AUD'
+        return 'Definido na configuração desta auditoria'
     if reason.startswith('INVALID'):
         return 'Fuso persistido inválido; utilizado padrão de apresentação do produto.'
     if 'CONFLICT' in reason:
@@ -468,6 +607,13 @@ def timezone_provenance(reason):
 def public_value(value, field=None, timezone_name=None):
     if value is None:
         return 'N/D'
+    if field in LIGHTHOUSE_SCORE_FIELDS:
+        return lighthouse_score(value)
+    if field in MONEY_FIELDS and monetary_value(value) is not None:
+        return format_money(monetary_value(value))
+    display = editorial_value(value, field)
+    if display != value:
+        return display
     if field == 'materiality_reason':
         # Interpret only documented capture-quality values. Preserve all
         # unknown legacy codes in the canonical technical evidence.
@@ -532,13 +678,15 @@ def public_value(value, field=None, timezone_name=None):
             return civil
     if type(value) is float:
         return str(value).replace('.',',')
+    if isinstance(value, list) and value and all(type(item) in (int, float) for item in value):
+        return ' · '.join(str(public_value(item)) for item in value)
     if field in TYPED_LABELS:
         known = TYPED_LABELS[field].get(str(value))
         if known is not None:
             return known
     if field in SEMANTIC_ENUM_FIELDS:
         return typed_public_label(value, field)
-    if field in {'estimated_cost','observed_cost','amount','percentage'} and isinstance(value,str) and re.fullmatch(r'-?\d+(?:\.\d+)?',value):
+    if field == 'percentage' and isinstance(value,str) and re.fullmatch(r'-?\d+(?:\.\d+)?',value):
         return value.replace('.',',')
     return value
 

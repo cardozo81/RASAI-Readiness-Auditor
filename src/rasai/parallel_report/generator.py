@@ -151,9 +151,7 @@ def _render_package(root, database, before, logical_before, output):
     from rasai.report_presentation import humanize_module_references_html
     for name, html in pages.items():
         html = humanize_module_references_html(html)
-        # Only visible copy is humanized; SQLite and annex JSON remain exact.
-        # retain the precise persisted bytes and any original punctuation.
-        (output / name).write_text(html.replace('\u2014', '-'), encoding='utf-8')
+        (output / name).write_text(html, encoding='utf-8')
     for filename, content in table_payloads.items():
         (output / 'anexos' / filename).write_bytes(content)
     coverage_map = json.loads((assets / 'coverage-map.json').read_text(encoding='utf-8'))

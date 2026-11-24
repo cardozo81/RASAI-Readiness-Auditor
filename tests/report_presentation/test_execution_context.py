@@ -209,9 +209,9 @@ def test_forecast_with_incomplete_execution_does_not_claim_final_spend():
     html, _ = build_execution_context(rows, receipt_with_network())
     ai=html['ia-custos:execution']
     assert 'Previsão versus execução registrada' in ai
-    assert 'Não comparável' in ai
-    assert '0,0411926' in ai
-    assert 'Instantâneo do console na data indicada' in ai
+    assert 'NÃO COMPARÁVEL' in ai
+    assert '0,041193' in ai
+    assert 'Valor realizado registrado na previsão' in ai
     assert 'Telemetria monetária observada' in ai
     assert 'Não constitui custo final' in ai
     assert 'unsafe source text' not in ai
@@ -256,10 +256,10 @@ def test_financial_forecast_critical_classification_keeps_estimates_distinct():
     ]
     html, _ = build_execution_context(rows, receipt_with_network())
     body = html['ia-custos:execution']
-    assert '0,0411926' in body
-    assert '0,68212442' in body
-    assert 'Crítico' in body
-    assert 'Instantâneo do console na data indicada' in body
+    assert '0,041193' in body
+    assert '0,682124' in body
+    assert 'CRÍTICO' in body
+    assert 'Valor realizado registrado na previsão' in body
     assert 'N/D — sem telemetria monetária nesta moeda' in body
     assert 'Observado até o momento' not in body
     assert 'Não constitui custo final nem cobrança observada pelo provedor' in body
