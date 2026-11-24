@@ -270,7 +270,7 @@ def table(caption, rows, columns, timezone_name=None, *, full_text=False, detail
     table_html = f'<div class="tw"><table><caption>{text(caption)}</caption><thead><tr>{headings}</tr></thead><tbody>{body}</tbody></table></div>'
     return table_html + ''.join(dialogs)
 
-def stack(parts, title='Composição proporcional', unit=None, note=None):
+def stack(parts, title='Composição proporcional', unit=None, note=None, *, show_legend_context=True):
     """Offline accessible cost composition with row-local, evidence-bound metadata.
 
     The eight cat* CSS classes denote palette positions, not catalog IDs.
@@ -336,12 +336,16 @@ def stack(parts, title='Composição proporcional', unit=None, note=None):
         visible = (f'{kind} · {origin} · {purpose} · {provider} / {model} '
                    f'· {reasoning} · {catalog}'
                    + (f' · Fallback: {fallback}' if fallback != 'N/D' else ''))
+        legend_context = (
+            f'<small class="stack-context">{text(visible)}</small>'
+            if show_legend_context else ''
+        )
         legend.append(
             f'<li tabindex="0" aria-label="{text(description)}" '
             f'data-explanation="{text(description)}">'
             '<span class="sw ' + tone + '" aria-hidden="true"></span>'
             f'<span class="stack-label">{text(label)}'
-            f'<small class="stack-context">{text(visible)}</small></span>'
+            f'{legend_context}</span>'
             f'<strong>{text(amount_label)}</strong><span>{percentage_label}</span></li>'
         )
         technical.append(f'<li><strong>{text(label)}</strong> · <code>{text(detail)}</code> · '

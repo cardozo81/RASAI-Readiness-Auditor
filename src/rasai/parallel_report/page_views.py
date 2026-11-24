@@ -261,6 +261,7 @@ def editorial(page, records, costs, thresholds, governance=None):
                 parts,
                 title='Composição do custo estimado ou observado por tentativa',
                 unit=currency,
+                show_legend_context=page != 'ia-custos',
                 note='Cada segmento usa um custo persistido da tentativa: observado quando disponível; estimado como alternativa. Não representa cobrança final. As cores são categóricas e não indicam conformidade.',
             )
         html += '<p class="callout">Custo técnico estimado não equivale a cobrança observada. Tokens de Search não são inferidos.</p>'
