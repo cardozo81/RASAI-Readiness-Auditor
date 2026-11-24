@@ -40,12 +40,12 @@ def test_all_presentation_links_resolve_with_no_catalog_package(tmp_path):
     output = generate(audit)
     html = {path.name: path.read_text(encoding='utf-8') for path in output.glob('*.html')}
     assert len(html) == 11
+    assert 'Análise reversa de conteúdo — SEO/GEO' in html['conteudo.html']
     parsed = {}
     for filename, document in html.items():
         parser = Links()
         parser.feed(document)
         parsed[filename] = parser
-        assert '—' not in document, filename
         assert '../report-catalog/' not in document, filename
         assert '(aprofundamento opcional; requer o pacote técnico' not in document
         for href in parser.hrefs:

@@ -110,11 +110,13 @@ def _detail_title(row, index):
     return source + ' · entrada ' + str(index + 1)
 
 
-def _detail_dialog(caption, row, columns, index, timezone_name=None):
+def _detail_dialog(caption, row, columns, index, timezone_name=None, *, detail_scope=None):
     persisted = {key: value for key, value in row.items() if not key.startswith('_')}
     if not persisted:
         return '', ''
     seed = f"{caption}|{row.get('_source_table')}|{row.get('_ref')}|{index}"
+    if detail_scope is not None:
+        seed += f"|{detail_scope}"
     dialog_id = 'detail-' + sha256(seed.encode('utf-8')).hexdigest()[:12]
     title_id = dialog_id + '-title'
     title = _detail_title(row, index)
@@ -192,7 +194,7 @@ def _map_point_cell(value):
     )
 
 
-def table(caption, rows, columns, timezone_name=None, *, full_text=False):
+def table(caption, rows, columns, timezone_name=None, *, full_text=False, detail_scope=None):
     if not rows:
         return '<p class="callout">Não medido — nenhum registro disponível para esta seção.</p>'
     has_details = any(
@@ -242,7 +244,8 @@ def table(caption, rows, columns, timezone_name=None, *, full_text=False):
             title_attr = '' if key in {'status', 'state', 'result', 'severity', 'priority', 'priority_class'} else ' title="' + text(title_value) + '"'
             cells.append('<td' + title_attr + '>' + cell + '</td>')
         if has_details:
-            trigger, dialog = _detail_dialog(caption, row, columns, index, timezone_name)
+            trigger, dialog = _detail_dialog(
+                caption, row, columns, index, timezone_name, detail_scope=detail_scope)
             cells.append('<td class="detail-cell">' + (trigger or 'N/D') + '</td>')
             if dialog:
                 dialogs.append(dialog)

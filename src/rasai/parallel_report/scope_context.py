@@ -112,7 +112,8 @@ def editorial_evidence(root, tables, projection=None):
         html += table('Títulos H1–H6', [
             {**heading, 'scope': scopes.get(heading.get('scope'), 'Escopo não determinado')}
             for heading in surface.get('headings', ())
-        ], [('tag', 'Nível'), ('text', 'Título observado'), ('scope', 'Escopo')])
+        ], [('tag', 'Nível'), ('text', 'Título observado'), ('scope', 'Escopo')],
+            detail_scope=surface['snapshot_id'])
         html += traceability('<pre>' + text({'title': surface.get('title'),
                                             'limitations': surface.get('limitations')}) + '</pre>')
     for category, label in (

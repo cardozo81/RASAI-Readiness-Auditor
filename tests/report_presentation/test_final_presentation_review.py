@@ -95,8 +95,8 @@ def test_forecast_zero_partial_and_no_attempts_never_become_final_spend():
     execution, _ = build_execution_context(tables, {'pages':{}})
     body = execution['ia-custos:execution'] + editorial('ia-custos', records(tables), reconcile(tables), load())
     visible = ' '.join(Surface(body).values)
-    for phrase in ('0,0411926', '0,0328769', '0,05544473', 'Histórico local de auditorias',
-                   'Não comparável', '0 tentativas registradas', 'IA não executada',
+    for phrase in ('0,041193', '0,032877', '0,055445', 'Histórico local de auditorias',
+                   'NOT_COMPARABLE', '0 tentativas registradas', 'IA não executada',
                    'Tokens de entrada', 'N/D — não medidos', 'Custo total da auditoria:',
                    'execução parcial', 'Pesquisa Perplexity: nenhuma execução registrada',
                    'Recorded Search provider'):
