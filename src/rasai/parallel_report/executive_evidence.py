@@ -57,7 +57,7 @@ def summaries(root, tables, inventory, records, capture, timezone_name=None):
             body += table('Achados técnicos informativos — não constituem plano de ação', material,
                           [('title','Título registrado'), ('category','Categoria'), ('status','Estado'),
                            ('source','Origem'), ('evidence_ids','Evidências persistidas'),
-                           ('_ref','Registro e limitações da fonte')], full_text=True)
+                           ('_ref','Registro e limitações da fonte')], inline_details=True)
         emit(page, 'Achados e decisões registradas',
              ('findings', 'directed_analysis_actions', 'recommendation_governance'), body,
              limitation='FINDINGS_DO_NOT_AUTHORIZE_ACTIONS')

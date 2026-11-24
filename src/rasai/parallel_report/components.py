@@ -110,6 +110,25 @@ def _detail_title(row, index):
     return source + ' · entrada ' + str(index + 1)
 
 
+def _detail_traceability(row, persisted, timezone_name, *, extra=''):
+    source = row.get('_source_table')
+    source_html = (
+        f'<p class="rf">Tabela de origem: <code>{text(source)}</code></p>' if source else ''
+    )
+    original = presentation_timestamps(persisted, timezone_name)
+    editorial_originals = {key: value for key, value in persisted.items()
+                           if editorial_value(value, key) != value}
+    annex = register_payload(original)
+    if annex:
+        filename, digest = annex
+        raw = ('<a class="tech-link" href="anexos/' + text(filename) +
+               '">Abrir JSON original sanitizado · SHA-256 ' + text(digest) + '</a>')
+    else:
+        raw = '<pre>' + text(json.dumps(original, ensure_ascii=False, indent=2, default=str)) + '</pre>'
+    return traceability(source_html + raw + (
+        '<pre>' + text(editorial_originals) + '</pre>' if editorial_originals else '') + extra)
+
+
 def _detail_dialog(caption, row, columns, index, timezone_name=None, *, detail_scope=None):
     persisted = {key: value for key, value in row.items() if not key.startswith('_')}
     if not persisted:
@@ -142,20 +161,6 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None, *, detail_s
             rendered = 'Conteúdo técnico registrado; consultar os dados técnicos abaixo.'
         visible.append((FIELD_LABELS.get(key, label), rendered))
     summary = kv(visible) if visible else '<p class="rf">Sem campos resumidos adicionais.</p>'
-    source = row.get('_source_table')
-    source_html = (
-        f'<p class="rf">Tabela de origem: <code>{text(source)}</code></p>' if source else ''
-    )
-    original = presentation_timestamps(persisted, timezone_name)
-    editorial_originals = {key: value for key, value in persisted.items()
-                           if editorial_value(value, key) != value}
-    annex = register_payload(original)
-    if annex:
-        filename, digest = annex
-        raw = ('<a class="tech-link" href="anexos/' + text(filename) +
-               '">Abrir JSON original sanitizado · SHA-256 ' + text(digest) + '</a>')
-    else:
-        raw = '<pre>' + text(json.dumps(original, ensure_ascii=False, indent=2, default=str)) + '</pre>'
     technical = technical_link(row.get('_ref'), 'Abrir registro técnico completo')
     dialog = ''.join([
         f'<dialog class="detail-dialog" id="{dialog_id}" aria-labelledby="{title_id}">',
@@ -163,8 +168,7 @@ def _detail_dialog(caption, row, columns, index, timezone_name=None, *, detail_s
         f'<h2 id="{title_id}">{text(title)}</h2><span class="modal-kicker">Registro {index + 1}</span></div>',
         '<button type="button" class="modal-close" data-modal-close aria-label="Fechar detalhes">×</button></div>',
         '<div class="modal-body">' + summary,
-        traceability(source_html + raw + (
-            '<pre>' + text(editorial_originals) + '</pre>' if editorial_originals else '')),
+        _detail_traceability(row, persisted, timezone_name),
         '</div><div class="modal-foot">',
         technical if technical else '<span class="rf">Sem referência técnica adicional.</span>',
         '<button type="button" class="modal-dismiss" data-modal-close>Fechar</button></div></dialog>',
@@ -194,12 +198,15 @@ def _map_point_cell(value):
     )
 
 
-def table(caption, rows, columns, timezone_name=None, *, full_text=False, detail_scope=None):
+def table(caption, rows, columns, timezone_name=None, *, full_text=False, detail_scope=None,
+          inline_details=False):
+    """Render source details in dialogs, or show full cells with row-local traceability."""
     if not rows:
         return '<p class="callout">Não medido — nenhum registro disponível para esta seção.</p>'
+    column_keys = {key for key, _ in columns}
     has_details = any(
         row.get('_ref')
-        or any(not key.startswith('_') and key not in {name for name, _ in columns} for key in row)
+        or any(not key.startswith('_') and key not in column_keys for key in row)
         or any(key in TECHNICAL_ONLY_FIELDS and row.get(key) is not None for key, _ in columns)
         or any(editorial_value(row.get(key), key) != row.get(key) for key, _ in columns
                if not key.startswith('_'))
@@ -207,7 +214,8 @@ def table(caption, rows, columns, timezone_name=None, *, full_text=False, detail
     )
     headings = ''.join(f'<th scope="col">{text(FIELD_LABELS.get(key,label))}</th>' for key, label in columns)
     if has_details:
-        headings += '<th scope="col" class="no-sort" data-sort="none">Detalhes</th>'
+        heading = 'Rastreabilidade' if inline_details else 'Detalhes'
+        headings += f'<th scope="col" class="no-sort" data-sort="none">{heading}</th>'
     body = ''
     dialogs = []
     for index, row in enumerate(rows):
@@ -226,11 +234,12 @@ def table(caption, rows, columns, timezone_name=None, *, full_text=False, detail
                                if isinstance(value, dict) else 'Não localizado no mapa')
             else:
                 if key in TECHNICAL_ONLY_FIELDS and value is not None:
-                    rendered = 'Conteúdo técnico disponível em Ver detalhes'
+                    rendered = ('Conteúdo técnico disponível em Rastreabilidade' if inline_details
+                                else 'Conteúdo técnico disponível em Ver detalhes')
                 else:
                     rendered = public_value(value,key,timezone_name)
                 plain = json.dumps(rendered, ensure_ascii=False) if isinstance(rendered, (dict, list)) else str(rendered)
-                if len(plain) > 180 and not full_text:
+                if len(plain) > 180 and not (full_text or inline_details):
                     cell = text(plain[:177].rstrip() + '…')
                     title_value = 'Conteúdo completo disponível em Ver detalhes'
                 else:
@@ -243,7 +252,15 @@ def table(caption, rows, columns, timezone_name=None, *, full_text=False, detail
             # The chip already owns the native tooltip; avoid a competing parent title.
             title_attr = '' if key in {'status', 'state', 'result', 'severity', 'priority', 'priority_class'} else ' title="' + text(title_value) + '"'
             cells.append('<td' + title_attr + '>' + cell + '</td>')
-        if has_details:
+        if has_details and inline_details:
+            persisted = {key: value for key, value in row.items() if not key.startswith('_')}
+            link = (technical_link(row.get('_ref'), 'Abrir registro técnico completo')
+                    if '_ref' not in column_keys else '')
+            detail = (_detail_traceability(row, persisted, timezone_name,
+                                           extra=f'<p class="rf">{link}</p>' if link else '')
+                      if persisted or link else 'N/D')
+            cells.append('<td>' + detail + '</td>')
+        elif has_details:
             trigger, dialog = _detail_dialog(
                 caption, row, columns, index, timezone_name, detail_scope=detail_scope)
             cells.append('<td class="detail-cell">' + (trigger or 'N/D') + '</td>')

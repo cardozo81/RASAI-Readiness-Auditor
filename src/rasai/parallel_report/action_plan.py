@@ -256,22 +256,7 @@ def render_plan(rows, timezone_name, governance):
             ('priority_class', 'Prioridade do motor'), ('priority_score', 'Score de prioridade'),
             ('severity', 'Severidade'), ('impact', 'Impacto'), ('effort', 'Esforço'),
             ('affected_findings', 'Achados afetados')
-        ], timezone_name)
-        for group in ordered:
-            affected = group.get('affected_findings')
-            if isinstance(affected, str):
-                try:
-                    affected = json.loads(affected)
-                except (TypeError, ValueError):
-                    affected = [affected]
-            html += ('<details><summary>' + text(group.get('rule_id')) + ' · ' +
-                     text(group.get('root_cause')) + '</summary>')
-            html += kv([('Prioridade do motor', group.get('priority_class')),
-                        ('Pontuação de prioridade', group.get('priority_score')),
-                        ('Severidade', group.get('severity')),
-                        ('Impacto', group.get('impact')), ('Esforço', group.get('effort'))])
-            html += '<h3>Todos os achados afetados</h3>' + content(affected)
-            html += technical_reference(group.get('_ref')) + '</details>'
+        ], timezone_name, inline_details=True)
     else:
         html += '<p>Nenhum grupo de remediação persistido nesta auditoria.</p>'
     action_occurrences = rows(['directed_analysis_actions'])
@@ -286,7 +271,7 @@ def render_plan(rows, timezone_name, governance):
         inventory += table('Registros integrais por título: ' + title, entries, [
             ('action_id', 'ID'), ('title', 'Título'), ('priority', 'Prioridade do plano direcionado'),
             ('source_id', 'Origem'), ('effort', 'Esforço'), ('_ref', 'Detalhe persistido')
-        ], timezone_name)
+        ], timezone_name, inline_details=True)
     html += traceability(inventory)
     html += '<h2>Visão geral</h2>'+origin('Calculado no relatório')
     html+=kv([('Ações (ocorrências)',sum(map(len,groups))),('Ações distintas por ID',sum(bool(g[0].get('action_id')) for g in groups)),('Ocorrências sem ID',sum(not g[0].get('action_id') for g in groups)),('Crítica',priorities['CRITICAL']),('Alta',priorities['HIGH']),('Média',priorities['MEDIUM']),('Baixa',priorities['LOW']),('Sem prioridade',priorities[None]+priorities['']),('Origem explicitamente IA de conteúdo',sum(g[0].get('source_kind')=='CONTENT_AI' for g in groups))])
@@ -320,7 +305,7 @@ def render_plan(rows, timezone_name, governance):
                         [('priority','Prioridade'),('title','Ação'),('occurrences','Ocorrências'),
                          ('governance','Governança'),('primary_objective','Objetivo'),
                          ('effort','Esforço'),('confidence','Confiança'),('source_kind','Origem')],
-                        timezone_name))
+                        timezone_name, inline_details=True))
         for index, group in enumerate(section_groups):
             row = group[0]
             priority = row.get('priority')
@@ -381,12 +366,14 @@ def render_plan(rows, timezone_name, governance):
     pending_corrections = [r for r in corrections if r['governance'] != 'Aceita pela governança']
     html += '<h2>Correções técnicas aceitas pela governança</h2>'
     html += (table('Correções aprovadas', approved_corrections,
-                   [('severity','Criticidade'),('title','Título'),('selector','Elemento'),('governance','Governança')], timezone_name)
+                   [('severity','Criticidade'),('title','Título'),('selector','Elemento'),('governance','Governança')],
+                   timezone_name, inline_details=True)
              if approved_corrections else '<p>Nenhuma correção técnica aprovada nesta classe.</p>')
     html += '<h2>Correções técnicas sem aprovação</h2>'
     html += (table('Propostas técnicas para decisão', pending_corrections,
                    [('severity','Criticidade'),('domain','Domínio'),('title','Título'),
-                    ('selector','Elemento'),('source','Origem'),('governance','Governança')], timezone_name)
+                    ('selector','Elemento'),('source','Origem'),('governance','Governança')],
+                   timezone_name, inline_details=True)
              if pending_corrections else '<p>Nenhuma proposta pendente nesta classe.</p>')
     for row in corrections:
         html+='<details><summary>'+chip(row.get('severity'),'severity')+' '+text(public_value(row.get('title'), 'title'))+'</summary>'+origin('IA sugeriu' if row.get('source')=='AI' else 'Proposta persistida')+'<p>'+text('Aceita pela governança; publicação depende de validação humana.' if row['governance']=='Aceita pela governança' else 'Sugestão não aprovada')+'</p>'

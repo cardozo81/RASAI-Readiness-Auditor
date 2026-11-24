@@ -194,11 +194,10 @@ def build_analytical_views(tables, records, schema, timezone_name):
         if not available:
             continue
         title = TITLES.get(name, 'Observações por contexto · ' + public_label(name))
-        # Existing table/filter/sort/modal components; no new visual system.
         rendered[page] += '<section data-analytical-family="'+text(name)+'"><h2>'+text(title)+'</h2>'
         quantity = 'O registro' if len(entries) == 1 else 'Todos os ' + records_quantity(len(entries))
         rendered[page] += '<p class="rf">' + quantity + ' desta fonte, nos campos indicados. Dados persistidos, sem nova classificação ou conclusão. Campos estruturados não interpretados permanecem no vínculo de evidência.</p>'
         rendered[page] += table(title, entries, [(k,'Motivo' if k == 'reason' else k.replace('_',' ')) for k in available]+[('_ref','Evidência')],
-                                timezone_name=timezone_name, full_text=True)
+                                timezone_name=timezone_name, full_text=True, inline_details=page == 'plano')
         rendered[page] += '</section>'
     return rendered, receipt
