@@ -497,7 +497,7 @@ Prévia de uma consulta avulsa (sem chamar o fornecedor). A prévia valida parâ
 .venv\Scripts\python.exe -m rasai search "auditoria de sites" --domain example.com --mode live --provider serpapi --country BR --language pt-BR --device mobile --depth 10 --dry-run
 ```
 
-Uma pesquisa vinculada à nova auditoria exige termos explícitos e modo de pesquisa ativo. Na versão 1.0.0, o comando planejado exibido pelo console pode omitir os termos SERP: confira a presença de cada `--search-query` antes de reutilizá-lo. CMD, usando a credencial `RASAI_SERPAPI_API_KEY` herdada:
+Uma pesquisa vinculada à nova auditoria exige termos explícitos e modo de pesquisa ativo. Na release v1.0.0 original, o comando planejado exibido pelo console pode omitir os termos SERP. A correção posterior (#767) projeta esses argumentos conforme a seleção do CAT-05 e a autorização corrente de IA. Confira a presença de cada `--search-query` antes de reutilizá-lo; ações próprias pós-subprocesso do console, como Perplexity, não são reproduzidas pelo comando. CMD, usando a credencial `RASAI_SERPAPI_API_KEY` herdada:
 
 ```cmd
 setlocal

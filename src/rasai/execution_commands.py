@@ -116,12 +116,24 @@ def _meta(**items: Any) -> tuple[tuple[str, str], ...]:
 
 
 def audit_plan(state: Any, *, env: Mapping[str, str] | None = None, argv: Sequence[str] | None = None, status: str = "PLANEJADO") -> CommandPlan:
-    if argv is None:
-        from rasai.console_config import build_command
-        argv = build_command(state)
     values = dict(os.environ if env is None else env)
-    return CommandPlan("AUDITORIA", tuple(map(str, argv)), _environment(state, values), status,
-                       _meta(alvo=getattr(state, "target", ""), dispositivo=getattr(state, "device", ""), ia=getattr(state, "ai_provider", "")))
+
+    def snapshot(command: Sequence[str]) -> CommandPlan:
+        return CommandPlan("AUDITORIA", tuple(map(str, command)), _environment(state, values), status,
+                           _meta(alvo=getattr(state, "target", ""), dispositivo=getattr(state, "device", ""), ia=getattr(state, "ai_provider", "")))
+
+    if argv is not None:
+        # The execution log is evidence of the actual child argv/env, not a new plan.
+        return snapshot(argv)
+
+    from rasai.console_catalog_plan import project_plan
+    from rasai.console_config import build_command
+    from rasai.console_governed_search_runtime import _append_search_args
+
+    # Reuse the same catalog/AI suppressions and SERP serializer as execution,
+    # without modifying the process environment or authorizing any remote action.
+    with project_plan(state, environment=values):
+        return snapshot(_append_search_args(build_command(state), state))
 
 
 def reprocess_plan(state: Any, audit_id: str, *, selected_items: Iterable[str], use_ai: bool, env: Mapping[str, str] | None = None, status: str = "PLANEJADO") -> CommandPlan:
@@ -199,6 +211,23 @@ def _powershell_quote(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
+_AUDIT_SCOPE_NOTICE = (
+    "Escopo: comando do subprocesso AUD, não reprodução integral da sessão do console.",
+    "Pesquisa Perplexity e outras ações próprias pós-subprocesso não são reproduzidas nem comprovadas por este comando.",
+)
+
+
+def _audit_scope_comments(plan: CommandPlan, prefix: str) -> list[str]:
+    if plan.operation != "AUDITORIA":
+        return []
+    notice = list(_AUDIT_SCOPE_NOTICE)
+    if plan.status == "PLANEJADO":
+        notice.append("Prévia, não autorização de execução ou cobrança; confira parâmetros e custos antes de executar.")
+    else:
+        notice.append("Registro do argv do subprocesso; não comprova a conclusão de ações adicionais do console.")
+    return [prefix + line for line in notice]
+
+
 def render(plan: CommandPlan, target: str) -> str:
     target = target.casefold()
     if target not in PLATFORMS:
@@ -220,6 +249,7 @@ def render(plan: CommandPlan, target: str) -> str:
             "REM Shell: cmd.exe / .cmd; não usar no PowerShell.",
             "REM Secrets herdados do SO; nenhum valor de credencial é gravado.",
         ]
+        lines += _audit_scope_comments(plan, "REM ")
         lines += [f'REM set "{item.name}={SECRET_PLACEHOLDER}"'
                   for item in plan.environment if item.secret]
         if any(_CMD_UNSAFE.search(v) for v in (exe, *plan.argv[1:], *safe_env.values())):
@@ -237,6 +267,7 @@ def render(plan: CommandPlan, target: str) -> str:
             "# Shell: Windows PowerShell 5.1 ou PowerShell 7.",
             "# Secrets herdados do ambiente; nenhum valor real é gravado.",
         ]
+        lines += _audit_scope_comments(plan, "# ")
         lines += [f"# $env:{item.name} = {_powershell_quote(SECRET_PLACEHOLDER)}"
                   for item in plan.environment if item.secret]
         lines += [f"$env:{name} = {_powershell_quote(value)}"
@@ -263,6 +294,7 @@ def render(plan: CommandPlan, target: str) -> str:
         "# Shell: POSIX sh (Linux/macOS).",
         "# Secrets herdados do ambiente; nenhum placeholder executável.",
     ]
+    lines += _audit_scope_comments(plan, "# ")
     lines += [f"# export {item.name}={shlex.quote(SECRET_PLACEHOLDER)}"
               for item in plan.environment if item.secret]
     lines += [f"export {name}={shlex.quote(value)}" for name, value in safe_env.items()]

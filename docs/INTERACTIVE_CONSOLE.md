@@ -246,7 +246,7 @@ M. Ver linha de comando
 
 A superfície oferece formatos separados para Windows CMD, Windows PowerShell 5.1/7, Linux e macOS e permite copiar o comando executável, abrir o log humano de comandos e abrir a pasta contextual. Secrets aparecem somente como placeholders comentados `**********`; o valor real nunca é impresso nem gravado.
 
-Antes da execução, o comando é **PLANEJADO**. Depois de AUD/RPR/CONS, o comando registrado é **EXECUTADO** e o log fica em:
+Antes da execução, o comando é **PLANEJADO**. Na AUD, a projeção posterior à release v1.0.0 (#767) inclui os termos e opções SERP conforme CAT-05 e autorização corrente de IA, sem iniciar chamadas. Não é uma autorização de cobrança ou reprodução integral da sessão. Ações próprias pós-subprocesso, incluindo pesquisa Perplexity, ficam explicitamente fora do comando. Depois de AUD/RPR/CONS, o comando registrado é **EXECUTADO** e o log fica em:
 
 ```text
 <audits_root>/.rasai/logs/execution-commands/
