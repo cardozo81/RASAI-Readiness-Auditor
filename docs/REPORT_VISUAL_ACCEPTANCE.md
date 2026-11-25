@@ -1,5 +1,7 @@
 # #633 - Execução do smoke humano no relatório canônico
 
+> **Contexto histórico de engenharia.** Aceite visual da #633, encerrada em 15/10/2026. O checklist conceitual pode apoiar novas revisões, mas as quantidades de páginas e arquivos, os SHAs e os comandos de branch abaixo são históricos. Não execute o roteiro antigo como instrução vigente. Para uso atual, consulte o [guia de leitura](REPORT_GUIDE.md), o [contrato de apresentação](REPORT_PRESENTATION_CONTRACT.md) e a [rematerialização](REPORT_REMATERIALIZATION.md). O [registro da versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/REPORT_VISUAL_ACCEPTANCE.md) permanece acessível.
+
 **Gate humano:** APROVADO expressamente pelo operador em 15/10/2026 para a apresentação atualizada no PR #637, após smoke sobre cópia isolada da auditoria. O procedimento permanece útil para regressões futuras; não executar nova auditoria, não sobrescrever a pasta original, nem iniciar integrações pagas. O merge foi autorizado mediante verificações técnicas.
 
 ## Baseline físico disponibilizado para análise

@@ -1,6 +1,6 @@
 # Contrato de apresentação dos relatórios
 
-**Estado:** vigente.
+**Estado:** referência transversal de apresentação da versão 1.0.0. Para o roteiro de uso dos dois relatórios, consulte [guia de leitura](REPORT_GUIDE.md). As regras específicas da apresentação executiva complementam este contrato no [contrato técnico do gerador](../src/rasai/parallel_report/README.md).
 
 ### Regra editorial do português brasileiro
 
@@ -10,7 +10,7 @@ A distinção é por **origem do texto**, não por extensão ou facilidade de im
 
 Mudanças em cópias públicas exigem testes focais das frases alteradas e preservação dos conteúdos de evidência. Não usar normalização global ou dicionário por palavra isolada.
 
-Este documento define regras de apresentação que são comuns ao mini-site HTML do RASAi. Ele não altera cálculo, pesos, gates, persistência ou evidência do `SARI-001` / `SCORE-GEO-004` e não altera a fórmula Apdex.
+Este documento define regras de apresentação que são comuns ao mini-site HTML do RASAi. Ele não altera cálculo, pesos, gates, persistência ou evidência do índice de prontidão e do método de pontuação efetivamente persistido e não altera a fórmula Apdex.
 
 ## Faixas visuais do SARI
 
@@ -154,7 +154,7 @@ A camada de transparência deve separar claramente:
 
 A lista de inputs possíveis nunca deve ser apresentada como prova de que todos eles participaram daquela execução. A UI deve deixar explícita a diferença entre **o que pode alimentar a página** e **o que efetivamente foi materializado**.
 
-Identificadores internos, nomes de componentes, códigos e variáveis podem aparecer no nível de rastreabilidade técnica, mas não devem substituir o vocabulário humano da leitura principal. Para metodologia, usar **Índice de Prontidão Search & IA**, **Método de Pontuação de Prontidão**, **Regra de Avaliação de Prontidão** e **Evidência da Auditoria** como nomes principais; `SARI-001`, `SCORE-GEO-004`, `BR-GEO-*` e `EV-GEO-*` permanecem como IDs técnicos secundários.
+Identificadores internos, nomes de componentes, códigos e variáveis podem aparecer no nível de rastreabilidade técnica, mas não devem substituir o vocabulário humano da leitura principal. Para metodologia, usar **Índice de Prontidão Search & IA**, **Método de Pontuação de Prontidão**, **Regra de Avaliação de Prontidão** e **Evidência da Auditoria** como nomes principais; `SARI-001`, `SCORE-GEO-005` (vigente), `SCORE-GEO-004` (histórico), `BR-GEO-*` e `EV-GEO-*` permanecem como IDs técnicos secundários.
 
 A interface nunca deve expor valor de segredo, token, credencial ou chave. Quando necessário, informa apenas que determinada configuração/credencial está ausente ou inválida.
 
@@ -218,7 +218,7 @@ O card:
 - usa os resumos `POPULATION` persistidos;
 - mostra valor único quando todas as populações materializadas possuem o mesmo Apdex ou uma faixa mínima-máxima quando existem várias páginas;
 - mostra amostras válidas/target e o estado da execução;
-- permanece independente do SARI e não participa de `SCORE-GEO-004`.
+- permanece independente do SARI e não participa do método de pontuação de prontidão.
 
 ## Tentativas e retornos em `cat-07.html`
 

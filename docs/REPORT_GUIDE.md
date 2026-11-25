@@ -4,15 +4,38 @@ O RASAi mantém HTML como projeção de leitura sobre dados persistidos; HTML n�
 
 ## Entrada principal da auditoria
 
-```text
-report-catalog/index.html
-```
+A auditoria pode oferecer duas projeções complementares, cada uma com entrada própria:
+
+| Relatório | Abra no navegador | Finalidade |
+| --- | --- | --- |
+| Apresentação executiva | `report-presentation/index.html` | Leitura orientada a decisões, em onze páginas temáticas autônomas |
+| Catálogo técnico | `report-catalog/index.html` | Investigação analítica, regras, métricas, evidências e detalhes por catálogo |
+
+Ambos são derivados dos dados persistidos, não novas auditorias. O catálogo técnico permanece referência canônica de rastreabilidade, enquanto a apresentação não depende do HTML do catálogo para gerar os fatos ou abrir seus detalhes. Um pacote pode estar indisponível ou desatualizado mesmo quando o outro existe. Consulte [apresentação e limites](REPORT_PRESENTATION.md), [confiança do catálogo](REPORT_CATALOG_TRUST.md) e [regeneração offline](REPORT_REMATERIALIZATION.md).
+
+### Roteiro de leitura executiva
+
+| Página da apresentação | Pergunta que ajuda a responder |
+| --- | --- |
+| `index.html` — Painel | Qual é a situação observada e quais limitações precisam ser consideradas? |
+| `extracao.html` — Extração | O que foi capturado, em qual contexto, e onde está a evidência? |
+| `descoberta.html` — Descoberta e padrões | Quais sinais de acesso, descoberta e verificações técnicas foram observados? |
+| `indices.html` — Índices | Qual a qualidade medida e a suficiência da evidência para interpretá-la? |
+| `conteudo.html` — Conteúdo e acessibilidade | Que sinais de conteúdo, semântica, estrutura e acessibilidade foram registrados? |
+| `performance.html` — Performance e experiência | Quais medições de laboratório, campo e avaliações sintéticas estão disponíveis? |
+| `rede.html` — Rede e conectividade | Quais conexões, origens, endereços e medições de rede foram comprovados? |
+| `search-geo.html` — Search e GEO | O que foi efetivamente observado nas buscas, fontes e comparações? |
+| `seguranca.html` — Segurança passiva | Quais sinais e limitações de segurança foram observados? |
+| `plano.html` — Plano de ação | Quais achados, propostas e decisões existem, sem confundir proposta com aprovação? |
+| `ia-custos.html` — IA, custos e proveniência | Quais integrações e tentativas foram registradas, com que modelo, esforço, uso e custo? |
+
+Navegue pelas páginas de interesse e pelos anexos locais. Não interprete a existência de uma página como confirmação de que a coleta correspondente ocorreu; leia os estados e limitações. A [segurança da informação](SECRET_AND_CONFIGURATION_SAFETY.md) orienta o tratamento do pacote. O catálogo integral contém dados de acesso restrito; para divulgação, use o processo de [exportação candidata](PUBLIC_REPORT_EXPORT.md), sujeito à revisão humana.
 
 `<AUD>/report/`, `<AUD>/report.html` e `<AUD>/cat-09.html` não pertencem ao contrato HTML de uma execução `rasai audit`.
 
 ## Estrutura suportada
 
-A projeção audit-owned suportada é `report-catalog/`. Ela preserva:
+A projeção técnica canônica `report-catalog/` preserva:
 
 - visão geral e **Índice de Prontidão Search & IA**;
 - CAT-01 ... CAT-10 conforme contrato da auditoria;
@@ -350,7 +373,7 @@ Todas as páginas canônicas devem compartilhar navegação estável, apenas um 
 
 Após a finalização de uma auditoria, o menu é estruturalmente estático e deriva do catálogo canônico; habilitar ou desabilitar uma funcionalidade altera o **conteúdo/estado da página**, não a existência do link.
 
-A navegação é derivada diretamente de `CATALOG_REPORT_PAGES`: Visão geral, SARI, CAT-01 a CAT-10, Análise Direcionada e as páginas de governança Captura e contexto, Evidências da execução, IA e integrações, Metodologia e scoring e Índices e métricas.
+A navegação técnica é derivada do contrato de páginas do catálogo, incluindo visão geral, índice de prontidão, dez catálogos, Rede e conectividade, GEO, revisão de conteúdo GEO, Análise Direcionada e as páginas de governança Captura e contexto, Evidências da execução, IA e integrações, Metodologia e Índices e métricas. A apresentação possui navegação própria por temas, descrita no roteiro deste guia.
 
 O SaaS Pilot Web usa o mesmo catálogo canônico do mini-site para listar superfícies; não mantém uma segunda lista independente de filenames/rótulos. Interfaces podem indicar estado de disponibilidade dos dados, mas não devem redefinir o catálogo público.
 

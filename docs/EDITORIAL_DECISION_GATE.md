@@ -1,4 +1,6 @@
-# Gate de decisão editorial por família - issue #722
+# Procedimento de revisão editorial por família de evidências
+
+> **Estado:** referência de qualidade para futuras entregas. A [decisão formal de 25/11/2026](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/722#issuecomment-7159540850) encerrou administrativamente a demanda histórica #722 por descontinuação do escopo residual, sem certificar completude integral. Não reabrir a investigação antiga apenas porque permanecem fontes sem evidência específica. Avaliar defeitos materiais novos com evidências próprias.
 
 ## Finalidade e escopo
 
@@ -33,7 +35,7 @@ Antes de propor código, exigir lacuna C/D **com materialidade e fonte demonstra
 
 ## Gate de encerramento da #722
 
-**GO somente quando**: (1) cada família da AUD homologada tem decisão explícita ou justificativa verificável; (2) cada tópico técnico recebeu revisão, inclusive duplicações legítimas em páginas diferentes; (3) nenhuma lacuna C/D material permanece sem solução ou ressalva aprovada; (4) reconciliação física e paridade dos onze HTMLs, links, anexos e hashes passam; (5) inspeção offline em 390/1440/2560 px e aceite humano/visual estão registrados; (6) CI no SHA final está verde. Não confundir cobertura das fontes com completude decisória. Sem esses comprovantes, **NO-GO para fechar #722**.
+**Registro histórico do critério original, não pendência atual.** O critério de certificação integral exigia: (1) cada família da AUD homologada tem decisão explícita ou justificativa verificável; (2) cada tópico técnico recebeu revisão, inclusive duplicações legítimas em páginas diferentes; (3) nenhuma lacuna C/D material permanece sem solução ou ressalva aprovada; (4) reconciliação física e paridade dos onze HTMLs, links, anexos e hashes passam; (5) inspeção offline em 390/1440/2560 px e aceite humano/visual estão registrados; (6) CI no SHA final está verde. Não confundir cobertura das fontes com completude decisória. O critério original não foi integralmente cumprido; a issue foi encerrada por decisão formal de governança, não por aprovação integral. As 100/102 famílias aceitas, 61/61 ocorrências técnicas e 11/11 páginas homologadas visualmente permanecem como resultados históricos. As duas famílias sem comprovação específica mantêm PENDENTE e N/D com limitação, assim como os indicadores históricos `human_editorial_acceptance=PENDING` e `certifies_editorial_completeness=false`. Para futuras revisões, use os critérios como referência de qualidade proporcional ao escopo e não como obrigação de repetir o aceite histórico.
 
 Os documentos e testes já existentes são a referência técnica: [contrato da apresentação](../src/rasai/parallel_report/README.md), [guia de aceitação de apresentação](PRESENTATION_EDITORIAL_ACCEPTANCE.md), [teste da triagem](../tests/report_presentation/test_editorial_review.py) e [aceite físico isolado](../scripts/presentation_acceptance.py).
 

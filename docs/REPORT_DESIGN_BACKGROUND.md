@@ -1,5 +1,7 @@
 # Histórico de decisões da arquitetura visual dos relatórios
 
+> **Contexto histórico de engenharia.** Histórico de decisões e protótipo da #633. Os estados de branch e de merge são registros da época, não requisitos atuais. Para uso atual, consulte o [guia de leitura](REPORT_GUIDE.md), o [contrato de apresentação](REPORT_PRESENTATION_CONTRACT.md) e a [rematerialização](REPORT_REMATERIALIZATION.md). O [registro da versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/REPORT_DESIGN_BACKGROUND.md) permanece acessível.
+
 > Documento de contexto técnico e evolução da proposta. Não é o contrato operacional vigente.
 > Regras de implementação, revisão e smoke atualizadas estão nos documentos
 > `docs/REPORT_DESIGN_SYSTEM.md` e `docs/REPORT_VISUAL_ACCEPTANCE.md`

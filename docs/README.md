@@ -137,6 +137,8 @@ A seleção de testes por risco das pull requests, os critérios de *fail-closed
 
 ## Aceite editorial da apresentação (#722)
 
+O procedimento permanece referência de qualidade. A demanda histórica foi [encerrada administrativamente em 25/11/2026](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/722#issuecomment-7159540850), sem certificação editorial integral; não constitui pendência operacional vigente.
+
 A [matriz de decisão editorial por família](EDITORIAL_DECISION_GATE.md) define como qualificar cada fonte persistida como A (técnica deliberada), B (ausente/não executada), C (projeção analítica necessária) ou D (síntese executiva necessária), com evidência e aceite humano/visual. **O recibo automatizado não certifica completude por si só.**
 
 ## Ordem de leitura recomendada

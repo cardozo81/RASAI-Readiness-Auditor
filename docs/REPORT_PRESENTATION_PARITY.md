@@ -1,5 +1,7 @@
 # Issue #710 - matriz de paridade informacional e arquitetura editorial
 
+> **Contexto histórico de engenharia.** Matriz inicial e complementos de paridade da #710, encerrada em 16/11/2026. Os estados de implementação e homologação abaixo pertencem aos recortes registrados, não constituem diagnóstico atual da versão 1.0.0. Para uso atual, consulte o [guia de leitura](REPORT_GUIDE.md), o [contrato de apresentação](REPORT_PRESENTATION_CONTRACT.md) e a [rematerialização](REPORT_REMATERIALIZATION.md). O [registro da versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/REPORT_PRESENTATION_PARITY.md) permanece acessível.
+
 Baseline de análise: `e26d87c038c551e923d30468d9eae5bb6c145fa7` (`main`, merge da PR #709).
 
 Esta matriz antecede a implementação da #710. Ela descreve **paridade de fatos materiais e propósito**, não equivalência visual, HTML-a-HTML ou página-a-página. `audit.db + artifacts` continuam sendo a fonte de verdade material; `report-catalog/` é a projeção canônica auditável; `report-presentation/` permanece uma projeção executiva derivada e read-only.
