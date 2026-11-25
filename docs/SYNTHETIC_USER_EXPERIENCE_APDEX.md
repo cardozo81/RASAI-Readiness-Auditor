@@ -50,7 +50,7 @@ limiar Satisfied <= valor <= limiar Frustrated  -> TOLERATING
 valor > limiar Frustrated                        -> FRUSTRATED
 ```
 
-Um erro qualificável pode forçar `FRUSTRATED` independentemente da duração quando a política de erros efetiva estiver habilitada. O Apdex de navegação permanece separado e continua usando `T/4T`. A igualdade com o limiar inferior tem tratamento diferente: com 3 segundos, a navegação classifica uma amostra de exatamente 3 segundos como satisfeita, enquanto a experiência a classifica como tolerável (se não houver erro qualificável).
+Sem perfil aplicado, a amostra de experiência é excluída. Com perfil aplicado, timeout ou erro de navegação força `FRUSTRATED` mesmo quando a KPM temporal está ausente. Para os demais estados, a ausência de KPM válida exclui a classificação; um erro qualificável pode forçar `FRUSTRATED` independentemente da duração válida quando a política de erros efetiva estiver habilitada. Essa precedência é própria do motor de experiência e não é idêntica à da navegação. O Apdex de navegação permanece separado e continua usando `T/4T`. A igualdade com o limiar inferior tem tratamento diferente: com 3 segundos, a navegação classifica uma amostra de exatamente 3 segundos como satisfeita, enquanto a experiência a classifica como tolerável (se não houver erro qualificável).
 
 ## 3. Fronteira temporal de USER_ACTION_DURATION
 

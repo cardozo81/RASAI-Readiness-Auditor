@@ -294,6 +294,8 @@ Overall Coverage =
 
 Coverage mede quanto do peso aplicável foi avaliado; não atribui qualidade ao site.
 
+A cobertura é calculada sobre grupos/escopos representados pelas execuções aplicáveis recebidas pelo motor, não sobre todos os itens imagináveis nem sobre todas as páginas do site. Dentro do mesmo grupo e escopo, o motor escolhe o menor fator entre resultados conclusivos determinísticos; se não houver nenhum, escolhe o menor fator entre os demais resultados conclusivos contratados. Um resultado não resolvido não apaga automaticamente outro resultado conclusivo do mesmo escopo, embora erros registrados possam reduzir a confiança. Uma dimensão sem execuções fica sem nota, com cobertura zero e não consolidada. Quando todos os resultados são não aplicáveis por pré-requisito bloqueado, a dimensão permanece não consolidada em vez de sair legitimamente do denominador. A cobertura de aquisição e a integridade das evidências devem ser examinadas separadamente.
+
 ## Confidence
 
 Dimensão:
@@ -304,6 +306,8 @@ MEDIUM      coverage >= 0.80, zero errors
 LOW         avaliação abaixo dos critérios acima
 UNAVAILABLE coverage <= 0
 ```
+
+Neste cálculo, evidência completa significa que cada execução representativa avaliada possui referência de evidência (`evidence_ids`), não que toda a aquisição ou todo o site tenha sido inspecionado. Erros em execuções aplicáveis também entram na avaliação de confiança. Se nenhuma dimensão possui valor medido, a confiança geral é `UNAVAILABLE`.
 
 Overall usa `WEIGHTED_MEASUREMENT_CONFIDENCE_V1`:
 
@@ -394,6 +398,8 @@ UNKNOWN
 O estado geral é `READY`, `ATTENTION`, `BLOCKED` ou `UNKNOWN`.
 
 Critical Gates qualificam readiness e **não truncam artificialmente o valor 0-100**. São persistidos em `limitations` do Overall para manter a rastreabilidade do contrato. Na apresentação pública, porém, `BLOCKED`, `UNKNOWN` e `ATTENTION` prevalecem sobre uma banda numérica positiva para evitar falso positivo executivo.
+
+Entre estados de gates, o resultado geral segue a precedência `BLOCKED`, `UNKNOWN`, `WARNING` (apresentado como `ATTENTION`) e, por último, `READY`. A regra de precedência não substitui a qualificação de cobertura e consolidação.
 
 ## Precedência de evidência
 

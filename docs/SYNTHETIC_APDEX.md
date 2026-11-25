@@ -29,7 +29,7 @@ Uma amostra pode ser:
 - `FRUSTRATED`;
 - inválida/excluída quando a ferramenta/profile não conseguiu produzir uma medição válida.
 
-Timeout ou erro de navegação/aplicação conta como `FRUSTRATED` quando o profile foi efetivamente aplicado e a amostra é observável como execução válida.
+Timeout ou erro de navegação/aplicação conta como `FRUSTRATED` quando o perfil foi efetivamente aplicado e existe duração registrada. Sem perfil aplicado ou sem duração, a classificação de navegação é ausente e a amostra é excluída, não convertida em satisfação ou frustração. Sem amostras válidas não há índice numérico.
 
 ## Grupos
 

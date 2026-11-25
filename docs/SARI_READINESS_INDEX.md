@@ -264,7 +264,7 @@ Essa regra evita falso positivo de apresentação sem inventar penalidade matem�
 
 ## 9. Coverage
 
-Coverage mede **completude**, não qualidade do website.
+Coverage mede **completude da medição aplicável**, não qualidade do website nem percentual de páginas do site conhecidas. O universo de cálculo depende das execuções recebidas; cobertura alta não comprova aquisição integral. Consulte [detalhes de cálculo](SCORE_GEO.md#overall-coverage).
 
 No Overall:
 
@@ -469,7 +469,7 @@ Contrato:
 
 - dimensão `DISCOVERY_ACCESS`;
 - grupo `EXTERNAL_CRAWL_CORROBORATION`;
-- peso de 3% dentro da dimensão, equivalente a impacto máximo teórico de 0,45 ponto no Overall;
+- peso nominal de 3% dentro da dimensão, correspondente a 0,45 ponto no Overall com todos os pesos medidos; a normalização pode alterar a participação efetiva (veja [corroboração externa](SARI_EXTERNAL_CRAWL_CORROBORATION.md#peso));
 - evidência externa somente positiva: quando todos os requisitos forem satisfeitos, a regra pode produzir `PASS`;
 - ausência de registro, erro, timeout, indisponibilidade, alvo privado ou resposta inconclusiva não produzem `FAIL`, zero, redução de Coverage ou redução de Confidence;
 - a regra não participa dos Critical Readiness Gates;
