@@ -10,6 +10,18 @@ python -m pip install -e .
 rasai --version
 ```
 
+## Versão do código diferente dos metadados instalados
+
+Após atualizar uma instalação editável, confira o runtime e os metadados usando o mesmo Python da `.venv`, sem iniciar auditoria:
+
+```powershell
+& .\.venv\Scripts\python.exe -c "import rasai, importlib.metadata as m; print(rasai.__file__, rasai.__version__, m.version('rasai-readiness-auditor'))"
+& .\.venv\Scripts\python.exe -m pip check
+& .\.venv\Scripts\rasai.exe --version
+```
+
+Se as versões divergirem, não considere apenas a versão da CLI como prova de instalação consistente. Examine metadados duplicados do pacote em `src/` e na `.venv/Lib/site-packages/`, confira o caminho importado e a versão pretendida. Preserve cópia externa dos metadados obsoletos antes de removê-los, somente após confirmar a identidade do pacote e que não são arquivos rastreados. Não apague diretórios inteiros de dependências ou auditorias. Se for necessária reinstalação editável sem isolamento de build, `setuptools>=68` deve estar previamente instalado; não atualize outras dependências sem motivo. Revalide as três superfícies acima após a recuperação.
+
 ## Chromium/Playwright
 
 ```powershell

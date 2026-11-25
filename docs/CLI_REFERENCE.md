@@ -133,7 +133,7 @@ Quando um campo está em `auto` e IA está ligada, a configuração persistida c
 
 ### Telemetria de IA
 
-Para investigar as tentativas registradas, use `report-catalog/ai-integrations.html`; a apresentação executiva de uso, custos e proveniência está em `report-presentation/ia-custos.html`. O runtime registra request/response sanitizados, provider/modelo, finalidade, duração, status, hashes e truncamento. Secrets e raciocínio privado do provider não são persistidos.
+Para investigar as tentativas registradas, use `report-catalog/ai-integrations.html`; a apresentação executiva de uso, custos e proveniência está em `report-presentation/ia-custos.html`. O runtime registra request/response sanitizados, provider/modelo, finalidade, duração, status, hashes e truncamento. Campos reconhecidos como credenciais e raciocínio privado do fornecedor são redigidos pelo registrador. Isso não garante ausência de todo conteúdo sensível ou opaco; preserve o banco e os artefatos sob acesso restrito. Veja [segurança e retenção da telemetria](AI_RUNTIME_SECURITY.md).
 
 Quando a integração reporta uma unidade comercial nativa, o console/relatório a apresenta separadamente dos tokens. A telemetria pode mostrar, por exemplo, requisições de busca Perplexity ou créditos Manus; essas unidades nunca são reaproveitadas como `input_tokens`/`output_tokens`. Créditos Manus permanecem não precificados enquanto não houver conversão monetária oficial reproduzível. Esta entrega não cria novos valores para `--ai-provider`.
 

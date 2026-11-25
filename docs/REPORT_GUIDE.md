@@ -17,36 +17,36 @@ Ambos são derivados dos dados persistidos, não novas auditorias. O catálogo t
 
 | Página da apresentação | Pergunta que ajuda a responder |
 | --- | --- |
-| `index.html` — Painel | Qual é a situação observada e quais limitações precisam ser consideradas? |
-| `extracao.html` — Extração | O que foi capturado, em qual contexto, e onde está a evidência? |
-| `descoberta.html` — Descoberta e padrões | Quais sinais de acesso, descoberta e verificações técnicas foram observados? |
-| `indices.html` — Índices | Qual a qualidade medida e a suficiência da evidência para interpretá-la? |
-| `conteudo.html` — Conteúdo e acessibilidade | Que sinais de conteúdo, semântica, estrutura e acessibilidade foram registrados? |
-| `performance.html` — Performance e experiência | Quais medições de laboratório, campo e avaliações sintéticas estão disponíveis? |
-| `rede.html` — Rede e conectividade | Quais conexões, origens, endereços e medições de rede foram comprovados? |
-| `search-geo.html` — Search e GEO | O que foi efetivamente observado nas buscas, fontes e comparações? |
-| `seguranca.html` — Segurança passiva | Quais sinais e limitações de segurança foram observados? |
-| `plano.html` — Plano de ação | Quais achados, propostas e decisões existem, sem confundir proposta com aprovação? |
-| `ia-custos.html` — IA, custos e proveniência | Quais integrações e tentativas foram registradas, com que modelo, esforço, uso e custo? |
+| `index.html` - Painel | Qual é a situação observada e quais limitações precisam ser consideradas? |
+| `extracao.html` - Extração | O que foi capturado, em qual contexto, e onde está a evidência? |
+| `descoberta.html` - Descoberta e padrões | Quais sinais de acesso, descoberta e verificações técnicas foram observados? |
+| `indices.html` - Índices | Qual a qualidade medida e a suficiência da evidência para interpretá-la? |
+| `conteudo.html` - Conteúdo e acessibilidade | Que sinais de conteúdo, semântica, estrutura e acessibilidade foram registrados? |
+| `performance.html` - Performance e experiência | Quais medições de laboratório, campo e avaliações sintéticas estão disponíveis? |
+| `rede.html` - Rede e conectividade | Quais conexões, origens, endereços e medições de rede foram comprovados? |
+| `search-geo.html` - Search e GEO | O que foi efetivamente observado nas buscas, fontes e comparações? |
+| `seguranca.html` - Segurança passiva | Quais sinais e limitações de segurança foram observados? |
+| `plano.html` - Plano de ação | Quais achados, propostas e decisões existem, sem confundir proposta com aprovação? |
+| `ia-custos.html` - IA, custos e proveniência | Quais integrações e tentativas foram registradas, com que modelo, esforço, uso e custo? |
 
 ### Correspondência temática entre os relatórios
 
 Use esta matriz para escolher a página por objetivo. Os nomes de arquivo foram confrontados com os contratos de navegação do produto (21 páginas técnicas e 11 executivas). Cada coluna apresenta **caminhos relativos à pasta indicada**. A relação é de assunto e finalidade, não de equivalência visual, réplica de tabelas, dependência entre HTMLs ou certificação de completude. Uma página pode sintetizar evidências de mais de um catálogo e um assunto pode aparecer em mais de uma página.
 
-| Objetivo | `report-catalog/` — investigação técnica | `report-presentation/` — leitura executiva |
+| Objetivo | `report-catalog/` - investigação técnica | `report-presentation/` - leitura executiva |
 | --- | --- | --- |
-| Situação geral e conclusão da auditoria | `index.html` — resumo, estados e encerramento estrutural | `index.html` — painel, leitura e situação observada |
-| Prontidão, critérios, pesos e indicadores | `sari.html`, `methodology.html`, `metrics.html` — índice, método e inventário de métricas | `indices.html` — interpretação dos índices e limites; `index.html` — síntese |
-| Captura, URLs e contexto | `capture-context.html` — topologia da captura e evidências | `extracao.html` — capturas, contexto e registros |
-| Fundamentos técnicos, descoberta e padrões | `cat-01.html` — verificações de acesso, descoberta e padrões | `descoberta.html` — observações técnicas e serviços |
-| Acessibilidade, conteúdo e semântica | `cat-02.html`, `cat-03.html` — diagnósticos especializados e dados estruturados | `conteudo.html` — contexto, achados e evidências de conteúdo e acessibilidade |
-| Laboratório, campo e Apdex | `cat-04.html`, `cat-06.html`, `cat-07.html` — desempenho, navegação e experiência em universos separados | `performance.html` — leitura conjunta com fontes, amostras e limites distintos |
-| Rede, conexões e topologia | `network.html` — observações e sondagens verificadas | `rede.html` — conexões, origem, inventário e mapa conforme evidências |
-| Busca, concorrência e GEO | `cat-05.html`, `geo.html` — evidência de busca e inteligência competitiva consultiva | `search-geo.html` — resultados observados, fontes externas e contexto competitivo |
-| Revisão consultiva de conteúdo para GEO | `geo-content-review.html` — revisão consultiva própria, quando materializada | `search-geo.html` e `conteudo.html` — assuntos relacionados; consultar a evidência técnica específica quando necessária, sem presumir réplica |
-| Melhorias, remediações e decisões | `cat-08.html`, `cat-09.html`, `directed-analysis.html` — diagnóstico, orientação, propostas e rastreabilidade | `plano.html` — ações e decisões persistidas; `conteudo.html` — achados relacionados |
-| Segurança passiva | `cat-10.html` — observações, recursos e diagnósticos | `seguranca.html` — cobertura, achados e limites |
-| Execução, integrações e custo | `execution-evidence.html`, `ai-integrations.html` — evidências operacionais, tentativas e telemetria | `ia-custos.html` — uso, esforço, custos e proveniência; `index.html` — situação operacional |
+| Situação geral e conclusão da auditoria | `index.html` - resumo, estados e encerramento estrutural | `index.html` - painel, leitura e situação observada |
+| Prontidão, critérios, pesos e indicadores | `sari.html`, `methodology.html`, `metrics.html` - índice, método e inventário de métricas | `indices.html` - interpretação dos índices e limites; `index.html` - síntese |
+| Captura, URLs e contexto | `capture-context.html` - topologia da captura e evidências | `extracao.html` - capturas, contexto e registros |
+| Fundamentos técnicos, descoberta e padrões | `cat-01.html` - verificações de acesso, descoberta e padrões | `descoberta.html` - observações técnicas e serviços |
+| Acessibilidade, conteúdo e semântica | `cat-02.html`, `cat-03.html` - diagnósticos especializados e dados estruturados | `conteudo.html` - contexto, achados e evidências de conteúdo e acessibilidade |
+| Laboratório, campo e Apdex | `cat-04.html`, `cat-06.html`, `cat-07.html` - desempenho, navegação e experiência em universos separados | `performance.html` - leitura conjunta com fontes, amostras e limites distintos |
+| Rede, conexões e topologia | `network.html` - observações e sondagens verificadas | `rede.html` - conexões, origem, inventário e mapa conforme evidências |
+| Busca, concorrência e GEO | `cat-05.html`, `geo.html` - evidência de busca e inteligência competitiva consultiva | `search-geo.html` - resultados observados, fontes externas e contexto competitivo |
+| Revisão consultiva de conteúdo para GEO | `geo-content-review.html` - revisão consultiva própria, quando materializada | `search-geo.html` e `conteudo.html` - assuntos relacionados; consultar a evidência técnica específica quando necessária, sem presumir réplica |
+| Melhorias, remediações e decisões | `cat-08.html`, `cat-09.html`, `directed-analysis.html` - diagnóstico, orientação, propostas e rastreabilidade | `plano.html` - ações e decisões persistidas; `conteudo.html` - achados relacionados |
+| Segurança passiva | `cat-10.html` - observações, recursos e diagnósticos | `seguranca.html` - cobertura, achados e limites |
+| Execução, integrações e custo | `execution-evidence.html`, `ai-integrations.html` - evidências operacionais, tentativas e telemetria | `ia-custos.html` - uso, esforço, custos e proveniência; `index.html` - situação operacional |
 
 Os dois pacotes permanecem locais e devem ser protegidos. Não confunda anexos de apoio, manifesto ou resumo com a fonte original nem com autorização de divulgação. A exportação pública atualmente documentada refere-se ao catálogo técnico e exige revisão de privacidade.
 

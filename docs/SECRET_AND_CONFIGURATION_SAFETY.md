@@ -63,8 +63,8 @@ flowchart TD
 
 Referências externas de segurança e privacidade (orientações, não certificações do produto):
 
-- [OWASP — orientações de registro de eventos](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html): boa prática de proteção de logs, minimização de dados sensíveis e controle de acesso.
-- [Lei Geral de Proteção de Dados Pessoais — Lei nº 13.709/2018, texto compilado](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709compilado.htm): referência legal brasileira, em especial medidas de segurança do art. 46. A conformidade depende do tratamento concreto, não apenas da ferramenta.
+- [OWASP - orientações de registro de eventos](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html): boa prática de proteção de logs, minimização de dados sensíveis e controle de acesso.
+- [Lei Geral de Proteção de Dados Pessoais - Lei nº 13.709/2018, texto compilado](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709compilado.htm): referência legal brasileira, em especial medidas de segurança do art. 46. A conformidade depende do tratamento concreto, não apenas da ferramenta.
 
 ## Regra principal
 

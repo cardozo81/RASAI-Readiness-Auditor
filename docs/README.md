@@ -214,9 +214,9 @@ Consulte também as páginas de governança de `report-catalog/`, especialmente 
 
 ### Histórico de distribuição
 
-- [v1.0.0 — notas de versão](RELEASE_NOTES_V1_0_0.md) e [release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v1.0.0).
-- [v0.10.0 — notas de versão](RELEASE_NOTES_V0_10_0.md) e [release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0).
-- [v0.9.1 — notas de versão](RELEASE_NOTES_V0_9_1.md).
+- [v1.0.0 - notas de versão](RELEASE_NOTES_V1_0_0.md) e [release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v1.0.0).
+- [v0.10.0 - notas de versão](RELEASE_NOTES_V0_10_0.md) e [release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0).
+- [v0.9.1 - notas de versão](RELEASE_NOTES_V0_9_1.md).
 
 
 Consulte a [última release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) para confirmar a versão publicada e seu SHA. A versão do pacote `0.9.2` possui [notas de distribuição](RELEASE_NOTES_V0_9_2.md), mas a identidade distribuída depende da tag e do commit efetivamente publicados. O histórico `v0.9.0` permanece associado ao seu próprio SHA imutável.

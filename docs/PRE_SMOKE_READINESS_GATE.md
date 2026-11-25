@@ -1,6 +1,6 @@
 # RASAi - Gate de entrega tecnica para smoke humano
 
-> **Registro histórico — não é guia operacional vigente.** Roteiro do ciclo da PR #645 em 16/10/2026. Não executar os comandos de sincronização ou usar as decisões de aceite abaixo como instruções atuais sem nova verificação. Consulte as [issues](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues), [pull requests](https://github.com/cardozo81/RASAI-Readiness-Auditor/pulls) e o [índice atual da documentação](README.md). O [registro original na versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/PRE_SMOKE_READINESS_GATE.md) permanece preservado.
+> **Registro histórico - não é guia operacional vigente.** Roteiro do ciclo da PR #645 em 16/10/2026. Não executar os comandos de sincronização ou usar as decisões de aceite abaixo como instruções atuais sem nova verificação. Consulte as [issues](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues), [pull requests](https://github.com/cardozo81/RASAI-Readiness-Auditor/pulls) e o [índice atual da documentação](README.md). O [registro original na versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/PRE_SMOKE_READINESS_GATE.md) permanece preservado.
 
 Status: procedimento controlado pre-smoke, read-only quando possivel.
 Este documento nao declara homologadas as issues em que faltam dados reais

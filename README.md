@@ -1,4 +1,4 @@
-# RASAi — Auditor de prontidão para busca e IA
+# RASAi - Auditor de prontidão para busca e IA
 
 O **RASAi (Readiness Assessment for Search & AI)** avalia a prontidão técnica e semântica de sites para mecanismos de busca e sistemas de inteligência artificial. Reúne evidências, mede indicadores e apresenta recomendações para orientar melhorias. Não garante posições em buscas, tráfego, conversões ou citações por IA.
 
@@ -57,3 +57,4 @@ No console, o histórico permite acessar os relatórios. Consulte o [guia de rel
 - [Índice de prontidão](docs/SARI_READINESS_INDEX.md) e [metodologia de pontuação](docs/SCORE_GEO.md)
 - [Segurança de credenciais](docs/SECRET_AND_CONFIGURATION_SAFETY.md) e [dados e artefatos](docs/OUTPUTS_AND_ARTIFACTS.md)
 - [Documentação completa](docs/README.md)
+- [Avaliação arquitetural futura](docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md): decisão de manter pendente, registrada na [issue #1](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/1); não é capacidade disponível.
