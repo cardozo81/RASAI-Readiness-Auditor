@@ -170,6 +170,8 @@ Tokens ausentes permanecem `NULL`. Custo observado/estimado é telemetria operac
 
 ## 10. Relatório
 
+O detalhamento técnico de roteamento e tentativas fica em `report-catalog/ai-integrations.html`. A apresentação executiva `report-presentation/ia-custos.html` contextualiza uso, esforço, custo e proveniência conforme os registros disponíveis. Consulte o [guia dos relatórios](../REPORT_GUIDE.md) para o escopo de cada pacote.
+
 Página pública de telemetria:
 
 ```text

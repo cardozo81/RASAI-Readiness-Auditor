@@ -121,7 +121,7 @@ A projeção HTML usa nomes públicos e funcionais para metadados, labels, títu
 
 Identidades canônicas de provider também são contexto técnico próprio: `OPENAI`, `GEMINI`, `DEEPSEEK`, `ANTHROPIC`, `MISTRAL`, `COHERE`, `KIMI` e demais providers do registry são exibidos como identidade do provider, sem passar pelo fallback genérico destinado a enums/condições internas.
 
-O conteúdo dessa tabela pertence à telemetria técnica. Ele não altera regras, findings, `SCORE-GEO-004` ou `SARI-001`.
+O conteúdo dessa tabela pertence à telemetria técnica. A telemetria preserva as regras, os achados e o índice `SARI-001` registrados na auditoria.
 
 ## AUTO
 

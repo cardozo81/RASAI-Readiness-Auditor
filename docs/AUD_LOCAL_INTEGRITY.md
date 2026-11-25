@@ -20,6 +20,8 @@ dessa AUD, não é possível declarar integridade material específica.**
 
 ## Modo somente leitura
 
+Este verificador cobre o `audit.db` e o catálogo técnico `report-catalog/`. A apresentação executiva `report-presentation/` tem [manifesto e verificação próprios](REPORT_PRESENTATION.md).
+
 Com a **auditoria concluída, sem escritor ativo e instalação compatível**, substitua o caminho da auditoria e execute:
 
 ```powershell

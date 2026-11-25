@@ -2,6 +2,8 @@
 
 ## Objetivo
 
+O detalhamento técnico de Web Performance usa `report-catalog/cat-04.html`. A apresentação executiva em `report-presentation/performance.html` permite interpretar as medições de laboratório e campo que chegaram à auditoria, com fontes e coberturas próprias. Consulte o [guia dos relatórios](REPORT_GUIDE.md).
+
 Evitar que disponibilidade de transporte/API seja confundida com disponibilidade ou validade da medição externa.
 
 O RASAi mantém estes domínios separados do `SARI-001`. Nenhum erro, ausência, quota ou timeout de PageSpeed/Lighthouse/CrUX reduz automaticamente o Score GEO.
@@ -85,7 +87,7 @@ Regras de integridade:
 
 - ausência não vira zero;
 - ausência isolada não invalida Performance, Accessibility, Best Practices ou SEO válidos;
-- o score não é convertido em `SARI-001` ou `SCORE-GEO-004`;
+- o score externo não compõe o índice `SARI-001`;
 - o report deve identificar explicitamente a natureza experimental do indicador;
 - Monitoring pode comparar o valor somente quando houver observações válidas e comparáveis.
 

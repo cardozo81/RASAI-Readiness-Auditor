@@ -1,5 +1,7 @@
 # Smoke humano - reprocessamento seletivo no console Windows
 
+> **Roteiro histórico da PR #675.** A branch, a versão e os comandos abaixo pertencem àquela candidata. Para a operação atual, consulte [reprocessamento](AUDIT_REPROCESSING.md) e o [guia do catálogo técnico e da apresentação executiva](REPORT_GUIDE.md).
+
 Este roteiro valida a experiência final do operador depois dos testes automatizados. O foco é o console local Windows; não é um teste de SaaS.
 
 ## Pré-condições

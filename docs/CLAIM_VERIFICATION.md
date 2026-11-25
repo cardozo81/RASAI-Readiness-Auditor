@@ -1,5 +1,7 @@
 # Verificação documental de alegações comerciais (#603)
 
+Este contrato distingue a transparência documental do catálogo técnico em `report-catalog/cat-08.html`, o resumo consultivo emitido em JSON pela CLI e a saída autônoma de lote. A apresentação executiva individual em `report-presentation/` tem [contrato próprio](REPORT_PRESENTATION.md).
+
 ## Fronteira de confiança
 
 `rasai.claim_source_verification.classify_claim` é um contrato determinístico offline de revisão, sem rede, sem alteração no audit.db e sem alegar conformidade SUSEP ou certificação. **O relatório da AUD permanece em `CLAIM_UNVERIFIED_EXTERNAL`** quando não houver comprovação independente da fonte primária. Link, título, PDF não aberto, metadados autodeclarados da página auditada ou resultado de IA **não autorizam** `CLAIM_CORROBORATED`.

@@ -4,13 +4,15 @@
 
 Este contrato consolida disponibilidade, comportamento e duração HTTP a partir da **aquisição HTTP física já executada por URL**. Nenhuma request adicional ao website é criada para calcular estas métricas.
 
-Relação com RASAi: **4/5**. Um crawler, buscador ou agente não consegue interpretar conteúdo que não consegue recuperar de forma consistente; ainda assim, estas métricas permanecem diagnósticas e não alteram automaticamente `SARI-001`/`SCORE-GEO-004`.
+Relação com RASAi: **4/5**. Um crawler, buscador ou agente não consegue interpretar conteúdo que não consegue recuperar de forma consistente; ainda assim, estas métricas permanecem diagnósticas e não alteram automaticamente o índice `SARI-001`.
+
+Para investigar escopo e proveniência das requisições, consulte `report-catalog/cat-01.html`. Para a leitura executiva de conectividade, consulte `report-presentation/rede.html` e suas próprias fontes. Use o catálogo técnico para os percentis HTTP definidos neste documento. O [guia de leitura](REPORT_GUIDE.md) descreve as projeções de cada pacote.
 
 ## Unidade física correta
 
 A etapa de aquisição HTTP direta realiza uma aquisição por URL auditada. A captura renderizada preserva os metadados dessa aquisição em `page_snapshots.browser_metadata.raw_http` para cada snapshot de device.
 
-Isso significa que, em uma auditoria Mobile + Desktop, o mesmo `raw_http` pode aparecer em mais de um `DEVICE_SNAPSHOT`. Somar snapshots duplicaria artificialmente a mesma request física.
+Isso significa que, em uma auditoria histórica com snapshots de Mobile e Desktop, o mesmo `raw_http` pode aparecer em mais de um `DEVICE_SNAPSHOT`. Somar snapshots duplicaria artificialmente a mesma request física.
 
 O contrato operacional portanto:
 

@@ -98,6 +98,8 @@ O formato persistido e seus consumidores permanecem no mesmo contrato vigente; o
 
 ## 8. Persistência e relatório
 
+Os destinos abaixo identificam a investigação técnica em `report-catalog/`. A leitura executiva de descoberta fica em `report-presentation/descoberta.html` e a de prontidão em `report-presentation/indices.html`, a partir da evidência persistida. Veja o [guia dos relatórios](../REPORT_GUIDE.md).
+
 A capacidade usa persistência aditiva no `audit.db` para execução, diagnósticos e resultados técnicos opcionais de IA. Nomes físicos de tabelas e subdiretórios de artifacts são detalhes internos e não constituem contrato público quando não publicados explicitamente.
 
 Página canônica:

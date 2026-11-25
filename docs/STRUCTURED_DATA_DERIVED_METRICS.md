@@ -4,7 +4,7 @@
 
 Este documento define as consolidações advisory de dados estruturados materializadas pelo RASAi a partir de evidências e `RuleExecutions` já persistidos.
 
-Elas não criam requests adicionais, não chamam IA para inferir propriedades ausentes e não alteram automaticamente `SARI-001` ou `SCORE-GEO-004`.
+Elas não criam requests adicionais, não chamam IA para inferir propriedades ausentes e não alteram automaticamente o índice `SARI-001`.
 
 ## Structured Data Coverage
 

@@ -56,6 +56,8 @@ A importação não grava em scores, contribuições de score, RuleExecutions, f
 
 ## 6. Relatório e CLI
 
+As páginas abaixo pertencem ao catálogo técnico. Para a leitura executiva de Search e GEO, consulte <code>report-presentation/search&#45;geo.html</code>. A presença dessa página indica uma superfície de leitura, e a cobertura de uma fonte precisa ser comprovada pelos respectivos registros. Veja o [guia dos relatórios](../REPORT_GUIDE.md).
+
 ```text
 report-catalog/cat-05.html
 report-catalog/metrics.html

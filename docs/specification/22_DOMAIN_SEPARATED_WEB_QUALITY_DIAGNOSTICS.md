@@ -2,7 +2,7 @@
 
 **Estado:** VIGENTE  
 **Domínio:** Acessibilidade automatizada e diagnósticos Web  
-**Dependências:** Web Performance externo + `CATALOG-REPORT-002`  
+**Dependências:** Web Performance externo e contrato técnico `CATALOG-REPORT-002`. As seções de projeção abaixo descrevem as páginas de diagnóstico de `report-catalog/`. Em `report-presentation/`, `conteudo.html`, `performance.html` e `indices.html` apresentam a leitura executiva dos respectivos domínios, conforme as evidências persistidas. Veja o [guia dos relatórios](../REPORT_GUIDE.md).<br>
 **Natureza:** projeção aditiva de evidência; sem alteração automática do scoring
 
 ## 1. Objetivo

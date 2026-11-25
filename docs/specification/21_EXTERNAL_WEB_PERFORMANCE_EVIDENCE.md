@@ -2,7 +2,7 @@
 
 **Estado:** IMPLEMENTADO / VIGENTE  
 **Domínio:** Web Performance externo  
-**Dependências:** report site e configuração opcional PageSpeed/CrUX; IA não é dependência obrigatória  
+**Dependências:** projeção técnica em `report-catalog/cat-04.html` e configuração opcional de PageSpeed/CrUX. A apresentação executiva em `report-presentation/performance.html` contextualiza as fontes de laboratório e campo persistidas. IA é facultativa.<br>
 **Natureza:** evidência externa aditiva; sem impacto automático no scoring
 
 ## 1. Objetivo

@@ -27,7 +27,7 @@ O CAT-10 **não se compromete** a:
 - declarar ausência de vulnerabilidades a partir de ausência de evidência;
 - tratar indisponibilidade de OSV, CISA KEV ou Observatory como vulnerabilidade do site;
 - transformar sugestão de IA em fato determinístico;
-- alterar `SARI-001`/`SCORE-GEO-004` por conta própria.
+- alterar o índice `SARI-001` por conta própria.
 
 Portanto, **sem achados no CAT-10** significa somente que nenhum finding foi sustentado pelo universo passivamente observado e pelas integrações efetivamente disponíveis. Não significa certificação de segurança.
 

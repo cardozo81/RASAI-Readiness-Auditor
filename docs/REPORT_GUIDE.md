@@ -11,7 +11,7 @@ A auditoria pode oferecer duas projeções complementares, cada uma com entrada 
 | Apresentação executiva | `report-presentation/index.html` | Leitura orientada a decisões, em onze páginas temáticas autônomas |
 | Catálogo técnico | `report-catalog/index.html` | Investigação analítica, regras, métricas, evidências e detalhes por catálogo |
 
-Ambos são derivados dos dados persistidos, não novas auditorias. O catálogo técnico permanece referência canônica de rastreabilidade, enquanto a apresentação não depende do HTML do catálogo para gerar os fatos ou abrir seus detalhes. Um pacote pode estar indisponível ou desatualizado mesmo quando o outro existe. Consulte [apresentação e limites](REPORT_PRESENTATION.md), [confiança do catálogo](REPORT_CATALOG_TRUST.md) e [regeneração offline](REPORT_REMATERIALIZATION.md).
+Cada gerador lê as evidências persistidas e publica seu próprio pacote. O catálogo técnico é a referência para rastrear regras, métricas e evidências. A apresentação executiva resolve seus detalhes e anexos sem ler o HTML do catálogo. A geração do catálogo também dispensa o HTML da apresentação. Um pacote pode estar indisponível ou desatualizado mesmo quando o outro existe. Consulte [apresentação e limites](REPORT_PRESENTATION.md), [confiança do catálogo](REPORT_CATALOG_TRUST.md) e [regeneração offline](REPORT_REMATERIALIZATION.md).
 
 ### Roteiro de leitura executiva
 
@@ -112,7 +112,7 @@ Esses dados continuam disponíveis ao `report-catalog/` e a outras capacidades q
 
 ## Saídas fora do report da AUD
 
-Relatórios standalone, como monitoring, verification, timelines, históricos e consolidações, possuem contratos próprios e ficam fora da projeção audit-owned de `report-catalog/`.
+O [CONS-5 longitudinal](CONSOLIDATED_REPORTING.md) compara auditorias elegíveis de uma mesma URL e dispositivo. A [comparação no mesmo domínio](CONS_DOMAIN_COMPARATIVE.md) trata URLs distintas. [Históricos de busca](SEARCH_INTELLIGENCE_HISTORY.md), [monitoramento e verificações](MONITORING_CAPABILITIES.md) e o [companheiro consultivo GEO do CONS-3](GEO_CONS_COMPANION.md) têm contratos próprios. Essas saídas ficam fora dos dois pacotes HTML individuais. A [exportação pública](PUBLIC_REPORT_EXPORT.md) é uma saída candidata derivada do catálogo técnico e exige revisão.
 
 ## Índice e método de pontuação
 

@@ -86,7 +86,7 @@ Uma falha externa não invalida automaticamente toda a AUD. Quando a integraçã
 
 ## 5. Relatório da auditoria
 
-A página principal de `report-catalog/` projeta o estado atual das pendências obrigatórias a partir do fulfillment persistido. O informativo separa relatório gerado, integridade estrutural e fechamento diagnóstico.
+A página principal de `report-catalog/` projeta o estado atual das pendências obrigatórias a partir do fulfillment persistido. O informativo separa publicação do catálogo técnico, integridade estrutural e fechamento diagnóstico. Na apresentação executiva, `report-presentation/index.html` resume o estado observado e `report-presentation/ia-custos.html` contextualiza as evidências de execução disponíveis. Confira cada pacote separadamente no [guia de leitura](REPORT_GUIDE.md).
 
 A tabela identifica fase/CAT, integração, tipo, estado, motivo e necessidade para fechamento. Quando a pendência é resolvida, ela desaparece dessa área principal. Tentativas e falhas históricas continuam na provenance e nos registros técnicos.
 

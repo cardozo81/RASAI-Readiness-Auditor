@@ -208,7 +208,7 @@ Regras:
 - `auto` permite somente hipótese provisória baseada nas evidências disponíveis;
 - configuração explícita é preferível quando a classificação YMYL já é conhecida;
 - campos `auto` não podem virar fatos sobre autoria, expertise, experiência, compliance, reputação ou processo editorial oculto;
-- o contexto não cria score E-E-A-T/YMYL e não altera diretamente `SARI-001`/`SCORE-GEO-004`;
+- o contexto não cria score E-E-A-T/YMYL e não altera diretamente o índice `SARI-001`;
 - essas variáveis não criam custo externo por si só: apenas condicionam chamadas de IA que já estejam habilitadas.
 
 Base conceitual: [`CONTENT_ANALYSIS_CONTEXT.md`](CONTENT_ANALYSIS_CONTEXT.md).
@@ -251,7 +251,7 @@ report-catalog/cat-01.html
 
 ## Search Intelligence / SERP
 
-A coleta SERP é independente de SARI/SCORE-GEO-004. Providers live atuais:
+A coleta SERP é observacional e permanece independente do índice `SARI-001`. Para investigar termos, resultados e limites, consulte `report-catalog/cat-05.html`. A apresentação executiva em <code>report-presentation/search&#45;geo.html</code> contextualiza as observações persistidas. Providers live atuais:
 
 | Provider | Credencial |
 |---|---|

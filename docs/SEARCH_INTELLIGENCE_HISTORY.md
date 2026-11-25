@@ -140,9 +140,11 @@ rasai search-history `
 
 ### Comparação baseada em milestone
 
+Substitua `MILESTONE-EXEMPLO`, `AUD-BASELINE` e `AUD-CURRENT` pelos identificadores do marco e das auditorias cadastradas.
+
 ```powershell
 rasai search-history `
-  --milestone <milestone-id> `
+  --milestone 'MILESTONE-EXEMPLO' `
   --audits-root audits
 ```
 
@@ -158,10 +160,10 @@ Para seleção explícita:
 
 ```powershell
 rasai search-history `
-  --milestone <milestone-id> `
+  --milestone 'MILESTONE-EXEMPLO' `
   --baseline-mode EXPLICIT `
-  --baseline-audit <audit-id> `
-  --current-audit <audit-id>
+  --baseline-audit 'AUD-BASELINE' `
+  --current-audit 'AUD-CURRENT'
 ```
 
 ## Contrato de saída

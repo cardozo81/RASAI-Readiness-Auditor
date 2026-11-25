@@ -141,7 +141,7 @@ Quando a feature possui estado específico por `compat_features`, o runtime usa 
 
 Cada feature materializada gera observação em `standards_metric_observations` no escopo `DEVICE_SNAPSHOT`, com URL, device, classificação, feature id e detalhes de proveniência. Contagens por classe também são persistidas. O resumo da execução fica em `standards_service_runs` e `observations.json` preserva o payload auditável do detector.
 
-Na auditoria, a projeção HTML canônica fica em `report-catalog/cat-01.html`, com métricas transversais também disponíveis em `report-catalog/metrics.html`. O relatório deve deixar separados:
+Na auditoria, a projeção HTML canônica fica em `report-catalog/cat-01.html`, com métricas transversais também disponíveis em `report-catalog/metrics.html`. A apresentação executiva `report-presentation/descoberta.html` contextualiza sinais de padrões persistidos. O catálogo técnico é o destino para conferir versão, hash e detalhes do detector. Na investigação técnica, separe:
 
 - estado da integração;
 - versão/hash do dataset;

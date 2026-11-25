@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-O RASAi mantém um **contexto editorial explícito** para evitar análise genérica de conteúdo. Esse contexto condiciona a interpretação semântica, mas não altera aritmeticamente `SARI-001`/`SCORE-GEO-004`, não cria score proprietário de E-E-A-T/YMYL e não representa fator oficial isolado de ranking.
+O RASAi mantém um **contexto editorial explícito** para evitar análise genérica de conteúdo. Esse contexto condiciona a interpretação semântica, mas não altera aritmeticamente o índice `SARI-001`, não cria score proprietário de E-E-A-T/YMYL e não representa fator oficial isolado de ranking.
 
 A auditoria de conteúdo distingue dois escopos:
 

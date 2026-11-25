@@ -107,7 +107,7 @@ Depois da confirmação destrutiva exigida pela tela, o console:
 4. salva a configuração restaurada com o writer canônico quando aplicável;
 5. mantém secrets fora do INI.
 
-A restauração não apaga auditorias, `AUD-*/audit.db`, relatórios HTML, bancos do control plane ou arquivos do projeto.
+A restauração não apaga auditorias, `AUD-*/audit.db`, os pacotes individuais `report-catalog/` e `report-presentation/`, bancos do control plane ou arquivos do projeto.
 
 ## Distribuição e validação
 

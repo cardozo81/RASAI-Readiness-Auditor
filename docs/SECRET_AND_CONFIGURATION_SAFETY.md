@@ -28,7 +28,8 @@ A lista registra categorias de dados, não garante a presença de cada campo em 
 - Valores de credenciais não pertencem ao INI, TOML versionado, comandos copiados ou histórico de comandos. O transporte pode usar essas credenciais para autenticação; isso é diferente de registrá-las.
 - O registrador de IA não copia cabeçalhos de autenticação para o histórico da comunicação; mascara campos reconhecidos como segredos e raciocínio privado.
 - A interpretação editorial transitória tratada pelo registrador é removida da comunicação persistida e sua explicação pode aparecer no HTML final.
-- O exportador de relatórios externos exclui o banco bruto, o diretório de integridade e outros formatos não permitidos. Não modifica o original.
+- Os dois pacotes locais podem conter dados sensíveis. O catálogo técnico em `report-catalog/` permite investigar evidências. A apresentação executiva em `report-presentation/` pode conter sínteses, capturas e anexos. Confira o escopo de cada pacote no [guia de leitura](REPORT_GUIDE.md) antes de compartilhar qualquer arquivo.
+- O exportador de candidatos públicos do catálogo técnico exclui o banco bruto, o diretório de integridade e outros formatos não permitidos. Não modifica o original.
 
 Essas são fronteiras de implementação e política. O mascaramento por nomes, padrões e estrutura não identifica necessariamente todo segredo, dado pessoal, texto estratégico ou conteúdo opaco. Um banco histórico pode conter informações que já não aparecem no HTML atual. Não use ausência de alertas como prova de anonimização.
 

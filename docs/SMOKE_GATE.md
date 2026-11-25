@@ -1,5 +1,7 @@
 # Gate único de smoke humano - PR #336
 
+> **Registro histórico.** O roteiro testa o catálogo técnico `report-catalog/` no recorte da PR #336. Para a validação atual do catálogo e da apresentação executiva `report-presentation/`, consulte o [guia de leitura](REPORT_GUIDE.md).
+
 **Controladora:** #310. **Branch:** `feat/310-linear-residual-hardening-20261009`.
 **Escopo:** regressões read-only e UI da AUD já homologada; nenhuma auditoria
 nova, cobrança externa, reparo de pacote histórico ou medição fictícia de Apdex.

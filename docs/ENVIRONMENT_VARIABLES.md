@@ -130,7 +130,7 @@ Todos os campos abaixo usam `auto` por default.
 | `RASAI_FRESHNESS_SENSITIVITY` | `auto` | `auto`, `low`, `medium`, `high` | `auto` |
 | `RASAI_CONTENT_ORIGIN` | `auto` | `auto`, `first-party`, `third-party`, `user-generated`, `mixed` | `auto` |
 
-Um valor `auto` permanece `AUTO` no estado persistido. Eventual interpretação transitória por IA não sobrescreve o banco, não vira evidência determinística e não altera diretamente `SARI-001`/`SCORE-GEO-004`.
+Um valor `auto` permanece `AUTO` no estado persistido. Eventual interpretação transitória por IA não sobrescreve o banco, não vira evidência determinística e não altera diretamente o índice `SARI-001`.
 
 ### 6.1 IA - análise profunda e idioma
 
@@ -237,6 +237,8 @@ Common Crawl não exige credencial. Quando uma observação positiva qualifica, 
 Depois da janela, uma nova observação live deve ocorrer em nova auditoria quando o contrato de reprocessamento exigir coerência temporal. Consulte [AUDIT_REPROCESSING.md](AUDIT_REPROCESSING.md).
 
 ## 8. Synthetic Navigation Apdex (`cat-06.html`)
+
+O catálogo técnico detalha navegação em `report-catalog/cat-06.html` e experiência em `report-catalog/cat-07.html`. A apresentação executiva reúne a leitura dessas fontes em `report-presentation/performance.html`, preservando amostras e limites de cada método.
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|

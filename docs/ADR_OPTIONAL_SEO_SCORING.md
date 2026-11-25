@@ -11,7 +11,7 @@ determinístico, não pretende replicar algoritmo do Google.
 
 | Regra | Evidência suficiente | Consequência no SCORE-GEO-005 |
 | --- | --- | --- |
-| BR-GEO-003 | somentes sitemaps convencionalmente consultados ausentes e nenhuma falha de aquisição | NOT_APPLICABLE; nenhum crédito por ausência |
+| BR-GEO-003 | somente sitemaps convencionalmente consultados ausentes e nenhuma falha de aquisição | NOT_APPLICABLE; nenhum crédito por ausência |
 | BR-GEO-013 | nenhuma canonical presente no snapshot válido | NOT_APPLICABLE; nenhum crédito por ausência |
 | BR-GEO-017 | robots.txt fisicamente ausente, sem erro de rede | NOT_APPLICABLE; nenhum crédito por ausência |
 | As três | conflito/erro material documentado | preservar FAIL/WARNING/UNKNOWN conforme M5 |
@@ -130,7 +130,7 @@ A visão geral do relatório incorpora agora, além dos descontos isolados
 historicamente persistidos, uma matriz independente que discrimina as três
 regras em quatro classes exclusivamente interpretativas: sinal disponível,
 ausência opcional, conflito material observável e UNKNOWN. Cada linha traz
-a versão vigente SCORE-GEO-004, a AUD/RuleExecution fisicamente ligada e
+a versão SCORE-GEO-004, vigente no recorte histórico, a AUD/RuleExecution fisicamente ligada e
 o resultado persistido da regra, sem copiar raw provider payload nem
 inventar desfecho de indexação ou frequência de URLs.
 

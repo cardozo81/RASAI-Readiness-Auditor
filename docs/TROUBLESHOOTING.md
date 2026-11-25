@@ -97,6 +97,8 @@ Se aparecer `TIMEOUTERROR`, a chamada PageSpeed excedeu o timeout do cliente. O 
 
 PageSpeed executa Lighthouse remotamente. O RASAi não possui, nesse endpoint, um parâmetro separado para aumentar o timeout interno de carregamento da página dentro do Lighthouse.
 
+Na apresentação executiva, `report-presentation/performance.html` contextualiza medições de laboratório e campo, e `report-presentation/conteudo.html` apresenta evidências de acessibilidade disponíveis. Use as páginas técnicas acima para investigar a origem e o estado da coleta.
+
 ## Acessibilidade sem dados
 
 Acessibilidade automatizada reutiliza a categoria `accessibility` do artifact Lighthouse. Se PageSpeed falhou ou não produziu artifact/categoria, o resultado não pode ser materializado. Isso deve aparecer como limitação de coleta, não como score zero ou aprovação.

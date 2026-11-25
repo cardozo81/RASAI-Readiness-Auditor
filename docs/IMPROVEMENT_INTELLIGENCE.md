@@ -4,7 +4,7 @@
 
 `IMPROVEMENT-INTELLIGENCE-001` transforma evidências já coletadas pelo RASAi em um backlog de melhoria para **uma única URL explicitamente configurada**.
 
-A capacidade é separada de `SARI-001` e `SCORE-GEO-004`:
+A análise de melhorias é independente do índice `SARI-001` e do método de prontidão persistido em cada auditoria:
 
 - SARI/SCORE-GEO medem readiness segundo seus contratos;
 - Improvement Intelligence interpreta evidências e recomenda ações;
@@ -233,7 +233,7 @@ A página existe no contrato de relatório mesmo quando a capacidade não foi ex
 
 ## Relatório consolidado
 
-O consolidado usa o vocabulário canônico de dimensões do `SCORE-GEO-004`. Improvement Intelligence, Lighthouse/Core Web Vitals, Apdex, SERP e postura de segurança são complementares e não são artificialmente promediados dentro da série temporal do SARI.
+O [consolidado longitudinal](CONSOLIDATED_REPORTING.md) usa o vocabulário de dimensões e preserva a versão de pontuação registrada em cada origem. Improvement Intelligence, Lighthouse/Core Web Vitals, Apdex, SERP e postura de segurança são complementares e não são artificialmente promediados dentro da série temporal do SARI.
 
 A análise especialista do próprio consolidado possui telemetria separada e também utiliza a orquestração canônica quando IA é solicitada.
 

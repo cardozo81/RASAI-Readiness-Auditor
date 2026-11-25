@@ -2,7 +2,7 @@
 
 ## Estado e objetivo
 
-**Identity & Access - Identidade e Acesso** é o contrato de autenticação da superfície Web/SaaS do RASAi. Ele não altera o **Índice de Prontidão Search & IA**, o **Método de Pontuação de Prontidão**, o `audit.db`, as **Regras de Avaliação de Prontidão** ou as evidências da auditoria. IDs técnicos relacionados: `SARI-001`, `SCORE-GEO-004` e `BR-GEO-*`.
+**Identity & Access - Identidade e Acesso** é o contrato de autenticação da superfície Web/SaaS do RASAi. Ele não altera o **Índice de Prontidão Search & IA**, o **Método de Pontuação de Prontidão**, o `audit.db`, as **Regras de Avaliação de Prontidão** ou as evidências da auditoria. Para a versão da pontuação preservada em cada auditoria, consulte o [método de prontidão](SCORE_GEO.md).
 
 A separação é:
 

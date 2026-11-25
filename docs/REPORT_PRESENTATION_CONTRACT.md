@@ -179,7 +179,7 @@ O relatório não deve sugerir uma configuração como solução quando a ausên
 
 ## Dashboard executivo
 
-`index.html` é a entrada executiva e deve priorizar resumo factual já existente nos relatórios especializados, sem criar novos cálculos.
+`report-catalog/index.html` resume a investigação técnica. `report-presentation/index.html` é a entrada da apresentação executiva, com síntese factual das evidências persistidas e navegação temática própria. Consulte a [matriz de páginas](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios) para localizar detalhes nos dois pacotes.
 
 Além dos indicadores persistidos, a navegação visual pode destacar três caminhos:
 
@@ -208,7 +208,9 @@ Na superfície humana de `CONS-*/report.html` e `CONS-*/rules-reference.html`, e
 
 No CONS, header, faixa de estado e navegação usam alinhamento à esquerda sem container de largura máxima próprio. Estados e prioridades relevantes podem usar sinaleiros discretos por cor/borda, sempre acompanhados de texto. Conteúdo interpretativo produzido por IA deve portar marcador visual explícito de origem; a marcação identifica a autoria automática e não converte a conclusão em evidência determinística. Payloads técnicos brutos podem preservar enums em en-US quando isso for necessário à auditabilidade.
 
-## Dashboard executivo e Apdex de experiência
+## Resumo técnico e Apdex de experiência
+
+Esta seção descreve `report-catalog/index.html` e `report-catalog/cat-07.html`. A leitura executiva de experiência fica em `report-presentation/performance.html`, com suas próprias seleções, fontes e limites.
 
 Quando houver estado persistido de Synthetic User Experience Apdex, `index.html` deve incluir um card complementar próprio, separado de Synthetic Navigation Apdex.
 

@@ -57,7 +57,7 @@ Para impedir dupla interpretação, cada família possui uma página analítica 
 | Synthetic Navigation Apdex | `cat-06.html` |
 | Telemetria/custos de IA | `ai-integrations.html` |
 
-`index.html` é somente dashboard executivo. Pode resumir resultados finais, mas não deve republicar tabelas, percentis ou metodologia detalhada de uma página canônica.
+`report-catalog/index.html` resume o estado e encaminha à investigação técnica. `report-presentation/index.html` oferece a síntese executiva e usa as páginas temáticas do próprio pacote. A proveniência detalhada fica na página especializada que apresenta o resultado, com o alcance registrado para a fonte.
 
 ## Inventário principal
 

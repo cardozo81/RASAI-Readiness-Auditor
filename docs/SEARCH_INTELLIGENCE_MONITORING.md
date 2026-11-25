@@ -82,13 +82,15 @@ Credenciais não são persistidas nas tabelas, manifests ou relatórios.
 
 ## Registro e execução
 
+Substitua os identificadores de projeto, propriedade, ambiente e consulta pelos valores cadastrados e o domínio ilustrativo pelo alvo autorizado.
+
 Registrar:
 
 ```powershell
 rasai search-monitor --audits-root audits query add `
-  --project <project-id> `
-  --property <property-id> `
-  --environment <environment-id> `
+  --project 'PROJ-EXEMPLO' `
+  --property 'PROP-EXEMPLO' `
+  --environment 'ENV-EXEMPLO' `
   --query "seguro auto" `
   --domain cliente.example `
   --country BR `
@@ -106,13 +108,13 @@ rasai search-monitor --audits-root audits query list
 Executar:
 
 ```powershell
-rasai search-monitor --audits-root audits run --query-id <query-id>
+rasai search-monitor --audits-root audits run --query-id 'CONSULTA-EXEMPLO'
 ```
 
 Dry-run:
 
 ```powershell
-rasai search-monitor --audits-root audits run --query-id <query-id> --dry-run
+rasai search-monitor --audits-root audits run --query-id 'CONSULTA-EXEMPLO' --dry-run
 ```
 
 O dry-run separa teto SERP, tentativas de conteúdo e chamadas de IA.
@@ -127,9 +129,9 @@ Exemplo:
 
 ```powershell
 rasai search-monitor --audits-root audits query add `
-  --project <project-id> `
-  --property <property-id> `
-  --environment <environment-id> `
+  --project 'PROJ-EXEMPLO' `
+  --property 'PROP-EXEMPLO' `
+  --environment 'ENV-EXEMPLO' `
   --query "seguro auto" `
   --domain cliente.example `
   --mode live `

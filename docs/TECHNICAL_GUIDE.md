@@ -20,7 +20,7 @@ entrada/targets
 → Acessibilidade projetada do artifact Lighthouse
 → Synthetic Apdex opcional
 → persistência
-→ report site
+→ catálogo técnico e apresentação executiva
 → reconciliação final de consistência/navegação
 ```
 
@@ -46,11 +46,11 @@ artifacts/
 logs/audit.log
 ```
 
-O HTML é projeção humana e deve ser reconciliado contra a persistência, especialmente quando integrações externas falham ou retornam dados parciais.
+`report-catalog/` projeta regras, métricas e evidências para investigação técnica. `report-presentation/` organiza a leitura executiva. Os geradores partem dos dados persistidos, inclusive quando o resultado é parcial. Consulte o [guia de leitura](REPORT_GUIDE.md) para escolher uma página.
 
 ## Fail-open
 
-Falha de integração complementar não deve corromper a auditoria principal. O estado deve ser persistido, sanitizado e explicado no report.
+Falha de integração complementar deve ter seu estado preservado e sanitizado. Para rastrear causas e tentativas, consulte a página técnica responsável e `report-catalog/execution-evidence.html`. Confira a situação resumida em `report-presentation/index.html`.
 
 Exemplos:
 

@@ -27,7 +27,7 @@ A interpretação:
 - não sobrescreve `content_analysis_contexts`;
 - não é persistida como classificação estruturada/canônica no banco;
 - não vira evidência determinística;
-- não altera SARI-001 ou SCORE-GEO-004 por si só;
+- não altera o índice `SARI-001` por si só;
 - não é reutilizada como verdade em outra execução.
 
 A saída transitória é retirada da resposta antes da normalização semântica tradicional e mantida somente em memória para a projeção final do HTML. A versão legível aparece separadamente em `sari.html`.

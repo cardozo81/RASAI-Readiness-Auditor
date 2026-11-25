@@ -360,13 +360,15 @@ Isso permite rastrear qual especialização efetivamente participou de uma chama
 
 ## Relatório de uso de IA
 
-Quando o hash da tentativa pode ser relacionado ao envelope persistido, `ai-integrations.html` acrescenta a identidade do perfil à finalidade da comunicação.
+Quando o hash da tentativa pode ser relacionado ao envelope persistido, o catálogo técnico `report-catalog/ai-integrations.html` acrescenta a identidade do perfil à finalidade da comunicação.
 
 Exemplo conceitual:
 
 ```text
 Análise técnica · Perfil SOURCE_QUALITY v1.0
 ```
+
+A apresentação executiva `report-presentation/ia-custos.html` sintetiza o uso e o custo persistidos. Para investigar a identidade de perfil por tentativa, consulte o catálogo técnico.
 
 Provider, modelo e reasoning continuam sendo informações separadas. Essa separação é deliberada:
 

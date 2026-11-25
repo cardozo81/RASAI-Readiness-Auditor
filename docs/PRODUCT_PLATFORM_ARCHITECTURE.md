@@ -10,7 +10,7 @@ A regra arquitetural é explícita:
 
 > `AUD-*/audit.db` é evidência imutável da execução. Metadados de produto, tenant, milestone, schedule, integração, custo e histórico longitudinal pertencem a um banco separado de control plane.
 
-Nenhum backend do control plane altera `SARI-001` ou `SCORE-GEO-004`.
+Os backends do plano de controle preservam o índice `SARI-001` e o método de pontuação persistido em cada auditoria.
 
 ## Modos de persistência suportados
 
@@ -302,7 +302,7 @@ Ordenação temporal não é apresentada como prova causal.
 
 Contadores de Property são resolvidos pelos escopos canônicos multipropriedade dos `AUD-*`.
 
-Essas páginas permanecem separadas do site de relatório contido dentro de um `AUD-*` imutável.
+Essas páginas pertencem à plataforma. Uma auditoria individual tem o catálogo técnico `report-catalog/` e a apresentação executiva `report-presentation/`, com [entradas e finalidades próprias](REPORT_GUIDE.md).
 
 ## Scheduling
 

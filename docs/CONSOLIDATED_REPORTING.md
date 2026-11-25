@@ -9,6 +9,8 @@ O consolidado não executa nova auditoria, não refaz crawl, não recalcula regr
 **Formato público:** **001**  
 **Identificador técnico do formato:** `CONS-5`
 
+O `CONS-5` publica uma leitura de múltiplas auditorias em `CONS-*/report.html`. Cada auditoria mantém seus próprios pacotes `report-catalog/` (investigação técnica) e `report-presentation/` (leitura executiva). Consulte o [guia de leitura](REPORT_GUIDE.md) para localizar as páginas individuais.
+
 O nome humano da superfície é **Relatório Consolidado Longitudinal**. O identificador técnico permanece disponível em manifestos e rastreabilidade.
 
 **Limite da inteligência GEO:** o CONS-5 não calcula tendência calibrada de presença em fontes externas de GEO nem incorpora o companheiro consultivo restrito a CONS-3. Para inspeção independente de observações GEO persistidas, consulte o [inventário GEO longitudinal](GEO_LONGITUDINAL.md). Não confunda comparação de métricas técnicas entre AUDs com equivalência de populações externas ou causalidade.
@@ -45,7 +47,7 @@ Ele deve:
 - quando IA for usada, fornecer somente contexto governado/persistido e registrar tentativas, provider, modelo, tokens e custo;
 - produzir pacote autocontido para inspeção dos dados materializados do próprio CONS, com manifest, hashes e rastreabilidade até as AUDs fonte. A navegação HTML para `AUD-*/report-catalog/` usa links relativos da árvore canônica `audits/` e, portanto, não é portátil quando o diretório `CONS-*` é copiado isoladamente.
 
-O `CONS-*` não executa nova auditoria, não reabre o site, não refaz crawling, não recalcula o **Índice de Prontidão Search & IA** nem o **Método de Pontuação de Prontidão** das fontes (IDs técnicos `SARI-001`/`SCORE-GEO-004`) e não converte diferença temporal em causalidade.
+O `CONS-*` não executa nova auditoria, não reabre o site, não refaz crawling, não recalcula o **Índice de Prontidão Search & IA** nem o **Método de Pontuação de Prontidão** das fontes (`SARI-001` e a versão de pontuação persistida em cada AUD) e não converte diferença temporal em causalidade.
 
 ## Pré-requisitos obrigatórios
 
@@ -650,14 +652,14 @@ O `report.html` apresenta os dados consolidados e o contexto decisório derivado
 Sempre disponíveis:
 
 1. estado de conclusividade da série;
-2. trajetória do `SARI-001` usando somente `OVERALL_READINESS` persistido por `SCORE-GEO-004`;
+2. trajetória do `SARI-001` a partir dos valores `OVERALL_READINESS` persistidos. Os gráficos por dispositivo filtram a série pela versão de pontuação e pelo universo da última medição compatível;
 3. marco inicial, marco final, Coverage e Confidence persistidos;
 4. evolução, performance, experiência, correções técnicas e governança;
 5. evidências e limitações da série.
 
 Quando IA é usada, a camada decisória também pode incluir resumo interpretativo, prioridades P0-P3, correlações, diagnóstico contextual e ações sugeridas, sempre identificados como conteúdo assistido por IA e rastreáveis às evidências.
 
-O CONS não recalcula SARI.
+O CONS preserva os valores e as versões de origem. Na versão 1.0.0, a camada decisória conserva um rótulo fixo `SCORE-GEO-004`, inclusive quando recebe linhas `SCORE-GEO-005`. Para interpretar a proveniência, consulte a versão persistida em cada linha e a matriz de comparabilidade. Não interprete uma diferença entre métodos como evolução do site.
 
 ## Matriz de encerramento estrutural do CONS
 

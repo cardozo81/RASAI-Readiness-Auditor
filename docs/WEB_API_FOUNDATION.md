@@ -161,6 +161,8 @@ Todas revalidam tenancy no servidor.
 
 ### Auditorias e relatórios
 
+As rotas de uma AUD servem o catálogo técnico autorizado em `report-catalog/`, a partir de `index.html` e dos arquivos permitidos pelo contrato. A apresentação executiva `report-presentation/` é um pacote local independente, descrito no [guia de leitura](REPORT_GUIDE.md). O resultado HTML de uma consolidação possui rota própria.
+
 | Método | Endpoint | Finalidade / limite |
 |---|---|---|
 | `GET` | `/api/v1/projects/{project_id}/audits` | catálogo de AUDs do projeto sem expor `workspace_path` interno |

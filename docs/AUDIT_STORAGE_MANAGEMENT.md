@@ -239,7 +239,7 @@ Depois que um AUD sai do namespace operacional deixam de estar disponíveis, par
 
 - `audit.db`;
 - artifacts;
-- relatórios HTML do AUD;
+- pacotes locais `report-catalog/` (investigação técnica) e `report-presentation/` (leitura executiva) da AUD, quando existentes;
 - logs locais;
 - reprocessamento `RPR-*`;
 - reutilização da configuração daquele AUD;

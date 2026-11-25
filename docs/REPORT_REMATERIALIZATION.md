@@ -76,7 +76,9 @@ logs ou hosting aberto. Documentos/HTML são dados não confiáveis; conteúdo d
 prompt injection permanece literal escapado, jamais instrução. O HTML não
 contém scripts, recursos remotos ou links ativos para URLs documentais.
 
-Uma AUD é evidência persistida. A geração do relatório é sua **projeção** e
+## Regenerar somente o catálogo técnico
+
+Uma AUD é evidência persistida. O catálogo técnico é uma **projeção** e
 não pode retroativamente mudar aquisições, tentativas, custos, estado de
 fulfillment, observações sidecar, hash das evidências ou a decisão de IA.
 A chamada interna `catalog_report_site.materialize_catalog_report_site` não é
@@ -97,7 +99,7 @@ pasta de saída nova, preservando a anterior como evidência.
 
 ## Regenerar catálogo e apresentação a partir de uma auditoria existente
 
-Use o entrypoint canônico para gerar um catálogo em **cópia externa**, seguido do gerador da apresentação sobre essa cópia. No PowerShell, na raiz da versão instalada (com a `.venv` instalada):
+O script usa a rematerialização do catálogo técnico para preparar uma **cópia externa** da auditoria. Depois, o gerador da apresentação executiva lê as evidências desse diretório. A sequência é uma conveniência operacional. O gerador da apresentação consome o banco e os artefatos da cópia e dispensa qualquer HTML do catálogo. No PowerShell, na raiz da versão instalada (com a `.venv` instalada):
 
 ```powershell
 $AuditId = "AUD-EXEMPLO"

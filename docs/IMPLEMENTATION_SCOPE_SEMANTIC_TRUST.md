@@ -1,5 +1,7 @@
 # Escopo implementado - coerência semântica e confiança do report
 
+O recorte abaixo descreve a investigação técnica em `report-catalog/`. `report-presentation/conteudo.html` faz a leitura executiva das observações de conteúdo disponíveis. A presença de uma página ou o sucesso agregado de uma etapa não comprova que houve execução de cada família semântica. Consulte o [guia dos relatórios](REPORT_GUIDE.md).
+
 Este documento registra o fechamento do escopo desenvolvido na branch `feature/semantic-property-coherence`.
 
 ## Console e configuração

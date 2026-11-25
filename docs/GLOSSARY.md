@@ -90,6 +90,10 @@ A camada de apresentação usa nomes de negócio em pt-BR e mantém os identific
 
 ## Outros termos usados na operação
 
+- **Catálogo técnico (`report-catalog/`)**: pacote individual para investigar regras, métricas, estados e evidências. Entrada em `report-catalog/index.html`.
+- **Apresentação executiva (`report-presentation/`)**: pacote individual para interpretar resultados e orientar decisões com base nas evidências persistidas. Entrada em `report-presentation/index.html`.
+- **Relatório Consolidado Longitudinal (`CONS-5`)**: comparação de auditorias elegíveis da mesma URL e do mesmo dispositivo. A navegação e as demais saídas têm [guia próprio](REPORT_GUIDE.md).
+
 | Termo | Significado prático |
 | --- | --- |
 | Apdex | Índice de desempenho de aplicações entre 0 e 1, calculado pela classificação de amostras em satisfeitas, toleráveis e frustradas. |

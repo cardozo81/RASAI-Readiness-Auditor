@@ -2,6 +2,8 @@
 
 ## Contrato
 
+A investigação do baseline semântico fica em `report-catalog/cat-03.html`. Na apresentação executiva, `report-presentation/conteudo.html` contextualiza os achados e as limitações persistidos. O [guia dos relatórios](REPORT_GUIDE.md) explica o papel de cada pacote.
+
 A análise semântica possui um baseline local, evidence-bound e versionado:
 
 ```text

@@ -6,6 +6,8 @@
 
 ## Escopo imutável
 
+Este documento descreve o sistema visual do catálogo técnico `report-catalog/`. As contagens de 19 páginas nos testes e nas iterações abaixo identificam o recorte histórico. Para a navegação vigente e a apresentação executiva independente, consulte o [guia de leitura](REPORT_GUIDE.md).
+
 Fonte de verdade: `CATALOG_REPORT_PAGES` / `CATALOG_REPORT_FILENAMES` em `catalog_report_contract.py`. O contrato atual possui **21 páginas**: `index.html`, `sari.html`, `cat-01.html` a `cat-10.html`, `network.html`, `geo.html`, `geo-content-review.html`, `directed-analysis.html`, `capture-context.html`, `execution-evidence.html`, `ai-integrations.html`, `methodology.html` e `metrics.html`. A nova página da #690 é projeção consultiva sem score ou motor próprio.
 
 A primeira etapa altera apenas **apresentação** nos helpers compartilhados: `_shell`, CSS e JavaScript da camada `report-catalog`, mais fixtures e esta documentação. Mantém as tabelas, métricas, evidências, ações, estados, seções e deep-links existentes. O gerador continua `materialize_catalog_report_site`, com CSS local no pacote e JS mínimo inline. Nenhuma nova rota ou página HTML, nenhum relatório paralelo, nenhum `fetch` de dados.
