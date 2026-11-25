@@ -12,7 +12,7 @@ Observed Generative Visibility armazena resultados observados de Search/IA sob u
 readiness medido != visibilidade observada
 ```
 
-A importação OGV não recalcula SARI nem altera a auditoria de origem. O scoring vigente é `SCORE-GEO-004`, e dados OGV não são entrada de sua fórmula.
+A importação OGV não recalcula SARI nem altera a auditoria de origem. O scoring vigente é `SCORE-GEO-005`, e dados OGV não são entrada de sua fórmula.
 
 ## 2. Fontes
 
@@ -26,7 +26,7 @@ Execuções controladas podem registrar engine, query, horário observado, valid
 
 Resultados observados podem sustentar **pesquisa de validação offline separada** que estude associação entre readiness e resultados reais.
 
-Essa pesquisa não altera resultados persistidos de `SCORE-GEO-004` nem cria contribuição de scoring. O único scoring de produção aplicável é o contrato explícito vigente.
+Essa pesquisa não altera resultados persistidos de `SCORE-GEO-005` ou `SCORE-GEO-004` histórico nem cria contribuição de scoring. O único scoring de produção aplicável é o contrato explícito vigente.
 
 ## 4. Citation Presence Rate
 

@@ -2,7 +2,7 @@
 
 **Estado:** vigente para o ambiente multiprovedor de IA em tempo de execução.
 
-Este contrato complementa a análise semântica e as remediações assistidas por IA sem alterar os contratos metodológicos de `SARI-001` e `SCORE-GEO-004`.
+Este contrato complementa a análise semântica e as remediações assistidas por IA sem alterar os contratos metodológicos de `SARI-001` e `SCORE-GEO-005`.
 
 ## 1. AUTO
 
@@ -32,7 +32,7 @@ Cada chamada externa deve poder ser rastreada em `ai_exchange_log` com request/r
 
 Credenciais e raciocínio privado do provider não podem ser persistidos. O log é telemetria de integração e não evidência de scoring.
 
-A apresentação canônica dessa telemetria é `report-catalog/ai-integrations.html`.
+A referência técnica dessa telemetria é `report-catalog/ai-integrations.html`; `report-presentation/ia-custos.html` oferece leitura executiva de uso, esforço, custos e proveniência, sem paridade obrigatória de campos.
 
 O limite de captura é configurado por `RASAI_AI_EXCHANGE_LOG_MAX_BYTES`: default efetivo `524288`, valores permitidos de `4096` a `4194304` bytes e recomendação de manter o default salvo necessidade de diagnóstico controlado.
 
@@ -53,7 +53,7 @@ A interpretação:
 - é apresentada separadamente no HTML;
 - não sobrescreve `content_analysis_contexts`;
 - não é persistida como classificação canônica;
-- não altera SARI/SCORE-GEO-004 por si só;
+- não altera SARI/SCORE-GEO-005 por si só;
 - deve usar `Não determinável` quando não houver suporte suficiente.
 
 A classificação transitória é removida antes da normalização/persistência semântica. O HTML final pode materializar a interpretação daquela execução para comparação humana sem promovê-la a verdade persistida do contexto.
@@ -78,6 +78,6 @@ Configuração:
 
 `agentic-browsing` é solicitado na **mesma chamada** PageSpeed por contexto e não cria uma chamada adicional. A categoria permanece experimental no Lighthouse. Se a resposta do serviço não materializar esse resultado, `agentic_browsing_score` permanece indisponível/`NULL`; a ausência não é convertida em zero e não invalida Performance, Accessibility, Best Practices ou SEO recebidos na mesma coleta.
 
-Web Performance permanece evidência externa/contextual e não entra automaticamente em `SARI-001`/`SCORE-GEO-004`.
+Web Performance permanece evidência externa/contextual e não entra automaticamente em `SARI-001`/`SCORE-GEO-005`.
 
 Detalhamento operacional e de segurança: [`../AI_RUNTIME_ORCHESTRATION.md`](../AI_RUNTIME_ORCHESTRATION.md). Contrato do transporte PageSpeed: [`../LIGHTHOUSE_PAGESPEED_TRANSPORT.md`](../LIGHTHOUSE_PAGESPEED_TRANSPORT.md).

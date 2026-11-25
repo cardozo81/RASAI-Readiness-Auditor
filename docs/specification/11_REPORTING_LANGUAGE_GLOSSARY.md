@@ -81,7 +81,7 @@ A camada humana apresenta primeiro o conceito de negócio e mantém o ID técnic
 | ID técnico | Nome humano principal | Versão pública |
 |---|---|---:|
 | `SARI-001` | **Search & AI Readiness Index - Índice de Prontidão Search & IA** | **001** |
-| `SCORE-GEO-004` | **Método de Pontuação de Prontidão** | **001** |
+| `SCORE-GEO-005` (vigente), `SCORE-GEO-004` (histórico) | **Método de Pontuação de Prontidão** | **001** |
 | `BR-GEO-*` | **Regra de Avaliação de Prontidão** | pertence ao conjunto de regras **001** |
 | `EV-GEO-*` | **Evidência da Auditoria** | não se aplica |
 | `FR-GEO-*` | **Functional Requirement - Requisito Funcional do RASAi** | conjunto documental **001**, quando exibido |
@@ -97,14 +97,14 @@ A camada humana apresenta primeiro o conceito de negócio e mantém o ID técnic
 
 Quando uma sigla ou expressão oficial estiver em inglês, apresentar **termo em inglês - tradução imediata para pt-BR** e manter explicação, fundamento, limitações e orientação em pt-BR.
 
-Os IDs `SCORE-GEO-004`, `BR-GEO-*`, `EV-GEO-*`, `FR-GEO-*` e `NFR-GEO-*` são tratados como identificadores técnicos indivisíveis na camada humana. O segmento `GEO` não deve ser expandido a partir desses IDs. **GEO** só significa **Generative Engine Optimization - Otimização para Mecanismos Generativos** quando o conteúdo estiver explicitamente tratando dessa disciplina.
+Os IDs `SCORE-GEO-005`, `SCORE-GEO-004`, `BR-GEO-*`, `EV-GEO-*`, `FR-GEO-*` e `NFR-GEO-*` são tratados como identificadores técnicos indivisíveis na camada humana. O segmento `GEO` não deve ser expandido a partir desses IDs. **GEO** só significa **Generative Engine Optimization - Otimização para Mecanismos Generativos** quando o conteúdo estiver explicitamente tratando dessa disciplina.
 
 Exemplo de apresentação:
 
 ```text
 Método de Pontuação de Prontidão
 Versão pública: 001
-Contrato técnico: SCORE-GEO-004
+Contrato técnico: SCORE-GEO-005
 
 Regra de Avaliação de Prontidão
 ID técnico: BR-GEO-013

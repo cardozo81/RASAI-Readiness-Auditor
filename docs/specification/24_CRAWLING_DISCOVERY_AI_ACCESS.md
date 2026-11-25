@@ -2,13 +2,13 @@
 
 **Estado:** INTEGRADO / VIGENTE  
 **Natureza:** diagnóstico técnico determinístico por padrão e non-scoring  
-**Fronteira de scoring:** `SARI-001` / `SCORE-GEO-004`
+**Fronteira de scoring:** `SARI-001` / `SCORE-GEO-005`
 
 ## 1. Objetivo
 
 Aprofundar evidências de `robots.txt`, sitemaps, políticas de crawlers, feeds, `llms.txt` experimental e sinais de discovery sem permitir pesos arbitrários. Robots/sitemap usam fatores estáticos do método e a IA opcional só pode corroborar ou rebaixar esses mesmos grupos dentro do contrato evidence-bound das regras correspondentes.
 
-A capacidade não cria score paralelo e não recalcula arbitrariamente `SARI-001` ou `SCORE-GEO-004`.
+A capacidade não cria score paralelo e não recalcula arbitrariamente `SARI-001` ou `SCORE-GEO-005`.
 
 ## 2. Invariantes
 
@@ -19,7 +19,7 @@ A capacidade não cria score paralelo e não recalcula arbitrariamente `SARI-001
 5. ausência de `llms.txt` não reduz readiness;
 6. políticas de crawlers com finalidades diferentes não são tratadas como equivalentes;
 7. evidência não observada não é inferida como configurada ou ausente;
-8. nenhum diagnóstico externo ou experimental entra silenciosamente no `SCORE-GEO-004`.
+8. nenhum diagnóstico externo ou experimental entra silenciosamente no `SCORE-GEO-005`.
 
 ## 3. Fontes de evidência
 
@@ -129,6 +129,6 @@ Hard source blockers impedem aquisição adicional dependente do corpus. Expans�
 
 ## 11. Limite metodológico
 
-Fontes externas sustentam fenômenos específicos de crawling/discovery; elas não homologam `SARI-001`, `SCORE-GEO-004`, severidades internas nem qualquer índice proprietário RASAi.
+Fontes externas sustentam fenômenos específicos de crawling/discovery; elas não homologam `SARI-001`, `SCORE-GEO-005`, severidades internas nem qualquer índice proprietário RASAi.
 
 Quando outra documentação desta capacidade reproduzir literalmente texto protegido de fonte externa, deve aplicar a política de citação, tradução e direitos autorais definida em `../README.md`; referências técnicas simples e identificadores de protocolo não implicam reprodução do conteúdo-fonte.

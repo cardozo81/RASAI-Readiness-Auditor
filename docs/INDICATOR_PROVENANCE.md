@@ -32,7 +32,7 @@ Uma referência externa não deve ser usada para sugerir homologação do produt
 
 Cada página final do report deve informar a natureza metodológica dos indicadores centrais daquela tela.
 
-A proveniência metodológica deve ser projetada no `report-catalog/` sem criar uma página audit-owned paralela. `methodology.html` consolida fórmula, pesos, grupos, Cobertura, Confiança, Critérios Críticos e limites metodológicos do Índice de Prontidão Search & IA; cada CAT deve expor as fontes e referências técnicas diretamente aplicáveis ao seu domínio. A projeção deve informar, quando aplicável:
+A proveniência metodológica detalhada pertence ao catálogo técnico. A apresentação executiva independente contextualiza os indicadores e seus limites conforme as evidências persistidas, especialmente em `report-presentation/indices.html`, sem exigir réplica da página técnica. `report-catalog/methodology.html` consolida fórmula, pesos, grupos, Cobertura, Confiança, Critérios Críticos e limites metodológicos do Índice de Prontidão Search & IA; cada CAT deve expor as fontes e referências técnicas diretamente aplicáveis ao seu domínio. A projeção deve informar, quando aplicável:
 
 1. indicador/família;
 2. classificação metodológica;
@@ -207,7 +207,7 @@ Permitido:
 
 > Core Web Vitals: métrica externa definida pelo programa Web Vitals; valor p75 coletado via CrUX.
 
-> **Índice de Prontidão Search & IA:** índice proprietário, baseado em evidências e reprodutível do RASAi; versão pública **001**. IDs técnicos: `SARI-001` para o índice e `SCORE-GEO-004` para o método vigente.
+> **Índice de Prontidão Search & IA:** índice proprietário, baseado em evidências e reprodutível do RASAi; versão pública **001**. IDs técnicos: `SARI-001` para o índice e `SCORE-GEO-005` para o método vigente; `SCORE-GEO-004` para interpretação histórica.
 
 > WCAG 2.2: standard W3C; a automação cobre somente critérios tecnicamente verificáveis pela ferramenta.
 

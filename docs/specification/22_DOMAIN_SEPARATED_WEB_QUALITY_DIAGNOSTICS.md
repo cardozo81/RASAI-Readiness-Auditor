@@ -19,7 +19,7 @@ Synthetic Navigation Apdex
 Synthetic User Experience Apdex
 ```
 
-Interdependências podem ser exibidas por referência cruzada de evidência, mas não autorizam conversão automática de finding entre domínios, soma de scores, recalibração de `SCORE-GEO-004`, inferência causal não demonstrada ou promoção de ferramenta automatizada a certificação normativa.
+Interdependências podem ser exibidas por referência cruzada de evidência, mas não autorizam conversão automática de finding entre domínios, soma de scores, recalibração de `SCORE-GEO-005`, inferência causal não demonstrada ou promoção de ferramenta automatizada a certificação normativa.
 
 ## 2. Coleta compartilhada, semântica separada
 
@@ -46,7 +46,7 @@ Esta capacidade não altera:
 - Finding GEO;
 - Recommendation GEO;
 - severity/priority GEO;
-- `SCORE-GEO-004`;
+- `SCORE-GEO-005`;
 - Coverage;
 - Confidence;
 - Consolidation.
@@ -159,7 +159,7 @@ Synthetic Navigation Apdex        -> pode calcular Apdex de NAVIGATION_LOAD quan
 Synthetic User Experience Apdex   -> calcula sua ação sintética calibrada quando habilitado
 ```
 
-Nenhum desses domínios altera automaticamente `SCORE-GEO-004`.
+Nenhum desses domínios altera automaticamente `SCORE-GEO-005`.
 
 ## 8. Navegação
 
@@ -171,7 +171,7 @@ Ordem e rótulos são produzidos pelo contrato compartilhado de `src/rasai/catal
 
 > **Nota de direitos autorais, citação e tradução:** o material externo citado nesta seção permanece de titularidade de seu respectivo autor/mantenedor. Quando necessário para precisão técnica, o RASAi reproduz apenas o trecho estritamente necessário no idioma original, identificado como citação, seguido de tradução/adaptação para pt-BR. A tradução é informativa e não substitui o texto oficial; em caso de divergência, prevalece a fonte primária vinculada.
 
-As referências abaixo sustentam os conceitos nos respectivos domínios e não homologam `SARI-001`/`SCORE-GEO-004`.
+As referências abaixo sustentam os conceitos nos respectivos domínios e não homologam `SARI-001`/`SCORE-GEO-005`.
 
 ### Acessibilidade
 
@@ -209,7 +209,7 @@ Para criação e gerenciamento de credenciais PageSpeed/CrUX, consultar `../EXTE
 8. diagnósticos de performance preservam URL/savings quando fornecidos;
 9. diagnósticos A11Y não vazam para Performance;
 10. Lighthouse/CrUX não são convertidos em Apdex;
-11. nenhuma alteração automática ocorre em `SCORE-GEO-004`;
+11. nenhuma alteração automática ocorre em `SCORE-GEO-005`;
 12. reutilizar artifact não cria chamada LLM ou Google adicional;
 13. referências oficiais permanecem identificadas;
 14. `cat-04.html` permanece presente mesmo quando a integração não for executada;

@@ -11,7 +11,7 @@ Disponibilizar uma interface Web utilizável sobre o control plane e a execution
 
 `WEB-PILOT-001` - o browser deve consumir a API tenant-aware; nenhuma regra de negócio relevante pode existir apenas em JavaScript.
 
-`WEB-PILOT-002` - `SARI-001` e `SCORE-GEO-004` não podem ser recalculados, ajustados ou reinterpretados pela UI.
+`WEB-PILOT-002` - `SARI-001` e `SCORE-GEO-005` não podem ser recalculados, ajustados ou reinterpretados pela UI.
 
 `WEB-PILOT-003` - requests HTTP de execução somente podem criar durable execution jobs. Crawling/auditoria permanecem em worker separado.
 
