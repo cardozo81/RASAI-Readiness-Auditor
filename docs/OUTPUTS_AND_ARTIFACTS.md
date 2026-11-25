@@ -352,7 +352,7 @@ Exemplo de uso **apenas para domínio cuja medição ativa esteja autorizada**:
 .\.venv\Scripts\python.exe -m rasai.network_active_probe --workspace "audits\\<AUD>" --audit-id "<AUD>" --host "dominio-autorizado.com.br" --permit-exact-host "dominio-autorizado.com.br" --authorize-active-network --port 443
 ```
 
-O processo filho possui limite total de 10 segundos, usa resolução DNS limitada a 32 respostas, rejeita o conjunto inteiro se qualquer endereço não for globalmente roteável e fixa a conexão TCP ao IP previamente validado para impedir mudança silenciosa por nova resolução. Só são aceitas as portas 80 e 443; TLS usa validação padrão e nome de servidor original. Sem solicitações HTTP, seguir redirects, ICMP, privilégios administrativos ou geolocalização externa. Restrições de rede, VPN e proxy de saída não são verificáveis automaticamente. O período DNS inclui cache do resolver local, e o tempo TCP/TLS mede a sessão do próprio executor.
+O processo filho da sonda básica possui limite de 10 segundos (com traceroute, o orçamento máximo do processo é ampliado para 55 segundos), usa resolução DNS limitada a 32 respostas, rejeita o conjunto inteiro se qualquer endereço não for globalmente roteável e fixa a conexão TCP ao IP previamente validado para impedir mudança silenciosa por nova resolução. Só são aceitas as portas 80 e 443; TLS usa validação padrão e nome de servidor original. Sem solicitações HTTP, seguir redirects, ICMP, privilégios administrativos ou geolocalização externa. Restrições de rede, VPN e proxy de saída não são verificáveis automaticamente. O período DNS inclui cache do resolver local, e o tempo TCP/TLS mede a sessão do próprio executor.
 
 O complemento independente fica em `artifacts/network/probes/` e é somente de criação exclusiva, com SHA-256 (integridade, não autoria). A página `network.html` lê os complementos válidos offline, sem rede nem mutação do pacote. Respostas DNS privadas, falhas de captura, campos ausentes e medições observadas permanecem estados distintos. O comando básico independente não solicita traceroute; o enriquecimento depende da política e das bases locais disponíveis. A extensão posterior suporta traceroute autorizado e atribuições ASN/GeoIP somente com bases locais opcionais. Não há identificação automática de CDN, origem física ou rota completa por inferência.
 
@@ -407,9 +407,11 @@ A origem, o instante e o raio de precisão dos marcadores GeoIP são também apr
 
 ## Recuperação de sondagem física já coletada: relatório anterior (#659)
 
-A coleta ativa autorizada grava pacote **imutável**, independente da projeção HTML. Se a medição registrar `observed_tcp=true` mas o catálogo retornar `CATALOG_REBUILD_FAILED`, não execute outra sondagem com um identificador novo apenas para recriar o relatório. A partir de uma instalação compatível, defina a auditoria existente e seu hostname autorizado e reexecute somente a projeção:
+A coleta ativa autorizada grava pacote **imutável**, independente da projeção HTML. Se a medição registrar `observed_tcp=true` mas o catálogo retornar `CATALOG_REBUILD_FAILED`, não execute outra sondagem com um identificador novo apenas para recriar o relatório. A partir de uma instalação compatível, substitua os parâmetros de exemplo pelo diretório da auditoria existente, o hostname já registrado e o identificador da série anteriormente coletada. O comando reconstitui somente a projeção; não execute contra uma auditoria sem o pacote de sonda correspondente.
 
 ```powershell
+$Aud = Get-Item -LiteralPath "audits\<AUD-ID>"
+$DominioAlvo = "dominio-autorizado.com.br"
 $env:PYTHONPATH = (Resolve-Path ".\\src").Path
 & ".\\.venv\\Scripts\\python.exe" -m rasai.network_acceptance --workspace $Aud.FullName --audit-id $Aud.Name --host $DominioAlvo --series-id "homologacao-g2-01" --replay-existing
 ```

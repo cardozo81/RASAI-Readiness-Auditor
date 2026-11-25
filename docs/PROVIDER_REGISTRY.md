@@ -95,7 +95,7 @@ Para o RASAi local, a autenticação deliberada é `COPILOT_GITHUB_TOKEN`. O ada
 
 O token recomendado é um fine-grained PAT da conta pessoal com a permissão **Copilot Requests**. Prefixos aceitos pelo contrato atual: `github_pat_`, `gho_` e `ghu_`; classic PAT `ghp_` não é compatível com esse fluxo.
 
-O provider está `explicit_only=false` e o modelo `auto` está `auto_eligible=true`. Portanto, `COPILOT_GITHUB_TOKEN` configurado torna possível sua participação no modo automático quando os demais requisitos forem atendidos; a presença da credencial não é consentimento para uma execução tarifada. use `RASAI_AI_AUTO_EXCLUDE=copilot` quando o operador quiser manter a credencial sem consumir a assinatura no roteamento automático.
+O provider está `explicit_only=false` e o modelo `auto` está `auto_eligible=true`. Portanto, `COPILOT_GITHUB_TOKEN` configurado torna possível sua participação no modo automático quando os demais requisitos forem atendidos; a presença da credencial não é consentimento para uma execução tarifada. Use `RASAI_AI_AUTO_EXCLUDE=copilot` quando o operador quiser manter a credencial sem consumir a assinatura no roteamento automático.
 
 Instalação opcional:
 
