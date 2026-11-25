@@ -133,3 +133,36 @@ def test_public_target_gate_blocks_sensitive_or_internal_urls() -> None:
     assert _safe_public_simple_url("http://localhost/admin") is False
     assert _safe_public_simple_url("http://127.0.0.1/admin") is False
     assert _safe_public_simple_url("http://10.0.0.1/internal") is False
+
+
+def test_nominal_common_crawl_contribution_is_not_a_partial_overall_ceiling() -> None:
+    # With only Discovery measured, the Overall normalizes by that dimension's
+    # weight. The persisted score remains the engine's result, not a clamped label.
+    base = _base_discovery({rule.rule_id: RuleResult.FAIL for rule in _base_discovery()})
+    executions = (*base, _execution("BR-GEO-060", RuleResult.PASS, 99))
+    result = ScoringEngine().score(
+        audit_id="AUD-EXT-SARI",
+        executions=executions,
+        devices=(DeviceContext.DESKTOP,),
+    )
+    discovery = next(score for score in result.scores if score.dimension == "DISCOVERY_ACCESS")
+    overall = result.overall_by_device[DeviceContext.DESKTOP]
+    assert discovery.value == pytest.approx(3.0)
+    assert overall.value == pytest.approx(3.0)
+    assert overall.value > MAX_OVERALL_IMPACT_POINTS
+
+
+def test_common_crawl_presentation_distinguishes_nominal_from_effective() -> None:
+    from rasai.catalog_report_public_labels import public_contract_label
+    from rasai.external_sari_reporting import _panel
+
+    token = "EXTERNAL_CRAWL_CORROBORATION:BR-GEO-060:POSITIVE_ONLY:MAX_OVERALL_IMPACT_0.45"
+    label = public_contract_label(token)
+    assert "contribuição nominal de 0,45 ponto" in label
+    assert "normalização parcial" in label
+    assert "limite geral" not in label
+    for detailed in (False, True):
+        rendered = _panel({"materialized": True}, detailed=detailed)
+        assert "Contribuição nominal" in rendered
+        assert "normalização parcial" in rendered
+        assert "Impacto máximo" not in rendered

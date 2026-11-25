@@ -327,3 +327,70 @@ class ConsolidationReportingUXTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MethodologyPresentationTests(unittest.TestCase):
+    def test_sari_summary_preserves_versions_and_blocks_incompatible_comparisons(self) -> None:
+        from rasai.consolidation.decision_context import _sari_summary
+        from copy import deepcopy
+
+        for versions, values, expected, comparable in (
+            (("SCORE-GEO-005", "SCORE-GEO-005"), (20.0, 60.0), "SCORE-GEO-005", True),
+            (("SCORE-GEO-004", "SCORE-GEO-004"), (20.0, 60.0), "SCORE-GEO-004", True),
+            (("SCORE-GEO-004", "SCORE-GEO-005"), (20.0, 60.0), "SCORE-GEO-004, SCORE-GEO-005", False),
+            (("UNKNOWN", "UNKNOWN"), (20.0, 60.0), "UNKNOWN", False),
+            (("SCORE-GEO-005",), (None,), "SCORE-GEO-005", False),
+            ((), (), "UNKNOWN", False),
+        ):
+            with self.subTest(versions=versions, values=values):
+                series = [
+                    {"scoring_version": version, "value": value, "audit_id": f"AUD-{index}"}
+                    for index, (version, value) in enumerate(zip(versions, values))
+                ]
+                original = deepcopy(series)
+                result = _sari_summary(series)
+                self.assertEqual(result["method"], f"SARI-001 / {expected}")
+                self.assertEqual(result["series"], original)
+                self.assertEqual(series, original)
+                if comparable:
+                    self.assertEqual(result["delta"], 40.0)
+                    self.assertEqual(result["peak"], series[-1])
+                else:
+                    self.assertIsNone(result.get("delta"))
+                    self.assertIsNone(result.get("peak"))
+                self.assertEqual(result["available"], any(value is not None for value in values))
+
+    def test_methodology_uses_persisted_version_and_hierarchical_weights(self) -> None:
+        from rasai.consolidation.reporting import _render_methodology
+
+        for versions in (("SCORE-GEO-005",), ("SCORE-GEO-004",), ("SCORE-GEO-004", "SCORE-GEO-005"), ("UNKNOWN",), ()):
+            with self.subTest(versions=versions):
+                data = SimpleNamespace(score_history=tuple({"scoring_version": v} for v in versions), limitations=())
+                rendered = _render_methodology(data)
+                for version in versions:
+                    self.assertIn(version, rendered)
+                self.assertNotIn("vigente SCORE-GEO-004", rendered)
+                self.assertNotIn("igual peso", rendered)
+                if any(v in {"SCORE-GEO-004", "SCORE-GEO-005"} for v in versions):
+                    self.assertIn("pesos hierárquicos", rendered)
+                if len(versions) != 1 or versions == ("UNKNOWN",):
+                    self.assertIn("Comparabilidade metodológica não comprovada", rendered)
+
+    def test_executive_cards_identify_methods_without_cross_version_delta(self) -> None:
+        from rasai.consolidation.decision_context import _sari_summary
+        from rasai.consolidation.presentation import _render_executive_decision
+
+        points = [
+            {"scoring_version": "SCORE-GEO-004", "value": 20.0},
+            {"scoring_version": "SCORE-GEO-005", "value": 60.0},
+        ]
+        rendered = _render_executive_decision({"decision_context": {
+            "sari": _sari_summary(points),
+            "comparability": {"methodological": "NOT_COMPARABLE"},
+        }})
+        self.assertIn("SCORE-GEO-004", rendered)
+        self.assertIn("SCORE-GEO-005", rendered)
+        self.assertIn("sem comparação global", rendered)
+        self.assertNotIn("+40", rendered)
+        self.assertNotIn("<polyline", rendered)
+        self.assertIn("Observações individuais sem linha de evolução", rendered)

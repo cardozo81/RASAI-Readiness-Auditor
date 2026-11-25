@@ -25,7 +25,7 @@ def install() -> None:
     report_presentation._PUBLIC_LABELS.setdefault(_GROUP_ID, _GROUP_LABEL)
     report_navigation._RULE_TOOLTIPS[RULE_ID] = (
         "Corroboração externa de discovery - evidência histórica positiva do Common Crawl. "
-        "É positive-only, não integra Critical Gates, não prova indexação Google/Bing e tem impacto máximo de 0,45 ponto no SARI Overall."
+        "Somente evidência positiva; não integra critérios críticos nem prova indexação Google/Bing. Contribuição nominal de 0,45 ponto com pesos integralmente medidos; a normalização parcial pode alterá-la."
     )
     if getattr(report_navigation, "_rasai_external_sari_reporting", False):
         return
@@ -142,7 +142,7 @@ def _panel(state: dict[str, Any], *, detailed: bool) -> str:
     if detailed:
         detail = (
             "<div class='table-wrap'><table><thead><tr>"
-            "<th>Regra</th><th>Dimensão / grupo</th><th>Peso no grupo</th><th>Impacto máximo Overall</th>"
+            "<th>Regra</th><th>Dimensão / grupo</th><th>Peso no grupo</th><th>Contribuição nominal no Overall</th>"
             "<th>Threshold</th><th>Resultado desta auditoria</th></tr></thead><tbody><tr>"
             f"<td><strong>{escape(RULE_ID)}</strong></td>"
             "<td>Discovery &amp; Crawler Access / External Crawl Corroboration</td>"
@@ -168,10 +168,10 @@ def _panel(state: dict[str, Any], *, detailed: bool) -> str:
         "não recebe zero e não reduz Coverage/Confidence</strong>.</p>"
         f"<div class='metric-grid'><div class='metric'><span>Estado</span><strong>{escape(status)}</strong></div>"
         f"<div class='metric'><span>Peso em Discovery</span><strong>{weight * 100:.1f}%</strong></div>"
-        f"<div class='metric'><span>Impacto máximo no SARI</span><strong>{MAX_OVERALL_IMPACT_POINTS:.2f}</strong></div>"
+        f"<div class='metric'><span>Contribuição nominal no SARI</span><strong>{MAX_OVERALL_IMPACT_POINTS:.2f}</strong></div>"
         f"<div class='metric'><span>Razão observada</span><strong>{escape(ratio)}</strong></div></div>"
         f"{detail}<p class='intro'>{sample}{reason_text} A regra não participa de Critical Readiness Gates e não pode "
-        "compensar um bloqueio atual de acesso/robots/redirect.</p></section>"
+        "compensar um bloqueio atual de acesso/robots/redirect. A contribuição nominal pressupõe pesos integralmente medidos; a normalização parcial pode alterar a participação efetiva.</p></section>"
     )
 
 

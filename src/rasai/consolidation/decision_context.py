@@ -11,6 +11,7 @@ from .models import ConsolidatedData
 
 
 DECISION_CONTRACT = "CONSOLIDATED-DECISION-CONTEXT-002"
+_KNOWN_SCORING_METHODS = frozenset({"SCORE-GEO-004", "SCORE-GEO-005"})
 
 _TOPIC_LABELS = {
     "SEO": "SEO e descoberta",
@@ -62,25 +63,26 @@ def _sari_series(data: ConsolidatedData) -> list[dict[str, Any]]:
 
 
 def _sari_summary(series: list[dict[str, Any]]) -> dict[str, Any]:
+    versions = {str(item.get("scoring_version") or "UNKNOWN") for item in series}
+    method = "SARI-001 / " + (", ".join(sorted(versions)) if versions else "UNKNOWN")
     measured = [item for item in series if item["value"] is not None]
     if not measured:
-        return {
-            "available": False,
-            "method": "SARI-001 / SCORE-GEO-004",
-            "series": series,
-        }
+        return {"available": False, "method": method, "series": series}
     initial = measured[0]
     current = measured[-1]
-    peak = max(measured, key=lambda item: float(item["value"]))
-    delta = float(current["value"]) - float(initial["value"])
+    # A derived decision card must not compare incompatible or unidentified methods.
+    # Keep every persisted observation, even when the comparative summary is unavailable.
+    comparable = len(versions) == 1 and versions <= _KNOWN_SCORING_METHODS
+    peak = max(measured, key=lambda item: float(item["value"])) if comparable else None
+    delta = float(current["value"]) - float(initial["value"]) if comparable else None
     return {
         "available": True,
-        "method": "SARI-001 / SCORE-GEO-004",
+        "method": method,
         "initial": initial,
         "current": current,
         "peak": peak,
         "delta": delta,
-        "delta_percent": (delta / abs(float(initial["value"])) * 100.0) if float(initial["value"]) else None,
+        "delta_percent": (delta / abs(float(initial["value"])) * 100.0) if delta is not None and float(initial["value"]) else None,
         "series": series,
     }
 
@@ -165,12 +167,12 @@ def _structural_matrix(data: ConsolidatedData, bundle: Any, run: Any, sari: Mapp
 
     axes.append(_axis("IDENTITY", "Identidade longitudinal", "CONCLUÍDO", "good", "Mesma URL e mesmo dispositivo em toda a série selecionada."))
 
-    if len(scoring_versions) == 1 and scoring_versions[0] == "SCORE-GEO-004":
-        axes.append(_axis("METHODOLOGY", "Método de Pontuação de Prontidão", "CONCLUÍDO", "good", "Toda a série do Índice de Prontidão Search & IA usa o mesmo contrato técnico SCORE-GEO-004."))
-    elif len(scoring_versions) == 1:
-        axes.append(_axis("METHODOLOGY", "Método de Pontuação de Prontidão", "ATENÇÃO", "warn", f"A série usa o contrato técnico {scoring_versions[0]}; interpretar conforme o contrato persistido."))
+    if len(scoring_versions) == 1 and scoring_versions[0] in _KNOWN_SCORING_METHODS:
+        axes.append(_axis("METHODOLOGY", "Método de Pontuação de Prontidão", "CONCLUÍDO", "good", f"Toda a série do Índice de Prontidão Search & IA usa o mesmo contrato técnico {scoring_versions[0]}."))
+    elif len(scoring_versions) > 1:
+        axes.append(_axis("METHODOLOGY", "Método de Pontuação de Prontidão", "NÃO COMPARÁVEL", "bad", "Há mais de uma identificação de método na série; não comparar pontuações entre versões."))
     else:
-        axes.append(_axis("METHODOLOGY", "Método de Pontuação de Prontidão", "NÃO COMPARÁVEL", "bad", "Há mais de um contrato técnico de pontuação na série."))
+        axes.append(_axis("METHODOLOGY", "Método de Pontuação de Prontidão", "NÃO COMPROVADA", "warn", "Não há versão de pontuação reconhecida e comprovada para comparação."))
 
     pair_status = str(config.get("pair_status") or "INSUFFICIENT_DATA")
     if pair_status == "EXACT":
@@ -383,10 +385,9 @@ def build_decision_context(data: ConsolidatedData, bundle: Any, run: Any) -> dic
     governance = bundle.governance
     priorities = _priorities(run)
     ai_reliability = _ai_reliability(data, bundle, run, priorities)
+    versions = {item["scoring_version"] for item in sari.get("series", [])}
     comparability = {
-        "methodological": "COMPARABLE" if len({
-            item["scoring_version"] for item in sari.get("series", [])
-        }) <= 1 else "NOT_COMPARABLE",
+        "methodological": "COMPARABLE" if len(versions) == 1 and versions <= _KNOWN_SCORING_METHODS else "NOT_COMPARABLE",
         "configuration": data.configuration_comparability,
         "source_conclusion": governance.get("conclusion_state"),
     }
