@@ -21,7 +21,7 @@ CRITICAL_GATE_VERSION        SARI_CRITICAL_GATES_V1
 MEASUREMENT_CONFIDENCE       WEIGHTED_MEASUREMENT_CONFIDENCE_V1
 ```
 
-## Mudança versionada #602: sinais SEO opcionais
+## Aplicabilidade de sinais SEO opcionais
 
 Em novas auditorias, ausência isolada e realmente observada de robots.txt,
 canonical ou sitemap consultado não é prova de deficiência de indexação.
@@ -187,6 +187,11 @@ Cada conjunto de grupos de uma dimensão totaliza 1.0.
 
 ## RuleResult e fatores
 
+Em linguagem prática: aprovação contribui com o peso integral, advertência contribui com a fração prevista na regra e reprovação contribui com zero. Uma verificação não concluída reduz a cobertura, mas não recebe uma reprovação fictícia. Uma verificação comprovadamente não aplicável deixa de compor o universo de cálculo.
+
+Exemplo ilustrativo: três grupos aplicáveis com pesos 0,40, 0,30 e 0,30. O primeiro foi aprovado, o segundo reprovado e o terceiro ficou sem evidência suficiente. A qualidade medida é (0,40 / 0,70) × 100 = 57,14; a cobertura é 70%. Não se deve apresentar 57,14 como avaliação completa. Os pesos deste exemplo são didáticos, não substituem a tabela do método vigente.
+
+
 ```text
 PASS    = 1.00
 WARNING = 0.50 por padrão
@@ -343,8 +348,8 @@ NOT_APPLICABLE   fora do universo aplicável
 Overall:
 
 - `CONSOLIDATED` quando Coverage >= 0.80, Confidence HIGH/MEDIUM e nenhuma dimensão crítica aplicável está sem medição suficiente;
-- `PARTIAL` quando existe leitura útil com Coverage >= 0.50 mas o gate completo não foi atingido;
-- `NOT_CONSOLIDATED` quando a medição não sustenta a conclusão.
+- `PARTIAL` quando existe valor medido, Coverage >= 0.50, confiança disponível e nenhuma dimensão crítica aplicável bloqueia a consolidação, mas o critério completo não foi atingido;
+- `NOT_CONSOLIDATED` quando não há valor medido, existe bloqueio crítico de medição ou não são satisfeitos os critérios mínimos de cobertura e confiança.
 
 Um score baixo pode ser `CONSOLIDATED`: isso significa que a baixa qualidade foi medida com força suficiente.
 

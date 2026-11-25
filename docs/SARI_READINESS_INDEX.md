@@ -20,6 +20,58 @@ A leitura pública do SARI **não deve ser reduzida ao número 0-100**. O result
 2. **força/completude da medição**: Coverage, Confidence e Consolidation;
 3. **readiness operacional crítica**: Critical Readiness Gates e estado `READY`, `ATTENTION`, `BLOCKED` ou `UNKNOWN`.
 
+## Como interpretar as metodologias do RASAi
+
+O RASAi reúne avaliações de naturezas diferentes. Não transforme cada indicador em uma nota do índice de prontidão: a composição e os limites de cada medida são definidos pelo seu próprio contrato.
+
+| Avaliação | O que mede | Origem do método | O que não demonstra |
+| --- | --- | --- | --- |
+| Índice de prontidão | Qualidade ponderada das evidências aplicáveis e efetivamente avaliadas, com cobertura, confiança e critérios críticos separados | Método próprio do RASAi | Probabilidade de ranqueamento ou citação por IA |
+| Descoberta e indexabilidade | Acesso, diretivas, relações de URL e sinais verificáveis de descoberta | Protocolos Web, orientações dos buscadores e regras próprias | Indexação efetiva apenas pela existência de sitemap ou canonical |
+| Conteúdo, semântica e dados estruturados | Evidências de organização, entidades, utilidade, consistência e capacidade de responder | Regras próprias, vocabulários e práticas de busca | Aprovação por um buscador ou inclusão garantida em respostas |
+| Desempenho Web | Métricas e avaliações de laboratório e de campo, quando disponíveis | Lighthouse e CrUX/PageSpeed; Core Web Vitals | Experiência de todos os usuários ou causa isolada de ranking |
+| Acessibilidade | Sinais automatizados de acessibilidade | Referências W3C/WCAG e avaliações disponíveis | Certificação integral de conformidade WCAG |
+| Apdex de navegação | Classificação de amostras sintéticas de navegação em relação ao limite de tempo escolhido | Fórmula Apdex; aquisição e configuração próprias | Medição de usuários reais |
+| Apdex de experiência | Ações sintéticas, tempos e erros qualificáveis segundo a calibração | Fórmula Apdex e referências Dynatrace; implementação sintética própria | Equivalência integral ao RUM Dynatrace |
+| Apdex populacional | Agregação por estratos de teste e pesos declarados | Método sintético ponderado do RASAi | Representatividade real sem evidência da origem dos pesos |
+| Inteligência de busca e IA | Resultados e fontes efetivamente observados por consulta, contexto e serviço | Observação externa e análise própria | Visibilidade universal, causalidade ou equivalência entre universos de SERP e Perplexity |
+| Segurança passiva e rede | Sinais técnicos observáveis, configurações, conectividade e limitações | Referências técnicas e avaliação própria | Pentest, certificação de segurança ou identificação física garantida da origem |
+| Análise profunda e remediações | Interpretação e propostas de ação vinculadas à evidência | Regras e instruções próprias; IA consultiva quando aplicável | Evidência nova criada pela recomendação ou garantia de melhoria |
+
+A documentação de cada avaliação contém as regras detalhadas: [método de pontuação](SCORE_GEO.md), [Apdex de navegação](SYNTHETIC_APDEX.md), [Apdex de experiência](SYNTHETIC_USER_EXPERIENCE_APDEX.md), [Apdex populacional](SYNTHETIC_POPULATION_APDEX.md), [inteligência de busca](SERP_OBSERVATION.md), [Perplexity](PERPLEXITY_SEARCH_INTELLIGENCE.md) e [segurança passiva](PASSIVE_SECURITY_CATALOG.md).
+
+### Fontes externas e tipo de referência
+
+| Fonte pública | Tipo | Como usar na interpretação |
+| --- | --- | --- |
+| [RFC 9309 — protocolo de exclusão de robôs](https://www.rfc-editor.org/rfc/rfc9309.html) | Especificação técnica IETF | Diretivas de rastreamento não são autorização ou controle de acesso. |
+| [Google — perguntas sobre rastreamento e indexação](https://developers.google.com/search/help/crawling-index-faq) | Orientação do mantenedor de busca | Sitemap não garante indexação ou posição. Ausência opcional precisa ser distinguida de conflito ou bloqueio real. |
+| [Google — políticas de dados estruturados](https://developers.google.com/search/docs/appearance/structured-data/sd-policies) | Política do mantenedor de busca | Marcação válida não garante resultado enriquecido. |
+| [Google — recursos de IA e seu site](https://developers.google.com/search/docs/appearance/ai-features?hl=pt-br) | Orientação do mantenedor de busca | As práticas fundamentais de SEO permanecem relevantes; o índice do RASAi não é requisito oficial do Google. |
+| [W3C — WCAG 2.2](https://www.w3.org/TR/WCAG22/) e [entendimento da conformidade](https://www.w3.org/WAI/WCAG22/Understanding/conformance) | Recomendação técnica e guia interpretativo | A conformidade requer avaliação humana além das verificações automatizadas. |
+| [Google — PageSpeed Insights](https://developers.google.com/speed/docs/insights/v5/about) e [Web Vitals](https://web.dev/articles/vitals) | Metodologias e documentação do fornecedor | Separar laboratório e campo. Core Web Vitals usa LCP, INP e CLS; os limiares de campo são avaliados no percentil 75. |
+| [Apdex Alliance — especificação técnica](https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf) | Especificação de mercado | Fundamenta a fórmula de classificação de satisfação; o RASAi define a aquisição sintética e seus parâmetros. |
+| [Dynatrace — configuração Apdex para ações de carregamento](https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions) | Contrato de configuração do fornecedor | Referência para limiares e métrica de ação; não transfere automaticamente a semântica proprietária do RUM para o laboratório. |
+
+As fontes externas fundamentam conceitos e critérios específicos. Os pesos, fatores, regras de aplicabilidade, agregação e critérios de prontidão do índice são decisões metodológicas versionadas do RASAi, não pesos divulgados por esses mantenedores.
+
+### Da evidência ao resultado
+
+```mermaid
+flowchart TD
+    A[Coleta e contexto observados] --> B[Evidências persistidas]
+    B --> C[Regras e aplicabilidade]
+    C --> D[Grupos e dimensões ponderados]
+    D --> E[Qualidade medida]
+    D --> F[Cobertura e confiança]
+    C --> G[Critérios críticos de prontidão]
+    E --> H[Interpretação conjunta]
+    F --> H
+    G --> H
+    B --> I[Métricas externas e análises consultivas separadas]
+    I --> H
+```
+
 ## 2. Método vigente
 
 O índice usa o **Método de Pontuação de Prontidão**, versão pública **001**. O contrato técnico vigente para novas auditorias é:

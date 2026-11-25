@@ -307,6 +307,8 @@ Apenas a página atual recebe o estado ativo.
 
 ## Segurança e integridade
 
+A [declaração de segurança da informação](SECRET_AND_CONFIGURATION_SAFETY.md#quais-dados-são-tratados-e-onde-ficam) distingue dados coletados, persistidos, transmitidos e proibidos por contrato. O catálogo técnico e o banco não são pacotes públicos; consulte [exportação para revisão de privacidade](PUBLIC_REPORT_EXPORT.md).
+
 - segredos não devem aparecer em SQLite, artifacts, HTML, INI ou logs;
 - custo estimado não é fatura;
 - aquisição entre origens exige política explícita e segura;
@@ -315,7 +317,7 @@ Apenas a página atual recebe o estado ativo.
 - Improvement Intelligence usa somente postura de segurança passiva, sem exploração/pentest ativo;
 - gerar páginas neutras não dispara collectors, APIs, providers ou IA;
 - apagar bancos auxiliares ou projeções derivadas não remove a evidência original do AUD;
-- operações pós-auditoria não devem alterar o hash do `audit.db` de origem.
+- a rematerialização em cópia externa preserva o `audit.db` de origem; reprocessamento e outros complementos mutáveis têm contratos próprios de persistência e não são equivalentes a uma operação somente de leitura.
 
 Detalhes: [CATALOG_AND_REPORT_SURFACES.md](CATALOG_AND_REPORT_SURFACES.md), [REPORT_GUIDE.md](REPORT_GUIDE.md), [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md), [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md) e [SCORE_GEO.md](SCORE_GEO.md).
 

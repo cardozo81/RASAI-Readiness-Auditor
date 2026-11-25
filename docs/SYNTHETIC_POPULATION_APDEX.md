@@ -101,10 +101,10 @@ FRUSTRATED -> 0.0
 
 ```text
 Apdex_h = (Satisfied_h + 0.5 × Tolerating_h) / N_h
-Apdex_population = Σ(weight_h × Apdex_h)
+Apdex_population = Σ(weight_h × Apdex_h) / Σ(weight_h observado)
 ```
 
-Quando algum estrato não possui amostra válida, o estado é `PARTIAL`, o percentual de peso observado é registrado e o indicador é normalizado somente pelo peso efetivamente observado. Cobertura parcial nunca é apresentada como 100% da população.
+O somatório inclui somente estratos com amostras válidas. O estado é completo quando todos alcançam as respectivas metas; parcial quando há amostras válidas, mas ao menos uma meta não foi alcançada; indisponível quando não há amostras válidas. O percentual de peso observado é registrado. Se nenhum estrato tiver amostra válida, não há indicador numérico. Exemplo: estrato A com peso 60% e Apdex 0,90; estrato B com peso 40% sem amostras válidas. O resultado observado é 0,90, com somente 60% de peso observado, e não 0,54 nem uma conclusão sobre toda a população.
 
 Também são persistidos S/T/F, shares ponderadas, mediana, P75/P90/P95 e um IC95 amostral aproximado do Apdex.
 

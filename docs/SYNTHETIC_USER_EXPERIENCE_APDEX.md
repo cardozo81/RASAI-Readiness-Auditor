@@ -7,7 +7,7 @@ Synthetic User Experience Apdex adiciona ao RASAi uma medição sintética calib
 | Domínio | Natureza | Task / população | Thresholds |
 |---|---|---|---|
 | Synthetic Navigation Apdex | laboratório sintético controlado | `NAVIGATION_LOAD`, por URL/dispositivo | `T` e `4T` conforme Apdex |
-| Synthetic User Experience Apdex | laboratório sintético enriquecido/calibrável | `SYNTHETIC_LOAD_ACTION`, mix explícito de dispositivos | limites Satisfied/Frustrated independentes, com baseline compatível com referências Dynatrace ou importação |
+| Synthetic User Experience Apdex | laboratório sintético enriquecido e calibrável | `SYNTHETIC_LOAD_ACTION`, dispositivo único da auditoria | limites Satisfied/Frustrated independentes, com baseline compatível com referências Dynatrace ou importação |
 | Dynatrace RUM | usuários reais | Load/XHR/Custom actions observadas no período | configuração efetiva da aplicação/ação |
 
 Synthetic User Experience Apdex **não é RUM**. O objetivo é reduzir diferenças metodológicas controláveis - KPM, thresholds, política de erros, sessão e mix de dispositivos - sem manipular o score para coincidir com Dynatrace.
@@ -50,7 +50,7 @@ limiar Satisfied <= valor <= limiar Frustrated  -> TOLERATING
 valor > limiar Frustrated                        -> FRUSTRATED
 ```
 
-Um erro qualificável pode forçar `FRUSTRATED` independentemente da duração quando a política de erros efetiva estiver habilitada. Synthetic Navigation Apdex permanece separado e continua usando `T/4T`.
+Um erro qualificável pode forçar `FRUSTRATED` independentemente da duração quando a política de erros efetiva estiver habilitada. O Apdex de navegação permanece separado e continua usando `T/4T`. A igualdade com o limiar inferior tem tratamento diferente: com 3 segundos, a navegação classifica uma amostra de exatamente 3 segundos como satisfeita, enquanto a experiência a classifica como tolerável (se não houver erro qualificável).
 
 ## 3. Fronteira temporal de USER_ACTION_DURATION
 
