@@ -168,9 +168,7 @@ Falha ao gravar esse log é tratada como falha de observabilidade e não muda o 
 
 ## Credenciais e placeholder `**********`
 
-Secrets nunca são gravados com seu valor real.
-
-Quando uma credencial é aplicável, o modelo mostra explicitamente a variável, mas a linha fica comentada. O log **nunca carrega valores sensíveis**; a credencial real é herdada do processo do Agendador/terminal.
+O gerador de comandos é projetado para não registrar valores de credenciais reconhecidas. Quando uma credencial é aplicável, o modelo mostra seu nome em uma linha comentada. O valor real é herdado do processo do Agendador/terminal. O controle não classifica todo dado confidencial que possa estar em URLs, argumentos ou texto livre; trate logs e comandos como potencialmente sensíveis.
 
 Windows cmd.exe:
 
@@ -193,7 +191,7 @@ Linux e macOS:
 # export RASAI_SERPAPI_API_KEY='**********'
 ```
 
-O texto `**********` significa **substituir manualmente por um secret somente se o operador quiser fazer override daquela execução**.
+O texto `**********` representa uma credencial omitida, não um valor executável. Prefira manter a linha comentada e fornecer a credencial por meio seguro, sem substituir o marcador por um valor literal em comando ou script.
 
 Nunca execute uma linha ativa contendo literalmente `**********`.
 
@@ -207,32 +205,9 @@ No Windows, a entrada pública `rasai` ativa explicitamente secrets conhecidos p
 
 ### Usar outra credencial somente naquela execução
 
-Windows cmd.exe:
+Use um terminal ou processo dedicado com a credencial fornecida por mecanismo seguro do ambiente. No console local, o editor mascarado de credenciais permite configurar apenas a sessão; não selecione persistência em Windows/User se a intenção for temporária. Para uma CLI externa ou tarefa agendada, use a injeção de segredo apropriada à conta que executará o processo, conforme [credenciais externas](EXTERNAL_CREDENTIALS.md).
 
-```cmd
-set "OPENAI_API_KEY=sk-chave-especifica"
-```
-
-Windows PowerShell:
-
-```powershell
-$env:OPENAI_API_KEY = 'chave-especifica'
-```
-
-Linux/macOS:
-
-```sh
-export OPENAI_API_KEY='chave-especifica'
-```
-
-Esse valor passa a valer para o processo e seus processos filhos. Ele **não modifica** a variável persistida no SO.
-
-Assim é possível, por exemplo:
-
-- manter a credencial padrão da OpenAI no SO;
-- executar uma tarefa pontual com outra credencial;
-- terminar o processo;
-- continuar com a credencial persistida original intacta.
+O override de processo prevalece sobre o valor persistido quando já está definido. Ele pode ser herdado pelos filhos e não modifica por si só a variável persistida no SO. Encerre o processo dedicado após o uso. Não grave a chave em histórico de shell, linha de comando, arquivo `.cmd`/`.ps1`, definição da tarefa ou log. O ambiente de processo não é cofre criptográfico; restrinja acesso à conta e ao processo.
 
 ### Clipboard
 
@@ -240,7 +215,7 @@ Assim é possível, por exemplo:
 
 Portanto, por padrão, o comando copiado usa as credenciais fornecidas pelo ambiente do SO/processo.
 
-Para usar um override secreto, o operador deve editar conscientemente o modelo exibido e inserir a credencial no ambiente da execução.
+Para usar um override, forneça a credencial ao ambiente da execução por meio seguro, sem editar o comando copiado para conter o valor.
 
 ## Variáveis não sensíveis
 
@@ -315,7 +290,7 @@ Argumentos:
 
 A expressão de agenda, conta de execução, política de repetição e tratamento de falhas pertencem ao Agendador e não fazem parte do comando RASAi.
 
-Se o usuário optar por colocar uma key diretamente na ação ou em arquivo `.cmd`, essa key deixa de estar protegida pelo mecanismo normal de secrets do SO e passa a existir em texto no artefato criado pelo usuário. Use apenas quando houver necessidade operacional explícita.
+Não coloque chaves diretamente na ação ou em arquivo `.cmd`: isso cria uma cópia em texto da credencial. Configure o mecanismo seguro de segredos da conta de execução; valide a presença da credencial sem imprimir seu valor.
 
 ### Agendamento nativo PowerShell 5.1/7
 

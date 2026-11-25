@@ -11,6 +11,8 @@ O consolidado não executa nova auditoria, não refaz crawl, não recalcula regr
 
 O nome humano da superfície é **Relatório Consolidado Longitudinal**. O identificador técnico permanece disponível em manifestos e rastreabilidade.
 
+**Limite da inteligência GEO:** o CONS-5 não calcula tendência calibrada de presença em fontes externas de GEO nem incorpora o companheiro consultivo restrito a CONS-3. Para inspeção independente de observações GEO persistidas, consulte o [inventário GEO longitudinal](GEO_LONGITUDINAL.md). Não confunda comparação de métricas técnicas entre AUDs com equivalência de populações externas ou causalidade.
+
 Contratos associados:
 
 ```text

@@ -1,5 +1,7 @@
 # #311 - CONS-3 integration preflight for GEO longitudinal
 
+> **Registro histórico:** avaliação de 09/10/2026, não descreve o formato consolidado vigente. Na versão 1.0.0, o Relatório Consolidado Longitudinal vigente utiliza `CONS-5`. Os comandos `geo-cons-review` e `geo-cons-package` aceitam somente manifestos `CONS-3`; não são compatíveis com `CONS-5`. Preserve o contrato original e use `rasai geo-longitudinal` com AUDs explicitamente selecionadas para a consulta independente. A integração nativa e a tendência calibrada foram retiradas do backlog ativo em 25/11/2026 ([decisão da issue #311](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/311)); não constituem entrega prevista nem garantia metodológica.
+
 ## Evidence inspected (main 30af79d1, 2026-10-09)
 
 - `src/rasai/consolidation/reporting.py` declares `REPORT_FORMAT_VERSION = "CONS-3"`.

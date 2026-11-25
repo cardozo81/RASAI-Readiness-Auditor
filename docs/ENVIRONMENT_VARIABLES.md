@@ -425,7 +425,7 @@ DYNATRACE_API_TOKEN
 
 ## 16. Telemetria e segurança de IA
 
-`ai_exchange_log` pode conter conteúdo/evidências da página efetivamente enviados ao provider. O workspace deve ser tratado como artefato potencialmente sensível. O recorder remove credenciais, headers de autenticação, parâmetros de segredo e campos reconhecidos como raciocínio privado antes da persistência.
+`ai_exchange_log` pode conter conteúdo/evidências da página efetivamente enviados ao provider. O workspace deve ser tratado como artefato potencialmente sensível. O registrador não deve persistir cabeçalhos de autenticação e aplica mascaramento aos campos e parâmetros reconhecidos como credenciais ou raciocínio privado. Isso não garante ausência de todo segredo ou dado opaco. Consulte [segurança e retenção da telemetria](AI_RUNTIME_SECURITY.md).
 
 Interpretação transitória de campos `auto` não deve ser promovida a evidência persistida nem a fato sobre credenciais, reputação, experiência pessoal, revisão profissional ou conformidade.
 
@@ -443,7 +443,7 @@ Quando não existir default tecnicamente seguro, documentar **sem default** em v
 
 ## Perplexity Search - ativação independente
 
-`RASAI_PERPLEXITY_ENABLED` é uma configuração booleana não secreta, com **default `true`**. Ela habilita a integração, mas não inicia nenhuma busca sem queries explicitamente solicitadas na AUD e a credencial `PERPLEXITY_API_KEY`. `false` interrompe novas chamadas externas e preserva a chave e as consultas configuradas. Ausência mantém o comportamento anteriormente homologado, enquanto valores inválidos não autorizam chamadas. A preferência `false` em `rasai-console.ini` ou no ambiente prevalece sobre o padrão `true` e sobrevive à reabertura. Restaurar padrões globais define `true` novamente, sem apagar a chave quando a opção de preservar credenciais é selecionada. CAT-05, menus 5 (Integrações) e 6 (Todas as configurações) apresentam o mesmo controle canônico. O diagnóstico local não executa buscas comerciais, e GEO não comprova citações de respostas gerativas.
+`RASAI_PERPLEXITY_ENABLED` é uma configuração booleana não secreta, com **default `true`**. Ela habilita a integração, mas não inicia nenhuma busca sem queries explicitamente solicitadas na AUD e a credencial `PERPLEXITY_API_KEY`. `false` interrompe novas chamadas externas e preserva a chave e as consultas configuradas. Ausência mantém o comportamento anteriormente homologado, enquanto valores inválidos não autorizam chamadas. O valor `false` explícito impede chamadas e prevalece sobre o padrão `true`. Quando salvo no INI pela superfície suportada do console, o valor é carregado novamente na abertura; um valor definido apenas no processo dura enquanto esse ambiente existir. Confira a configuração efetiva antes de executar. Rascunhos salvos de consultas e modo WEB/FAST não são autorização de execução comercial. Restaurar padrões globais define `true` novamente, sem apagar a chave quando a opção de preservar credenciais é selecionada. CAT-05, menus 5 (Integrações) e 6 (Todas as configurações) apresentam o mesmo controle canônico. O diagnóstico local não executa buscas comerciais, e GEO não comprova citações de respostas gerativas.
 
 ### Perplexity Search API - parâmetros do payload (issue #317)
 

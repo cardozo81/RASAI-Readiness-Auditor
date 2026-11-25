@@ -328,9 +328,9 @@ Qualquer defeito funcional posterior em main deve virar bug específico.
 
 A nova superfície transversal `geo.html` é advisory e parte do `report-catalog` da AUD individual. Lê apenas evidências persistidas; não substitui CAT-05, não altera índice e não comprova answer inclusion ou citation inclusion em respostas generativas. Comparações de URLs entre SERP e Perplexity somente têm semântica direta quando a Search API recebeu **uma única consulta** e existe observação SERP live válida equivalente. Requests multi-query não oferecem, no contrato atual, vínculo individual fonte→query: apresentar indisponibilidade da comparação em vez de inventar pareamento.
 
-Apenas evidências rastreáveis podem fundamentar recomendações; snippets de concorrentes não comprovam conteúdo integral. A interpretação deve separar explicitamente observação, hipótese e ação de boas práticas. Evolução longitudinal para CONS-* fica no gap #311 e fora da presente implementação.
+Apenas evidências rastreáveis podem fundamentar recomendações; snippets de concorrentes não comprovam conteúdo integral. A interpretação deve separar explicitamente observação, hipótese e ação de boas práticas. A consulta longitudinal independente permanece disponível em [inventário GEO longitudinal](GEO_LONGITUDINAL.md). Na versão 1.0.0, o Relatório Consolidado Longitudinal vigente utiliza `CONS-5`. Os comandos `geo-cons-review` e `geo-cons-package` aceitam somente manifestos `CONS-3`; não são compatíveis com `CONS-5`. Preserve o contrato original e use `rasai geo-longitudinal` com AUDs explicitamente selecionadas para a consulta independente. A integração nativa e a tendência calibrada foram retiradas do backlog ativo em 25/11/2026 ([decisão da issue #311](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/311)); não constituem entrega prevista nem garantia metodológica.
 
-**Estado:** documento descreve projeto incremental; a implementação não deve ser considerada homologada até CI, testes de persistência/RPR, integridade e fechamento das issues-filhas #302-#310.
+**Estado desta etapa histórica:** as issues #301 e #302 a #310 foram encerradas como `completed`. Isso registra a conclusão das entregas daquele escopo, não comprova equivalência de populações externas nem tendência GEO calibrada. Os limites atuais permanecem descritos neste guia.
 
 
 ### Snapshot GEO derivado e reuso
