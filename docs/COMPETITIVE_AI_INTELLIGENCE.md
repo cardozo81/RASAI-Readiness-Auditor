@@ -23,7 +23,7 @@ query
 -> oportunidades e hipóteses de melhoria
 ```
 
-A camada não altera `SARI-001`, `SCORE-GEO-004` ou qualquer tabela de scoring.
+A camada é consultiva: não altera o Índice de Prontidão Search & IA (`SARI-001`), o método vigente (`SCORE-GEO-005`) ou tabelas de pontuação. O contrato `SCORE-GEO-004` permanece no histórico.
 
 ## 2. Contrato de análise
 
@@ -127,7 +127,7 @@ A feature não redefine thresholds, número de tentativas, classificação de er
 
 `fixture` existe somente para testes/CI e não participa do cadastro de providers de produção.
 
-Credenciais, modelos, reasoning, endpoints e elegibilidade AUTO são os definidos no provider registry e na configuração principal. Segredos nunca são incluídos no payload de evidências nem persistidos.
+Credenciais, modelos, reasoning, endpoints e elegibilidade AUTO são os definidos no provider registry e na configuração principal. O contrato exclui credenciais reconhecidas do corpo de evidências e do registro persistido; a credencial de IA é usada no transporte autenticado, não como evidência.
 
 ## 8. CLI
 
@@ -205,7 +205,9 @@ Não são enviados por esta camada:
 - cookies;
 - headers da coleta;
 - API key SERP;
-- credenciais do provider de IA.
+- credenciais do fornecedor de IA como parte do corpo de evidências.
+
+Essas exclusões delimitam o corpo de análise; o transporte autenticado pode utilizar a credencial do fornecedor. Características extraídas, textos, URLs e consultas podem conter dados sensíveis mesmo sem HTML bruto. A minimização e o mascaramento não comprovam anonimização; avalie os dados enviados e proteja os registros locais conforme a [matriz de segurança](SECRET_AND_CONFIGURATION_SAFETY.md).
 
 ## 11. Falhas
 
@@ -242,7 +244,7 @@ Os testes devem cobrir:
 - não há comparação semântica histórica entre duas execuções nesta camada;
 - não há grafo de equivalência de entidade/empresa;
 - não há conteúdo competitivo renderizado por browser;
-- `report-catalog/cat-05.html` projeta evidência persistida e não executa IA durante a renderização;
+- `report-catalog/cat-05.html` destina-se à investigação técnica da evidência competitiva; `report-presentation/search-geo.html` à interpretação executiva do contexto competitivo e `report-presentation/ia-custos.html` à proveniência e aos custos registrados. Os pacotes são independentes e não executam IA durante a renderização; a correspondência temática não exige réplica de todas as tabelas (veja o [guia de relatórios](REPORT_GUIDE.md));
 - `SEARCH-HISTORY-001` compara evidência determinística e não transforma recomendações de IA em score temporal;
 - a IA recebe features determinísticas, não o corpo integral da página;
 - não existe garantia de ganho de ranking a partir das recomendações.

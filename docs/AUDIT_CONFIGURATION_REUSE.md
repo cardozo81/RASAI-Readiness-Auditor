@@ -252,7 +252,7 @@ A validação segue a matriz operacional do produto:
 O recurso não altera:
 
 - SARI-001;
-- SCORE-GEO-004;
+- o Método de Pontuação de Prontidão (`SCORE-GEO-005` em novas AUDs; `SCORE-GEO-004` preservado em auditorias históricas);
 - pesos ou gates de readiness;
 - política de quarentena/circuit breaker de providers;
 - política de roteamento de IA;

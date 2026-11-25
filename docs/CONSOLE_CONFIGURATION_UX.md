@@ -326,5 +326,4 @@ exclusivas serão restauradas e quantas configurações compartilhadas serão pr
 
 A operação remove somente overrides exclusivos não secretos do catálogo, preserva outros
 CAT-*, secrets e `Windows/Machine`, reaplica a baseline empacotada e salva pelo writer
-canônico. Parâmetros compartilhados entre CAT-06 e CAT-07 - incluindo os nove perfis
-físicos sintéticos - permanecem intactos.
+canônico. Parâmetros compartilhados entre os catálogos de navegação e experiência (CAT-06 e CAT-07) permanecem intactos. Há seis seletores públicos de condições sintéticas (cliente, hardware e rede para Mobile e Desktop); os três seletores Tablet existentes no catálogo interno não constituem opções públicas para novas AUDs. São condições de laboratório, não dispositivos físicos equivalentes. Veja [perfis sintéticos](SYNTHETIC_RUNTIME_PROFILES.md).

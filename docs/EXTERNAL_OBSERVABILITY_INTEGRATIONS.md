@@ -2,17 +2,17 @@
 
 ## Objetivo
 
-Este documento define as integrações externas do RASAi para ampliar análise histórica, experiência real e evidência pública sem transformar outcomes externos em substitutos da metodologia de `SARI-001` / `SCORE-GEO-004`.
+Este documento define as integrações externas do RASAi para ampliar análise histórica, experiência real e evidência pública sem transformar outcomes externos em substitutos da metodologia de `SARI-001` / `SCORE-GEO-005` vigente para novas auditorias. O contrato `SCORE-GEO-004` permanece preservado no histórico.
 
 Princípios obrigatórios:
 
 - `audit.db` continua sendo a evidência imutável do audit;
 - datasets externos permanecem em `artifacts/observability/observability.db` e demais artifacts de `artifacts/observability/`;
 - falha, quota, indisponibilidade ou ausência de dados externos não transforma o website em falha e não deve invalidar uma auditoria já concluída;
-- integrações observacionais não entram automaticamente em `SARI-001`, `SCORE-GEO-004` ou Apdex;
+- integrações observacionais não entram automaticamente no índice de prontidão, em seu método de pontuação ou no Apdex;
 - a única exceção vigente é `BR-GEO-060`, uma corroboração positiva, bounded e de peso mínimo baseada em Common Crawl;
 - escopo `ORIGIN`, `URL` e `DEVICE/FORM_FACTOR` permanece explícito; não existe média implícita entre granularidades diferentes;
-- segredos não são persistidos em `rasai-console.ini`, `rasai-defaults.ini`, `AuditJob`, HTML ou artifacts sanitizados;
+- o contrato exclui credenciais reconhecidas do INI, `AuditJob`, HTML e artefatos sanitizados; isso não garante ausência de informação sensível em campos textuais ou evidências (veja a [matriz de segurança](SECRET_AND_CONFIGURATION_SAFETY.md));
 - serviços gratuitos sem credencial podem ser ligados por default somente quando a operação é read-only, bounded e protegida contra alvos privados/sensíveis;
 - serviços com token/key permanecem condicionados à credencial e, quando a quota for particularmente restrita, exigem opt-in explícito.
 
@@ -22,7 +22,7 @@ Princípios obrigatórios:
 |---|---|---|---|---|---|---|---|---|
 | CrUX History API | integrada | sem cobrança; quota Google | `RASAI_CRUX_API_KEY` | auto quando a key existe | `ORIGIN` | `ALL`, `PHONE`, `DESKTOP`, `TABLET` conforme dispositivos auditados | observacional; não pontua | `report-catalog/cat-04.html`, `report-catalog/metrics.html` |
 | Microsoft Clarity Data Export | integrada | gratuito | `RASAI_CLARITY_API_TOKEN` | **off**; opt-in | `ORIGIN`/`URL` | `Device` quando solicitado | observacional; não pontua | `report-catalog/cat-07.html`, `report-catalog/cat-05.html`, `report-catalog/metrics.html` |
-| Common Crawl CDX History | integrada | gratuito, sem key/token | nenhuma | **on** | `URL` | não possui dimensão de device | `BR-GEO-060` positive-only, máximo 0,45 ponto Overall | `report-catalog/cat-01.html`, `report-catalog/cat-05.html`, `report-catalog/sari.html`, `report-catalog/methodology.html` |
+| Common Crawl CDX History | integrada | gratuito, sem key/token | nenhuma | **on** | `URL` | não possui dimensão de device | `BR-GEO-060` somente positivo, contribuição nominal de 0,45 ponto com pesos integralmente medidos | `report-catalog/cat-01.html`, `report-catalog/cat-05.html`, `report-catalog/sari.html`, `report-catalog/methodology.html` |
 | Bing Webmaster Tools live | **não ativa no contrato atual** | gratuito | autenticado | n/a | Search owner data | depende do contrato oficial atual | não pontua | importação disponível |
 | IndexNow submission | fora do contrato atual | gratuito | ownership key | off | `URL` | não aplicável | não pontua | n/a |
 
@@ -141,7 +141,7 @@ Common Crawl não tem dimensão de device. O relatório não replica o mesmo dad
 
 ### Relação com SARI: BR-GEO-060
 
-A coleta Common Crawl ocorre antes do cálculo final de `SCORE-GEO-004` para permitir que uma observação positiva qualificada seja persistida como Evidence e RuleExecution normais do scoring.
+A coleta Common Crawl ocorre antes do cálculo final do método vigente (`SCORE-GEO-005`) para permitir que uma observação positiva qualificada seja persistida como Evidence e RuleExecution normais do scoring.
 
 Contrato:
 
@@ -150,11 +150,11 @@ BR-GEO-060
 Dimension = DISCOVERY_ACCESS
 Group = EXTERNAL_CRAWL_CORROBORATION
 Group Weight = 3% de DISCOVERY_ACCESS
-Maximum Overall Impact = 0,45 ponto
+Contribuição nominal no Overall = 0,45 ponto (pesos integralmente medidos)
 Critical Gate = não
 ```
 
-A regra é **positive-only**. Ela só é criada quando:
+A contribuição nominal não é teto aritmético universal: a normalização dos pesos efetivamente medidos pode alterar a participação em universos parciais. A regra é **somente positiva**. Ela só é criada quando:
 
 - a URL é segura para consulta pública;
 - existe observação positiva nos índices recentes;
@@ -178,7 +178,7 @@ Mesmo habilitado por default, o RASAi não consulta automaticamente Common Crawl
 - fragment;
 - protocolo diferente de HTTP/HTTPS.
 
-Isso evita publicar inadvertidamente alvos internos ou parâmetros sensíveis em uma consulta a índice público.
+Essas restrições reduzem o risco de transmitir alvos internos ou parâmetros sensíveis a um índice público. Não substituem a autorização do alvo nem a análise de confidencialidade do caminho da URL.
 
 Referências oficiais:
 
@@ -272,31 +272,39 @@ Isso é intencional:
 - CrUX History é credential-driven, independente da seleção de perfil;
 - nenhuma integração muda termos SERP, IA, carga sintética ou análise profunda.
 
-## Relatórios
+## Relatórios individuais: catálogo técnico e apresentação executiva
 
-### `cat-04.html`
+### Catálogo técnico (`report-catalog/`)
+
+As páginas a seguir pertencem ao pacote de investigação analítica, que projeta evidências persistidas.
+
+#### `cat-04.html`
 
 Recebe resumo CrUX History por `target`, `scope`, `form factor`, métrica e período. Não mistura o histórico com Lighthouse lab ou Apdex.
 
-### `cat-07.html`
+#### `cat-07.html`
 
 Recebe painel **Observed Behavioral UX** do Clarity. O relatório declara que os agregados comportamentais complementam, mas não recalculam, o Apdex sintético.
 
-### `cat-01.html`
+#### `cat-01.html`
 
 Recebe histórico Common Crawl por URL: quantidade de capturas/collections e primeira/última captura observada.
 
-### `report-catalog/cat-05.html` e `report-catalog/metrics.html`
+#### `report-catalog/cat-05.html` e `report-catalog/metrics.html`
 
 Concentram a leitura de observabilidade aplicável à AUD, com datasets externos, métricas e proveniência persistida.
 
-### `sari.html` e `methodology.html`
+#### `sari.html` e `methodology.html`
 
-Exibem explicitamente o estado de `BR-GEO-060`, peso de 3% dentro de Discovery, impacto máximo de 0,45 ponto e a regra de que ausência/erro não penalizam o score.
+Exibem explicitamente o estado de `BR-GEO-060`, peso de 3% dentro de Discovery, contribuição nominal de 0,45 ponto com pesos integralmente medidos e a regra de que ausência/erro não penalizam o score.
 
-### `report-catalog/cat-01.html`
+#### `report-catalog/cat-01.html`
 
 Exibe o estado operacional dos serviços de padrões Web aplicáveis por meio de `standards_service_runs`.
+
+### Apresentação executiva (`report-presentation/`)
+
+Para interpretação gerencial, consulte `performance.html` (campo e experiência), `descoberta.html` (sinais de descoberta e padrões), `search-geo.html` (observações de busca e fontes) e `indices.html` (índices e limites da medição). São especializações temáticas, não garantias de réplica de cada dataset técnico. O pacote executivo consome dados persistidos independentemente do HTML técnico; nenhuma renderização exige nova coleta. Consulte o [guia dos dois relatórios](REPORT_GUIDE.md). Comparações longitudinais elegíveis possuem [contrato próprio](CONSOLIDATED_REPORTING.md).
 
 ## Falhas externas
 

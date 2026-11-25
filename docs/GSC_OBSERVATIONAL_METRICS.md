@@ -4,7 +4,7 @@
 
 Esta camada transforma somente dados do Google Search Console já persistidos em `observability.db` em métricas advisory do RASAi.
 
-Ela não cria chamadas adicionais ao Google, não grava credenciais e não altera `SARI-001` ou `SCORE-GEO-004`.
+Ela não cria chamadas adicionais ao Google, não grava credenciais e não altera o índice de prontidão (`SARI-001`) nem seu método vigente (`SCORE-GEO-005`); auditorias históricas preservam `SCORE-GEO-004`.
 
 Relação com RASAi: **5/5**, porque os dados descrevem diretamente o estado conhecido pelo Google para URLs inspecionadas, Sitemaps da property autenticada e performance observada na busca.
 
@@ -270,13 +270,15 @@ audit.db -> standards_metric_observations
 
 O `audit.db` não recebe token OAuth nem resposta bruta do Google nessa projeção.
 
-## Relatórios
+## Relatórios individuais
 
-As métricas aparecem no `report-catalog/`:
+Para investigação técnica, as métricas são projetadas no `report-catalog/`:
 
 - `cat-05.html`, como leitura de Search & AI Intelligence e Search Console;
 - `metrics.html`, como inventário transversal de métricas;
 - `capture-context.html`, quando o escopo da property/URL for necessário para interpretação.
+
+Para interpretação executiva, `report-presentation/search-geo.html` reúne o contexto de busca observado e fontes aplicáveis. A apresentação consome as evidências persistidas diretamente, sem depender do HTML técnico; não presume réplica de todas as métricas ou linhas. Consulte o [guia de relatórios](REPORT_GUIDE.md).
 
 ## Referências oficiais
 

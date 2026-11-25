@@ -117,7 +117,7 @@ O hash valida o snapshot, não substitui integridade de artifacts/evidências/ba
 
 ## Segurança de credenciais
 
-Credenciais nunca entram no snapshot ou HTML. Isso inclui API keys, access/refresh tokens, client secrets, senhas, authorization headers e equivalentes.
+O contrato exclui valores de credenciais reconhecidas do snapshot e de sua projeção HTML: chaves de API, tokens de acesso/renovação, segredos de cliente, senhas, cabeçalhos de autorização e equivalentes. Isso não constitui prova de anonimização integral: alvos, parâmetros textuais, evidências e artefatos podem conter informação sensível não reconhecida pelos filtros. Proteja ambos os pacotes HTML e a fonte persistida; consulte a [matriz de segurança](SECRET_AND_CONFIGURATION_SAFETY.md).
 
 Quando uma integração registra configuração ausente, o relatório pode mostrar somente o nome da configuração esperada, por exemplo:
 
@@ -176,7 +176,7 @@ Erro de API, quota, autenticação, provider ou timeout não cria finding do web
 
 ## Consistência entre páginas
 
-A semântica solicitado/não solicitado deve ser equivalente entre `index.html`, páginas especializadas, `execution-evidence.html`, `report-catalog/`, banners de fulfillment e modal de transparência.
+No catálogo técnico (`report-catalog/`), a semântica solicitado/não solicitado deve ser equivalente entre `index.html`, páginas especializadas, `execution-evidence.html`, banners de atendimento dos requisitos e modal de transparência. A apresentação executiva (`report-presentation/`) sintetiza a situação operacional em `index.html`, a captura em `extracao.html` e integrações/consumo em `ia-custos.html`. Ela lê as evidências persistidas de forma independente, sem depender do HTML técnico nem exigir réplica de cada campo. Veja o [guia de relatórios](REPORT_GUIDE.md).
 
 A existência de uma página canônica não prova que sua capacidade foi executada.
 
@@ -198,6 +198,6 @@ A página:
 - não grava configuração do operador;
 - não substitui `audit.db` como fonte de verdade.
 
-## Desenvolvimento
+## Vigência
 
-O produto permanece em desenvolvimento/pré-produção. A documentação descreve somente o contrato vigente: catálogo `CAT-*`, configuração efetiva, snapshot da execução e evidências persistidas.
+Este documento descreve o contrato vigente na versão 1.0.0: catálogo `CAT-*`, configuração efetiva, snapshot da execução e evidências persistidas. A versão publicada não implica certificação universal da integridade ou confidencialidade de cada auditoria.
