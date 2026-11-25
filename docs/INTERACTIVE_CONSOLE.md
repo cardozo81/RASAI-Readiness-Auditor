@@ -244,7 +244,7 @@ O atalho canônico para AUD, RPR e CONS é:
 M. Ver linha de comando
 ```
 
-A superfície permite alternar entre Windows, Linux e macOS, copiar o comando executável, abrir o log humano de comandos e abrir a pasta contextual. Secrets aparecem somente como placeholders comentados `**********`; o valor real nunca é impresso nem gravado.
+A superfície oferece formatos separados para Windows CMD, Windows PowerShell 5.1/7, Linux e macOS e permite copiar o comando executável, abrir o log humano de comandos e abrir a pasta contextual. Secrets aparecem somente como placeholders comentados `**********`; o valor real nunca é impresso nem gravado.
 
 Antes da execução, o comando é **PLANEJADO**. Depois de AUD/RPR/CONS, o comando registrado é **EXECUTADO** e o log fica em:
 

@@ -4,6 +4,8 @@ Guia operacional do RASAi - Search & AI Readiness Auditor para execução local,
 
 ## Instalação local no Windows
 
+O caminho recomendado é abrir `abrir-rasai-console.cmd` na raiz do projeto. Ele prepara o ambiente e inicia o console. A instalação manual abaixo é uma alternativa, não uma etapa adicional obrigatória. Veja [instalação](INSTALLATION.md).
+
 ```powershell
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -17,7 +19,7 @@ python -m playwright install chromium
 rasai-console
 ```
 
-Menu principal:
+Menu principal (representação textual, não captura de tela):
 
 ```text
 1. Preparar auditoria
@@ -43,6 +45,19 @@ Q. Sair
 8. revise o estado do plano e a previsão de consumo/custo quando o fluxo canônico a apresentar;
 9. execute;
 10. leia o resultado distinguindo o que foi solicitado, não solicitado, limitado, falho ou indisponível.
+
+### Jornada de uso
+
+```mermaid
+flowchart TD
+    A[Abrir o console] --> B[Preparar auditoria]
+    B --> C[Informar URL e dispositivo]
+    C --> D[Selecionar avaliações e configurar integrações]
+    D --> E{Plano apto?}
+    E -->|Não| D
+    E -->|Sim| F[Revisar custo e executar]
+    F --> G[Consultar histórico e relatórios]
+```
 
 ## Preparar auditoria
 
@@ -249,7 +264,7 @@ rasai reprocess AUD-EXEMPLO --audits-root audits
 rasai consolidate AUD-BASE AUD-ATUAL --audits-root audits --selection-mode ALL
 ```
 
-Use IDs reais nas duas últimas operações e consulte a [referência CLI](CLI_REFERENCE.md) para seleção de itens/IA. Isso **não** torna a saída de `M. Ver linha de comando` compatível com PowerShell: o modo Windows atual dessa ação gera sintaxe `cmd.exe`/`.cmd`, com limitações de escape documentadas em [execução externa](EXECUTION_SCHEDULING.md) e na [issue #713](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/713).
+Use IDs reais nas duas últimas operações e consulte a [referência CLI](CLI_REFERENCE.md) para seleção de itens/IA. A ação **Ver linha de comando** oferece formatos separados para CMD e PowerShell 5.1/7. Escolha o formato do terminal em uso e consulte [execução externa](EXECUTION_SCHEDULING.md) para regras de escape e credenciais.
 
 ## Segurança
 

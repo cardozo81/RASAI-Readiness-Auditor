@@ -95,6 +95,23 @@ operação se recusa a sobrescrever saídas preexistentes. O caminho de saída
 não pode estar dentro da AUD de origem. Para nova tentativa, use uma
 pasta de saída nova, preservando a anterior como evidência.
 
+## Regenerar catálogo e apresentação a partir de uma auditoria existente
+
+Use o entrypoint canônico para gerar um catálogo em **cópia externa**, seguido do gerador da apresentação sobre essa cópia. No PowerShell, na raiz da versão instalada (com a `.venv` instalada):
+
+```powershell
+$AuditId = "AUD-EXEMPLO"
+$Fonte = Join-Path (Get-Location) "audits\$AuditId"
+$Saida = Join-Path $env:TEMP ("RASAI-REGEN-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+& .\.venv\Scripts\python.exe -B -m rasai rematerialize-report --audit-dir $Fonte --output-root $Saida
+if ($LASTEXITCODE -ne 0) { throw "Falha na regeneracao do catalogo" }
+$Copia = Join-Path $Saida $AuditId
+& .\.venv\Scripts\python.exe -B -m rasai.parallel_report --audit-dir $Copia
+if ($LASTEXITCODE -ne 0) { throw "Falha na regeneracao da apresentacao" }
+```
+
+A AUD original, seu `audit.db`, os sidecars, os custos e as pontuações não devem ser reescritos. Não executar com escritor ativo ou sem a integridade necessária; o gerador pode recusar a cópia. Saídas anteriores e novas devem ser comparadas como **projeções de versões diferentes**, não como novas evidências. Consulte também a [apresentação offline](../src/rasai/parallel_report/README.md).
+
 ## Regressao read-only em replay de GEO (#521, 13/10/2026)
 
 A auditoria historica `AUD-03340B284300443B984601C476B9BF88`

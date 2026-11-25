@@ -11,6 +11,21 @@
 - acesso HTTP/HTTPS às URLs auditadas;
 - egress adicional somente para integrações externas efetivamente habilitadas.
 
+## Dependências declaradas pelo pacote
+
+O pacote exige Python 3.13, Playwright (>=1.57,<2) e tzdata (>=2026.1). A instalação editável usa setuptools (>=68) para empacotamento. Os grupos opcionais abaixo são declarados em [pyproject.toml](../pyproject.toml):
+
+| Grupo | Dependências | Finalidade |
+| --- | --- | --- |
+| documents | pypdf | Leitura de PDF |
+| postgresql | psycopg[binary] | Persistência PostgreSQL |
+| web | fastapi, uvicorn, httpx, PyJWT[crypto] | API e componentes Web |
+| copilot | github-copilot-sdk | Integração Copilot |
+| geoip | maxminddb | Leitura de bases GeoIP locais |
+| attestation | cryptography | Recursos de atestação |
+
+O Chromium é um componente separado, instalado pelo Playwright. A preparação opcional do GeoIP também é chamada pelo inicializador e não bloqueia a abertura do console em caso de falha; a aquisição de software depende de consentimento persistido. As bases e credenciais têm requisitos próprios.
+
 ## Inicialização recomendada no Windows
 
 Na raiz do projeto, execute por duplo clique ou pelo terminal:
