@@ -411,7 +411,7 @@ Essa limitação não afeta argumentos, seleção de AUDs, política de IA ou de
 python -m rasai audit ...
 ```
 
-O console reutiliza o mesmo builder canônico usado para iniciar a AUD.
+O console reutiliza a construção canônica do comando usado para iniciar a auditoria. Isso não demonstra que todas as ações posteriores do processo interativo sejam reproduzidas por esse comando: a integração Perplexity, por exemplo, possui solicitação e execução adicionais no console. Não confunda configuração persistida ou credencial existente com autorização de pesquisa externa. Consulte [exemplos de execução](CLI_REFERENCE.md#exemplos-de-execução-no-windows) e [Perplexity](PERPLEXITY_SEARCH_INTELLIGENCE.md).
 
 ### Reprocessamento
 

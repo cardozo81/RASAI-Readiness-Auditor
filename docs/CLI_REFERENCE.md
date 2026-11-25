@@ -210,7 +210,7 @@ Lab e field data permanecem separados e não entram automaticamente no Índice d
 --apdex-max-pages N
 --apdex-timeout-seconds SECONDS
 --apdex-delay-seconds SECONDS
---apdex-concurrency 1|2
+--apdex-concurrency 1|2|3|4
 
 --apdex-mobile-client-profile PRESET
 --apdex-mobile-hardware-profile PRESET
@@ -220,7 +220,7 @@ Lab e field data permanecem separados e não entram automaticamente no Índice d
 --apdex-desktop-network-profile PRESET
 ```
 
-Default OFF. O threshold `T` é obrigatório quando habilitado.
+Desabilitado por padrão no runtime genérico. O limite de tempo de satisfação `T` deve estar explicitamente configurado quando habilitado. Concorrência de 3 ou 4 exige intervalo mínimo de 1 segundo entre amostras.
 
 Os seis argumentos públicos de perfil usam a mesma precedência da configuração sintética: **CLI > variável de ambiente > default controlado**. Eles selecionam apenas o envelope de execução - cliente/viewport, slowdown relativo de CPU e rede - e não alteram a fórmula Apdex nem o Índice de Prontidão Search & IA ou o Método de Pontuação de Prontidão. Os equivalentes públicos em ambiente são `RASAI_APDEX_MOBILE_*_PROFILE` e `RASAI_APDEX_DESKTOP_*_PROFILE`; valores e defaults canônicos estão em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md).
 
@@ -251,11 +251,11 @@ Default `auto`. O reuso físico só ocorre quando URL, device, perfil, sessão e
 --apdex-experience-error-scope navigation|first-party|all
 --apdex-experience-settle-seconds SECONDS
 --apdex-experience-delay-seconds SECONDS
---apdex-experience-concurrency 1|2
+--apdex-experience-concurrency 1|2|3
 --apdex-population-profile-json JSON
 ```
 
-A superfície continua sintética, inclusive quando calibrada contra configuração Dynatrace.
+A avaliação continua sintética, inclusive quando calibrada contra configuração Dynatrace. Concorrência de 3 exige intervalo mínimo de 1 segundo entre amostras.
 
 O Synthetic User Experience Apdex herda o device da AUD: `mobile` produz 100% MOBILE e `desktop` produz 100% DESKTOP. Não existe mix público independente nem Tablet para novas AUDs. O target default do Experience é 100 amostras válidas por página; o Navigation mantém target separado de 150 amostras válidas por URL/device.
 
@@ -455,6 +455,162 @@ Opções:
 A CLI de consolidação é um adapter fino sobre os mesmos contratos de seleção e geração usados pelo console. Ela não implementa um segundo motor de CONS.
 
 A geração, cópia e agendamento multiplataforma dos comandos está documentada em [EXECUTION_SCHEDULING.md](EXECUTION_SCHEDULING.md).
+
+## Exemplos de execução no Windows
+
+Os exemplos usam a raiz do projeto, a versão instalada e credenciais já configuradas no ambiente do sistema operacional. `example.com` é apenas um domínio ilustrativo: substitua pelo alvo autorizado. Nenhum comando abaixo contém chaves ou tokens. Antes de executar, confirme a carga permitida, as integrações habilitadas, a propriedade autorizada, as cotas e os custos. Mesmo uma auditoria sem IA pode fazer consultas externas.
+
+### 1. Auditoria básica pelo CMD
+
+```cmd
+.venv\Scripts\python.exe -m rasai --version
+.venv\Scripts\python.exe -m rasai audit --help
+.venv\Scripts\python.exe -m rasai audit https://example.com --project "Avaliação inicial" --max-pages 1 --device-context mobile --ai-provider none --no-web-performance --no-synthetic-apdex --no-apdex-experience --no-ai-content-remediation --no-ai-technical-remediation
+```
+
+Esse exemplo limita o escopo, desliga IA, as duas avaliações Apdex e o agregado de desempenho Web. Não é um teste offline nem desliga todos os serviços de ambiente. Consulte a [configuração](CONFIGURATION.md) para controlar os demais serviços.
+
+### 2. Auditorias separadas por dispositivo
+
+PowerShell 5.1/7, com a mesma versão do programa:
+
+```powershell
+$Python = ".\.venv\Scripts\python.exe"
+& $Python -m rasai audit https://example.com --project "Mobile" --device-context mobile --max-pages 1 --ai-provider none
+if ($LASTEXITCODE -ne 0) { throw "Falha na auditoria móvel" }
+& $Python -m rasai audit https://example.com --project "Desktop" --device-context desktop --max-pages 1 --ai-provider none
+if ($LASTEXITCODE -ne 0) { throw "Falha na auditoria de computador" }
+```
+
+Cada execução tem sua própria identidade e evidências. Não use `both` como contexto de uma nova auditoria.
+
+### 3. Apdex com amostras e tentativas explícitas
+
+CMD, exemplo de carga limitada a uma página. Ajuste o volume à capacidade do alvo.
+
+```cmd
+.venv\Scripts\python.exe -m rasai audit https://example.com --max-pages 1 --device-context mobile --ai-provider none --synthetic-apdex --apdex-threshold-seconds 3 --apdex-samples-per-context 20 --apdex-max-attempts-per-context 25 --apdex-max-pages 1 --apdex-timeout-seconds 45 --apdex-delay-seconds 1 --apdex-concurrency 1 --apdex-experience --apdex-experience-samples 20 --apdex-experience-max-attempts 25 --apdex-experience-max-pages 1 --apdex-experience-session-mode cold --apdex-experience-satisfied-seconds 3 --apdex-experience-frustrated-seconds 12 --apdex-experience-delay-seconds 1 --apdex-experience-concurrency 1
+```
+
+Variações: para 100 amostras de experiência, use `--apdex-experience-samples 100 --apdex-experience-max-attempts 125`. Para 150 amostras de navegação, use `--apdex-samples-per-context 150 --apdex-max-attempts-per-context 188`. Esses pares são exemplos, não exigência de tamanho de amostra. O teto de tentativas precisa comportar a meta; não garante que todas as amostras sejam válidas. As duas avaliações têm populações e critérios próprios. [Metodologia de navegação](SYNTHETIC_APDEX.md) e [metodologia de experiência](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
+
+### 4. Pesquisa SERP
+
+Prévia de uma consulta avulsa (sem chamar o fornecedor):
+
+```cmd
+.venv\Scripts\python.exe -m rasai search "auditoria de sites" --domain example.com --mode live --provider serpapi --country BR --language pt-BR --device mobile --depth 10 --dry-run
+```
+
+Uma pesquisa vinculada à nova auditoria exige termos explícitos e modo de pesquisa ativo. CMD, usando a credencial `RASAI_SERPAPI_API_KEY` herdada:
+
+```cmd
+setlocal
+set "RASAI_SERP_MODE=live"
+set "RASAI_SERP_PROVIDER=serpapi"
+set "RASAI_SERP_MAX_QUERIES=2"
+set "RASAI_SERP_MAX_REQUESTS=10"
+set "RASAI_SERP_MAX_DEPTH=10"
+.venv\Scripts\python.exe -m rasai audit https://example.com --max-pages 1 --device-context mobile --ai-provider none --search-query "auditoria de sites" --search-query "qualidade de páginas web" --search-region Brasil --search-device mobile --search-depth 10 --search-competitive --no-search-compare-content --no-search-ai-competitive
+endlocal
+```
+
+Use esse bloco em um arquivo `.cmd`; `setlocal` e `endlocal` limitam as alterações de ambiente ao script. Para mudar os termos, repita `--search-query` e respeite os tetos de consultas, requisições e profundidade. Comparação de conteúdo e interpretação por IA são opções adicionais: podem baixar páginas concorrentes ou gerar consumo de IA; não são necessárias para observar a SERP.
+
+### 5. IA explícita ou seleção automática
+
+CMD, exemplos independentes. O fornecedor escolhido precisa estar configurado, apto e autorizado.
+
+```cmd
+.venv\Scripts\python.exe -m rasai audit https://example.com --max-pages 1 --device-context mobile --ai-provider openai
+.venv\Scripts\python.exe -m rasai audit https://example.com --max-pages 1 --device-context mobile --ai-provider deepseek
+.venv\Scripts\python.exe -m rasai audit https://example.com --max-pages 1 --device-context mobile --ai-provider auto
+```
+
+Para um modelo e esforço explícitos, o exemplo abaixo usa valores presentes no catálogo distribuído com a versão 1.0.0; confira a configuração efetiva e a disponibilidade comercial atual antes de executar.
+
+```cmd
+setlocal
+set "RASAI_DEEPSEEK_REASONING_EFFORT=HIGH"
+.venv\Scripts\python.exe -m rasai audit https://example.com --max-pages 1 --device-context mobile --ai-provider deepseek --ai-model deepseek-flash --ai-content-remediation --ai-technical-remediation
+endlocal
+```
+
+Para `auto`, configure os modelos de cada fornecedor pelas variáveis/catálogos correspondentes; não passe `--ai-model` com `--ai-provider auto`. Consulte [modelos e esforço](AI_MODEL_CONFIGURATION.md).
+
+### 6. Auditoria com capacidades e integrações combinadas
+
+O exemplo abaixo habilita desempenho Web, Apdex, pesquisa SERP, remediações por IA, análise profunda, segurança passiva e observabilidade externa. **Pode gerar custos e carga considerável.** Não é uma garantia de execução de todos os catálogos: as capacidades basais são resolvidas pelo programa e cada fonte externa exige seus próprios pré-requisitos.
+
+PowerShell 5.1/7, execute em uma janela dedicada para não manter as variáveis não secretas em outros trabalhos:
+
+```powershell
+$Python = ".\.venv\Scripts\python.exe"
+$env:RASAI_PRESENTATION_TIMEZONE = 'America/Sao_Paulo'
+$env:RASAI_PAGESPEED_ENABLED = 'true'
+$env:RASAI_CRUX_ENABLED = 'true'
+$env:RASAI_CRUX_HISTORY_ENABLED = 'true'
+$env:RASAI_COMMON_CRAWL_ENABLED = 'true'
+$env:RASAI_SERP_MODE = 'live'
+$env:RASAI_SERP_PROVIDER = 'serpapi'
+$env:RASAI_SERP_MAX_QUERIES = '3'
+$env:RASAI_SERP_MAX_REQUESTS = '10'
+$env:RASAI_SERP_MAX_DEPTH = '20'
+$env:RASAI_IMPROVEMENT_INTELLIGENCE = 'true'
+$env:RASAI_PASSIVE_SECURITY = 'true'
+
+# Ative apenas se a propriedade real estiver autorizada e configurada:
+# $env:RASAI_GSC_ENABLED = 'true'
+# $env:RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL = 'sc-domain:example.com'
+# $env:RASAI_CLARITY_ENABLED = 'true'
+
+$Argumentos = @(
+    'audit', 'https://example.com',
+    '--project', 'Auditoria integrada',
+    '--device-context', 'mobile',
+    '--language', 'pt-BR', '--market', 'BR', '--max-pages', '1',
+    '--ai-provider', 'auto',
+    '--ai-content-remediation', '--ai-technical-remediation',
+    '--web-performance', '--web-performance-max-pages', '1',
+    '--web-performance-field-source', 'auto',
+    '--lighthouse-categories', 'performance,accessibility,best-practices,seo,agentic-browsing',
+    '--synthetic-apdex', '--apdex-threshold-seconds', '3',
+    '--apdex-samples-per-context', '20', '--apdex-max-attempts-per-context', '25',
+    '--apdex-max-pages', '1', '--apdex-delay-seconds', '1', '--apdex-concurrency', '1',
+    '--apdex-experience', '--apdex-experience-samples', '20',
+    '--apdex-experience-max-attempts', '25', '--apdex-experience-max-pages', '1',
+    '--apdex-experience-delay-seconds', '1', '--apdex-experience-concurrency', '1',
+    '--search-query', 'auditoria de sites',
+    '--search-query', 'qualidade de páginas web',
+    '--search-query', 'prontidão para inteligência artificial',
+    '--search-depth', '20', '--search-device', 'mobile',
+    '--search-competitive', '--no-search-compare-content', '--no-search-ai-competitive'
+)
+& $Python -m rasai @Argumentos
+if ($LASTEXITCODE -ne 0) { throw "Falha na execução. Consulte os logs da auditoria." }
+```
+
+**Credenciais e autorização:** PageSpeed usa `RASAI_PAGESPEED_API_KEY`, CrUX atual/histórico usa `RASAI_CRUX_API_KEY`, SerpApi usa `RASAI_SERPAPI_API_KEY`, GSC usa OAuth e propriedade autorizada, Clarity usa `RASAI_CLARITY_API_TOKEN` e o projeto correspondente. Common Crawl não exige chave. IA usa as credenciais dos fornecedores elegíveis. Não copie chaves para esse script. As linhas comentadas de GSC/Clarity não desligam configurações previamente herdadas: confira o ambiente ou defina explicitamente `false` se não quiser esses serviços.
+
+A seleção de todos os catálogos e as autorizações interativas são feitas em **Preparar auditoria** no console. Não há equivalência demonstrada entre o comando acima e o plano interativo completo. Em particular, `RASAI_PERPLEXITY_ENABLED=true` só permite a integração, não informa consultas nem autoriza cobrança. Para pesquisas Perplexity com termos e modo WEB/FAST, use o fluxo explícito do console descrito em [Perplexity](PERPLEXITY_SEARCH_INTELLIGENCE.md). Não converta automaticamente termos SERP em pesquisas Perplexity.
+
+### 7. Operações sobre auditorias já existentes
+
+PowerShell 5.1/7, substitua os identificadores de exemplo pelos reais. Os comandos têm finalidades diferentes:
+
+```powershell
+$Python = ".\.venv\Scripts\python.exe"
+& $Python -m rasai ai-reanalysis ".\audits\AUD-EXEMPLO"
+& $Python -m rasai ai-reanalysis ".\audits\AUD-EXEMPLO" --write-local-replay
+```
+
+O primeiro inspeciona o plano local; o segundo materializa a reanálise consultiva local sem novas chamadas comerciais. A autorização de uma nova inferência paga é separada. Veja [reanálise consultiva](GEO_AI_MULTIQUERY_AND_REANALYSIS.md).
+
+Para recriar a apresentação e o catálogo sem nova coleta, use o [script de rematerialização em cópia externa](REPORT_REMATERIALIZATION.md#regenerar-catálogo-e-apresentação-a-partir-de-uma-auditoria-existente). Para reprocessar ou consolidar, use a seção anterior e confirme o escopo: reprocessamento não é sinônimo de regeneração de HTML.
+
+### Validar antes de executar
+
+A ajuda do entrypoint oficial (`python -m rasai audit --help` e a ajuda do subcomando correspondente) é a referência local para os argumentos disponíveis. Os exemplos desta seção são baseados na versão 1.0.0 e na revisão estática dos registradores de argumentos e consumidores. A resolução de uma configuração, a aptidão de uma integração e a efetiva cobrança só podem ser confirmadas no ambiente de execução; não faça uma nova auditoria remunerada apenas para validar a sintaxe.
 
 ## Console interativo
 

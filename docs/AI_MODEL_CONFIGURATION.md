@@ -28,7 +28,7 @@ A regra operacional é única: **arquivos que o humano administra ficam em `conf
 | `src/rasai/config/ai-pricing-defaults.toml` | catálogo de preços de fábrica | não |
 | `src/rasai/config/ai-profiles-defaults.toml` | catálogo completo de personas de fábrica | não |
 
-Modelos e preços são separados de propósito. Um modelo pode existir para seleção explícita mesmo quando ainda não existe uma tarifa unitária conhecida. Nesse caso ele não entra no ranking econômico do `AUTO`.
+Modelos e preços são separados de propósito. Um modelo pode existir sem tarifa unitária conhecida. Quando elegível ao modo automático, fica depois dos candidatos com custo estimável; preço desconhecido não é custo zero.
 
 ## 3. Seleção da origem
 
@@ -47,7 +47,7 @@ RASAI_AI_MODELS_SOURCE = auto
 RASAI_AI_MODELS_FILE = config/ai-models.toml
 ```
 
-Portanto, em uso normal, o humano altera **`config/ai-models.toml`**. Não é necessário editar `src/rasai/config/ai-models-defaults.toml`.
+Portanto, em uso normal, o operador altera **`config/ai-models.toml`**. Não é necessário editar `src/rasai/config/ai-models-defaults.toml`. Fora do console, na ausência de origem no ambiente ou INI, o leitor usa `factory`; se for utilizar arquivo próprio, indique origem e caminho de forma explícita.
 
 ### Vigência da alteração no console interativo
 
@@ -186,17 +186,9 @@ Em 02/10/2026 a baseline passa a usar:
 
 A migração é de model ID dentro do mesmo adapter Responses/PAYG; não habilita Token Plan, Batch, UltraSpeed, multimodal, web search ou tools. Rastreabilidade: issue #183.
 
-### Mistral na baseline de 02/10/2026
+### Mistral, Cohere e Kimi/Moonshot
 
-A primeira integração Mistral mantém somente `mistral-small-2603` no catálogo de fábrica. O registro é selecionável explicitamente, mas `auto_eligible=false` enquanto a homologação humana do provider não estiver concluída. O adapter continua sendo definido em código; o catálogo não cria um provider novo nem altera `AI=auto`.
-
-### Cohere na baseline de 02/10/2026
-
-A integração Cohere mantém somente `command-a-03-2025` no catálogo de fábrica, com `default_reasoning=PROVIDER_DEFAULT` e `auto_eligible=false`. O objetivo desta fase é homologar o adapter Chat V2 generativo e seu contrato Structured Outputs. Command A+, Rerank, RAG, tools e documents não são modelos/capabilities operacionais desta entrega.
-
-### Kimi/Moonshot na baseline de 03/10/2026
-
-A integração inicial expõe somente `kimi-k3` na plataforma internacional, com `context_window=1000000`, `reasoning_values=[LOW,HIGH,MAX]`, `default_reasoning=LOW` e `auto_eligible=false`. O default `LOW` é o menor effort oficialmente aceito pelo K3; o default do fornecedor (`max`) não é herdado pelo RASAi. O catálogo não habilita endpoint China, tools, web search, Formula, multimodalidade, Responses API ou cache TTL 1h.
+No catálogo de fábrica distribuído na versão 1.0.0, `mistral-small-2603`, `command-a-03-2025` e `kimi-k3` são habilitados, selecionáveis e elegíveis ao modo automático, sujeitos à credencial, vigência, disponibilidade e demais controles. Mistral e Cohere têm esforço `PROVIDER_DEFAULT`; Kimi aceita `LOW`, `HIGH`, `MAX`, com padrão `LOW`. Os modelos não ampliam automaticamente as capacidades do adaptador: o catálogo não habilita RAG, ferramentas, documentos, multimodalidade ou novos endpoints não implementados.
 
 ### Atualização DeepSeek Flash - 23/10/2026
 
@@ -247,7 +239,7 @@ capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
 source_reference = "https://documentacao-oficial-do-modelo"
 ```
 
-Depois selecione o modelo pela variável do provider, se desejar seleção explícita. Para participar do `AUTO` econômico, também deve existir uma regra de preço vigente em `config/ai-pricing.toml` para o mesmo par provider/modelo.
+Depois selecione o modelo pela variável do provider, se desejar seleção explícita. Para participar da ordenação econômica com custo estimável, é necessária uma regra de preço vigente para o mesmo par fornecedor/modelo. Candidatos elegíveis sem preço conhecido permanecem após os precificados.
 
 ## 9. Desativar um modelo
 

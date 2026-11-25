@@ -1,12 +1,12 @@
 # Configuração de preços de IA do RASAi
 
 **Estado:** vigente.  
-**Data de referência desta configuração:** 03/10/2026  
-**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-03.7`  
+**Data de referência do catálogo distribuído na versão 1.0.0:** 23/10/2026  
+**Versão do catálogo de fábrica:** `RASAI-PRICING-2026-10-23.1`  
 **Schema do catálogo:** `1`  
-**Revisão ordinária recomendada:** 03/11/2026
+**Data de revisão recomendada no catálogo:** 23/11/2026
 
-Os preços deste documento e de `src/rasai/config/ai-pricing-defaults.toml` representam a política conhecida e validada na data de referência. Eles são usados para estimativa operacional e roteamento econômico. Não substituem a fatura do fornecedor.
+Os preços deste documento e de `src/rasai/config/ai-pricing-defaults.toml` representam a política conhecida e validada na data de referência. Eles são usados para estimativa operacional e roteamento econômico. Não substituem a fatura do fornecedor. A data de revisão do catálogo distribuído já foi atingida em 25/11/2026; consulte a fonte oficial e atualize o catálogo operacional antes de decisões comerciais. A revisão documental não certifica tarifas atuais.
 
 Para `contextual-editorial-ai-v1`, a resolução canônica de preço é reutilizada
 somente em preflight offline negativo. Sem reserva monetária real, teto no wire

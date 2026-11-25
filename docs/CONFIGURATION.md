@@ -2,6 +2,44 @@
 
 O RASAi pode ser configurado por CLI, console interativo, arquivo INI do console e variáveis de ambiente. Credenciais permanecem fora do arquivo INI.
 
+## O que o operador pode configurar
+
+O console permite preparar a próxima auditoria, configurar credenciais e serviços, salvar parâmetros não secretos e restaurar padrões. A CLI oferece opções explícitas para parte dessas escolhas; os demais controles são variáveis de ambiente ou arquivos de configuração. Não trate todo o INI como entrada automática da CLI: existem leitores específicos, e a reprodução de uma sessão depende também dos argumentos e do ambiente efetivo.
+
+| O que ajustar | Onde ajustar | Efeito |
+| --- | --- | --- |
+| URL, dispositivo, projeto, idioma, mercado, páginas e pasta de auditorias | Preparar auditoria ou CLI | Define escopo de aquisição, contexto e destino. Uma URL inicial e um dispositivo por execução. |
+| Catálogos e autorização de IA | Preparar auditoria | Define plano interativo, dependências e supressão das capacidades opcionais não escolhidas. Não desliga todos os coletores basais. |
+| Fornecedor, modelo e esforço de IA | Inteligência Artificial, variáveis por fornecedor ou CLI quando disponível | Define a seleção e parâmetros permitidos pelo adaptador existente. |
+| Catálogo de modelos | Todas as configurações: origem/caminho; editar `config/ai-models.toml` | Habilita modelos e define seleção, vigência, esforço e elegibilidade; não cria novos adaptadores. |
+| Catálogo de preços | Todas as configurações: origem/caminho; editar `config/ai-pricing.toml` | Define estimativas e ordenação econômica. Não altera a cobrança real do fornecedor. |
+| Perfis de instrução de IA | Todas as configurações: origem/caminho; editar `config/ai-task-profiles.toml` | Define papel, objetivo, competências e orientação complementar por tarefa; não substitui contratos de evidência, segurança ou pontuação. |
+| Integrações externas | Integrações e serviços; opções específicas dos catálogos; ambiente e CLI conforme o serviço | Habilita fontes e define quotas, limites e parâmetros. A presença da credencial não basta para todas as fontes. |
+| Pesquisa SERP | Catálogo de inteligência de busca ou `--search-query` repetido e variáveis SERP | Solicita termos para uma nova auditoria, respeitando modo, fornecedor e tetos. |
+| Pesquisa Perplexity | Catálogo de inteligência de busca; parâmetros de ambiente; confirmação específica | Separa habilitação, rascunho de termos, WEB/FAST e autorização da execução. |
+| Apdex e perfis sintéticos | Preparar auditoria, CLI e ambiente | Define amostras, tentativas, carga, limites de tempo, perfis de cliente/hardware/rede e critérios de experiência. |
+| Fuso de apresentação | Console ou `RASAI_PRESENTATION_TIMEZONE` | Altera a apresentação temporal, não a referência UTC de persistência. |
+
+A relação exata de controles, tipos, valores e limites está na [referência de variáveis](ENVIRONMENT_VARIABLES.md). Veja também [exemplos de execução](CLI_REFERENCE.md#exemplos-de-execução-no-windows), [fluxo de catálogos](AUDIT_CATALOG_WORKFLOW.md) e [fuso horário](TIMEZONE_CONTRACT.md).
+
+### Como a configuração de IA chega à execução
+
+```mermaid
+flowchart TD
+    A[Operador escolhe fornecedor, modelo e esforço] --> D[Validar configuração efetiva]
+    B[Origem e catálogo de modelos e preços] --> D
+    C[Origem e perfis de instrução] --> D
+    D --> E{Configuração válida?}
+    E -->|Não| F[Corrigir antes de executar]
+    E -->|Sim| G[Fixar configuração da execução no console]
+    G --> H[Executar com os contratos de evidência e segurança]
+    H --> I[Registrar uso, custos e resultados]
+```
+
+Para os três arquivos TOML, `factory` ignora o arquivo local, `file` exige um arquivo válido e `auto` usa o arquivo indicado quando presente, com retorno ao catálogo de fábrica na ausência. O console normalmente configura `auto` e os caminhos em `config/`. Fora dele, os leitores de modelos e preços usam `factory` se não houver seleção no ambiente ou INI; o leitor de perfis usa `auto`. Configure os caminhos explicitamente em automações para evitar dependência do diretório atual.
+
+No console, a configuração dos três catálogos é validada e fixada em uma cópia temporária antes de iniciar a execução. Alterações posteriores no arquivo do operador passam a valer na próxima execução, não na que já começou. Os adaptadores, protocolos, esquemas de saída, regras de pontuação, limites de segurança e políticas de tratamento de falhas permanecem definidos pelo programa.
+
 ## Precedência prática
 
 Para `rasai audit`, argumentos CLI explícitos prevalecem sobre variáveis de ambiente quando a opção possui equivalente CLI.
@@ -46,7 +84,7 @@ Não armazena secrets como chaves de IA, tokens OAuth, passwords ou credenciais 
 
 | Configuração | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| dispositivo | `mobile` | `mobile`, `desktop`, `both` | `mobile` para execução mínima; `both` quando for necessário comparar dispositivos |
+| dispositivo | `mobile` | `mobile`, `desktop` | execute auditorias separadas para comparar dispositivos |
 | provider de IA | `none` | `none`, providers/aliases do registry e `auto` | `none` sem necessidade semântica; `auto` quando houver múltiplos providers aptos e política de fallback desejada |
 | remediação de conteúdo por IA | `false` | booleano | `false`; habilitar deliberadamente |
 | remediação técnica por IA | `false` | booleano | `false`; habilitar deliberadamente |
@@ -288,7 +326,7 @@ A origem dos defaults deve permanecer explícita. O baseline executável usa `US
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| `RASAI_DEVICE_CONTEXT` | `mobile` | `mobile`, `desktop`, `both` | `mobile` para execução mínima; `both` quando a comparação Desktop × Mobile for necessária |
+| `RASAI_DEVICE_CONTEXT` | `mobile` | `mobile`, `desktop` | execute uma auditoria por dispositivo |
 
 ## Persistência do console
 
@@ -313,7 +351,7 @@ Secrets nunca entram no INI. No Windows, o console pode persistir/remover uma cr
 - logs e relatórios não devem registrar secrets;
 - credencial configurada não implica crédito/quota;
 - variáveis persistidas não equivalem a secret manager;
-- integrações derivadas não alteram silenciosamente `SARI-001/SCORE-GEO-004`.
+- integrações derivadas não alteram silenciosamente o índice de prontidão ou a versão do método de pontuação de uma auditoria.
 
 ## Documentos relacionados
 
