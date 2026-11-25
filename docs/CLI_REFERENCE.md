@@ -502,7 +502,7 @@ Prévia de uma consulta avulsa (sem chamar o fornecedor):
 .venv\Scripts\python.exe -m rasai search "auditoria de sites" --domain example.com --mode live --provider serpapi --country BR --language pt-BR --device mobile --depth 10 --dry-run
 ```
 
-Uma pesquisa vinculada à nova auditoria exige termos explícitos e modo de pesquisa ativo. CMD, usando a credencial `RASAI_SERPAPI_API_KEY` herdada:
+Uma pesquisa vinculada à nova auditoria exige termos explícitos e modo de pesquisa ativo. Na versão 1.0.0, o comando planejado exibido pelo console pode omitir os termos SERP: confira a presença de cada `--search-query` antes de reutilizá-lo. CMD, usando a credencial `RASAI_SERPAPI_API_KEY` herdada:
 
 ```cmd
 setlocal
@@ -527,7 +527,7 @@ CMD, exemplos independentes. O fornecedor escolhido precisa estar configurado, a
 .venv\Scripts\python.exe -m rasai audit https://example.com --max-pages 1 --device-context mobile --ai-provider auto
 ```
 
-Para um modelo e esforço explícitos, o exemplo abaixo usa valores presentes no catálogo distribuído com a versão 1.0.0; confira a configuração efetiva e a disponibilidade comercial atual antes de executar.
+Para um modelo e esforço explícitos, o exemplo abaixo (arquivo `.cmd`) usa valores presentes no catálogo distribuído com a versão 1.0.0; confira a configuração efetiva e a disponibilidade comercial atual antes de executar.
 
 ```cmd
 setlocal

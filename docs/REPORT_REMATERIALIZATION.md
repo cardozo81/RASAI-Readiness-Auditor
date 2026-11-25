@@ -104,13 +104,32 @@ $AuditId = "AUD-EXEMPLO"
 $Fonte = Join-Path (Get-Location) "audits\$AuditId"
 $Saida = Join-Path $env:TEMP ("RASAI-REGEN-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
 & .\.venv\Scripts\python.exe -B -m rasai rematerialize-report --audit-dir $Fonte --output-root $Saida
-if ($LASTEXITCODE -ne 0) { throw "Falha na regeneracao do catalogo" }
+if ($LASTEXITCODE -ne 0) { throw "Falha na regeneração do catálogo" }
 $Copia = Join-Path $Saida $AuditId
 & .\.venv\Scripts\python.exe -B -m rasai.parallel_report --audit-dir $Copia
-if ($LASTEXITCODE -ne 0) { throw "Falha na regeneracao da apresentacao" }
+if ($LASTEXITCODE -ne 0) { throw "Falha na regeneração da apresentação" }
 ```
 
-A AUD original, seu `audit.db`, os sidecars, os custos e as pontuações não devem ser reescritos. Não executar com escritor ativo ou sem a integridade necessária; o gerador pode recusar a cópia. Saídas anteriores e novas devem ser comparadas como **projeções de versões diferentes**, não como novas evidências. Consulte também a [apresentação offline](../src/rasai/parallel_report/README.md).
+Alternativa para um arquivo `.cmd`, executado na raiz do projeto. Substitua o identificador pelo da auditoria original e mantenha o destino externo e inexistente:
+
+```cmd
+@echo off
+setlocal
+set "AUD=AUD-EXEMPLO"
+set "FONTE=%CD%\audits\%AUD%"
+set "SAIDA=%TEMP%\RASAI-REGEN-%RANDOM%-%RANDOM%"
+if exist "%SAIDA%" exit /b 1
+".venv\Scripts\python.exe" -B -m rasai rematerialize-report --audit-dir "%FONTE%" --output-root "%SAIDA%"
+if errorlevel 1 exit /b 1
+".venv\Scripts\python.exe" -B -m rasai.parallel_report --audit-dir "%SAIDA%\%AUD%"
+if errorlevel 1 exit /b 1
+echo "%SAIDA%\%AUD%\report-presentation\index.html"
+endlocal
+```
+
+O exemplo interrompe o script se qualquer gerador falhar; uma saída parcial não deve ser tratada como relatório validado. Use novo destino se precisar repetir a operação.
+
+A AUD original, seu `audit.db`, os artefatos complementares, os custos e as pontuações não devem ser reescritos. Não executar com escritor ativo ou sem a integridade necessária; o gerador pode recusar a cópia. Saídas anteriores e novas devem ser comparadas como **projeções de versões diferentes**, não como novas evidências. Consulte também a [apresentação offline](../src/rasai/parallel_report/README.md).
 
 ## Regressao read-only em replay de GEO (#521, 13/10/2026)
 

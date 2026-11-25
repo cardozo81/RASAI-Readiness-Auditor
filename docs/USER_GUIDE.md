@@ -264,7 +264,7 @@ rasai reprocess AUD-EXEMPLO --audits-root audits
 rasai consolidate AUD-BASE AUD-ATUAL --audits-root audits --selection-mode ALL
 ```
 
-Use IDs reais nas duas últimas operações e consulte a [referência CLI](CLI_REFERENCE.md) para seleção de itens/IA. A ação **Ver linha de comando** oferece formatos separados para CMD e PowerShell 5.1/7. Escolha o formato do terminal em uso e consulte [execução externa](EXECUTION_SCHEDULING.md) para regras de escape e credenciais.
+Use IDs reais nas duas últimas operações e consulte a [referência CLI](CLI_REFERENCE.md) para seleção de itens/IA. A ação **Ver linha de comando** oferece formatos separados para CMD e PowerShell 5.1/7. Escolha o formato do terminal em uso e consulte [execução externa](EXECUTION_SCHEDULING.md) para regras de escape, credenciais e limitações do comando planejado, especialmente nas pesquisas SERP e Perplexity.
 
 ## Segurança
 

@@ -36,7 +36,7 @@ No PowerShell, use:
 
 Substitua a URL pelo site autorizado. Use `desktop` para uma avaliação de computador. Cada auditoria começa com uma URL e um contexto de dispositivo. O exemplo desabilita IA, mas não desabilita por si só todas as integrações externas; revise as preferências e variáveis de ambiente antes de executar. A descoberta externa do IP público é habilitada por padrão.
 
-O console também permite gerar comandos para CMD ou PowerShell pela opção **Ver linha de comando**. Consulte [referência de comandos](docs/CLI_REFERENCE.md) e [execução externa e agendamento](docs/EXECUTION_SCHEDULING.md).
+O console também permite gerar comandos para CMD ou PowerShell pela opção **Ver linha de comando**. Confira os parâmetros antes de reutilizá-los; nem toda ação interativa está representada pelo comando planejado. Consulte [referência de comandos](docs/CLI_REFERENCE.md) e [execução externa e agendamento](docs/EXECUTION_SCHEDULING.md).
 
 ## Onde consultar os resultados
 
