@@ -10,7 +10,9 @@ O relatório permanece uma projeção. O estado persistido da auditoria é a fon
 
 Desde a restrição de entrada de novas AUDs a uma única URL, a CLI, console, Web/API e schedules não criam novos conjuntos explícitos multi-target. `TargetType.URL_SET` permanece no domínio interno para reabrir, reprocessar e projetar auditorias históricas sem migração destrutiva.
 
-Para um `URL_SET` histórico:
+As condições a seguir registram invariantes de aquisição do contrato histórico `URL_SET`, não um procedimento para iniciar novas auditorias. Na reabertura, preserve as informações e a identidade efetivamente persistidas; não crie um novo workspace a partir de entrada multi-target descontinuada.
+
+Invariantes históricos:
 
 - normalizar URLs pela política de URL do projeto;
 - preservar a sequência ordenada e sem duplicatas de URLs normalizadas;
@@ -62,7 +64,7 @@ Visual Snapshot
 → imagem do viewport observada pelo Chromium
 ```
 
-Evidência visual nunca substitui evidência RAW nem rendered.
+Evidência visual nunca substitui evidência RAW nem rendered. Screenshots podem conter conteúdo sensível; o mascaramento de texto não sanitiza pixels. Proteja os pacotes e não divulgue imagens sem revisão específica, conforme [segurança da informação](../SECRET_AND_CONFIGURATION_SAFETY.md).
 
 ## 5. Snapshot visual
 
@@ -212,7 +214,9 @@ O relatório de política de crawlers deve manter `OAI-SearchBot` e `GPTBot` sep
 
 Nenhuma recomendação de negócio pode afirmar que permitir qualquer desses crawlers garante indexação, ranking, citação ou inclusão em respostas geradas.
 
-## 12. Contrato de relatório - `REPORT-GEO-003`
+## 12. Requisitos de apresentação e rastreabilidade
+
+`REPORT-GEO-003` é uma referência histórica de requisitos da camada visual/DOM. O contrato atual de catálogo técnico é `CATALOG-REPORT-002`; a apresentação executiva tem contrato independente. O detalhamento de captura está em `report-catalog/capture-context.html` e de remediação em `report-catalog/cat-09.html`; as páginas `report-presentation/extracao.html` e `report-presentation/plano.html` oferecem leitura executiva de capturas e ações. Consulte a [matriz temática](../REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios). Não exigir paridade de campos entre os pacotes.
 
 O relatório deve conter visivelmente:
 
@@ -265,7 +269,7 @@ Trecho HTML original não persistido para esta evidência.
 
 ## 14. Invariantes de IA
 
-OpenAI permanece opcional. Esta capacidade não adiciona chamada livre de LLM para gerar remediação.
+A IA externa permanece opcional e multiprovedor conforme o registry vigente. A projeção de evidência visual/DOM não adiciona chamada livre de LLM para gerar remediação.
 
 Saídas persistidas de análise semântica/fallback podem ser reutilizadas. IA:
 
@@ -275,7 +279,7 @@ Saídas persistidas de análise semântica/fallback podem ser reutilizadas. IA:
 - não cria seletor, HTML, evidência, fonte, fato ou claim ausente do estado persistido;
 - não cria autor, data, preço, cobertura de produto ou dados estruturados como fatos.
 
-Quando OpenAI está habilitada, rastreabilidade de provider/modelo/assessment/reasoning/evidência/entidade/intenção permanece obrigatória.
+Quando a IA está habilitada e é efetivamente utilizada, rastreabilidade de provider/modelo/assessment/reasoning/evidência/entidade/intenção permanece obrigatória.
 
 ## 15. Persistência
 
@@ -304,11 +308,11 @@ Defaults e valores permitidos das configurações correspondentes devem ser cons
 A cobertura de regressão focada deve incluir:
 
 - entrada de URL única;
-- entrada multi-URL de mesma origem;
+- rejeição de novo conjunto explícito multi-target e leitura compatível de `URL_SET` histórico de mesma origem;
 - normalização/remoção de duplicatas;
 - rejeição de origem incompatível antes da aquisição;
 - leitura do conjunto explicitamente persistido pela execução histórica;
-- um único workspace de auditoria para conjunto explícito;
+- preservação da identidade do workspace do conjunto explícito histórico;
 - uma aquisição de robots e uma aquisição por URL de sitemap/recurso de domínio;
 - artefatos de screenshot Desktop/Mobile e vínculo ao snapshot;
 - seletor real quando determinístico e ausência quando não determinável;
