@@ -490,34 +490,49 @@ Continuam fora do Overall operacional:
 
 Esses dados são resultados. Servem para observabilidade e podem sustentar pesquisa empírica separada, sem tornar o índice circular ou alterar silenciosamente o contrato de scoring.
 
-## 18. Relatórios
+## 18. Relatórios: investigação técnica e leitura executiva
 
-Para leitura executiva, consulte `report-presentation/indices.html` (índices, resultados e limites) e `report-presentation/index.html` (painel). Para investigar composição, contribuição e método, utilize as superfícies técnicas `report-catalog/sari.html` e `report-catalog/methodology.html`. As páginas projetam a versão efetivamente persistida; a apresentação não recalcula o índice. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+O RASAi possui dois pacotes HTML complementares para uma AUD individual. Ambos interpretam as evidências persistidas e a versão efetiva do índice, sem recalcular a pontuação durante a geração. Não são duas metodologias de SARI.
 
-Todas as superfícies canônicas são materializadas após uma auditoria concluída com sucesso. A presença do HTML não implica execução da capacidade correspondente; ausência de dado deve aparecer como estado neutro ou explicativo.
+### 18.1 Catálogo técnico (`report-catalog/`)
 
-```text
-report-catalog/index.html               -> síntese executiva com readiness qualificada
-report-catalog/sari.html                -> SARI-001, qualidade medida, força da medição, dimensões e gates
-report-catalog/methodology.html         -> fórmula, pesos, grupos, Coverage, Confidence e rastreabilidade
-report-catalog/capture-context.html     -> contexto da auditoria e configuração materializada
-report-catalog/execution-evidence.html  -> evidência da execução, fulfillment e integridade
-report-catalog/ai-integrations.html     -> telemetria de IA e integrações externas
-report-catalog/metrics.html             -> inventário transversal de índices e métricas
-report-catalog/cat-01.html              -> fundamentos técnicos, descoberta e padrões web
-report-catalog/cat-02.html              -> acessibilidade automatizada
-report-catalog/cat-03.html              -> conteúdo, semântica e dados estruturados
-report-catalog/cat-04.html              -> Web Performance e dados CrUX/Lighthouse
-report-catalog/cat-05.html              -> Search & AI Intelligence e observabilidade aplicável
-report-catalog/cat-06.html              -> Apdex de navegação
-report-catalog/cat-07.html              -> Apdex de experiência
-report-catalog/cat-08.html              -> análise profunda e melhorias
-report-catalog/cat-09.html              -> remediações
-report-catalog/cat-10.html              -> segurança passiva
-report-catalog/directed-analysis.html   -> análise direcionada
-```
+Destinado à investigação analítica, à explicação do cálculo e à rastreabilidade das evidências, regras e contribuições que sustentam o índice.
 
-`index.html` e `sari.html` devem usar o estado de readiness/medição como conclusão visual primária. A banda `Excelente/Alta/Moderada/Baixa/Crítica` permanece válida para a **qualidade numérica medida**, mas não pode mascarar `PARTIAL`, `NOT_CONSOLIDATED`, `BLOCKED` ou `UNKNOWN`.
+| Página | Especialização |
+| --- | --- |
+| `report-catalog/index.html` | Visão geral técnica da AUD, situação de prontidão, medição e matriz decisória de evidências. |
+| `report-catalog/sari.html` | Índice SARI, dimensões, qualidade medida, cobertura, confiança, consolidação e critérios críticos. |
+| `report-catalog/methodology.html` | Método efetivamente utilizado, fórmula, pesos, grupos, critérios e rastreabilidade metodológica. |
+| `report-catalog/metrics.html` | Inventário transversal de índices e métricas, com seus universos e proveniência. |
+| `report-catalog/capture-context.html` e `report-catalog/execution-evidence.html` | Contexto e configuração efetivos, evidência da execução, atendimento dos requisitos e integridade. |
+
+Os demais catálogos e páginas transversais aprofundam as evidências de cada domínio. O [guia de relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios) é a referência única para o inventário de páginas técnicas (21) e sua relação temática com as páginas executivas.
+
+### 18.2 Apresentação executiva (`report-presentation/`)
+
+Destinada à interpretação dos resultados e ao suporte à decisão, com onze páginas temáticas autônomas. Consome os dados persistidos diretamente, sem depender do HTML do catálogo técnico.
+
+| Página | Especialização |
+| --- | --- |
+| `report-presentation/index.html` | Painel executivo: situação observada da auditoria, resultados e limitações relevantes. |
+| `report-presentation/indices.html` | Leitura executiva dos índices e da suficiência da medição, distinguindo qualidade medida e limites da evidência disponível. |
+| `report-presentation/performance.html` | Desempenho Web e experiência, com medições de laboratório, campo e Apdex em universos distintos do SARI. |
+| `report-presentation/descoberta.html` e `report-presentation/conteudo.html` | Contexto dos sinais de descoberta, padrões, conteúdo, semântica e acessibilidade. |
+| `report-presentation/search-geo.html` | Resultados observados de busca e GEO, sem confundi-los com pontuação de prontidão. |
+| `report-presentation/plano.html` | Achados, propostas e decisões persistidas, sem transformar recomendações em ações aprovadas. |
+| `report-presentation/ia-custos.html` | Uso de IA, esforço, custos e proveniência, sem atribuir às chamadas de IA o cálculo do índice. |
+
+As páginas de extração, rede e segurança complementam a leitura dos respectivos domínios. Consulte o [roteiro completo das onze páginas](REPORT_GUIDE.md#roteiro-de-leitura-executiva).
+
+### 18.3 Como interpretar os dois pacotes
+
+Comece pelo painel e pela página de índices da apresentação executiva. Para explicar a composição matemática, os pesos, as contribuições ou a evidência de uma regra, aprofunde a investigação nas páginas SARI e metodologia do catálogo técnico. Essa é uma orientação de leitura, não uma dependência entre os dois geradores nem uma exigência de duplicação de campos.
+
+A publicação do catálogo técnico e a da apresentação executiva possuem estados próprios. O catálogo é o gate técnico da publicação; a apresentação é uma projeção derivada não bloqueante. Um pacote pode estar ausente ou desatualizado mesmo quando o outro existe. A presença de HTML não comprova execução da capacidade correspondente nem conclusão integral da AUD. Leia os estados de ausência, parcialidade e indisponibilidade.
+
+A conclusão de prontidão deve distinguir nota, cobertura, confiança, consolidação e critérios críticos. Nas superfícies técnicas `report-catalog/index.html` e `report-catalog/sari.html`, a banda `Excelente/Alta/Moderada/Baixa/Crítica` qualifica a **qualidade numérica medida**, sem mascarar `PARTIAL`, `NOT_CONSOLIDATED`, `BLOCKED` ou `UNKNOWN`. Na apresentação executiva, `report-presentation/index.html` e `report-presentation/indices.html` devem ser interpretadas com a mesma separação conceitual, sem presumir réplica de cada campo ou classificação visual.
+
+Para comparar auditorias elegíveis ao longo do tempo, consulte o [relatório consolidado longitudinal](CONSOLIDATED_REPORTING.md), que possui contrato próprio e não integra nenhum dos dois pacotes de uma AUD individual.
 
 ## 19. Rastreabilidade
 
@@ -564,6 +579,8 @@ Isso não confirma a cobertura real das SERPs nem a experiência dos usuários.
 
 ## Matriz executiva de universos de evidência
 
-O painel `Matriz decisória de evidências` na visão geral e o recorte metodológico da página SARI explicam por que um índice SARI elevado pode coexistir com Lighthouse baixo, métricas CrUX de ORIGIN, amostras Apdex parciais e SERP incompleta. Valores continuam físicos e independentes; nenhuma média cruzada ou recalibração retroativa de `SCORE-GEO-004`/`SCORE-GEO-005` é produzida. A confiança alta do método não comprova resultados externos de ranking, menção em IA ou conformidade regulatória.
+O painel `Matriz decisória de evidências` em `report-catalog/index.html` e o recorte metodológico em `report-catalog/sari.html` explicam por que um índice SARI elevado pode coexistir com Lighthouse baixo, métricas CrUX de ORIGIN, amostras Apdex parciais e SERP incompleta. Valores continuam físicos e independentes; nenhuma média cruzada ou recalibração retroativa de `SCORE-GEO-004`/`SCORE-GEO-005` é produzida. A confiança alta do método não comprova resultados externos de ranking, menção em IA ou conformidade regulatória.
 
-O diagnóstico read-only `python -m rasai.report_decision_matrix_cli /caminho/AUD-ID` permite confrontar a fonte SQLite selada e a apresentação. Contrato consultivo RASAI-DECISION-EVIDENCE-604-001; escopos e limites em [`REPORT_DECISION_MATRIX.md`](REPORT_DECISION_MATRIX.md).
+A leitura executiva correlata está em `report-presentation/index.html` e `report-presentation/indices.html`, sem pressupor réplica da matriz técnica.
+
+O diagnóstico read-only `python -m rasai.report_decision_matrix_cli /caminho/AUD-ID` permite confrontar a fonte SQLite selada e as páginas técnicas do catálogo; não certifica o pacote executivo. Contrato consultivo RASAI-DECISION-EVIDENCE-604-001; escopos e limites em [`REPORT_DECISION_MATRIX.md`](REPORT_DECISION_MATRIX.md).
