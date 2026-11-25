@@ -1,6 +1,6 @@
 # Reprocessamento seletivo de auditorias
 
-A última release pública é [`v0.10.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0), publicada em 15/11/2026; `v0.9.0` e `v0.8.0` permanecem referências históricas. Este documento descreve o contrato vigente na `main` de desenvolvimento, sem reescrever AUDs ou evidências produzidas em versões anteriores.
+Consulte a [última release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest); `v0.10.0`, `v0.9.0` e `v0.8.0` são referências de versões anteriores à v1.0.0. Este documento descreve o contrato vigente na `main` de desenvolvimento, sem reescrever AUDs ou evidências produzidas em versões anteriores.
 
 O RASAi trata cada `AUD-*` como **uma única observação lógica**. Uma auditoria pode precisar de zero, uma ou várias reexecuções para satisfazer integralmente a configuração escolhida pelo usuário, sem transformar essas reexecuções em novas observações para histórico, tendência ou consolidação.
 

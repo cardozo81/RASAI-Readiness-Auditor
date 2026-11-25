@@ -1,6 +1,6 @@
 # Console interativo
 
-**Estado:** contrato vigente do runtime local. A release pública atual é `v0.10.0`, publicada em 15/11/2026.
+**Estado:** contrato vigente do runtime local. Consulte a [última release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest).
 
 ## Inicialização
 
