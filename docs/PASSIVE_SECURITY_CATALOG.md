@@ -1,6 +1,6 @@
 # CAT-10 · Segurança Passiva
 
-**Estado:** contrato de desenvolvimento/pré-produção.  
+**Estado:** contrato de segurança passiva da versão 1.0.0.  
 **Contrato técnico:** `PASSIVE-SECURITY-002`.
 
 O CAT-10 mede **prontidão de segurança web de forma estritamente passiva**. Ele reutiliza evidências já coletadas pelo RASAi, adiciona análise determinística de segurança e, quando possível, cruza identificadores de componentes/versionamento com fontes externas de vulnerabilidade sem executar exploração.
@@ -237,6 +237,8 @@ passive_security_ai
 Nenhuma credencial é persistida no job. OSV e CISA KEV não exigem secret no contrato atual. A evolução de cookies/scripts/plataformas reutiliza essas opções existentes e não adiciona campo SaaS obrigatório; o payload continua secret-free.
 
 ## HTML
+
+O catálogo técnico `report-catalog/cat-10.html` especializa o diagnóstico de segurança passiva; `report-presentation/seguranca.html` apresenta a leitura executiva da cobertura, dos achados e dos limites comprovados, com detalhes locais. As duas projeções preservam a distinção entre inventário, achado e vulnerabilidade; nenhuma substitui pentest ou certificação. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 O `report-catalog/cat-10.html` apresenta resumo e estado, cobertura efetiva, achados por severidade/classificação, cookies e provenance observável, JavaScript com integridade/indicadores de risco, plataformas/identificadores seguros, recursos próprios/externos, componentes/versionamento identificáveis, MDN HTTP Observatory reutilizado, estado de OSV/CISA KEV e demais integrações, além de impacto/contenção/correção/validação de cada finding. Indicador estático não é apresentado como verdict de malware.
 

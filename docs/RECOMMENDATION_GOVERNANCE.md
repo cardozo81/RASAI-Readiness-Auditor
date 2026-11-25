@@ -104,6 +104,8 @@ A governança não altera SARI/SCORE-GEO.
 
 ## Relatório
 
+No catálogo técnico, `report-catalog/cat-09.html` e `report-catalog/directed-analysis.html` apoiam investigação de propostas, remediações e decisões registradas. Na apresentação executiva, `report-presentation/plano.html` permite ler ações e estado de governança, sem criar aprovação ou prioridade ausente. A [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios) diferencia seus objetivos.
+
 O CAT-09 separa:
 
 1. **Plano de ação aceito** - somente recomendações `ACCEPTED`;

@@ -269,6 +269,8 @@ Consulte também `EXTERNAL_METRICS_INTEGRITY.md`.
 
 ## Contrato do HTML
 
+No catálogo técnico, `report-catalog/cat-04.html` concentra desempenho e categorias Lighthouse, e `report-catalog/cat-02.html` aprofunda acessibilidade. Na apresentação executiva, consulte `report-presentation/performance.html` para desempenho, laboratório e campo, e `report-presentation/conteudo.html` para conteúdo e acessibilidade. As páginas são temáticas, não réplicas das categorias Lighthouse. Os índices proprietários de prontidão permanecem separados. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
 `report-catalog/cat-04.html` deve deixar explícito, no mesmo contexto URL/dispositivo:
 
 1. os cinco scores Lighthouse quando válidos, com Agentic Browsing identificado como experimental;

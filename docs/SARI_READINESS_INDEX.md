@@ -492,6 +492,8 @@ Esses dados são resultados. Servem para observabilidade e podem sustentar pesqu
 
 ## 18. Relatórios
 
+Para leitura executiva, consulte `report-presentation/indices.html` (índices, resultados e limites) e `report-presentation/index.html` (painel). Para investigar composição, contribuição e método, utilize as superfícies técnicas `report-catalog/sari.html` e `report-catalog/methodology.html`. As páginas projetam a versão efetivamente persistida; a apresentação não recalcula o índice. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
 Todas as superfícies canônicas são materializadas após uma auditoria concluída com sucesso. A presença do HTML não implica execução da capacidade correspondente; ausência de dado deve aparecer como estado neutro ou explicativo.
 
 ```text

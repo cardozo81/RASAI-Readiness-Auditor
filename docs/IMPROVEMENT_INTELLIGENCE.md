@@ -219,6 +219,8 @@ O relatório próprio contém o recorte de consumo da análise e a superfície c
 
 ## Relatórios
 
+A análise profunda é detalhada em `report-catalog/cat-08.html`, e as remediações e decisões têm superfícies técnicas em `report-catalog/cat-09.html` e `report-catalog/directed-analysis.html`. Na apresentação, `report-presentation/conteudo.html` contextualiza achados relacionados e `report-presentation/plano.html` organiza propostas e ações persistidas. Não presuma réplica de todas as tabelas, nem converta uma proposta em decisão aprovada. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
 A superfície canônica é:
 
 ```text

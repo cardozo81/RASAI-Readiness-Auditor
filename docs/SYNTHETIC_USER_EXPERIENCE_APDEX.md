@@ -199,6 +199,8 @@ Synthetic Navigation Apdex permanece em persistência separada e conserva seu ta
 
 ## 9. Relatório HTML
 
+A página técnica `report-catalog/cat-07.html` é especializada na experiência sintética, distinta da navegação em `report-catalog/cat-06.html`. A leitura executiva em `report-presentation/performance.html` reúne os indicadores observados e seus limites; não pressupõe o mesmo detalhamento ou layout das páginas técnicas. A [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios) orienta a navegação.
+
 `report-catalog/cat-07.html` deve refletir exatamente a execução persistida e apresentar:
 
 - device efetivo da AUD;

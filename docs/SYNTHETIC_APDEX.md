@@ -114,6 +114,8 @@ A concorrência do Navigation é limitada a `1..4`: `1` é o valor recomendado; 
 
 ## Persistência
 
+Para diagnóstico técnico da navegação sintética, consulte `report-catalog/cat-06.html`, com amostras, condições e limitações do método. Para a leitura executiva, consulte `report-presentation/performance.html`, que reúne medições de desempenho e experiência sem fundir os universos amostrais. Consulte a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
 Os dados são persistidos em tabelas dedicadas e o relatório é materializado em:
 
 ```text

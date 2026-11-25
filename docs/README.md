@@ -40,6 +40,8 @@ A versão executável do pacote/auditor segue [`VERSIONING.md`](VERSIONING.md) e
 
 ## Regra documental de contrato vigente
 
+**Regra transversal para referências a relatórios:** em documentação operacional, ao citar uma página de relatório, indique o pacote (`report-catalog/` ou `report-presentation/`), a finalidade e a especialização da página. Quando o assunto estiver presente nos dois pacotes, indique os caminhos correspondentes e explique a diferença de uso. Quando houver apenas uma superfície específica, declare o limite; não invente página equivalente. Em documentação técnica de contrato exclusivo, delimite o pacote e encaminhe ao guia central. Relatórios longitudinais, consolidações e exportações têm contratos próprios. Use a [matriz de correspondência temática](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios) como referência única; não confunda correspondência temática com paridade de campos ou dependência entre geradores.
+
 A documentação normativa deve representar **o produto como ele existe agora**.
 
 Não documentar como contrato público:

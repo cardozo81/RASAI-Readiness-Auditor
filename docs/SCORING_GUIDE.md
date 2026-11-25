@@ -350,6 +350,8 @@ Não é necessário reexecutar website, IA ou APIs externas.
 
 ## Relatórios
 
+As páginas técnicas `report-catalog/sari.html` e `report-catalog/methodology.html` permitem investigar o índice e a metodologia. A apresentação executiva em `report-presentation/indices.html` contextualiza os índices e limitações; o painel `report-presentation/index.html` oferece síntese. Não há recálculo pelo gerador de HTML. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
 ```text
 report-catalog/sari.html         SARI, dimensões, macrocomponentes, Coverage/Confidence e Critical Gates
 report-catalog/methodology.html   fórmula, pesos, grupos, RuleExecutions representativas, contribuições e limites metodológicos

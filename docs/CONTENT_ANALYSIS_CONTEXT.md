@@ -149,6 +149,8 @@ O perfil semântico reutilizável pertence à Property e é persistido em entida
 
 ## Relatórios
 
+A leitura técnica de conteúdo, contexto editorial e semântica está em `report-catalog/cat-03.html`. Na apresentação executiva, `report-presentation/conteudo.html` reúne contexto, achados e avaliações disponíveis, sem promover ausência de registro a avaliação executada. Consulte a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
 O CAT-03 é a projeção canônica do diagnóstico de conteúdo/semântica:
 
 - contexto efetivamente usado;

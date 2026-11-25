@@ -494,6 +494,8 @@ Não é necessário reexecutar website, IA ou APIs externas para reproduzir o c�
 
 ## Relatórios
 
+A leitura técnica de composição e método está em `report-catalog/sari.html` e `report-catalog/methodology.html`. A leitura executiva do índice e suas limitações está em `report-presentation/indices.html`, com síntese no painel `report-presentation/index.html`. A organização editorial não altera pesos, contribuições ou o método persistido. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
 ```text
 report-catalog/sari.html
 report-catalog/methodology.html
