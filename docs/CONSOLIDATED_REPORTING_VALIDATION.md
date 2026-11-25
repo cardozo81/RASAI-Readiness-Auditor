@@ -23,6 +23,8 @@ CONSOLIDATED-AI-CONTEXT-001
 CONSOLIDATED-MATERIALIZATION-003
 ```
 
+O CONS-5 é um artefato longitudinal próprio, não uma terceira página de um dos relatórios da AUD. Usa evidências persistidas de auditorias elegíveis. O `report-catalog/` é a referência técnica da AUD e a validação de seus links tem contrato próprio no CONS; a existência de `report-presentation/` não substitui esse gate. A apresentação executiva é independente, não fonte do cálculo longitudinal. Consulte [guia de relatórios](REPORT_GUIDE.md) e [consolidação](CONSOLIDATED_REPORTING.md).
+
 ## Invariantes
 
 A validação deve comprovar:
@@ -65,7 +67,7 @@ O consolidador:
 
 - lê em modo somente leitura;
 - não migra schema;
-- não persiste secrets;
+- o contrato exclui valores de credenciais reconhecidas dos registros derivados; ainda é necessário tratar payloads, textos e artefatos como potencialmente sensíveis, conforme [segurança](SECRET_AND_CONFIGURATION_SAFETY.md);
 - pode reconstruir `.rasai/consolidated-index.db`;
 - materializa apenas artefatos derivados em `consolidated/CONS-*` e `consolidated/executions/CONRUN-*`;
 - preserva `CONRUN-*` mesmo quando uma falha impede a criação do relatório final.

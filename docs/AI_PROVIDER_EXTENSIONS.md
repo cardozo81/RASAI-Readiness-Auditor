@@ -4,7 +4,7 @@ Guia operacional dos providers semânticos adicionais integrados ao RASAi por me
 
 ## Estado atual
 
-Os providers adicionais abaixo estão implementados e mantêm sua qualificação própria no registry. A qualificação (`QUALIFIED`, `PROVISIONAL` etc.) continua sendo informação de governança; a participação em `--ai-provider auto` é controlada explicitamente por `auto_eligible` e pela aptidão da configuração da execução.
+Os providers adicionais abaixo estão implementados e mantêm sua qualificação própria no registry. Os defaults exemplificam a baseline de modelos distribuída com 1.0.0 (`RASAI-MODELS-2026-10-23.1`), não promessa de disponibilidade comercial; a data de revisão recomendada (23/11/2026) já foi atingida. Confira [catálogo efetivo de modelos](AI_MODEL_CONFIGURATION.md) e fontes oficiais antes de habilitar uso pago. A qualificação (`QUALIFIED`, `PROVISIONAL` etc.) continua sendo informação de governança; a participação em `--ai-provider auto` é controlada explicitamente por `auto_eligible` e pela aptidão da configuração da execução.
 
 | CLI | Provider | Modelo default público | Transporte | Estado RASAi | AUTO |
 |---|---|---|---|---|---|

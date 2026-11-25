@@ -4,6 +4,8 @@
 
 Este contrato complementa `CONSOLIDATED_REPORTING.md` para a apresentação do HTML consolidado e para a experiência de custo no console. Ele não altera cálculo, score, evidência, comparabilidade, `SARI`, `SCORE-GEO`, Monitoring ou Fix Verification. As mudanças são de apresentação, proveniência e transparência operacional.
 
+O HTML longitudinal `CONS-*/report.html` tem finalidade própria: comparação temporal de AUDs elegíveis. Não equivale ao catálogo técnico `report-catalog/` nem à apresentação executiva `report-presentation/` de uma AUD individual. A telemetria individual pode ser investigada em `report-catalog/ai-integrations.html` e contextualizada em `report-presentation/ia-custos.html`. O consolidado respeita a versão metodológica e as evidências de cada fonte, sem agregar moedas ou escopos incompatíveis. Consulte [guia de relatórios](REPORT_GUIDE.md).
+
 ## Linguagem do HTML
 
 O relatório continua usando identificadores técnicos em inglês quando eles fazem parte de contratos, nomes de métricas, códigos ou protocolos. Texto de interface e explicações destinadas ao usuário devem usar pt-BR sempre que não houver perda de precisão. Exemplos visíveis tratados pela camada de apresentação incluem `Snapshot` -> `Leitura pontual`, `Fix Verification` -> `Verificação de correções`, `Provider` -> `Provedor` e `Reasoning` -> `Perfil de raciocínio`.
