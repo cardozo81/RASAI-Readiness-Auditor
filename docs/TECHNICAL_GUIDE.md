@@ -72,4 +72,4 @@ O plano da próxima auditoria é composto pelo catálogo `CAT-*`. Quando o opera
 
 Nomes de módulos, classes, tabelas, eventos e campos técnicos são detalhes de implementação. A documentação funcional, a UI e os relatórios devem descrever o contrato vigente do produto e usar os identificadores técnicos somente quando forem necessários para diagnóstico, rastreabilidade ou integração.
 
-O software está em desenvolvimento/pré-produção. A referência documental é o comportamento vigente no código e nos contratos canônicos.
+O RASAi v1.0.0 foi publicado como release estável. A `main` pode conter evoluções posteriores; a referência documental é o comportamento vigente no código e nos contratos canônicos da revisão consultada. A estabilidade da release não equivale à homologação de todas as integrações e ambientes, nem garante funcionamento universal: permanecem os requisitos, limites e gates operacionais aplicáveis.

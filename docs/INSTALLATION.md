@@ -96,7 +96,7 @@ py -3.13 -m venv .venv
 
 A versão exibida deve ser `Python 3.13.x`. O launcher oficial instala/reconcilia os extras declarados no projeto e o Chromium quando necessário; não é necessário executar duas instalações redundantes por padrão. O backup `.venv-backup-*/` é ignorado pelo Git, mas **não é apagado automaticamente**; preserve-o até concluir o smoke. Se o launcher falhar, capture a mensagem textual completa em vez de remover arquivos adicionais.
 
-Para validar a opção 8 em **smoke sem rede**, não habilite `RASAI_ARCH_PROBE_EGRESS_GUARDED`: o diagnóstico deve permanecer inconclusivo e não iniciar DNS/HTTP/Chromium. A flag não configura isolamento de rede do Chromium; testes externos exigem proteção de egress efetiva e atestada, conforme `docs/ARCHITECTURE_DISCOVERY_ACCEPTANCE.md`.
+Para validar a opção 8 em **smoke sem coleta externa**, selecione **Não executar descoberta** e execute com URL/dispositivo válidos; não deve haver DNS/HTTP/Chromium do site. Não use o modo básico HTTP nesse smoke, pois ele pode consultar a rede sem Docker. Para ensaio direto de `capture_public_architecture`, sem `RASAI_ARCH_PROBE_OFFLINE_CONTAINER=1`, espera-se `SAFE_EGRESS_NOT_CONFIGURED` sem DNS/HTTP; a flag legada `RASAI_ARCH_PROBE_EGRESS_GUARDED` não habilita captura renderizada. O modo dinâmico do console prepara o executor OCI com consentimento quando necessário e não exige flag manual. A captura dinâmica de alvo real depende dos gates de isolamento e canário do executor. Consulte o [contrato de contexto arquitetural](ARCHITECTURE_CONTEXT_CONTRACT.md) e o [roteiro de aceite](ARCHITECTURE_DISCOVERY_ACCEPTANCE.md).
 
 Se Python 3.13 estiver ausente e `winget` não estiver disponível, o launcher não poderá instalá-lo automaticamente.
 

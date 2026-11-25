@@ -98,54 +98,53 @@ classificação a `architecture_discovery.assess_architecture`, a mesma função
 consumida pelo módulo de diagnóstico JavaScript da auditoria e pelo caminho de reprocessamento. O diagnóstico
 não gera AUD, não processa CAT, não altera índices e não propaga AUTO/DECLARED.
 
-A aquisição leve usa somente HTTP público com limites de requisição e
-tamanho, e navegador Chromium com bloqueios para origens diferentes e
-destinos não públicos. **Limitação de segurança:** validar DNS antes da
-requisição não equivale a uma política de egress com IP fixado, portanto
-cenários com DNS rebinding exigem restrição adicional na rede/proxy antes da
-homologação de segurança para ambientes hostis. A evidência de testes offline
-não substitui smoke com navegador e destino reais; ausência de prova física
-resulta em `UNKNOWN`, não em arquitetura inferida.
+A opção 8 oferece descoberta básica (HTTP público, sem Docker), dinâmica
+(renderização em executor OCI isolado) ou não execução, conforme a escolha do
+operador. O modo básico pode fazer DNS/HTTP, mas não executa Chromium nem
+comprova DOM renderizado; a classificação observada permanece inconclusiva.
+Os testes offline não substituem a homologação física do ambiente e do
+destino autorizado. Ausência de evidência suficiente resulta em `UNKNOWN`.
 
 ### Segurança da captura prévia
 
-A sondagem física externa fica **desabilitada por padrão** quando o ambiente não
-indica a existência de controle de saída de rede. A variável de implantação
-`RASAI_ARCH_PROBE_EGRESS_GUARDED=1` libera a tentativa somente para ambientes
-com bloqueio de destinos internos/privados também **na camada de rede**; declarar
-a variável sem realmente configurar esse bloqueio não é uma garantia de segurança.
-Sem essa condição, o diagnóstico retorna inconclusivo sem abrir conexão. O
-operador não deve precisar configurar essa variável para usar o restante do
-RASAi. É uma medida de proteção até existir transporte com destino fixado e
-verificação de rede comprovada. Nenhum serviço pago é habilitado por esse sinal.
+O caminho renderizado vigente é o executor OCI isolado. Na opção 8, o modo
+dinâmico prepara o pré-requisito com consentimento quando necessário e
+utiliza `capture_isolated_public_architecture`; não exige flag manual.
+Na chamada direta a `capture_public_architecture`,
+`RASAI_ARCH_PROBE_OFFLINE_CONTAINER=1` seleciona o executor OCI; sem ela,
+retorna `SAFE_EGRESS_NOT_CONFIGURED` antes de DNS/HTTP.
+A antiga `RASAI_ARCH_PROBE_EGRESS_GUARDED=1` isoladamente não autoriza captura
+nem resolução DNS nesse caminho. A recusa não se estende ao modo básico.
+Nenhum desses sinais habilita serviços pagos.
 
 ### Separação de garantias entre HTTP e Chromium
 
-O transporte HTTP bruto da descoberta independente utiliza o mesmo componente
-de saída pública com **endereço IP de conexão fixado após validação**, sem
-redirecionamentos, e mantém a validação de certificado/SNI do hostname original.
-Essa garantia aplica-se à captura HTTP, **não** a toda a navegação Chromium.
+A aquisição HTTP pública pelo host usa conexão com IP público fixado após
+validação e verificação TLS/SNI. O documento inicial admite até dois saltos
+de redirecionamento sujeitos à política de identidade e transporte; os recursos
+adicionais não admitem redirects. Essa garantia aplica-se à aquisição HTTP,
+não à totalidade do ambiente executor.
 
-O navegador agora instala roteamento HTTP no contexto **antes de criar páginas**, alcançando também a primeira requisição de popups; operações HTTP diferentes de GET são negadas. WebSockets são fechados via `route_web_socket` antes de abrir conexão. Isso melhora o bloqueio na aplicação, **mas não prova isolamento de DNS, redirects internos ou WebRTC**, e a guarda de rede externa permanece obrigatória.
-
-O navegador usa limite de requisições, bloqueio de destinos não públicos e de
-origens diferentes, impede service workers e aguarda a estabilização da
-renderização por um intervalo limitado. Essas medidas não comprovam, sozinhas,
-proteção contra troca de DNS após a verificação. Portanto a navegação física
-continua condicionada a uma política efetiva e externa de saída de rede, além
-da indicação de sua existência. Sem esse ambiente, o diagnóstico retorna
-inconclusivo e não realiza consulta externa. Testes de contrato não substituem
-captura real em ambiente protegido.
+Antes de DNS/HTTP do site no modo dinâmico, o executor verifica a imagem local
+por digest, os probes negativos de rede e o canário sintético de renderização
+no mesmo digest. Falhas impedem a aquisição do site. A renderização ocorre
+com `--network=none`, sem fallback para Chromium no host. As antigas mitigações
+de roteamento no contexto, bloqueio de operações não GET, destinos não públicos,
+service workers e WebSockets eram controles de aplicação: não constituíam,
+isoladamente, prova de isolamento de DNS, redirects ou WebRTC. A atestação
+operacional do ambiente continua necessária; não é garantia contra
+comprometimento do host/daemon.
 
 ### Proveniência de bytes na prévia renderizada
 
-Para evitar reconsulta direta por DNS/HTTP do Chromium, a opção 8 usa
-`BrowserContext.route` e entrega os corpos de respostas HTTP do transporte
-público fixado por IP via `route.fulfill`. O HTML de navegação é a própria
-captura RAW inicial (mesmo snapshot); recursos adicionais têm limite agregado.
-Respostas com redirects, identidade final divergente, MIME ausente ou erro
-abstêm, sem fallback para tráfego nativo. A prevenção de DNS rebinding via
-replay HTTP **não** certifica ausência de WebRTC/outro egress Chromium.
+No fluxo OCI vigente, o host prepara um bundle limitado do HTML RAW e dos
+recursos admissíveis, entregue ao executor via stdin. O navegador reproduz
+somente os recursos fornecidos, sem rede e sem fallback nativo. O HTML de
+navegação deriva do snapshot RAW inicial; recursos ausentes, identidade
+divergente ou evidência insuficiente podem impedir classificação conclusiva.
+O replay HTTP isoladamente não certifica ausência de outros egress; essa
+garantia depende das restrições e verificações do executor OCI. Consulte o
+[roteiro de aceite](ARCHITECTURE_DISCOVERY_ACCEPTANCE.md).
 
 ### Transparência da escolha no console
 

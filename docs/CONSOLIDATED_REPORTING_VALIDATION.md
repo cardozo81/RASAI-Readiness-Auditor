@@ -59,7 +59,7 @@ A validação deve comprovar:
 - blocos interpretativos produzidos por IA possuem marcador visual explícito de origem;
 - o SARI exibido no CONS é somente o `OVERALL_READINESS` persistido, nunca um recálculo.
 
-Na versão 1.0.0, a descrição do método no HTML e o rótulo da camada decisória podem divergir da versão de pontuação persistida. Os [limites da leitura do CONS-5](CONSOLIDATED_REPORTING.md#camada-decisória-e-sari) indicam como conferir a proveniência sem atribuir a diferença ao cálculo.
+Na release v1.0.0 originalmente publicada, a descrição do método no HTML e o rótulo da camada decisória podiam divergir da versão de pontuação persistida. Relatórios HTML já materializados nessa condição permanecem históricos. A correção posterior (#768), incorporada à `main`, identifica a versão persistida, distingue métodos conhecidos, mistos e desconhecidos e não apresenta variação global ou pico entre métodos não comparáveis. O CONS continua usando valores e versões persistidos, sem recalcular scores; comparações exigem método e universo compatíveis. Os [limites da leitura do CONS-5](CONSOLIDATED_REPORTING.md#camada-decisória-e-sari) orientam a conferência da proveniência.
 
 ## Fonte de verdade
 
