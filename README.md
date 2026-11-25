@@ -4,6 +4,9 @@ O **RASAi (Readiness Assessment for Search & AI)** avalia a prontidão técnica 
 
 A auditoria pode avaliar descoberta de páginas, conteúdo, dados estruturados, desempenho, acessibilidade, conectividade e segurança passiva. Integrações externas e análises por IA dependem de configuração e disponibilidade. O índice de prontidão não mede popularidade nem substitui resultados reais de busca.
 
+**Pacote Python (última release publicada):** consulte a [GitHub Release mais recente](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest).  
+**Pacote Python (versão no código-fonte):** `1.0.0`; a versão no código-fonte não comprova publicação. Consulte as [notas da v1.0.0](docs/RELEASE_NOTES_V1_0_0.md).
+
 ## Primeiros passos no Windows
 
 1. Obtenha o código da [versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v1.0.0) ou de outra [versão publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases).

@@ -201,7 +201,7 @@ Cada evento pode conter:
 
 ## Relação com o relatório HTML
 
-A auditoria em um ponto no tempo possui leitura técnica em `report-catalog/cat-05.html` e `report-catalog/geo.html`, e leitura executiva em `report-presentation/search-geo.html`. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+A auditoria em um ponto no tempo possui leitura técnica em `report-catalog/cat-05.html` e `report-catalog/geo.html`, e leitura executiva em <code>report-presentation/search&#45;geo.html</code>. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 `SEARCH-HISTORY-001` é um contrato separado de comparação temporal. Manter esses contratos separados evita que o HTML pontual sugira silenciosamente que uma observação posterior foi causada por um deploy.
 

@@ -203,7 +203,7 @@ São resultados observados e não entram no cálculo.
 
 ## Relatórios
 
-As páginas técnicas `report-catalog/sari.html` e `report-catalog/methodology.html` detalham o contrato; a leitura executiva dos índices está em `report-presentation/indices.html` e o contexto externo em `report-presentation/search-geo.html`. Não se presume paridade de cada campo. A referência técnica deve distinguir:
+As páginas técnicas `report-catalog/sari.html` e `report-catalog/methodology.html` detalham o contrato; a leitura executiva dos índices está em `report-presentation/indices.html` e o contexto externo em <code>report-presentation/search&#45;geo.html</code>. Não se presume paridade de cada campo. A referência técnica deve distinguir:
 
 - se BR-GEO-060 foi aplicada;
 - peso do grupo;
@@ -213,4 +213,4 @@ As páginas técnicas `report-catalog/sari.html` e `report-catalog/methodology.h
 - aviso de que o dado não prova indexação/ranking;
 - aviso de que o grupo não integra Critical Gates.
 
-`report-catalog/cat-01.html` mantém a evidência técnica de descoberta e `report-catalog/cat-05.html` e `report-catalog/metrics.html` projetam a leitura observacional aplicável das capturas Common Crawl. O pacote executivo interpreta os sinais de descoberta em `report-presentation/descoberta.html`, as fontes de busca em `report-presentation/search-geo.html` e os índices em `report-presentation/indices.html`, sem recalcular o SARI nem pressupor que a regra ou cada captura esteja replicada. Consulte o [guia de relatórios](REPORT_GUIDE.md).
+`report-catalog/cat-01.html` mantém a evidência técnica de descoberta e `report-catalog/cat-05.html` e `report-catalog/metrics.html` projetam a leitura observacional aplicável das capturas Common Crawl. O pacote executivo interpreta os sinais de descoberta em `report-presentation/descoberta.html`, as fontes de busca em <code>report-presentation/search&#45;geo.html</code> e os índices em `report-presentation/indices.html`, sem recalcular o SARI nem pressupor que a regra ou cada captura esteja replicada. Consulte o [guia de relatórios](REPORT_GUIDE.md).

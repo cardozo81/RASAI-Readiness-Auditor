@@ -353,10 +353,11 @@ Relatório pontual da auditoria:
 ```text
 AUD-*/report-catalog/cat-05.html
 AUD-*/report-catalog/geo.html
-AUD-*/report-presentation/search-geo.html
 ```
 
-Para leitura executiva, abra `report-presentation/search-geo.html` (Search e GEO): reúne observações de busca, concorrência, pesquisa externa e contexto GEO persistidos, com detalhes locais. Para investigação técnica, use `report-catalog/cat-05.html` (Search & AI Intelligence) e `report-catalog/geo.html` (inteligência GEO consultiva). As páginas de custos, quando pertinentes, são `report-presentation/ia-custos.html` e `report-catalog/ai-integrations.html`. As projeções são independentes, não executam pesquisa para preencher lacunas e não têm correspondência obrigatória de cada tabela ou seção. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+Apresentação executiva: <code>AUD-*/report-presentation/search&#45;geo.html</code>.
+
+Para leitura executiva, abra <code>report-presentation/search&#45;geo.html</code> (Search e GEO): reúne observações de busca, concorrência, pesquisa externa e contexto GEO persistidos, com detalhes locais. Para investigação técnica, use `report-catalog/cat-05.html` (Search & AI Intelligence) e `report-catalog/geo.html` (inteligência GEO consultiva). As páginas de custos, quando pertinentes, são `report-presentation/ia-custos.html` e `report-catalog/ai-integrations.html`. As projeções são independentes, não executam pesquisa para preencher lacunas e não têm correspondência obrigatória de cada tabela ou seção. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 Histórico determinístico do par:
 

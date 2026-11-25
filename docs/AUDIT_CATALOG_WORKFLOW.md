@@ -43,7 +43,7 @@ Os IDs `CAT-*` são estáveis e independem da ordem visual ou do texto exibido.
 
 A fonte canônica dessa taxonomia é `rasai.audit_catalog`.
 
-A documentação funcional uniforme de cada CAT e das demais páginas do relatório está em [`CATALOG_AND_REPORT_SURFACES.md`](CATALOG_AND_REPORT_SURFACES.md). Todos os CATs usam a mesma estrutura documental; documentos de domínio são apenas aprofundamentos.
+A documentação funcional uniforme de cada CAT e das demais páginas do catálogo técnico está em [`CATALOG_AND_REPORT_SURFACES.md`](CATALOG_AND_REPORT_SURFACES.md). A correspondência temática com as páginas da apresentação executiva está no [guia de relatórios](REPORT_GUIDE.md). Todos os CATs usam a mesma estrutura documental; documentos de domínio são apenas aprofundamentos.
 
 ## 3. Navegação
 
@@ -230,11 +230,11 @@ Os inputs de `O QUE PESQUISAR` permanecem separados da configuração reutilizá
 
 `IA competitiva` é um opt-in de IA opcional dentro do CAT-05. Ao ativá-la, o console também habilita a execução opcional de IA para o plano corrente. A opção exige **Comparação de conteúdo** ativa. A indisponibilidade da IA principal não bloqueia a coleta/comparação determinística; a camada competitiva por IA fica pendente/não executada conforme a autorização e readiness da execução. Se a comparação de conteúdo for desativada, a IA competitiva dependente é desativada junto para impedir uma combinação inválida.
 
-## 11. Projeção HTML atual
+## 11. Projeções HTML da auditoria
 
-A taxonomia `CAT-*` já é projetada no `report-catalog/`. O HTML deriva do estado persistido da AUD e não executa nova coleta, request ou IA para preencher o relatório.
+O catálogo técnico (`report-catalog/`, 21 páginas) projeta a taxonomia `CAT-*`, com entrada em `report-catalog/index.html`, detalhes por catálogo e rastreabilidade em `report-catalog/execution-evidence.html`. A apresentação executiva (`report-presentation/`, 11 páginas) sintetiza o resultado em `report-presentation/index.html`, com especializações por domínio e proveniência de IA e custos em `report-presentation/ia-custos.html`. Ambos consomem o estado persistido da AUD, sem dependência entre seus HTMLs, nova coleta ou IA durante a renderização. A apresentação não precisa replicar cada CAT ou campo operacional.
 
-A correspondência conceitual é:
+A correspondência conceitual abaixo descreve a intenção do plano e seus possíveis resultados no catálogo técnico; aptidão prévia não comprova conclusão da execução:
 
 ```text
 console antes da execução        HTML depois da execução
@@ -244,7 +244,7 @@ BLOQUEADO                         não executado por preflight
 NÃO SELECIONADO                   NÃO SOLICITADO
 ```
 
-O relatório deve conseguir informar, por `CAT-*`:
+O catálogo técnico deve conseguir informar, por `CAT-*`:
 
 - o que foi solicitado;
 - configuração efetiva;
@@ -257,7 +257,7 @@ O relatório deve conseguir informar, por `CAT-*`:
 
 A seleção exibida deve vir do plano congelado da AUD. Ausência de evidência não autoriza inferir que um CAT não foi solicitado.
 
-A materialização final do `report-catalog/` é validada contra a fonte persistida. Um relatório cuja projeção não corresponda ao estado final do `audit.db` não deve ser anunciado como relatório final completo.
+A materialização final do `report-catalog/` é validada contra a fonte persistida. O catálogo cuja projeção não corresponda ao estado final do `audit.db` não deve ser anunciado como final completo. O pacote executivo possui estado e validação próprios. Consulte o [guia dos dois relatórios](REPORT_GUIDE.md).
 
 ## 12. SaaS
 

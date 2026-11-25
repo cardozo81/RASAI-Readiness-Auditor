@@ -2,7 +2,7 @@
 
 ## O que a projeção exibe
 
-Para leitura executiva, abra `report-presentation/search-geo.html` (Search e GEO): reúne observações de busca, concorrência, pesquisa externa e contexto GEO persistidos, com detalhes locais. Para investigação técnica, use `report-catalog/cat-05.html` (Search & AI Intelligence) e `report-catalog/geo.html` (inteligência GEO consultiva). As páginas de custos, quando pertinentes, são `report-presentation/ia-custos.html` e `report-catalog/ai-integrations.html`. As projeções são independentes, não executam pesquisa para preencher lacunas e não têm correspondência obrigatória de cada tabela ou seção. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+Para leitura executiva, abra <code>report-presentation/search&#45;geo.html</code> (Search e GEO): reúne observações de busca, concorrência, pesquisa externa e contexto GEO persistidos, com detalhes locais. Para investigação técnica, use `report-catalog/cat-05.html` (Search & AI Intelligence) e `report-catalog/geo.html` (inteligência GEO consultiva). As páginas de custos, quando pertinentes, são `report-presentation/ia-custos.html` e `report-catalog/ai-integrations.html`. As projeções são independentes, não executam pesquisa para preencher lacunas e não têm correspondência obrigatória de cada tabela ou seção. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 A matriz abaixo descreve especificamente os vínculos do catálogo técnico no recorte #308/#309. Não atribui os mesmos consumidores ou cálculos à apresentação executiva.
 

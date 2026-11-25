@@ -372,7 +372,7 @@ As métricas também são projetadas nas superfícies temáticas quando há dado
 - `report-catalog/capture-context.html`: topologia de escopos;
 - `report-catalog/metrics.html`: inventário transversal de índices e métricas.
 
-A apresentação executiva independente contextualiza padrões e serviços em `report-presentation/descoberta.html`, `conteudo.html`, `performance.html` e `search-geo.html` conforme o domínio e a evidência disponível. O detalhe de proveniência e da integração permanece nas páginas técnicas acima; não se presume paridade de campos. Consulte [matriz temática](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+A apresentação executiva independente contextualiza padrões e serviços em `report-presentation/descoberta.html`, `conteudo.html`, `performance.html` e <code>search&#45;geo.html</code> conforme o domínio e a evidência disponível. O detalhe de proveniência e da integração permanece nas páginas técnicas acima; não se presume paridade de campos. Consulte [matriz temática](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 Em múltiplas URLs descobertas, toda consolidação deve indicar denominador/universo.
 

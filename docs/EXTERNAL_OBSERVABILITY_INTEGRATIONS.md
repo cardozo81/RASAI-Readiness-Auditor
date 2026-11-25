@@ -304,7 +304,7 @@ Exibe o estado operacional dos serviços de padrões Web aplicáveis por meio de
 
 ### Apresentação executiva (`report-presentation/`)
 
-Para interpretação gerencial, consulte `performance.html` (campo e experiência), `descoberta.html` (sinais de descoberta e padrões), `search-geo.html` (observações de busca e fontes) e `indices.html` (índices e limites da medição). São especializações temáticas, não garantias de réplica de cada dataset técnico. O pacote executivo consome dados persistidos independentemente do HTML técnico; nenhuma renderização exige nova coleta. Consulte o [guia dos dois relatórios](REPORT_GUIDE.md). Comparações longitudinais elegíveis possuem [contrato próprio](CONSOLIDATED_REPORTING.md).
+Para interpretação gerencial, consulte `performance.html` (campo e experiência), `descoberta.html` (sinais de descoberta e padrões), <code>search&#45;geo.html</code> (observações de busca e fontes) e `indices.html` (índices e limites da medição). São especializações temáticas, não garantias de réplica de cada dataset técnico. O pacote executivo consome dados persistidos independentemente do HTML técnico; nenhuma renderização exige nova coleta. Consulte o [guia dos dois relatórios](REPORT_GUIDE.md). Comparações longitudinais elegíveis possuem [contrato próprio](CONSOLIDATED_REPORTING.md).
 
 ## Falhas externas
 

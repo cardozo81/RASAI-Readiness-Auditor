@@ -522,7 +522,7 @@ Destinada à interpretação dos resultados e ao suporte à decisão, com onze p
 | `report-presentation/conteudo.html` | Contexto dos sinais de conteúdo, semântica, estrutura e acessibilidade. |
 | `report-presentation/rede.html` | Conexões, origem, observações de rede e limitações. |
 | `report-presentation/seguranca.html` | Cobertura, achados e limitações de segurança passiva. |
-| `report-presentation/search-geo.html` | Resultados observados de busca e GEO, sem confundi-los com pontuação de prontidão. |
+| <code>report-presentation/search&#45;geo.html</code> | Resultados observados de busca e GEO, sem confundi-los com pontuação de prontidão. |
 | `report-presentation/plano.html` | Achados, propostas e decisões persistidas, sem transformar recomendações em ações aprovadas. |
 | `report-presentation/ia-custos.html` | Uso de IA, esforço, custos e proveniência, sem atribuir às chamadas de IA o cálculo do índice. |
 

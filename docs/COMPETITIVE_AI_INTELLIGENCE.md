@@ -244,7 +244,7 @@ Os testes devem cobrir:
 - não há comparação semântica histórica entre duas execuções nesta camada;
 - não há grafo de equivalência de entidade/empresa;
 - não há conteúdo competitivo renderizado por browser;
-- `report-catalog/cat-05.html` destina-se à investigação técnica da evidência competitiva; `report-presentation/search-geo.html` à interpretação executiva do contexto competitivo e `report-presentation/ia-custos.html` à proveniência e aos custos registrados. Os pacotes são independentes e não executam IA durante a renderização; a correspondência temática não exige réplica de todas as tabelas (veja o [guia de relatórios](REPORT_GUIDE.md));
+- `report-catalog/cat-05.html` destina-se à investigação técnica da evidência competitiva; <code>report-presentation/search&#45;geo.html</code> à interpretação executiva do contexto competitivo e `report-presentation/ia-custos.html` à proveniência e aos custos registrados. Os pacotes são independentes e não executam IA durante a renderização; a correspondência temática não exige réplica de todas as tabelas (veja o [guia de relatórios](REPORT_GUIDE.md));
 - `SEARCH-HISTORY-001` compara evidência determinística e não transforma recomendações de IA em score temporal;
 - a IA recebe features determinísticas, não o corpo integral da página;
 - não existe garantia de ganho de ranking a partir das recomendações.

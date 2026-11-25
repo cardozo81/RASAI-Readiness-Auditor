@@ -218,7 +218,7 @@ Os testes cobrem classificação, limites, extração, SSRF, gaps, evidence IDs,
 
 ## 15. Relatório e histórico
 
-Na AUD individual, `report-catalog/cat-05.html` é a página de investigação técnica das observações SERP, comparações e evidências competitivas. `report-presentation/search-geo.html` oferece interpretação executiva dos resultados de busca e do contexto competitivo. Cada pacote consome evidências persistidas sem depender do HTML do outro e sem nova pesquisa na renderização. Veja o [guia de relatórios](REPORT_GUIDE.md).
+Na AUD individual, `report-catalog/cat-05.html` é a página de investigação técnica das observações SERP, comparações e evidências competitivas. <code>report-presentation/search&#45;geo.html</code> oferece interpretação executiva dos resultados de busca e do contexto competitivo. Cada pacote consome evidências persistidas sem depender do HTML do outro e sem nova pesquisa na renderização. Veja o [guia de relatórios](REPORT_GUIDE.md).
 
 Comparação temporal determinística: `SEARCH-HISTORY-001`.
 

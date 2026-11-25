@@ -2,7 +2,7 @@
 
 ## Propósito
 
-`report-catalog/directed-analysis.html` é a camada estratégica auditável do RASAi.
+`report-catalog/directed-analysis.html` é a projeção técnica da análise estratégica auditável do RASAi. A leitura executiva das ações, propostas e decisões pertence a `report-presentation/plano.html`, complementada por `report-presentation/ia-custos.html` para uso e custo de IA quando registrados. A apresentação consome dados persistidos, não o HTML técnico; não se presume paridade de cada campo estratégico nem aprovação automática de propostas. Veja o [guia de relatórios](REPORT_GUIDE.md).
 
 Ela não é um CAT e não produz fatos técnicos próprios. Os CATs continuam sendo os proprietários das medições, findings, evidências, métricas e remediações. A Análise Direcionada correlaciona esses dados persistidos para organizar ações, benefícios multidimensionais, prioridade, esforço, confiança, dependências e validação.
 

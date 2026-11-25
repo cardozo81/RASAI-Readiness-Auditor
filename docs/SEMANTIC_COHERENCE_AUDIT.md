@@ -6,7 +6,7 @@ A Auditoria de Coerência Semântica compara **contexto/intenção declarados** 
 
 Ela pertence ao `CAT-03 · Conteúdo, semântica e dados estruturados` como diagnóstico. Implementações/correções derivadas pertencem ao `CAT-09 · Remediações`.
 
-A capacidade não cria score proprietário de E-E-A-T, não altera implicitamente `SARI-001`/`SCORE-GEO-004` e não transforma inferência de IA em fato canônico.
+A capacidade não cria score proprietário de E-E-A-T, não altera implicitamente o índice `SARI-001` ou o método vigente `SCORE-GEO-005` (histórico preservado em `SCORE-GEO-004`) e não transforma inferência de IA em fato canônico.
 
 ## Três fontes de verdade
 
@@ -183,9 +183,9 @@ Ao enfileirar uma AUD:
 3. os seis valores efetivos são gravados no payload durável do job;
 4. alteração posterior do perfil da Property não muda uma AUD já enfileirada.
 
-## Relatórios
+## Relatórios individuais
 
-`CAT-03` mostra:
+No catálogo técnico, `report-catalog/cat-03.html` mostra:
 
 - contexto efetivamente usado;
 - estado do gate/corpus;
@@ -194,9 +194,11 @@ Ao enfileirar uma AUD:
 - drill-down de diagnóstico/evidência;
 - entidades e dados estruturados já existentes.
 
-Provider, request/response sanitizados, tokens, custos, retries e fallback permanecem em **IA e integrações**.
+Fornecedor, comunicação sanitizada, tokens, custos, tentativas e fallback permanecem na página técnica de **IA e integrações** (`report-catalog/ai-integrations.html`). Sanitização não garante anonimização integral.
 
-`CAT-09` é o local para ações/remediações derivadas das divergências. O CAT-03 pode apenas apontar que existe remediação relacionada.
+`report-catalog/cat-09.html` é o local para ações/remediações derivadas das divergências. O CAT-03 pode apenas apontar que existe remediação relacionada.
+
+Na apresentação executiva, `report-presentation/conteudo.html` sintetiza os achados de conteúdo e semântica, `report-presentation/plano.html` contextualiza propostas e decisões persistidas, e `report-presentation/ia-custos.html` apresenta uso, custo e proveniência de IA. O gerador executivo lê a evidência diretamente, sem depender do HTML técnico; não há garantia de réplica de cada diagnóstico ou matriz, nem inferência de coerência quando a fonte específica está ausente. Consulte o [guia de relatórios](REPORT_GUIDE.md).
 
 ## Falhas e degradação
 

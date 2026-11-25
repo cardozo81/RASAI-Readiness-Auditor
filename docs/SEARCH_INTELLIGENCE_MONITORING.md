@@ -224,8 +224,9 @@ Relatório pontual da auditoria:
 ```text
 audits/AUD-*/report-catalog/cat-05.html
 audits/AUD-*/report-catalog/geo.html
-audits/AUD-*/report-presentation/search-geo.html
 ```
+
+Apresentação executiva: <code>audits/AUD-*/report-presentation/search&#45;geo.html</code>.
 
 O catálogo técnico investiga observações de busca e GEO, enquanto a apresentação resume os fatos da auditoria para decisão. O catálogo do control plane acima é outra saída, longitudinal, não a apresentação executiva de uma AUD. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 

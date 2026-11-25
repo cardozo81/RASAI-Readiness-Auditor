@@ -167,7 +167,7 @@ Ela inspeciona o contrato vigente `SCORE-GEO-005` e não executa fitting.
 
 ## 9. Relatórios
 
-Por `AUD-*`, Search & AI Observability possui projeção técnica principalmente em `report-catalog/cat-05.html` e `report-catalog/metrics.html`; estados de execução e qualidade estrutural ficam nas superfícies de governança do catálogo. A apresentação independente `report-presentation/search-geo.html` contextualiza observações de busca e GEO e `report-presentation/index.html` sintetiza a situação da AUD. Não se presume que todo campo de Observability esteja projetado na apresentação. Ausência de dado utilizável deve permanecer explícita. Os artefatos longitudinais abaixo não são páginas de nenhum dos dois pacotes.
+Por `AUD-*`, Search & AI Observability possui projeção técnica principalmente em `report-catalog/cat-05.html` e `report-catalog/metrics.html`; estados de execução e qualidade estrutural ficam nas superfícies de governança do catálogo. A apresentação independente <code>report-presentation/search&#45;geo.html</code> contextualiza observações de busca e GEO e `report-presentation/index.html` sintetiza a situação da AUD. Não se presume que todo campo de Observability esteja projetado na apresentação. Ausência de dado utilizável deve permanecer explícita. Os artefatos longitudinais abaixo não são páginas de nenhum dos dois pacotes.
 
 Artefatos derivados independentes:
 

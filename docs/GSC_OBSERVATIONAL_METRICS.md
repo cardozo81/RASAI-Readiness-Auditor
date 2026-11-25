@@ -278,7 +278,7 @@ Para investigação técnica, as métricas são projetadas no `report-catalog/`:
 - `metrics.html`, como inventário transversal de métricas;
 - `capture-context.html`, quando o escopo da property/URL for necessário para interpretação.
 
-Para interpretação executiva, `report-presentation/search-geo.html` reúne o contexto de busca observado e fontes aplicáveis. A apresentação consome as evidências persistidas diretamente, sem depender do HTML técnico; não presume réplica de todas as métricas ou linhas. Consulte o [guia de relatórios](REPORT_GUIDE.md).
+Para interpretação executiva, <code>report-presentation/search&#45;geo.html</code> reúne o contexto de busca observado e fontes aplicáveis. A apresentação consome as evidências persistidas diretamente, sem depender do HTML técnico; não presume réplica de todas as métricas ou linhas. Consulte o [guia de relatórios](REPORT_GUIDE.md).
 
 ## Referências oficiais
 

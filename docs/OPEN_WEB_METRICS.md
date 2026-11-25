@@ -7,7 +7,7 @@ Esta capacidade segue quatro premissas:
 1. **custo monetário zero por medição**;
 2. **nenhuma navegação adicional** contra a URL auditada;
 3. **nenhuma chamada a API externa** para produzir esses dados;
-4. **nenhuma alteração automática em SARI-001 ou SCORE-GEO-004**.
+4. **nenhuma alteração automática no índice SARI-001 ou no método de pontuação vigente SCORE-GEO-005**; SCORE-GEO-004 permanece preservado no histórico.
 
 A implementação é identificada por `OPEN-WEB-METRICS-001`.
 
@@ -133,15 +133,15 @@ Também são projetados sinais determinísticos do documento carregado:
 
 Esses itens são diagnósticos técnicos. Eles não constituem um score W3C.
 
-## Relatório
+## Relatórios individuais
 
-Os dados são incorporados à página canônica:
+Para investigação técnica, os dados são incorporados à página de desempenho do catálogo:
 
 ```text
 report-catalog/cat-04.html
 ```
 
-Não é criada uma superfície pública paralela de relatório.
+Não é criada uma página exclusiva de Open Web Metrics. Na apresentação executiva, `report-presentation/performance.html` é a especialização temática de desempenho e experiência; não se presume réplica de todas as métricas do navegador. Os dois pacotes leem a evidência persistida independentemente, sem nova medição. Veja o [guia de relatórios](REPORT_GUIDE.md).
 
 Quando existem múltiplas URLs ou dispositivos, o resumo usa **faixas mínimo-máximo** para métricas numéricas e a tabela preserva uma linha por URL + dispositivo. Isso evita atribuir uma média sem semântica explícita ao conjunto auditado.
 
@@ -158,11 +158,11 @@ Open Web Metrics não substitui esses mecanismos:
 
 Os sinais não devem ser somados como se fossem evidências estatisticamente independentes quando medem o mesmo fenômeno.
 
-## Relação com SARI-001 e SCORE-GEO-004
+## Relação com o índice de prontidão e o método vigente
 
 `OPEN-WEB-METRICS-001` é **advisory/non-scoring**.
 
-O relatório pode ajudar a explicar problemas de experiência, carregamento e plataforma, mas não altera pesos, gates, Coverage, Confidence, Consolidation ou Overall de SARI-001/SCORE-GEO-004.
+Essas evidências podem ajudar a explicar problemas de experiência, carregamento e plataforma, mas não alteram pesos, critérios críticos, cobertura, confiança, consolidação ou resultado geral do SARI-001/SCORE-GEO-005. Auditorias históricas preservam a metodologia efetivamente utilizada.
 
 Qualquer mudança futura que torne uma dessas evidências parte do scoring exige decisão metodológica explícita, versão adequada do contrato e proteção contra dupla contagem.
 

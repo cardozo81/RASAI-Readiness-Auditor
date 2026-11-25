@@ -24,7 +24,7 @@ Ambos são derivados dos dados persistidos, não novas auditorias. O catálogo t
 | `conteudo.html` - Conteúdo e acessibilidade | Que sinais de conteúdo, semântica, estrutura e acessibilidade foram registrados? |
 | `performance.html` - Performance e experiência | Quais medições de laboratório, campo e avaliações sintéticas estão disponíveis? |
 | `rede.html` - Rede e conectividade | Quais conexões, origens, endereços e medições de rede foram comprovados? |
-| `search-geo.html` - Search e GEO | O que foi efetivamente observado nas buscas, fontes e comparações? |
+| <code>search&#45;geo.html</code> - Search e GEO | O que foi efetivamente observado nas buscas, fontes e comparações? |
 | `seguranca.html` - Segurança passiva | Quais sinais e limitações de segurança foram observados? |
 | `plano.html` - Plano de ação | Quais achados, propostas e decisões existem, sem confundir proposta com aprovação? |
 | `ia-custos.html` - IA, custos e proveniência | Quais integrações e tentativas foram registradas, com que modelo, esforço, uso e custo? |
@@ -42,8 +42,8 @@ Use esta matriz para escolher a página por objetivo. Os nomes de arquivo foram 
 | Acessibilidade, conteúdo e semântica | `cat-02.html`, `cat-03.html` - diagnósticos especializados e dados estruturados | `conteudo.html` - contexto, achados e evidências de conteúdo e acessibilidade |
 | Laboratório, campo e Apdex | `cat-04.html`, `cat-06.html`, `cat-07.html` - desempenho, navegação e experiência em universos separados | `performance.html` - leitura conjunta com fontes, amostras e limites distintos |
 | Rede, conexões e topologia | `network.html` - observações e sondagens verificadas | `rede.html` - conexões, origem, inventário e mapa conforme evidências |
-| Busca, concorrência e GEO | `cat-05.html`, `geo.html` - evidência de busca e inteligência competitiva consultiva | `search-geo.html` - resultados observados, fontes externas e contexto competitivo |
-| Revisão consultiva de conteúdo para GEO | `geo-content-review.html` - revisão consultiva própria, quando materializada | `search-geo.html` e `conteudo.html` - assuntos relacionados; consultar a evidência técnica específica quando necessária, sem presumir réplica |
+| Busca, concorrência e GEO | `cat-05.html`, `geo.html` - evidência de busca e inteligência competitiva consultiva | <code>search&#45;geo.html</code> - resultados observados, fontes externas e contexto competitivo |
+| Revisão consultiva de conteúdo para GEO | `geo-content-review.html` - revisão consultiva própria, quando materializada | <code>search&#45;geo.html</code> e `conteudo.html` - assuntos relacionados; consultar a evidência técnica específica quando necessária, sem presumir réplica |
 | Melhorias, remediações e decisões | `cat-08.html`, `cat-09.html`, `directed-analysis.html` - diagnóstico, orientação, propostas e rastreabilidade | `plano.html` - ações e decisões persistidas; `conteudo.html` - achados relacionados |
 | Segurança passiva | `cat-10.html` - observações, recursos e diagnósticos | `seguranca.html` - cobertura, achados e limites |
 | Execução, integrações e custo | `execution-evidence.html`, `ai-integrations.html` - evidências operacionais, tentativas e telemetria | `ia-custos.html` - uso, esforço, custos e proveniência; `index.html` - situação operacional |
