@@ -6,7 +6,7 @@ A base funcional deste preparo é `47cedb9cb2656484a753ccb7605ec0e304309dec` (ma
 
 ## Principais evoluções desde v0.10.0
 
-- **Apresentação executiva:** refinamentos de cobertura, paridade, linguagem, evidências e anexos, sínteses Search/GEO, contexto arquitetural e temporal, projeções analíticas e visualização de rede; rematerialização offline a partir de evidências persistidas.
+- **Apresentação executiva:** refinamentos de cobertura, paridade, linguagem, evidências e anexos, sínteses de busca e GEO, contexto arquitetural e temporal, projeções analíticas e visualização de rede; rematerialização offline a partir de evidências persistidas.
 - **Rede:** evolução de diagnóstico de origem da conexão, sondagens sob política explícita, topologia lógica, IPv4/IPv6 e projeções de evidência de rede e mapa.
 - **Console e execução:** ajustes de persistência de configurações e integrações, parametrização de busca, composição dos comandos externos e registro operacional.
 - **Custos e integração de IA:** refinamentos da previsão e da reconciliação de custos, comunicação de limites e tratamento de estados de execução.
