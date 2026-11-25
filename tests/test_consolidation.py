@@ -607,8 +607,8 @@ class ConsolidationTests(unittest.TestCase):
     def test_successful_cons5_renders_cost_forecast_and_ai_exchange(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _make_audit(root, "AUD-001", when="2026-08-01T10:00:00-03:00")
-            _make_audit(root, "AUD-002", when="2026-09-01T10:00:00-03:00")
+            _make_audit(root, "AUD-001", when="2026-08-01T10:00:00-03:00", scoring_version="SCORE-GEO-004")
+            _make_audit(root, "AUD-002", when="2026-09-01T10:00:00-03:00", scoring_version="SCORE-GEO-004")
             filters = normalize_filter(
                 devices=("MOBILE",),
                 urls=("https://example.com/a",),
@@ -652,6 +652,8 @@ class ConsolidationTests(unittest.TestCase):
             decision = json.loads((result.report_dir / "decision-context.json").read_text(encoding="utf-8"))
             self.assertTrue(decision["sari"]["available"])
             self.assertEqual(decision["sari"]["method"], "SARI-001 / SCORE-GEO-004")
+            self.assertTrue(all(point["scoring_version"] == "SCORE-GEO-004" for point in decision["sari"]["series"]))
+            self.assertEqual(decision["comparability"]["methodological"], "COMPARABLE")
             self.assertIn(decision["ai_reliability"]["label"], {"Muito alta", "Alta", "Limitada", "Não determinada"})
             self.assertIn("Confiabilidade da interpretação por IA", html)
 

@@ -76,7 +76,7 @@ def install() -> None:
             default=str(DEFAULT_COMMON_CRAWL_MAX_URLS),
             impact=(
                 "Sem cobrança e sem credencial; cada URL multiplica requests pelo número de índices consultados. "
-                "Quando há corroboração positiva qualificada, BR-GEO-060 pode contribuir no máximo 0,45 ponto no SARI Overall."
+                "Com corroboração positiva qualificada, BR-GEO-060 tem contribuição nominal de 0,45 ponto no SARI Overall com pesos integralmente medidos; a normalização parcial pode alterá-la."
             ),
             source=source,
             notes="Faixa 0..25. O default é deliberadamente conservador para o serviço público.",
@@ -87,7 +87,7 @@ def install() -> None:
             "Quantidade dos índices mensais mais recentes do Common Crawl consultados por URL.",
             "inteiro",
             default=str(DEFAULT_COMMON_CRAWL_INDEX_COUNT),
-            impact="Sem cobrança; aumentar eleva requests e tempo de finalização, sem aumentar o peso máximo de BR-GEO-060.",
+            impact="Sem cobrança; aumentar eleva requests e tempo de finalização, sem aumentar o peso nominal de BR-GEO-060.",
             source=source,
             notes="Faixa 1..6; não há consulta global a todo o histórico por default.",
         ),

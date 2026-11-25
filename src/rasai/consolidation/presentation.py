@@ -238,6 +238,8 @@ def _sari_chart(sari: Mapping[str, Any]) -> str:
     series = [item for item in sari.get("series", ()) if isinstance(item, Mapping) and _number(item.get("value")) is not None]
     if len(series) < 2:
         return "<p class='subtle'>Série do Índice de Prontidão Search & IA insuficiente para gráfico longitudinal.</p>"
+    versions = {str(item.get("scoring_version") or "UNKNOWN") for item in sari.get("series", ()) if isinstance(item, Mapping)}
+    comparable = len(versions) == 1 and versions <= {"SCORE-GEO-004", "SCORE-GEO-005"}
     width, height, pad = 760.0, 190.0, 34.0
     values = [float(item["value"]) for item in series]
     low = min(values)
@@ -250,13 +252,17 @@ def _sari_chart(sari: Mapping[str, Any]) -> str:
         x = pad + (width - 2 * pad) * index / max(1, len(series) - 1)
         y = pad + (height - 2 * pad) * (1.0 - (float(item["value"]) - low) / span)
         points.append(f"{x:.1f},{y:.1f}")
-        dots.append(f"<circle cx='{x:.1f}' cy='{y:.1f}' r='4.5' class='decision-dot'><title>{escape(str(item.get('audit_id') or ''))}: {float(item['value']):.2f}</title></circle>")
+        dots.append(f"<circle cx='{x:.1f}' cy='{y:.1f}' r='4.5' class='decision-dot'><title>{escape(str(item.get('audit_id') or ''))}: {float(item['value']):.2f} ({escape(str(item.get('scoring_version') or 'Não determinada'))})</title></circle>")
         labels.append(f"<text x='{x:.1f}' y='{height-8:.1f}' text-anchor='middle' class='decision-axis'>{index+1}</text>")
+    line = f"<polyline points='{' '.join(points)}' class='decision-line'/>" if comparable else ""
+    caption = (
+        "Cada ponto representa uma AUD em ordem temporal."
+        if comparable else "Observações individuais sem linha de evolução: métodos distintos ou não comprovados."
+    )
     return (
-        "<div class='decision-chart'><svg viewBox='0 0 760 190' role='img' aria-label='Evolução do Índice de Prontidão Search & IA'>"
-        f"<polyline points='{' '.join(points)}' class='decision-line'/>"
-        + "".join(dots) + "".join(labels) +
-        "</svg><div class='decision-chart-caption'>Cada ponto representa uma AUD em ordem temporal. Passe o cursor sobre os pontos para identificar a auditoria e o valor.</div></div>"
+        "<div class='decision-chart'><svg viewBox='0 0 760 190' role='img' aria-label='Observações do Índice de Prontidão Search & IA'>"
+        + line + "".join(dots) + "".join(labels) +
+        f"</svg><div class='decision-chart-caption'>{caption} Passe o cursor sobre os pontos para identificar a auditoria, o valor e o método.</div></div>"
     )
 
 
@@ -392,15 +398,18 @@ def _render_executive_decision(payload: Mapping[str, Any]) -> str:
         current = sari.get("current") or {}
         peak = sari.get("peak") or {}
         delta = _number(sari.get("delta"))
+        methodology_note = ""
+        if (context.get("comparability") or {}).get("methodological") == "NOT_COMPARABLE":
+            methodology_note = "<p class='notice warning'>Métodos distintos ou não comprovados: os valores de origem são preservados, sem comparação global.</p>"
         sari_cards = (
             "<div class='decision-kpis'>"
-            f"<div><small>SARI inicial</small>{_result_value_html(initial.get('value'))}</div>"
-            f"<div><small>SARI atual</small>{_result_value_html(current.get('value'))}</div>"
+            f"<div><small>SARI inicial</small>{_result_value_html(initial.get('value'))}<span>{escape(str(initial.get('scoring_version') or 'Não determinada'))}</span></div>"
+            f"<div><small>SARI atual</small>{_result_value_html(current.get('value'))}<span>{escape(str(current.get('scoring_version') or 'Não determinada'))}</span></div>"
             f"<div><small>Variação inicial → atual</small>{_delta_result_html(delta)}</div>"
             f"<div><small>Pico observado</small>{_result_value_html(peak.get('value'))}<span>{escape(str(peak.get('audit_id') or ''))}</span></div>"
             f"<div><small>Cobertura atual</small><strong>{((_number(current.get('coverage')) or 0)*100):.1f}%</strong></div>"
             f"<div><small>Confiança atual</small><strong>{escape(_sari_confidence_label(current.get('confidence')))}</strong></div>"
-            "</div>"
+            "</div>" + methodology_note
         )
 
     priority_cards = []

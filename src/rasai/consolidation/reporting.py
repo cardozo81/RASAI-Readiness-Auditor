@@ -752,29 +752,29 @@ def _render_methodology(data: ConsolidatedData) -> str:
     methods = sorted({str(row.get("scoring_version") or "UNKNOWN") for row in data.score_history})
     method_value = ", ".join(methods) or "Não disponível"
     limitations = "".join(f"<li>{escape(item)}</li>" for item in data.limitations) or "<li>Nenhuma limitação adicional registrada pelo consolidador.</li>"
-    current_method = "SCORE-GEO-004" in methods
-    prior_development_methods = [method for method in methods if method not in {"SCORE-GEO-004", "UNKNOWN"}]
-    if current_method:
-        score_explanation = """
-        <h3>Como o SCORE-GEO-004 é interpretado</h3>
+    recognized = {"SCORE-GEO-004", "SCORE-GEO-005"}.intersection(methods)
+    score_explanation = (
+        f"<p>Versão(ões) persistida(s) encontrada(s): <strong>{escape(method_value)}</strong>. "
+        "O consolidado preserva os resultados sem recalcular. SCORE-GEO-005 é o método de novas auditorias; "
+        "SCORE-GEO-004 identifica auditorias históricas que efetivamente o utilizaram.</p>"
+    )
+    if recognized:
+        score_explanation += """
+        <h3>Como interpretar os métodos 004 e 005</h3>
         <ol>
           <li>Regras aplicáveis produzem resultados persistidos e fatores versionados; ausência de evidência não é convertida silenciosamente em falha.</li>
           <li>A pontuação de cada dimensão usa <code>soma(peso × fator) / soma dos pesos efetivamente avaliados × 100</code>.</li>
           <li>Cobertura mede a fração aplicável efetivamente avaliada; Confiança qualifica a força/completude da medição.</li>
           <li>Dimensão legitimamente não aplicável sai do denominador. Dimensão aplicável sem medição suficiente pode bloquear a consolidação do Overall.</li>
-          <li>O Overall usa igual peso entre dimensões aplicáveis com medição suficiente e não incorpora Lighthouse, Core Web Vitals, Acessibilidade ou Apdex.</li>
+          <li>O Overall usa os pesos hierárquicos das dimensões efetivamente medidas, normalizados pela soma desses pesos; não incorpora notas externas de Lighthouse, Core Web Vitals ou Apdex.</li>
+          <li>O método 005 altera a aplicabilidade de regras SEO opcionais; o método 004 preserva o contrato histórico. Não comparar pontuações entre versões.</li>
         </ol>
         """
-        if prior_development_methods:
-            score_explanation += (
-                "<p class='notice warning'><strong>Dados de desenvolvimento não comparáveis:</strong> o universo selecionado também contém "
-                + escape(", ".join(prior_development_methods))
-                + ". Esses contratos anteriores de desenvolvimento são preservados por rastreabilidade e não são tratados como série equivalente ao SCORE-GEO-004.</p>"
-            )
-    else:
-        score_explanation = (
-            f"<p>Versão(ões) persistida(s) encontrada(s): <strong>{escape(method_value)}</strong>. "
-            "O consolidado preserva esses dados de desenvolvimento sem recalcular e sem presumir equivalência com o contrato vigente SCORE-GEO-004.</p>"
+    if len(methods) > 1 or not recognized or set(methods) - recognized:
+        score_explanation += (
+            "<p class='notice warning'><strong>Comparabilidade metodológica não comprovada para toda a série:</strong> "
+            "comparar apenas pontos da mesma versão reconhecida e universo de URLs compatível. "
+            "Versões desconhecidas ou não identificadas não comprovam equivalência.</p>"
         )
     return f"""
     <section id='method'><h2>Metodologia, cálculos e base técnica</h2>

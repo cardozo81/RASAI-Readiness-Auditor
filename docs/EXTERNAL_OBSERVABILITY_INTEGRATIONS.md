@@ -296,7 +296,7 @@ Concentram a leitura de observabilidade aplicável à AUD, com datasets externos
 
 #### `sari.html` e `methodology.html`
 
-Permitem investigar o estado de `BR-GEO-060`, seu peso de 3% na dimensão de descoberta e a regra de que ausência ou erro não penalizam o índice. Se o catálogo da versão 1.0.0 apresentar 0,45 ponto como limite geral, interprete esse rótulo como a contribuição nominal com pesos integralmente medidos. Consulte [peso e normalização](SARI_EXTERNAL_CRAWL_CORROBORATION.md#peso).
+Permitem investigar o estado de `BR-GEO-060`, seu peso de 3% na dimensão de descoberta e a regra de que ausência ou erro não penalizam o índice. Se o catálogo histórico da release v1.0.0 original apresentar 0,45 ponto como limite geral, interprete esse rótulo como contribuição nominal com pesos integralmente medidos. A correção posterior (#768) esclarece os rótulos nas novas projeções. Consulte [peso e normalização](SARI_EXTERNAL_CRAWL_CORROBORATION.md#peso).
 
 #### `report-catalog/cat-01.html`
 

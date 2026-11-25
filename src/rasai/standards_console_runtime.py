@@ -191,7 +191,7 @@ def _ensure_nonsecret_service_context_specs(base_environment: object, console_co
             "Máximo de URLs auditadas consultadas por execução no Common Crawl; 0 desliga somente a subcoleta.",
             "inteiro",
             default=str(DEFAULT_COMMON_CRAWL_MAX_URLS),
-            impact="Sem cobrança/credencial; limita requests ao índice público e não altera o peso máximo do SARI.",
+            impact="Sem cobrança/credencial; limita requests ao índice público e não altera o peso nominal da regra de corroboração no SARI.",
             source=external_source,
             notes="Faixa 0..25; default conservador para reduzir carga e exposição pública.",
         ),

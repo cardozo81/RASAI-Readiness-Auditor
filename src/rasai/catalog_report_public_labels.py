@@ -917,7 +917,7 @@ def public_contract_label(value: Any) -> str:
         return "Modelo de Confiança da Medição - versão pública 001"
     if head == "EXTERNAL_CRAWL_CORROBORATION":
         rule = parts[1] if len(parts) > 1 else "BR-GEO-060"
-        return f"Corroboração externa de crawl: somente impacto positivo, limite geral 0,45 - regra {rule}"
+        return f"Corroboração externa de crawl: somente impacto positivo, contribuição nominal de 0,45 ponto com pesos integrais; normalização parcial pode alterá-la - regra {rule}"
     if head == "EMPIRICAL_VALIDATION":
         return "Validação empírica: não participa da pontuação"
 
