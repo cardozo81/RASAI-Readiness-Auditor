@@ -42,8 +42,8 @@ O console também permite gerar comandos para CMD ou PowerShell pela opção **V
 
 Na pasta `audits/AUD-…/`:
 
-- `report-presentation/index.html`: apresentação para leitura executiva.
-- `report-catalog/index.html`: catálogo técnico de evidências e diagnósticos.
+- `report-presentation/index.html`: leitura executiva em 11 páginas temáticas, do diagnóstico ao plano de ação e custos.
+- `report-catalog/index.html`: catálogo técnico em 21 páginas, com diagnósticos especializados, métricas, regras e evidências rastreáveis.
 - `audit.db` e artefatos: fonte persistida da auditoria; preserve esses arquivos.
 
 No console, o histórico permite acessar os relatórios. Consulte o [guia de relatórios](docs/REPORT_GUIDE.md) e a [regeneração offline de relatórios](docs/REPORT_REMATERIALIZATION.md).

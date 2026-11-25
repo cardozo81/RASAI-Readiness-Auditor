@@ -30,7 +30,7 @@ O contrato funcional vigente usa:
 - método de scoring `SCORE-GEO-005` para novas auditorias, preservando a versão das evidências históricas;
 - `report-catalog/sari.html` como superfície canônica do índice;
 - `report-catalog/methodology.html` como superfície canônica da metodologia/scoring;
-- `report-catalog/index.html` como visão executiva;
+- `report-catalog/index.html` como visão geral do catálogo técnico e `report-presentation/index.html` como painel executivo; cada pacote possui navegação e páginas especializadas próprias, descritas no [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios);
 - UTC como referência temporal canônica de persistência/processamento e `America/Sao_Paulo` como timezone padrão de apresentação, conforme [`TIMEZONE_CONTRACT.md`](TIMEZONE_CONTRACT.md);
 - HTML e documentação contextual em português do Brasil, mantendo em inglês apenas nomes técnicos consolidados, identificadores, APIs, formatos, comandos, enums e termos cuja tradução reduziria precisão ou quebraria rastreabilidade.
 

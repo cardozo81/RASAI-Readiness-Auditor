@@ -8,7 +8,7 @@ Os relatórios do RASAi devem tornar explícita a propriedade de cada valor quan
 
 Para múltiplas URLs:
 
-- **SARI-001 Mobile/Desktop** é um agregado do conjunto auditado para aquele dispositivo. `SCORE-GEO-004` distribui o peso de cada scoring group entre seus escopos de página aplicáveis; adicionar URLs não multiplica o peso metodológico do grupo. O resultado não representa uma única página nem uma média aritmética de scores independentes de páginas.
+- **SARI-001 Mobile/Desktop** é um agregado do conjunto auditado para aquele dispositivo. O método vigente (`SCORE-GEO-005`) distribui o peso de cada scoring group entre seus escopos de página aplicáveis; adicionar URLs não multiplica o peso metodológico do grupo. O resultado não representa uma única página nem uma média aritmética de scores independentes de páginas.
 - **Core Web Vitals** é apresentado como quantidade de contextos válidos aprovados sobre contextos válidos avaliados.
 - **Lighthouse Performance** e **Lighthouse Accessibility** são apresentados como faixa mínimo-máximo entre contextos URL/dispositivo válidos quando existe mais de um valor. Nenhuma média sem rótulo é criada.
 - **Synthetic Navigation Apdex** também é resumido como faixa entre resumos URL/dispositivo válidos. Cada resumo subjacente continua pertencendo a uma população de amostras de uma URL/dispositivo.
@@ -17,7 +17,7 @@ O relatório deve expor `Escopo e agregação` com quantidade de URLs, dispositi
 
 ## Superfícies atuais por contexto
 
-O contrato HTML da AUD usa somente `report-catalog/`.
+Os dois pacotes devem preservar o escopo dos dados persistidos. O catálogo técnico e a apresentação executiva têm organizações diferentes. A lista a seguir descreve as páginas técnicas; na apresentação, consulte `report-presentation/extracao.html` para capturas e contexto, `report-presentation/indices.html` para índices, `report-presentation/performance.html` para desempenho e Apdex, e `report-presentation/conteudo.html` para conteúdo e acessibilidade. Os respectivos anexos locais permitem investigar registros e limitações. Não suponha que filtros e cartões do catálogo existam com a mesma implementação na apresentação. Veja o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 As superfícies relevantes para escopo multi-URL incluem:
 
@@ -36,7 +36,7 @@ As páginas CAT preservam a granularidade nativa dos dados. `capture-context.htm
 
 ## Contrato de filtro de URL e paginação
 
-A interface escalável do relatório indexa cada linha/card a partir de `textContent` estável do DOM antes ou independentemente do estado visual. Ela não deve usar `innerText` dependente de layout como fonte de verdade, pois linhas paginadas usam `display:none` e poderiam se tornar impossíveis de localizar após mudança de filtro ou página.
+O contrato de filtros e paginação do catálogo técnico descrito aqui indexa cada linha/card a partir de `textContent` estável do DOM antes ou independentemente do estado visual. Ela não deve usar `innerText` dependente de layout como fonte de verdade, pois linhas paginadas usam `display:none` e poderiam se tornar impossíveis de localizar após mudança de filtro ou página.
 
 Consequências:
 

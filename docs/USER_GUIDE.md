@@ -243,7 +243,9 @@ Consulte o [contrato de reprocessamento e complemento](AUDIT_REPROCESSING.md) an
 
 ## Relatórios
 
-Os resultados persistidos alimentam **dois relatórios offline independentes**: `report-catalog` (inventário técnico e CAT-01..CAT-10) e `report-presentation` (leitura executiva). Ambos consomem a mesma fonte de verdade, sem depender do HTML um do outro e sem acionar IA para recriar fatos materializados. A publicação automática ocorre no fluxo de conclusão de auditoria conforme os contratos vigentes; `A` abre a apresentação e `I` abre o catálogo. A existência do HTML não prova, isoladamente, completude dos dados da AUD. Consulte [superfícies dos relatórios](CATALOG_AND_REPORT_SURFACES.md) e [guia de relatórios](REPORT_GUIDE.md).
+Os resultados persistidos alimentam **dois relatórios offline independentes**: `report-catalog` (21 páginas de análise técnica, incluindo dez catálogos e superfícies transversais) e `report-presentation` (11 páginas temáticas orientadas à decisão). Ambos consomem a mesma fonte de verdade, sem depender do HTML um do outro e sem acionar IA para recriar fatos materializados. A publicação automática ocorre no fluxo de conclusão de auditoria conforme os contratos vigentes; `A` abre a apresentação e `I` abre o catálogo. A existência do HTML não prova, isoladamente, completude dos dados da AUD. Consulte [superfícies dos relatórios](CATALOG_AND_REPORT_SURFACES.md) e [guia de relatórios](REPORT_GUIDE.md).
+
+Para escolher a especialização, consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios). Por exemplo, para busca e GEO, a apresentação oferece `search-geo.html`, enquanto o catálogo técnico oferece `cat-05.html` e `geo.html`. Para desempenho, a apresentação reúne laboratório, campo e avaliações sintéticas em `performance.html`, enquanto o catálogo separa `cat-04.html`, `cat-06.html` e `cat-07.html`. Não procure uma réplica de cada catálogo na apresentação.
 
 A direção de UX é manter equivalência semântica:
 

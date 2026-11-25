@@ -204,7 +204,7 @@ Pode conter responses JSON oficiais, CSVs importados e fatos observacionais norm
 
 ## Superfícies do `report-catalog/`
 
-O relatório audit-owned é composto somente pelas superfícies do catálogo:
+O pacote técnico `report-catalog/` tem 21 páginas analíticas e de governança, além dos recursos de integridade:
 
 - `index.html`: visão geral, estados dos CATs e Matriz de encerramento estrutural;
 - `sari.html`: leitura persistida do SARI;
@@ -213,6 +213,9 @@ O relatório audit-owned é composto somente pelas superfícies do catálogo:
 - `execution-evidence.html`: estados de execução, fulfillment e evidências operacionais;
 - `ai-integrations.html`: uso de IA, integrações, tentativas, tokens, custos e falhas/retries persistidos;
 - `directed-analysis.html`: análise direcionada quando materializada;
+- `network.html`: observações e sondagens de rede, quando comprovadas;
+- `geo.html`: inteligência competitiva observacional e fontes externas;
+- `geo-content-review.html`: revisão consultiva de conteúdo relacionada a GEO;
 - `methodology.html`: contratos e metodologia aplicáveis;
 - `metrics.html`: inventário de métricas persistidas;
 - `manifest.json` e `integrity/`: integridade e verificação offline do pacote;
@@ -238,6 +241,10 @@ CAT-01 a CAT-10 possuem o mesmo nível contratual e a mesma estrutura explicativ
 | CAT-10 | `PASSIVE_SECURITY_CATALOG.md` |
 
 Os detalhes de tabelas, artifacts, fórmulas e integrações ficam nesses documentos especializados. A definição funcional primária permanece uniforme.
+
+## Superfícies do `report-presentation/`
+
+A apresentação executiva possui 11 páginas temáticas e navegação própria: painel, extração, descoberta e padrões, índices, conteúdo e acessibilidade, performance e experiência, rede e conectividade, Search e GEO, segurança passiva, plano de ação, IA/custos/proveniência. Seus anexos locais e manifesto são próprios; não precisa abrir o HTML do catálogo para gerar ou navegar. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios) para a lista de arquivos e escolha da especialização. Não confunda a apresentação executiva com exportação autorizada para divulgação pública.
 
 ## Saídas derivadas e consolidadas
 
@@ -289,12 +296,15 @@ rasai scoring inspect
 
 ## Navegação canônica
 
-A navegação da AUD aponta exclusivamente para as páginas materializadas em `report-catalog/`:
+A navegação interna do catálogo técnico aponta para as páginas materializadas em `report-catalog/`. A apresentação executiva mantém navegação independente nas suas onze páginas. No catálogo, o conjunto inclui:
 
 ```text
 Visão geral
 Índice de Prontidão Search & IA
 CAT-01 ... CAT-10
+Rede e conectividade
+GEO
+Revisão de conteúdo GEO
 Contexto de captura
 Evidências de execução
 IA e integrações

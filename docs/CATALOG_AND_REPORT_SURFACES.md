@@ -2,7 +2,7 @@
 
 **Estado:** vigente.  
 **Contrato de navegação:** `CATALOG-REPORT-002`.  
-**Escopo:** todas as páginas HTML canônicas de `report-catalog/`.
+**Escopo:** referência normativa das páginas técnicas de `report-catalog/`. O pacote tem 21 páginas; esta ficha uniforme cobre os dez catálogos e as páginas transversais descritas abaixo. Rede, GEO e revisão de conteúdo GEO possuem referências especializadas, indicadas nesta seção. A apresentação executiva `report-presentation/` tem 11 páginas próprias, não replica as fichas técnicas. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 Este documento define, com a **mesma estrutura**, o compromisso de cada catálogo e de cada página transversal do relatório. Nenhum CAT recebe tratamento normativo privilegiado: documentos específicos de domínio são aprofundamentos técnicos e não substituem esta referência.
 
@@ -47,7 +47,7 @@ Regras comuns:
 
 **Uso de IA:** opcional somente onde o contrato prevê avaliação técnica evidence-bound já persistida; IA não substitui controles determinísticos.
 
-**Impacto no Índice de Prontidão / Método de Pontuação:** **sim, quando a regra pertence explicitamente ao `SCORE-GEO-004`**. Diagnósticos auxiliares e integrações externas não entram automaticamente no score.
+**Impacto no Índice de Prontidão / Método de Pontuação:** **sim, quando a regra pertence explicitamente ao `SCORE-GEO-005` (ou o método histórico persistido, quando aplicável)**. Diagnósticos auxiliares e integrações externas não entram automaticamente no score.
 
 **Resultados apresentados:** estado de descoberta/acesso, regras aplicáveis, findings, evidências, recursos técnicos, limitações e recomendações relacionadas.
 
@@ -71,7 +71,7 @@ Regras comuns:
 
 **Uso de IA:** nenhum para determinar a existência da violação; eventual conteúdo advisory externo ao detector não redefine o resultado automatizado.
 
-**Impacto no Índice de Prontidão / Método de Pontuação:** **nenhum impacto automático no `SCORE-GEO-004`**.
+**Impacto no Índice de Prontidão / Método de Pontuação:** **nenhum impacto automático no `SCORE-GEO-005` (ou o método histórico persistido, quando aplicável)**.
 
 **Resultados apresentados:** violações, elementos afetados, severidade, contexto técnico, limitações e estado da fonte de acessibilidade.
 
@@ -95,7 +95,7 @@ Regras comuns:
 
 **Uso de IA:** opcional para contexto semântico, YMYL, E-E-A-T contextual e avaliações evidence-bound previstas pelo contrato; validações estruturais permanecem determinísticas.
 
-**Impacto no Índice de Prontidão / Método de Pontuação:** **sim, para regras semânticas, de conteúdo, entidade, dados estruturados, answerability, citation/evidence trust e content value explicitamente mapeadas ao `SCORE-GEO-004`**.
+**Impacto no Índice de Prontidão / Método de Pontuação:** **sim, para regras semânticas, de conteúdo, entidade, dados estruturados, answerability, citation/evidence trust e content value explicitamente mapeadas ao `SCORE-GEO-005` (ou o método histórico persistido, quando aplicável)**.
 
 **Resultados apresentados:** estrutura semântica, dados estruturados, entidades, contexto editorial, findings, evidências, limitações e recomendações.
 
@@ -119,7 +119,7 @@ Regras comuns:
 
 **Uso de IA:** nenhum para produzir as métricas; interpretação adicional não substitui as fontes oficiais.
 
-**Impacto no Índice de Prontidão / Método de Pontuação:** **nenhum impacto automático no `SCORE-GEO-004`**.
+**Impacto no Índice de Prontidão / Método de Pontuação:** **nenhum impacto automático no `SCORE-GEO-005` (ou o método histórico persistido, quando aplicável)**.
 
 **Resultados apresentados:** métricas de performance, Core Web Vitals quando disponíveis, categorias Lighthouse contratadas, diagnósticos, estado das fontes e visão granular de JavaScript por recurso sem criar score paralelo nem atribuição causal indevida de INP.
 
@@ -215,7 +215,7 @@ Regras comuns:
 
 **Uso de IA:** **obrigatório para produzir o resultado próprio do CAT-08**; usa o orquestrador principal, contexto governado e telemetria canônica.
 
-**Impacto no Índice de Prontidão / Método de Pontuação:** **nenhum**. CAT-08 interpreta evidências e não recalcula nem altera `SARI-001`/`SCORE-GEO-004`.
+**Impacto no Índice de Prontidão / Método de Pontuação:** **nenhum**. CAT-08 interpreta evidências e não recalcula nem altera `SARI-001`/`SCORE-GEO-005` (ou o método histórico persistido, quando aplicável).
 
 **Resultados apresentados:** prioridades, explicações, correlações, benefícios esperados, esforço, ações e referências às evidências de origem.
 
@@ -263,7 +263,7 @@ Regras comuns:
 
 **Uso de IA:** opcional e advisory após consolidação da evidência; IA não decide presença de controle, versão ou CVE.
 
-**Impacto no Índice de Prontidão / Método de Pontuação:** **nenhum impacto automático no `SCORE-GEO-004`**.
+**Impacto no Índice de Prontidão / Método de Pontuação:** **nenhum impacto automático no `SCORE-GEO-005` (ou o método histórico persistido, quando aplicável)**.
 
 **Resultados apresentados:** cobertura, findings, cookies e atribuição, JavaScript/integridade/indicadores de risco, plataformas/identificadores seguros, relações entre recursos, componentes, correlações CVE/KEV, evidências, contenção/correção e validação.
 
@@ -322,7 +322,7 @@ Regras comuns:
 
 **Estados e limitações:** Score, Coverage, Confidence e Consolidation não são sinônimos.
 
-**Rastreabilidade:** IDs técnicos `SARI-001`, `SCORE-GEO-004`, registros de pontuação, contribuições, regras e evidências.
+**Rastreabilidade:** IDs técnicos `SARI-001`, `SCORE-GEO-005` (ou o método histórico persistido, quando aplicável), registros de pontuação, contribuições, regras e evidências.
 
 **Aprofundamento técnico:** `SARI_READINESS_INDEX.md`, `SCORE_GEO.md` e `SCORING_GUIDE.md`.
 
@@ -442,7 +442,7 @@ Regras comuns:
 
 **Estados e limitações:** versão metodológica pertence ao conteúdo/metadata, não ao filename.
 
-**Rastreabilidade:** `SCORE-GEO-004`, versões auxiliares de pesos/gates e IDs metodológicos.
+**Rastreabilidade:** `SCORE-GEO-005` (ou o método histórico persistido, quando aplicável), versões auxiliares de pesos/gates e IDs metodológicos.
 
 **Aprofundamento técnico:** `SCORE_GEO.md`, `SCORING_GUIDE.md` e `SARI_READINESS_INDEX.md`.
 
@@ -469,6 +469,16 @@ Regras comuns:
 **Rastreabilidade:** domínio, fonte, artifact/dataset e identificadores persistidos.
 
 **Aprofundamento técnico:** `GLOSSARY.md`, `INDICATOR_PROVENANCE.md`, `OPEN_WEB_METRICS.md` e documentos específicos de cada métrica.
+
+## Superfícies estratégicas especializadas
+
+As três páginas abaixo completam o inventário técnico do contrato de navegação. As suas referências específicas detalham coleta, limites e proveniência; a relação com as páginas executivas é temática, não uma promessa de duplicação.
+
+| Página técnica | Finalidade e limites | Referência |
+| --- | --- | --- |
+| `network.html` | Conexões, topologia lógica, sondagens autorizadas, IP público e mapa quando comprovados; sem inferir rota física ou localização real | [Artefatos e rede](OUTPUTS_AND_ARTIFACTS.md) |
+| `geo.html` | Inteligência competitiva observacional, fontes externas, comparabilidade e sínteses persistidas; sem garantia de presença em respostas generativas | [Search Intelligence](SEARCH_INTELLIGENCE_REPORT.md) e [Perplexity](PERPLEXITY_SEARCH_INTELLIGENCE.md) |
+| `geo-content-review.html` | Revisão consultiva de conteúdo relacionada a GEO, sem novo índice nem alteração de evidência | [Guia de relatórios](REPORT_GUIDE.md) |
 
 ## Recursos do pacote que não são páginas analíticas
 

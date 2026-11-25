@@ -63,12 +63,7 @@ Inspeção local do contrato:
 rasai scoring inspect
 ```
 
-Relatórios canônicos:
-
-```text
-report-catalog/sari.html
-report-catalog/methodology.html
-```
+Para investigar o índice e o método, abra `report-catalog/sari.html` e `report-catalog/methodology.html`; para leitura executiva, `report-presentation/indices.html` e o painel `report-presentation/index.html`. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 ## IA no audit
 
@@ -138,7 +133,7 @@ Quando um campo está em `auto` e IA está ligada, a configuração persistida c
 
 ### Telemetria de IA
 
-Cada chamada externa pode ser auditada em `report-catalog/ai-integrations.html`. O runtime registra request/response sanitizados, provider/modelo, finalidade, duração, status, hashes e truncamento. Secrets e raciocínio privado do provider não são persistidos.
+Para investigar as tentativas registradas, use `report-catalog/ai-integrations.html`; a apresentação executiva de uso, custos e proveniência está em `report-presentation/ia-custos.html`. O runtime registra request/response sanitizados, provider/modelo, finalidade, duração, status, hashes e truncamento. Secrets e raciocínio privado do provider não são persistidos.
 
 Quando a integração reporta uma unidade comercial nativa, o console/relatório a apresenta separadamente dos tokens. A telemetria pode mostrar, por exemplo, requisições de busca Perplexity ou créditos Manus; essas unidades nunca são reaproveitadas como `input_tokens`/`output_tokens`. Créditos Manus permanecem não precificados enquanto não houver conversão monetária oficial reproduzível. Esta entrega não cria novos valores para `--ai-provider`.
 
