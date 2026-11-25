@@ -191,11 +191,11 @@ Dimension = DISCOVERY_ACCESS
 Group = EXTERNAL_CRAWL_CORROBORATION
 Evidence role = EXTERNAL_CORROBORATIVE
 Group Weight = 3% de DISCOVERY_ACCESS
-Maximum Overall Impact = 0,45 ponto
+Contribuição nominal no Overall = 0,45 ponto (pesos integralmente medidos)
 Critical Gate = não
 ```
 
-A regra é `positive-only`. Ela só é materializada quando a observação Common Crawl atende às condições qualificadoras do contrato.
+A contribuição nominal não é um teto universal: a normalização pelos pesos efetivamente medidos pode alterar a participação em universos parciais. A regra é `positive-only`. Ela só é materializada quando a observação Common Crawl atende às condições qualificadoras do contrato.
 
 Ausência de captura, erro de provider, alvo inelegível ou amostra insuficiente:
 
