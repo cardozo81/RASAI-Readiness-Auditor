@@ -157,7 +157,7 @@ Entre as famílias que contêm heurísticas internas estão:
 - Content Value;
 - pesos, thresholds, Coverage, Confidence, Consolidation e Critical Gates.
 
-`report-catalog/methodology.html` deve expor a natureza metodológica e a função de cada indicador no SARI.
+No catálogo técnico (`report-catalog/`), `report-catalog/methodology.html` deve expor a natureza metodológica e a função de cada indicador no SARI; `report-catalog/sari.html` detalha o índice e os critérios críticos. Na apresentação executiva (`report-presentation/`), `report-presentation/indices.html` e `report-presentation/index.html` orientam a interpretação da qualidade medida e da suficiência da evidência. Os pacotes são projeções independentes da evidência persistida; não há exigência de réplica de todas as regras, pesos ou tabelas. Veja o [guia de relatórios](REPORT_GUIDE.md).
 
 ## Score, Confidence e Critical Gate são coisas diferentes
 

@@ -13,7 +13,7 @@ O contrato é **canonical acquisition reuse, independent evaluation**:
 - a mesma página continua aberta durante a janela pós-load necessária ao Synthetic User Experience Apdex;
 - cada método mantém seu próprio conjunto de amostras, thresholds, regras de classificação e consolidação;
 - nenhum score é usado como entrada do outro;
-- a funcionalidade não altera `SCORE-GEO-004`, `SARI-001`, pesos ou gates de readiness.
+- a funcionalidade não altera o índice de prontidão (`SARI-001`), o método de pontuação vigente (`SCORE-GEO-005`), pesos ou critérios críticos; `SCORE-GEO-004` permanece preservado no histórico.
 
 ## Quando uma aquisição pode ser compartilhada
 
@@ -117,7 +117,7 @@ Durante a auditoria o RASAi mantém um ledger técnico em `audit.db`:
 
 Esse ledger é materializado pelo Synthetic Acquisition Engine neutro e registra envelopes físicos, observáveis disponíveis, reutilizações da fronteira de load e incompatibilidades de timeout. É evidência operacional; não participa do cálculo de nenhum score.
 
-`cat-06.html` e `cat-07.html` recebem a seção **Uma navegação física, avaliações Apdex independentes**, com:
+No catálogo técnico (`report-catalog/`), as páginas especializadas `report-catalog/cat-06.html` (Apdex de navegação) e `report-catalog/cat-07.html` (Apdex de experiência) recebem a seção **Uma navegação física, avaliações Apdex independentes**, com:
 
 - modo de aquisição;
 - aquisições Experience elegíveis;
@@ -127,6 +127,8 @@ Esse ledger é materializado pelo Synthetic Acquisition Engine neutro e registra
 - navegações físicas efetivas;
 - percentual de redução;
 - incompatibilidades de timeout.
+
+Na apresentação executiva (`report-presentation/`), `report-presentation/performance.html` reúne a leitura de desempenho e dos dois métodos Apdex, com universos, amostras e limitações distintos. O pacote executivo consome evidências persistidas independentemente do HTML técnico; não se presume que o ledger operacional ou cada campo de reutilização seja replicado. Veja o [guia dos dois relatórios](REPORT_GUIDE.md).
 
 ## Limites
 

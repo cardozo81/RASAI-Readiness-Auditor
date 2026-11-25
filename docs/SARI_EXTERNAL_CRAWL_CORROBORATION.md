@@ -187,11 +187,11 @@ Common Crawl não homologa o SARI e uma captura não significa indexação em Go
 
 ### CrUX History
 
-Permanece em `cat-04.html` / Observability como experiência real histórica. Não altera SARI.
+A experiência real histórica é investigada no catálogo técnico `report-catalog/cat-04.html` e contextualizada na apresentação executiva `report-presentation/performance.html`, sem presumir réplica de cada série. Não altera SARI.
 
 ### Microsoft Clarity
 
-Permanece em `cat-07.html` / Observability como comportamento agregado real. Não altera SARI.
+O comportamento agregado real é investigado em `report-catalog/cat-07.html`; a leitura executiva de experiência pertence a `report-presentation/performance.html`, conforme as evidências disponíveis. Não altera SARI.
 
 ### Google Search Console / Bing Webmaster
 
@@ -213,4 +213,4 @@ As páginas técnicas `report-catalog/sari.html` e `report-catalog/methodology.h
 - aviso de que o dado não prova indexação/ranking;
 - aviso de que o grupo não integra Critical Gates.
 
-`report-catalog/cat-01.html` mantém a evidência técnica de descoberta e `report-catalog/cat-05.html`/`metrics.html` projetam a leitura observacional aplicável das capturas Common Crawl.
+`report-catalog/cat-01.html` mantém a evidência técnica de descoberta e `report-catalog/cat-05.html` e `report-catalog/metrics.html` projetam a leitura observacional aplicável das capturas Common Crawl. O pacote executivo interpreta os sinais de descoberta em `report-presentation/descoberta.html`, as fontes de busca em `report-presentation/search-geo.html` e os índices em `report-presentation/indices.html`, sem recalcular o SARI nem pressupor que a regra ou cada captura esteja replicada. Consulte o [guia de relatórios](REPORT_GUIDE.md).

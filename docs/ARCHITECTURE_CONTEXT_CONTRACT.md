@@ -1,8 +1,8 @@
 # Contexto arquitetural consultivo - contrato inicial
 
-Este contrato é **F1 / resolução isolada e read-only**, vinculado à issue #646.
-Nenhuma integração no planejamento da auditoria, catálogo, score, modelo de IA,
-report ou SQLite foi ativada por esta mudança. Não há propagação F2/F3.
+Este contrato registra a fase inicial **F1 / resolução isolada e somente leitura**, vinculada à issue #646, e as evoluções consultivas descritas adiante. Na fase F1 não houve integração no planejamento da auditoria, catálogo, pontuação, modelo de IA, relatórios ou SQLite, nem propagação F2/F3.
+
+Na versão 1.0.0, a leitura descritiva de arquitetura observada pode ser investigada em `report-catalog/cat-01.html` (fundamentos técnicos) e `report-catalog/capture-context.html` (contexto de captura). A apresentação executiva `report-presentation/extracao.html` sintetiza a classificação arquitetural persistida e os limites da evidência; `report-presentation/rede.html` concentra fatos de conectividade. O gerador executivo lê a própria evidência persistida, não o HTML técnico. A transparência da escolha declarada descrita mais adiante não implica réplica obrigatória desse campo na apresentação nem habilitação de novos consumidores de coleta, pontuação ou IA. Veja o [guia de relatórios](REPORT_GUIDE.md).
 
 A API pura `rasai.architecture_context.resolve_architecture` separa
 observação física, escolha declarada, modo e aplicação por consumidor. O conjunto

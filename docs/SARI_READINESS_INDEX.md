@@ -243,7 +243,7 @@ Uma dimensão não crítica sem medição suficiente pode reduzir Coverage/Confi
 
 ### 8.1 Regra de apresentação pública do Overall
 
-O valor numérico continua sendo preservado sem truncamento artificial para manter a aritmética reproduzível. Porém, o relatório não deve apresentar a banda numérica como se fosse, isoladamente, a conclusão de readiness.
+O valor numérico continua sendo preservado sem truncamento artificial para manter a aritmética reproduzível. Porém, tanto a visão geral e o índice do catálogo técnico (`report-catalog/index.html`, `report-catalog/sari.html`) quanto o painel e os índices da apresentação executiva (`report-presentation/index.html`, `report-presentation/indices.html`) devem distinguir a banda numérica da conclusão de prontidão.
 
 Exemplos:
 
@@ -492,7 +492,7 @@ Esses dados são resultados. Servem para observabilidade e podem sustentar pesqu
 
 ## 18. Relatórios: investigação técnica e leitura executiva
 
-O RASAi possui dois pacotes HTML complementares para uma AUD individual. Ambos interpretam as evidências persistidas e a versão efetiva do índice, sem recalcular a pontuação durante a geração. Não são duas metodologias de SARI.
+O RASAi possui dois pacotes HTML complementares para uma AUD individual: o catálogo técnico (`report-catalog/`, 21 páginas) e a apresentação executiva (`report-presentation/`, 11 páginas). Ambos interpretam as evidências persistidas e a versão efetiva do índice, sem recalcular a pontuação durante a geração. Não são duas metodologias de SARI.
 
 ### 18.1 Catálogo técnico (`report-catalog/`)
 
@@ -517,12 +517,16 @@ Destinada à interpretação dos resultados e ao suporte à decisão, com onze p
 | `report-presentation/index.html` | Painel executivo: situação observada da auditoria, resultados e limitações relevantes. |
 | `report-presentation/indices.html` | Leitura executiva dos índices e da suficiência da medição, distinguindo qualidade medida e limites da evidência disponível. |
 | `report-presentation/performance.html` | Desempenho Web e experiência, com medições de laboratório, campo e Apdex em universos distintos do SARI. |
-| `report-presentation/descoberta.html` e `report-presentation/conteudo.html` | Contexto dos sinais de descoberta, padrões, conteúdo, semântica e acessibilidade. |
+| `report-presentation/extracao.html` | Contexto da captura, registros e proveniência das evidências. |
+| `report-presentation/descoberta.html` | Sinais de acesso, descoberta e padrões Web. |
+| `report-presentation/conteudo.html` | Contexto dos sinais de conteúdo, semântica, estrutura e acessibilidade. |
+| `report-presentation/rede.html` | Conexões, origem, observações de rede e limitações. |
+| `report-presentation/seguranca.html` | Cobertura, achados e limitações de segurança passiva. |
 | `report-presentation/search-geo.html` | Resultados observados de busca e GEO, sem confundi-los com pontuação de prontidão. |
 | `report-presentation/plano.html` | Achados, propostas e decisões persistidas, sem transformar recomendações em ações aprovadas. |
 | `report-presentation/ia-custos.html` | Uso de IA, esforço, custos e proveniência, sem atribuir às chamadas de IA o cálculo do índice. |
 
-As páginas de extração, rede e segurança complementam a leitura dos respectivos domínios. Consulte o [roteiro completo das onze páginas](REPORT_GUIDE.md#roteiro-de-leitura-executiva).
+As onze páginas acima têm funções próprias. As páginas temáticas contextualizam as evidências e métricas, mas não constituem onze cálculos do SARI. Consulte o [roteiro completo das onze páginas](REPORT_GUIDE.md#roteiro-de-leitura-executiva).
 
 ### 18.3 Como interpretar os dois pacotes
 

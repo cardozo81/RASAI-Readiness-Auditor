@@ -35,7 +35,7 @@ O RASAi separa evidências pelo menor contexto em que o valor pode efetivamente 
 2. misturar resultados Mobile e Desktop como se fossem a mesma execução;
 3. contabilizar ou apresentar repetidamente um fato único apenas porque a auditoria possui várias URLs ou dispositivos.
 
-O contrato vigente é `CONTEXT-SCOPE-001`. Ele define **coleta, persistência e apresentação**. Nenhuma fórmula, peso, fator, Coverage, Confidence ou regra de consolidação do `SCORE-GEO-004` é alterada.
+O contrato vigente é `CONTEXT-SCOPE-001`. Ele define **coleta, persistência e apresentação**. Nenhuma fórmula, peso, fator, cobertura, confiança ou regra de consolidação do método de pontuação é alterada (`SCORE-GEO-005` vigente; `SCORE-GEO-004` histórico).
 
 ## Escopos canônicos
 
@@ -161,9 +161,9 @@ O perfil deve preservar, quando aplicável:
 
 O RASAi não apresenta esses perfis como emulação completa de hardware físico. RAM real, GPU real, térmica e scheduler do sistema operacional não são reproduzidos pelo perfil sintético atual.
 
-## Relatórios
+## Relatórios individuais: contexto técnico e leitura executiva
 
-A auditoria possui `report-catalog/capture-context.html`, responsável por:
+No catálogo técnico (`report-catalog/`), `report-catalog/capture-context.html` é a página de investigação do contexto de captura, responsável por:
 
 - explicar os quatro escopos;
 - mostrar snapshots por dispositivo;
@@ -175,9 +175,11 @@ A auditoria possui `report-catalog/capture-context.html`, responsável por:
 
 A navegação do mini-site segue `src/rasai/catalog_report_contract.py`: visão geral e SARI, CAT-01 a CAT-10, Análise Direcionada e páginas de governança. O contexto Mobile/Desktop é propriedade das páginas, snapshots e evidências persistidos; não cria páginas audit-owned independentes.
 
-## Escala de apresentação para múltiplas URLs
+Na apresentação executiva (`report-presentation/`), `report-presentation/extracao.html` organiza o contexto observado, capturas, arquitetura persistida, arquivos e referências físicas; `report-presentation/descoberta.html` trata os sinais de descoberta e padrões, e `report-presentation/rede.html` concentra as observações de conectividade. A apresentação lê a evidência persistida diretamente e não depende do HTML técnico. A correspondência temática não garante réplica de todos os campos. Consulte o [guia de leitura dos dois pacotes](REPORT_GUIDE.md).
 
-O relatório simples permanece para auditorias com **uma única URL**.
+## Escala de apresentação para múltiplas URLs no catálogo técnico
+
+A apresentação técnica simples permanece para auditorias com **uma única URL**.
 
 Quando uma coleção de resultados possui **duas ou mais URLs distintas**, a camada de apresentação habilita controles locais de leitura:
 
@@ -224,7 +226,7 @@ Princípios obrigatórios:
 - payload de job permanece sem secrets;
 - o worker não inventa um segundo device;
 - o `AUD-*/audit.db` continua sendo a fonte de evidência da auditoria;
-- `capture-context.html` é produzido a partir das evidências persistidas, sem chamadas de rede ou IA durante sua renderização.
+- `report-catalog/capture-context.html` e a leitura executiva correlata em `report-presentation/extracao.html` são produzidas a partir das evidências persistidas, sem chamadas de rede ou IA durante a renderização.
 
 ## Política de chamadas de IA
 
