@@ -210,25 +210,25 @@ As referências abaixo sustentam domínios específicos; nenhuma delas homologa 
 - proposta comunitária `llms.txt`: https://llmstxt.org/
 
 Consulte também as páginas de governança de `report-catalog/`, especialmente metodologia, evidências da execução e IA/integrações; elas materializam a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
-## Publicações e notas v0.9.2
+## Publicações e registros históricos
 
 ### Histórico de distribuição
 
-- [v1.0.0 - notas de versão](RELEASE_NOTES_V1_0_0.md) e [release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v1.0.0).
-- [v0.10.0 - notas de versão](RELEASE_NOTES_V0_10_0.md) e [release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0).
-- [v0.9.1 - notas de versão](RELEASE_NOTES_V0_9_1.md).
+A [última release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) é a fonte de identidade distribuída. Para preparar um novo marco, use somente o [procedimento vigente de versionamento e publicação](VERSIONING.md), não os checklists de candidatas anteriores.
 
+| Versão | Release oficial | Notas e evidências |
+| --- | --- | --- |
+| 1.0.0 | [v1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v1.0.0) | [Notas de versão](RELEASE_NOTES_V1_0_0.md) |
+| 0.10.0 | [v0.10.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0) | [Notas de versão](RELEASE_NOTES_V0_10_0.md) |
+| 0.9.2 | [v0.9.2](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.2) | [Notas de versão](RELEASE_NOTES_V0_9_2.md) |
+| 0.9.1 | [v0.9.1](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.1) | [Notas de versão](RELEASE_NOTES_V0_9_1.md) |
+| 0.9.0 | [v0.9.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) | [Notas preparatórias históricas](RELEASE_NOTES_DRAFT.md), [matriz de gates](RELEASE_GATE_MATRIX.md), [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md), [checklist histórico](RELEASE_PUBLICATION_CHECKLIST.md) |
 
-Consulte a [última release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) para confirmar a versão publicada e seu SHA. A versão do pacote `0.9.2` possui [notas de distribuição](RELEASE_NOTES_V0_9_2.md), mas a identidade distribuída depende da tag e do commit efetivamente publicados. O histórico `v0.9.0` permanece associado ao seu próprio SHA imutável.
-
-As [notas preparatórias](RELEASE_NOTES_DRAFT.md), a [matriz de gates](RELEASE_GATE_MATRIX.md), o [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md) e o [checklist de publicação](RELEASE_PUBLICATION_CHECKLIST.md) são **registros históricos anteriores à publicação**. Não substituem a [página oficial da release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) nem alteram evidências históricas.
-
-
-- [GEO multiquery e reanálise de integrações (linha v0.9.2)](GEO_AI_MULTIQUERY_AND_REANALYSIS.md) - atribuição por consulta, governança econômica, replay offline homologado e limites de validação paga não executada.
+As notas, evidências e decisões antigas não são autorização de publicação ou instrução operacional vigente. A [reanálise GEO de múltiplas consultas](GEO_AI_MULTIQUERY_AND_REANALYSIS.md) descreve os contratos especializados; consulte-a pela finalidade, não como checklist de lançamento.
 
 ### Registros históricos de engenharia
 
-Os seguintes arquivos não são roteiros vigentes. As decisões e evidências da época permanecem rastreáveis; o estado atual de implementação e aceite deve ser verificado nas issues e PRs correspondentes.
+Os seguintes arquivos não são roteiros vigentes. As decisões e evidências da época permanecem rastreáveis. O estado atual de implementação e aceite deve ser verificado nas issues e PRs correspondentes. Alguns caminhos históricos também são exigidos por testes de documentação; sua presença não indica tarefa pendente nem os torna fontes normativas. Para procedimentos atuais, volte à tabela de entrada deste índice.
 
 - [Plano residual de 09/10/2026](RESIDUAL_IMPLEMENTATION_PLAN.md), [plano de evidências de 15/10/2026](ISSUE_ACCEPTANCE_EVIDENCE_PLAN.md), [gate pré-smoke de 16/10/2026](PRE_SMOKE_READINESS_GATE.md) e [matriz de pendências de 17/10/2026](OPEN_ISSUES_DELIVERY_MATRIX.md).
 - [Estabilização anterior à v0.9.0](STABILIZATION_RELEASE_READINESS.md), [candidata v0.10.0](RELEASE_CANDIDATE_V0_10_0.md) e [rascunho v0.9.2](RELEASE_NOTES_V0_9_2_DRAFT.md).

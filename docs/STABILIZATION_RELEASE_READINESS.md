@@ -4,7 +4,7 @@
 
 > **STATUS HISTÓRICO:** esta matriz foi registrada antes da integração e da publicação. A [release `v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) foi publicada em 29/10/2026, `immutable=true`, sobre `5da8e6247094c20dcdbe770474ac31e7f93383b2`; preservar os estados da época, não usá-los como decisão atual.
 
-> Registro histórico incremental da branch única. Não equivale a aceite de release. A situação vigente está em [RELEASE_GATE_MATRIX.md](RELEASE_GATE_MATRIX.md); preservar os SHAs e resultados históricos abaixo.
+> Registro histórico incremental da branch única. Não equivale a aceite de release. A [matriz de gates daquele ciclo](RELEASE_GATE_MATRIX.md) preserva o desfecho histórico; para procedimentos vigentes, consulte [versionamento](VERSIONING.md). Preservar os SHAs e resultados históricos abaixo.
 
 - Baseline: `main@06dd1bfaafc981eb238e893ec1b37007c1948b27` (27/10/2026).
 - Release publicada: `v0.8.0`; candidato `v0.9.0` ainda não decidido.
