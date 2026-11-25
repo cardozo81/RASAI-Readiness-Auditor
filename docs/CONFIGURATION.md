@@ -46,11 +46,9 @@ Para `rasai audit`, argumentos CLI explícitos prevalecem sobre variáveis de am
 
 Para `rasai-console`:
 
-1. `rasai-console.ini` fornece parâmetros persistidos não sensíveis;
-2. variáveis já presentes no processo/ambiente têm precedência sobre valores persistidos equivalentes;
-3. alterações de sessão valem imediatamente para o processo atual;
-4. salvar o INI persiste somente estado não sensível;
-5. no Windows, secrets podem opcionalmente ser persistidos no ambiente User somente por ação explícita do operador.
+A precedência depende da superfície e do momento. Na leitura de `[environment]`, o carregador preenche chaves reconhecidas ainda ausentes no processo; se a chave já existe, essa seção não a substitui, inclusive quando seu valor no processo é vazio. Os campos tipados são reconstruídos pelas próprias seções do INI. O bootstrap do console restaura overrides externos não vazios após carregar o INI; ao preparar a execução, a projeção dos campos gerenciados pelo estado pode escrever novamente as variáveis correspondentes. Portanto, comparar textos do INI e do ambiente não identifica sozinho o valor consumido pelo motor. Confira plano, argumentos, ambiente efetivo e snapshot da execução. Veja [contrato de persistência](CONSOLE_CONFIG_PERSISTENCE.md#precedência-e-limitações).
+
+Alterações de sessão não equivalem a salvar o INI. Salvar persiste somente parâmetros não sensíveis; a persistência de credenciais no Windows/User é uma ação separada e explícita.
 
 O console nunca grava API keys, OAuth tokens, senhas ou outras credenciais no INI.
 
@@ -82,6 +80,8 @@ Não armazena secrets como chaves de IA, tokens OAuth, passwords ou credenciais 
 
 ## Valores padrão gerais
 
+A tabela distingue o default do runtime/CLI bruto da baseline empacotada de uma nova sessão do console. Nenhum default substitui a revisão do plano, autorização de carga e configuração efetiva. Os demais valores da baseline estão em [padrões do sistema](SYSTEM_DEFAULTS.md).
+
 | Configuração | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
 | dispositivo | `mobile` | `mobile`, `desktop` | execute auditorias separadas para comparar dispositivos |
@@ -96,8 +96,8 @@ Não armazena secrets como chaves de IA, tokens OAuth, passwords ou credenciais 
 | idioma | `pt-BR` | valor textual aceito pela configuração | `pt-BR` para o produto no Brasil |
 | mercado | `BR` | valor textual aceito pela configuração | `BR` quando o mercado auditado for Brasil |
 | `audits-root` | `audits` | caminho válido | default |
-| Synthetic Navigation Apdex | `false` | booleano | `false`; habilitar apenas com `T` e autorização de carga adequados |
-| Synthetic User Experience Apdex | `false` | booleano | `false`; habilitar somente quando a medição calibrada for desejada |
+| Synthetic Navigation Apdex | CLI bruto `false`; baseline do console `true`, `T=3 s`, 150 amostras, até 188 tentativas | booleano | revisar carga e T antes de iniciar |
+| Synthetic User Experience Apdex | CLI bruto `false`; baseline do console `true`, 100 amostras, até 125 tentativas | booleano | revisar carga e calibração antes de iniciar |
 
 ## IA
 
@@ -290,9 +290,9 @@ Consulte [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md) e [`ENVIRO
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| `RASAI_SYNTHETIC_APDEX` | `false` | booleano | `false` |
-| `RASAI_APDEX_THRESHOLD_SECONDS` | sem default | número finito `> 0` | usar SLO/KPM definido para o sistema; não inventar `T` |
-| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | `100` | inteiro `>= 1` | `100`; reduzir apenas em smoke controlado |
+| `RASAI_SYNTHETIC_APDEX` | CLI bruto `false`; console `true` | booleano | habilitar conforme a finalidade e carga autorizada |
+| `RASAI_APDEX_THRESHOLD_SECONDS` | sem default no CLI bruto; console `3 s` | número finito `> 0` | usar SLO/KPM definido para o sistema |
+| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | `150` | inteiro `>= 1` | `150`; reduzir explicitamente para diagnóstico de baixa carga |
 | `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | `ceil(1.25 × samples)` | inteiro positivo e validado pelo runtime | default derivado |
 | `RASAI_APDEX_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline de carga |
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número `> 4T` | default derivado |
@@ -300,13 +300,13 @@ Consulte [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md) e [`ENVIRO
 | `RASAI_APDEX_CONCURRENCY` | `1` | inteiro `1..4` | `1`; `3..4` exigem delay >= `1 s` |
 | `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto`; aplica o planner canônico e reutiliza apenas aquisição física comprovadamente compatível |
 
-Synthetic Navigation Apdex só pode ser habilitado com `T` explícito. Consulte [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md).
+No CLI bruto, Synthetic Navigation Apdex exige `T` no argumento ou ambiente quando habilitado; o console fornece `T=3 s` pela baseline se não houver ajuste efetivo. Consulte [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md).
 
 `RASAI_APDEX_ACQUISITION_MODE` não unifica as métricas. Em `auto`, o engine canônico pode projetar uma ocorrência física compatível para CAT-06 e CAT-07 sem unificar seus evaluators; targets, thresholds e classificações permanecem independentes e ambos herdam o device único da AUD. `isolated` mantém aquisições físicas separadas.
 
 ## Synthetic User Experience Apdex
 
-Os defaults, valores permitidos e recomendados dessa camada estão consolidados em [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md) e [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md). Ela permanece desabilitada por padrão e pode usar configuração Dynatrace importada quando explicitamente solicitada. A concorrência do Experience aceita `1..3`, mantém `1` como recomendado e exige delay >= `1 s` para o valor avançado `3`; sem override próprio, a herança de Navigation é limitada a `2`.
+Os defaults, valores permitidos e recomendados dessa camada estão consolidados em [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md) e [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md). No runtime/CLI bruto, a ativação permanece opt-in; a baseline empacotada do console a habilita independentemente da navegação. Pode usar configuração Dynatrace importada quando explicitamente solicitada. A concorrência do Experience aceita `1..3`, mantém `1` como recomendado e exige delay >= `1 s` para o valor avançado `3`; sem override próprio, a herança de Navigation é limitada a `2`.
 
 A origem dos defaults deve permanecer explícita. O baseline executável usa `USER_ACTION_DURATION` com `3 s / 12 s` como **fallback RASAi derivado da configuração Dynatrace Load**, pois o RASAi não reimplementa `VISUALLY_COMPLETE` com semântica proprietária. A política default de erros reproduzível usa JavaScript errors = `true`, request/HTTP/CSP errors qualificáveis = `true`, `console.error` = `false` e escopo de request = `all`; cancelamentos genéricos `net::ERR_ABORTED` de subrecursos permanecem diagnósticos por default e não são tratados como equivalência automática de request error Dynatrace. A captura reproduzível usa JavaScript = `true`, XMLHttpRequest = `true`, Fetch = `true`, `console.error` = `false` e máximo de `10` erros detalhados por página. Amostras, tentativas, páginas, device mix, sessão, settle, pacing, concorrência, timeout e perfis sintéticos permanecem **defaults operacionais RASAi**, não defaults Dynatrace.
 
@@ -318,14 +318,7 @@ A origem dos defaults deve permanecer explícita. O baseline executável usa `US
 
 ## Persistência do console
 
-O console usa `rasai-console.ini` ou o caminho indicado por `RASAI_CONSOLE_INI` como persistência de parâmetros não sensíveis. Na inicialização, a precedência é:
-
-```text
-valor já presente no processo/Windows
-> valor persistido em [environment]
-> valor persistido nas seções funcionais do INI
-> default do runtime
-```
+O console usa `rasai-console.ini` ou o caminho indicado por `RASAI_CONSOLE_INI` como persistência de parâmetros não sensíveis. Não existe uma única ordem linear que descreva todos os consumidores. A distinção entre `[environment]`, campos tipados, bootstrap e projeção ao executor está na seção [precedência prática](#precedência-prática).
 
 Valores não secretos do INI são projetados novamente para o ambiente dos adapters antes da execução. Assim, remediação de IA, timeout, máximo de ciclos, espera entre ciclos, modelo/reasoning selecionados, Web Performance e Synthetic Apdex podem sobreviver a salvar → fechar → reabrir. Os três parâmetros de execução de IA usam a mesma fonte de verdade no atalho de IA, em Todas as configurações, no snapshot da AUD e no RPR.
 

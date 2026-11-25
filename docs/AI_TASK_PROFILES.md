@@ -98,11 +98,11 @@ Cada perfil possui somente os seguintes campos configuráveis:
 
 | Campo | Finalidade |
 |---|---|
-| `version` | versão funcional do perfil |
-| `role` | papel profissional assumido pela IA |
-| `objective` | objetivo intelectual da tarefa |
-| `competencies` | competências que devem orientar a análise |
-| `guidance` | orientação adicional específica do perfil |
+| `version` | versão funcional do perfil, até 64 caracteres |
+| `role` | papel profissional assumido pela IA, até 500 caracteres |
+| `objective` | objetivo intelectual da tarefa, até 1.200 caracteres |
+| `competencies` | lista de 1 a 12 itens, até 200 caracteres por item; duplicatas são deduplicadas |
+| `guidance` | orientação adicional específica do perfil, até 1.800 caracteres |
 
 Campos desconhecidos são rejeitados. Isso é intencional.
 
@@ -141,7 +141,7 @@ competencies = ["semântica HTML", "dados estruturados", "intenção de busca"]
 guidance = "Explique a insuficiência de evidência. Diferencie fatos observados de interpretação e priorize recomendações verificáveis."
 ```
 
-O identificador da seção e os nomes dos campos são valores técnicos exigidos pelo leitor. A data no TOML mantém o formato ISO usado pelo arquivo, não o formato humano da documentação. O exemplo não altera a fórmula de pontuação, não cria um novo tipo de tarefa e não autoriza chamadas externas. A lista de competências deve ter de 1 a 12 itens; os demais campos são obrigatórios na seção sobrescrita. O catálogo de fábrica completa os perfis omitidos.
+O identificador da seção e os nomes dos campos são valores técnicos exigidos pelo leitor. Os limites dos cinco campos acima são aplicados pelo leitor canônico; preencher todos com conteúdo não vazio. Não incluir segredos, dados pessoais ou informações privadas nos perfis: suas instruções podem integrar prompts enviados ao fornecedor e registros da execução. A data no TOML mantém o formato ISO usado pelo arquivo, não o formato humano da documentação. O exemplo não altera a fórmula de pontuação, não cria um novo tipo de tarefa e não autoriza chamadas externas. A lista de competências deve ter de 1 a 12 itens; os demais campos são obrigatórios na seção sobrescrita. O catálogo de fábrica completa os perfis omitidos.
 
 Ative a origem `file` e indique o caminho em **Todas as configurações** se quiser exigir esse arquivo, ou mantenha `auto` para permitir retorno à fábrica quando o arquivo não existir. Uma seção inválida é rejeitada; não se deve corrigir o erro removendo controles de segurança.
 

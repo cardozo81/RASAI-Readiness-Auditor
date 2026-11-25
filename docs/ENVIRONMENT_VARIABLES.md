@@ -241,7 +241,7 @@ Depois da janela, uma nova observação live deve ocorrer em nova auditoria quan
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
 | `RASAI_SYNTHETIC_APDEX` | `false` no runtime genérico; baseline do console pode habilitar | booleano | habilitar deliberadamente conforme o catálogo |
-| `RASAI_APDEX_THRESHOLD_SECONDS` | `3` na baseline empacotada | número `> 0` | usar o SLO/KPM definido para o sistema quando conhecido |
+| `RASAI_APDEX_THRESHOLD_SECONDS` | sem default no CLI bruto quando habilitado; `3 s` na baseline empacotada do console | número finito `> 0` | usar o SLO/KPM definido para o sistema quando conhecido |
 | `RASAI_APDEX_SAMPLES_PER_CONTEXT` | **`150`** | inteiro `>= 1` | **`150`** |
 | `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | **`188`** para o target 150; em geral `ceil(1.25 × samples)` | inteiro `>= samples` | default derivado |
 | `RASAI_APDEX_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` |
@@ -392,7 +392,7 @@ Detalhes de registro do client, fluxo Authorization Code + PKCE, JWT, cookies e 
 
 ## 15. Precedência e persistência
 
-Quando a mesma capacidade puder ser definida por CLI/menu, variável e default, a superfície explícita da execução prevalece conforme o contrato do módulo.
+Quando a mesma capacidade puder ser definida por CLI/menu, variável e default, a superfície explícita da execução prevalece conforme o contrato do módulo. A seção `[environment]` não sobrepõe chaves existentes no processo durante sua leitura; campos tipados do INI e escolhas explícitas podem ser projetados novamente pelo console ao preparar o executor. Confira os valores efetivos, não presuma uma ordem linear universal. Consulte [precedência prática](CONFIGURATION.md#precedência-prática).
 
 Segredos podem existir apenas no processo/secret boundary apropriado. No Windows, persistência de segredo no escopo User só ocorre quando a superfície correspondente permitir e houver confirmação explícita. O INI do console não recebe segredos.
 
