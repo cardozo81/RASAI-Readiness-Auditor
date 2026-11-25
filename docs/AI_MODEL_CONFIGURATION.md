@@ -1,6 +1,6 @@
 # Catálogo configurável de modelos de IA
 
-**Estado:** contrato atual do RASAi em desenvolvimento.  
+**Estado:** referência do catálogo configurável da versão 1.0.0.  
 **Data de referência do catálogo de fábrica:** 23/10/2026  
 **Schema do catálogo:** `1`
 
@@ -136,6 +136,35 @@ effective_until = "2027-01-01T00:00:00Z"
 | `source_reference` | referência oficial usada para validar o cadastro |
 
 Um modelo desabilitado não pode ser selecionável, default ou elegível ao `AUTO`.
+
+### Modelos distribuídos na versão 1.0.0
+
+Esta tabela resume o catálogo de fábrica `RASAI-MODELS-2026-10-23.1`, com data de referência 23/10/2026 e revisão recomendada em 23/11/2026. Foi confrontada com o TOML distribuído e considera somente registros habilitados, selecionáveis e dentro da vigência em 25/11/2026. Não comprova disponibilidade comercial ou acesso da conta aos modelos. A data recomendada de revisão já passou; confirme as condições atuais antes de uso comercial. Um arquivo local válido pode alterar a lista efetiva.
+
+| Fornecedor | Modelo público padrão | Modelos elegíveis à seleção de fábrica | Esforço padrão do modelo público |
+| --- | --- | --- | --- |
+| OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `NONE` |
+| DeepSeek | `deepseek-flash` | `deepseek-v4-pro`, `deepseek-flash` | `NONE` |
+| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash` | `NONE` |
+| xAI | `grok-4.6` | `grok-4.6` | `LOW` |
+| Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `NONE` |
+| Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` |
+| Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `LOW` |
+| Mistral | `mistral-small-2603` | `mistral-small-2603` | `PROVIDER_DEFAULT` |
+| Cohere | `command-a-03-2025` | `command-a-03-2025` | `PROVIDER_DEFAULT` |
+| Kimi / Moonshot | `kimi-k3` | `kimi-k3` | `LOW` |
+| GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` |
+
+Os modelos históricos `mimo-v2.5` e `mimo-v2.5-pro` têm vigência encerrada em 20/10/2026 23:00:00 (America/Sao_Paulo; 21/10/2026 02:00:00 UTC). `deepseek-v4-flash` permanece como registro desabilitado, não como opção vigente de fábrica. Esses registros preservam contexto histórico; não são autorização para chamadas novas.
+
+Para consultar a configuração efetivamente resolvida, sem revelar valores de credenciais, use:
+
+```text
+rasai providers --kind ai
+rasai providers --kind ai --configured-only
+```
+
+O catálogo efetivamente carregado para uma execução, e não uma tabela histórica em um guia, é a autoridade sobre modelo, vigência e esforço. Consulte [seleção e diagnóstico de provedores](PROVIDER_SETUP.md) e [variáveis de ambiente](ENVIRONMENT_VARIABLES.md).
 
 ## 6. Seleção efetiva por provider
 

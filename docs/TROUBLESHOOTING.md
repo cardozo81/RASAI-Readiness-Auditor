@@ -1,4 +1,4 @@
-# Troubleshooting
+# Solução de problemas
 
 ## `rasai` não é reconhecido
 
@@ -22,21 +22,14 @@ Se `RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE` estiver configurado, o caminho precisa
 
 Use o console em **4. IA** ou **E. Variáveis de ambiente / credenciais**. O status deve distinguir `DESABILITADA`, `CONFIGURAR`, `APTO` e `INDISPONÍVEL`; ausência de credencial não é finding do website.
 
-Para verificar presença sem exibir o segredo:
+Para verificar as integrações configuradas sem exibir valores de credenciais:
 
 ```powershell
-Test-Path Env:OPENAI_API_KEY
-Test-Path Env:DEEPSEEK_API_KEY
-Test-Path Env:MIMO_API_KEY
-Test-Path Env:XAI_API_KEY
-Test-Path Env:DASHSCOPE_API_KEY
-Test-Path Env:GEMINI_API_KEY
-Test-Path Env:ANTHROPIC_API_KEY
-Test-Path Env:MISTRAL_API_KEY
-Test-Path Env:COPILOT_GITHUB_TOKEN
+rasai providers --kind ai
+rasai providers --kind ai --configured-only
 ```
 
-A lista canônica, aliases, variável de credencial e URL oficial de cadastro/login ficam em [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md). Não mantenha uma lista paralela como fonte de verdade.
+Para verificar somente uma variável específica em PowerShell, use, por exemplo, `Test-Path Env:OPENAI_API_KEY`. A lista canônica, aliases, variáveis e URLs de obtenção estão em [configuração de provedores](PROVIDER_SETUP.md) e [credenciais externas](EXTERNAL_CREDENTIALS.md).
 
 Também verifique:
 
@@ -47,7 +40,7 @@ Também verifique:
 - esforço/reasoning aceito;
 - bloqueio/quarantine depois de erro operacional.
 
-MiMo exige chave PAYG `sk-...` no adapter atual. Chaves Token Plan `tp-...`/`ttp-...` são válidas no fornecedor, porém usam Base URL/modalidade próprias e não são suportadas pelo adapter PAYG do RASAi. O default vigente é `mimo-v2.6-flash`; `mimo-v2.5` e `mimo-v2.5-pro` deixam de ser efetivos em **21/10/2026 02:00 UTC**. Se uma configuração persistida ainda apontar para v2.5 depois desse instante, atualize `RASAI_MIMO_MODEL` ou restaure o catálogo/default vigente; o RASAi não deve substituir silenciosamente o modelo dentro de uma AUD. Migração: issue #183. Modalidades alternativas dos providers não devem ser tentadas por inferência da documentação externa; consulte a [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
+MiMo exige chave PAYG `sk-...` no adapter atual. Chaves Token Plan `tp-...`/`ttp-...` são válidas no fornecedor, porém usam Base URL/modalidade próprias e não são suportadas pelo adapter PAYG do RASAi. O default vigente é `mimo-v2.6-flash`; `mimo-v2.5` e `mimo-v2.5-pro` deixam de ser efetivos em **20/10/2026 23:00:00 (America/Sao_Paulo; 21/10/2026 02:00:00 UTC)**. Se uma configuração persistida ainda apontar para v2.5 depois desse instante, atualize `RASAI_MIMO_MODEL` ou restaure o catálogo/default vigente; o RASAi não deve substituir silenciosamente o modelo dentro de uma AUD. Migração: issue #183. Modalidades alternativas dos providers não devem ser tentadas por inferência da documentação externa; consulte a [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 Mistral exige `MISTRAL_API_KEY` e acesso ao modelo `mistral-small-2603`; o adapter usa endpoint global Standard fixo e não possui endpoint override. Quando configurado/apto, pode participar de `AI=auto`.
 
@@ -106,7 +99,7 @@ Acessibilidade automatizada reutiliza a categoria `accessibility` do artifact Li
 
 ## Synthetic Apdex `PARTIAL`
 
-Grupos com menos de 100 amostras válidas são deliberadamente small-group e recebem `*`. Um smoke de 3-5 amostras pode estar operacionalmente correto e ainda ser `PARTIAL` por não ser grupo final.
+Grupos com menos de 100 amostras válidas são diagnósticos de grupo pequeno. O padrão de navegação é 150 amostras e o de experiência é 100; ajuste explicitamente a meta se a finalidade for um diagnóstico de baixa carga. Um smoke de 3-5 amostras pode estar operacionalmente correto e ainda ser `PARTIAL` por não ser grupo final.
 
 ## INI não salva credenciais
 

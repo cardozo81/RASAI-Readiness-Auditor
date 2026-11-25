@@ -166,19 +166,7 @@ O mesmo catálogo de pricing também suporta políticas de **uso nativo não-tok
 
 ### Modelos e reasoning
 
-| Provider | Default público de modelo | Modelos permitidos | Default de reasoning | Recomendado |
-|---|---|---|---|---|
-| OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `NONE` | default público; elevar capacidade deliberadamente |
-| DeepSeek | `deepseek-flash` | `deepseek-v4-pro`, `deepseek-flash` | `NONE` | default público |
-| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro disponíveis temporariamente até 21/10/2026 02:00 UTC | `NONE` | default público eficiente |
-| xAI | `grok-4.6` | `grok-4.6` | `LOW` | default público |
-| Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `NONE` | menor effort aceito; elevar deliberadamente |
-| Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` | default público |
-| Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `LOW` | default público |
-| Mistral | `mistral-small-2603` | `mistral-small-2603` | `PROVIDER_DEFAULT` | elegível ao AUTO |
-| Cohere | `command-a-03-2025` | `command-a-03-2025` | `PROVIDER_DEFAULT` | elegível ao AUTO |
-| Kimi / Moonshot | `kimi-k3` | `kimi-k3` | `LOW` | elegível ao AUTO |
-| GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` | deixar SDK/assinatura resolver o modelo; elegível ao AUTO |
+Os modelos públicos padrão e as opções de seleção de fábrica estão em [Modelos distribuídos na versão 1.0.0](AI_MODEL_CONFIGURATION.md#modelos-distribuídos-na-versão-100). Use `rasai providers --kind ai` para consultar os valores resolvidos no ambiente de execução. As variáveis por fornecedor são descritas na referência central de [variáveis de ambiente](ENVIRONMENT_VARIABLES.md#3-ia---modelos).
 
 Os valores permitidos de reasoning são publicados em `ENVIRONMENT_VARIABLES.md` e `PROVIDER_REGISTRY.md`.
 

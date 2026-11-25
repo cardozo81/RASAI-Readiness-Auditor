@@ -95,7 +95,7 @@ Para o RASAi local, a autenticação deliberada é `COPILOT_GITHUB_TOKEN`. O ada
 
 O token recomendado é um fine-grained PAT da conta pessoal com a permissão **Copilot Requests**. Prefixos aceitos pelo contrato atual: `github_pat_`, `gho_` e `ghu_`; classic PAT `ghp_` não é compatível com esse fluxo.
 
-O provider está `explicit_only=false` e o modelo `auto` está `auto_eligible=true`. Portanto, `COPILOT_GITHUB_TOKEN` configurado autoriza sua participação no AUTO; use `RASAI_AI_AUTO_EXCLUDE=copilot` quando o operador quiser manter a credencial sem consumir a assinatura no roteamento automático.
+O provider está `explicit_only=false` e o modelo `auto` está `auto_eligible=true`. Portanto, `COPILOT_GITHUB_TOKEN` configurado torna possível sua participação no modo automático quando os demais requisitos forem atendidos; a presença da credencial não é consentimento para uma execução tarifada. use `RASAI_AI_AUTO_EXCLUDE=copilot` quando o operador quiser manter a credencial sem consumir a assinatura no roteamento automático.
 
 Instalação opcional:
 
@@ -153,27 +153,11 @@ Qualificação e elegibilidade ao `AUTO` são conceitos diferentes. Saúde/confi
 
 ## Catálogo de fábrica em 02/10/2026
 
-A tabela abaixo é apenas a fotografia do catálogo distribuído com o produto. Um catálogo `file` pode modificar a lista sem alterar o adapter.
-
-| Provider | Default público | Modelos de fábrica | Reasoning default do modelo público |
-|---|---|---|---|
-| OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `NONE` |
-| DeepSeek | `deepseek-flash` | `deepseek-v4-pro`, `deepseek-flash` | `NONE` |
-| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro mantidos temporariamente por compatibilidade até 21/10/2026 02:00 UTC | `NONE` |
-| xAI | `grok-4.6` | `grok-4.6` | `LOW` |
-| Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `NONE` |
-| Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` |
-| Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `LOW` |
-| Mistral | `mistral-small-2603` | `mistral-small-2603` | `PROVIDER_DEFAULT` |
-| Cohere | `command-a-03-2025` | `command-a-03-2025` | `PROVIDER_DEFAULT` |
-| Kimi / Moonshot | `kimi-k3` | `kimi-k3` | `LOW` |
-| GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` |
-
-A fonte de verdade para a execução é o catálogo efetivamente carregado, não esta fotografia documental.
+A fotografia anterior foi consolidada na referência única de [Modelos distribuídos na versão 1.0.0](AI_MODEL_CONFIGURATION.md#modelos-distribuídos-na-versão-100). O título histórico permanece para compatibilidade de navegação; para conhecer a configuração atual, consulte `rasai providers --kind ai`. A lista de modelos pertence ao catálogo efetivo, não ao cadastro técnico de adaptadores.
 
 ## MiMo
 
-O contrato atual usa PAYG `sk-...` e o mesmo endpoint Responses `https://api.xiaomimimo.com/v1/responses`. Em 02/10/2026 os defaults foram migrados para `mimo-v2.6-pro` (adapter) e `mimo-v2.6-flash` (público/eficiente). `mimo-v2.5` e `mimo-v2.5-pro` permanecem somente como modelos mantidos temporariamente por compatibilidade selecionáveis até **21/10/2026 02:00 UTC**, horário oficial de retirada; depois disso deixam de ser efetivos pelo catálogo.
+O contrato atual usa PAYG `sk-...` e o mesmo endpoint Responses `https://api.xiaomimimo.com/v1/responses`. Em 02/10/2026 os defaults foram migrados para `mimo-v2.6-pro` (adapter) e `mimo-v2.6-flash` (público/eficiente). `mimo-v2.5` e `mimo-v2.5-pro` permanecem somente como modelos mantidos temporariamente por compatibilidade selecionáveis até **21/10/2026 02:00 UTC**, horário oficial de retirada; depois disso deixaram de ser efetivos pelo catálogo.
 
 O reasoning default RASAi é `NONE`, o menor valor aceito pela Responses API MiMo. Outros valores permitidos ativam thinking, mas a documentação atual informa que a intensidade não é diferenciada no backend. Token Plan `tp-...`, Batch, UltraSpeed, web search, tools e capacidades multimodais não são herdados por essa migração. Modalidades externas continuam na [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180); a migração v2.6 é rastreada na [issue #183](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/183).
 

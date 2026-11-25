@@ -51,9 +51,9 @@ Mistral, Cohere, Kimi e GitHub Copilot podem participar do `AUTO` quando suas cr
 
 ## Search Intelligence externa
 
-A Perplexity Search API é a primeira integração externa deste tipo. Ela não é adicionada à lista de providers concretos acima, não participa do `AI=auto` e não substitui SERP observada. A finalidade é descoberta de fontes externas com provenance explícita e persistência separada.
+A Perplexity Search API é uma integração independente de pesquisa externa. Ela não é adicionada à lista de providers concretos acima, não participa do `AI=auto` e não substitui SERP observada. A finalidade é descoberta de fontes externas com provenance explícita e persistência separada.
 
-A regra geral de providers canônicos permanece mais forte: qualquer novo provider que entrar no registry após homologação deve ser AUTO-eligible no mesmo merge quando configurado/apto. Perplexity Search API fica fora somente porque nesta entrega não pertence a esse registry.
+A regra geral de providers canônicos permanece mais forte: qualquer novo provider que entrar no registry após homologação deve ser AUTO-eligible no mesmo merge quando configurado/apto. Perplexity Search API não pertence ao conjunto de provedores generativos do modo automático.
 
 Contrato: [PERPLEXITY_SEARCH_INTELLIGENCE.md](PERPLEXITY_SEARCH_INTELLIGENCE.md).
 
@@ -94,23 +94,9 @@ Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 
 ### Catálogo de fábrica em 03/10/2026
 
-| Provider | Default público | Reasoning default |
-|---|---|---|
-| OpenAI | `gpt-5.6-luna` | `NONE` |
-| DeepSeek | `deepseek-flash` | `NONE` |
-| MiMo | `mimo-v2.6-flash` | `NONE` |
-| xAI | `grok-4.6` | `LOW` |
-| Qwen | `qwen3.8-flash` | `NONE` |
-| Gemini | `gemini-3.8-flash` | `LOW` |
-| Anthropic | `claude-sonnet-5` | `LOW` |
-| Mistral | `mistral-small-2603` | `PROVIDER_DEFAULT` |
-| Cohere | `command-a-03-2025` | `PROVIDER_DEFAULT` |
-| Kimi / Moonshot | `kimi-k3` | `LOW` |
-| GitHub Copilot | `auto` | `PROVIDER_DEFAULT` |
+A fotografia anterior foi substituída pela referência única de [Modelos distribuídos na versão 1.0.0](AI_MODEL_CONFIGURATION.md#modelos-distribuídos-na-versão-100). O título histórico é mantido temporariamente para preservar links existentes. O catálogo efetivamente carregado é a autoridade da execução; o comando `rasai providers --kind ai` permite consultar a configuração atual.
 
-Essa tabela é somente a fotografia de fábrica. O catálogo efetivamente snapshotado para a execução é a autoridade da AUD.
-
-MiMo V2.6 é a família vigente para o contrato PAYG do RASAi. `mimo-v2.5` e `mimo-v2.5-pro` permanecem selecionáveis somente até 21/10/2026 02:00 UTC e não são mais defaults. A troca preserva o mesmo adapter Responses e a mesma variável `MIMO_API_KEY`; detalhes e rastreabilidade estão na issue #183.
+A seção de ciclo de vida do catálogo explica a retirada dos modelos MiMo v2.5 e a continuidade do contrato PAYG. Não reutilize listas antigas para configurar uma nova auditoria.
 
 ## Seleção do modelo e reasoning
 
@@ -127,20 +113,7 @@ O default RASAi de reasoning é sempre o **menor nível válido suportado pelo m
 
 ## Credenciais
 
-```text
-OPENAI_API_KEY
-DEEPSEEK_API_KEY
-MIMO_API_KEY
-XAI_API_KEY
-DASHSCOPE_API_KEY
-GEMINI_API_KEY
-ANTHROPIC_API_KEY
-MISTRAL_API_KEY
-COHERE_API_KEY
-COPILOT_GITHUB_TOKEN
-```
-
-A presença de uma credencial não garante saldo, quota, assinatura ou acesso ao modelo.
+A lista de variáveis e o procedimento de criação de credenciais são mantidos em [credenciais externas](EXTERNAL_CREDENTIALS.md#providers-de-ia). Consulte também `rasai providers --kind ai`, que informa presença e referência de configuração sem revelar o valor. A presença de uma credencial não garante saldo, quota, assinatura ou acesso ao modelo.
 
 MiMo PAYG usa credencial compatível com o adapter atual. GitHub Copilot usa token de usuário compatível com o SDK; o fluxo local recomendado usa fine-grained PAT com `Copilot Requests`, e o adapter desativa fallback para outra sessão GitHub local.
 

@@ -336,7 +336,7 @@ A coleta ativa G2 e a cartografia G3 são extensões opcionais independentes da 
 
 ### Proveniência temporal da observabilidade de rede (#659, G1)
 
-O horário apresentado em `network.html` corresponde exclusivamente ao `captured_at` do snapshot físico M3, convertido para UTC quando o banco contém fuso horário verificável. O horário de geração da projeção não substitui a captura; horário sem fuso é tratado como não observado. O destino exibido é somente o hostname público da URL final do snapshot (ou da URL solicitada, se necessário); caminhos, fragmentos, credenciais e parâmetros da URL não são divulgados.
+O horário apresentado em `network.html` corresponde ao instante persistido da captura ou da sonda correspondente, convertido para o fuso de apresentação selado da auditoria (padrão `America/Sao_Paulo`). UTC permanece a referência interna de armazenamento; consulte [contrato temporal](TIMEZONE_CONTRACT.md). O horário de geração da projeção não substitui a captura; horário sem fuso é tratado como não observado. O destino exibido é somente o hostname público da URL final do snapshot (ou da URL solicitada, se necessário); caminhos, fragmentos, credenciais e parâmetros da URL não são divulgados.
 
 Os indicadores de transporte continuam independentes: o IP público do peer observado via CDP não comprova a infraestrutura de origem; DNS, RTT TCP/TLS, hops, ASN e localização permanecem explicitamente não observados no G1. Snapshots complementares preexistentes são imutáveis, portanto nunca são regravados para incorporar campos novos. Este ajuste não introduz sondagens ativas, nem altera `audit.db` ou pontuações.
 
@@ -344,7 +344,7 @@ Os indicadores de transporte continuam independentes: o IP público do peer obse
 
 ## Sondagem complementar autorizada (#659, G2 - entrega inicial)
 
-O módulo `rasai.network_active_probe` permite sondar exclusivamente o hostname público já pertencente às páginas de uma AUD existente, **somente após autorização expressa**. Não é acionado pela auditoria, reprocessamento, consolidação nem rematerialização de relatórios. Ele não substitui observações passivas nem atualiza `audit.db`, scores ou artefatos selados.
+O módulo `rasai.network_active_probe` permite sondar exclusivamente o hostname público já pertencente às páginas de uma AUD existente, **somente após autorização expressa**. O comando pode ser usado de modo independente. A execução automática posterior a uma nova auditoria concluída também é suportada quando a sonda ativa está habilitada e há autorização do hostname exato da URL primária selada. Reprocessamento, consolidação e rematerialização não concedem nova autorização. Ele não substitui observações passivas nem atualiza `audit.db`, scores ou artefatos selados.
 
 Exemplo de uso **apenas para domínio cuja medição ativa esteja autorizada**:
 
@@ -354,7 +354,7 @@ Exemplo de uso **apenas para domínio cuja medição ativa esteja autorizada**:
 
 O processo filho possui limite total de 10 segundos, usa resolução DNS limitada a 32 respostas, rejeita o conjunto inteiro se qualquer endereço não for globalmente roteável e fixa a conexão TCP ao IP previamente validado para impedir mudança silenciosa por nova resolução. Só são aceitas as portas 80 e 443; TLS usa validação padrão e nome de servidor original. Sem solicitações HTTP, seguir redirects, ICMP, privilégios administrativos ou geolocalização externa. Restrições de rede, VPN e proxy de saída não são verificáveis automaticamente. O período DNS inclui cache do resolver local, e o tempo TCP/TLS mede a sessão do próprio executor.
 
-O complemento independente fica em `artifacts/network/probes/` e é somente de criação exclusiva, com SHA-256 (integridade, não autoria). A página `network.html` lê os complementos válidos offline, sem rede nem mutação do pacote. Respostas DNS privadas, falhas de captura, campos ausentes e medições observadas permanecem estados distintos. O procedimento básico não solicita traceroute nem enriquecimento local por padrão. A extensão posterior suporta traceroute autorizado e atribuições ASN/GeoIP somente com bases locais opcionais. Não há identificação automática de CDN, origem física ou rota completa por inferência.
+O complemento independente fica em `artifacts/network/probes/` e é somente de criação exclusiva, com SHA-256 (integridade, não autoria). A página `network.html` lê os complementos válidos offline, sem rede nem mutação do pacote. Respostas DNS privadas, falhas de captura, campos ausentes e medições observadas permanecem estados distintos. O comando básico independente não solicita traceroute; o enriquecimento depende da política e das bases locais disponíveis. A extensão posterior suporta traceroute autorizado e atribuições ASN/GeoIP somente com bases locais opcionais. Não há identificação automática de CDN, origem física ou rota completa por inferência.
 
 
 
@@ -368,9 +368,9 @@ O mapa não afeta indicadores ou resultados da auditoria e é reconstituído em 
 
 ## Caminho de rede e enriquecimento local (#659, G2 complementar)
 
-A opção `--include-traceroute` tenta observar, sob autorização expressa, até oito saltos para o mesmo IP público já validado na medição TCP. O limite do comando de sistema é de oito segundos; se não houver suporte a traceroute TCP (Linux) ou `tracert` (Windows), a ausência é declarada. A apresentação distingue caminhos parciais, destino não confirmado e ausência de resposta. Endereços privados de intermediários são ocultados. Latências por hop **não** são diferenças entre saltos, nem comprovam enlace físico ou localização.
+A opção `--include-traceroute` tenta observar, sob autorização expressa, o caminho para o IP público validado pela sonda, com padrão de oito saltos e faixa de 1 a 16, configurável em `RASAI_NETWORK_MAX_HOPS`. O prazo do traceroute é calculado conforme sistema operacional e limite de saltos, com teto de 40 segundos; se não houver suporte a traceroute TCP (Linux) ou `tracert` (Windows), a ausência é declarada. A apresentação distingue caminhos parciais, destino não confirmado e ausência de resposta. Endereços privados de intermediários são ocultados. Latências por hop **não** são diferenças entre saltos, nem comprovam enlace físico ou localização.
 
-Bases MaxMind MMDB locais podem ser passadas opcionalmente por `--asn-db` e `--city-db`. Isso requer biblioteca `maxminddb` instalada e arquivos fornecidos pelo operador: não há download automático, consulta de API, compra ou chamadas de IA. O leitor valida limites, conteúdo, latitude, longitude, raio de precisão e SHA-256 da base. Dados de ASN representam atribuição aproximada de rede, não prova de propriedade do servidor; GeoIP representa localização estimada do IP, não localização física comprovada. CDN é informada apenas se houver evidência externa independente, não inferida de ASN ou GeoIP. Sem bases, esses campos permanecem como não observados. Pacotes já criados são imutáveis e não recebem medições posteriores.
+Bases MaxMind MMDB locais podem ser passadas opcionalmente por `--asn-db` e `--city-db`. Isso requer biblioteca `maxminddb` instalada e arquivos fornecidos pelo operador: a sonda não baixa bases, consulta API GeoIP, compra dados nem chama IA. A preparação opcional das bases pelo launcher é uma operação distinta e depende de consentimento persistido explícito; veja [instalação](INSTALLATION.md). O leitor valida limites, conteúdo, latitude, longitude, raio de precisão e SHA-256 da base. Dados de ASN representam atribuição aproximada de rede, não prova de propriedade do servidor; GeoIP representa localização estimada do IP, não localização física comprovada. CDN é informada apenas se houver evidência externa independente, não inferida de ASN ou GeoIP. Sem bases, esses campos permanecem como não observados. Pacotes já criados são imutáveis e não recebem medições posteriores.
 
 
 
@@ -385,9 +385,6 @@ O argumento opcional `--series-id` identifica uma nova medição autorizada sem 
 O pré-voo local é **somente leitura** e não faz requisições de rede. No PowerShell, a partir do repositório atualizado, execute:
 
 ```powershell
-git fetch origin --prune
-git switch main
-git pull --ff-only
 & ".\\.venv\\Scripts\\python.exe" -m rasai.network_acceptance --workspace "audits\\<AUD-ID>" --audit-id "<AUD-ID>" --host "<HOST-PUBLICO-DA-AUD>"
 ```
 
@@ -410,12 +407,9 @@ A origem, o instante e o raio de precisão dos marcadores GeoIP são também apr
 
 ## Recuperação de sondagem física já coletada: relatório anterior (#659)
 
-A coleta ativa autorizada grava pacote **imutável**, independente da projeção HTML. Se a medição registrar `observed_tcp=true` mas o catálogo retornar `CATALOG_REBUILD_FAILED`, não execute outra sondagem com um identificador novo apenas para recriar o relatório. A partir da branch corrigida, reexecute somente a projeção:
+A coleta ativa autorizada grava pacote **imutável**, independente da projeção HTML. Se a medição registrar `observed_tcp=true` mas o catálogo retornar `CATALOG_REBUILD_FAILED`, não execute outra sondagem com um identificador novo apenas para recriar o relatório. A partir de uma instalação compatível, defina a auditoria existente e seu hostname autorizado e reexecute somente a projeção:
 
 ```powershell
-git fetch origin --prune
-git switch main
-git pull --ff-only
 $env:PYTHONPATH = (Resolve-Path ".\\src").Path
 & ".\\.venv\\Scripts\\python.exe" -m rasai.network_acceptance --workspace $Aud.FullName --audit-id $Aud.Name --host $DominioAlvo --series-id "homologacao-g2-01" --replay-existing
 ```
@@ -484,15 +478,13 @@ da evidência e sem modificação de `audit.db`. Um pacote desatualizado,
 adulterado ou de outra AUD é ignorado; o manifesto do catálogo monitora
 a presença e o conteúdo desses complementos para exigir rematerialização.
 
-Esta evolução **não altera M3/M6, sondagem G2, catálogo de regras, índices,
-scores, motores de AI/GEO, análise direcionada ou providência comercial dos
-provedores**. Como medições de rede não comprovam impacto em busca, rankings
+A interpretação consultiva de rede não altera a captura do navegador, a sonda complementar, as regras, os índices, as análises de busca e IA nem a cobrança dos fornecedores. Como medições de rede não comprovam impacto em busca, rankings
 ou citações por IA, a integração com análise direcionada/GEO se limita ao
 link consultivo existente na visão geral, sem promover hipóteses a achados.
 
 ## Rede e conectividade: origem, topologia e descoberta de IP público
 
-A coleta de rede diferencia a **captura passiva do navegador** da **sonda complementar autorizada**. O endereço local obtido pelo socket da sonda (quando comprovado) é o ponto inicial **lógico do processo executor**, não o IP público de saída nem, necessariamente, a origem da conexão do navegador. O IP público de saída permanece **não identificado** sem medição externa específica e autorizada; não é inferido por DNS, traceroute, GeoIP ou IP do destino.
+A coleta de rede diferencia a **captura passiva do navegador** da **sonda complementar autorizada**. O endereço local obtido pelo socket da sonda (quando comprovado) é o ponto inicial **lógico do processo executor**, não o IP público de saída nem, necessariamente, a origem da conexão do navegador. O IP público de saída é identificado somente pela medição externa independente descrita abaixo, quando habilitada e bem-sucedida. Não é inferido por DNS, traceroute, GeoIP ou IP do destino. Essa medição é habilitada por padrão e possui controle próprio, diferente da autorização da sonda ativa ao domínio.
 
 - `report-catalog/network.html` e `report-presentation/rede.html` exibem a topologia lógica observada e o inventário de IPs com papéis distintos: origem local da sonda, peer remoto da captura, peer TCP da sonda, candidatos DNS (não equivalentes a conexões) e saltos públicos efetivamente registrados.
 - O traceroute mostra a ordem dos saltos e os estados de ausência/ocultação; **não comprova** continuidade física da rota nem que o destino respondeu. Saltos privados/reservados são ocultados e endereços não observados não são inventados.

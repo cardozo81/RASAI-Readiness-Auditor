@@ -1,14 +1,14 @@
-# GOOGLE_API_KEYS.md
+# Chaves Google para PageSpeed e CrUX
 
-Guia operacional para criar, restringir e configurar as chaves Google usadas pelo **Web Performance externo - Web Performance externo** do RASAi - Search & AI Readiness Auditor.
+Guia operacional para criar, restringir e configurar as chaves Google usadas pelo **desempenho Web externo** do RASAi - Search & AI Readiness Auditor.
 
-> Verificado em 2026-09-03 contra a documentação oficial do Google. Nomes de menus podem aparecer em português ou inglês conforme o idioma da conta, mas a estrutura é `APIs e serviços / APIs & Services`.
+> Referência histórica verificada em 03/09/2026 contra a documentação oficial do Google. Nomes de menus podem aparecer em português ou inglês conforme o idioma da conta, mas a estrutura é `APIs e serviços / APIs & Services`.
 
 ## O que o RASAi usa
 
 | Serviço Google | Uso no RASAi | Variável de ambiente | Chave obrigatória? |
 |---|---|---|---|
-| PageSpeed Insights API | Lighthouse de laboratório e, enquanto o Google ainda fornecer, field data CrUX presente na resposta PageSpeed | `RASAI_PAGESPEED_API_KEY` | Não para uso ad hoc/baixo volume; recomendada para automação frequente |
+| PageSpeed Insights API | Lighthouse de laboratório e, enquanto o Google ainda fornecer, field data CrUX presente na resposta PageSpeed | `RASAI_PAGESPEED_API_KEY` | Opcional em chamada explícita; necessária para elegibilidade automática no RASAi |
 | Chrome UX Report API (CrUX) | Core Web Vitals de campo via consulta direta | `RASAI_CRUX_API_KEY` | Sim para chamada direta à CrUX API |
 
 Essas chaves **não são chaves de IA** e não substituem `OPENAI_API_KEY`, `DEEPSEEK_API_KEY` ou `MIMO_API_KEY`.
@@ -99,7 +99,7 @@ Documentação oficial: <https://developer.chrome.com/docs/crux/api>
 
 ## Passo 6 - configurar as chaves no PowerShell
 
-As variáveis abaixo valem para a sessão atual do PowerShell:
+Prefira definir as credenciais pelo [console e persistência Windows/User](WINDOWS_SECRET_PERSISTENCE.md), sem digitar valores reais em comandos que possam ficar no histórico. Os placeholders abaixo ilustram somente nomes e escopo da sessão do PowerShell; não grave valores reais em scripts.
 
 ```powershell
 $env:RASAI_PAGESPEED_API_KEY = "<chave-pagespeed>"
@@ -133,7 +133,7 @@ Remove-Item Env:RASAI_CRUX_API_KEY -ErrorAction SilentlyContinue
 
 ```powershell
 $env:RASAI_PAGESPEED_API_KEY = "<chave-pagespeed>"
-rasai audit https://example.com `
+rasai audit https://exemplo.com `
   --web-performance `
   --web-performance-field-source pagespeed
 ```
@@ -182,13 +182,13 @@ Nesse modo, o RASAi mantém Lighthouse lab e não processa Core Web Vitals de ca
 
 A documentação oficial permite usar PageSpeed Insights API com ou sem API key, mas recomenda chave para consultas frequentes/automatizadas. Portanto:
 
-- `RASAI_PAGESPEED_API_KEY` continua opcional;
+- `RASAI_PAGESPEED_API_KEY` continua opcional para a solicitação explícita de desempenho Web; a seleção automática do serviço exige a chave;
 - para uso recorrente do RASAi com `--web-performance`, configure a chave para melhor governança de quota e rastreabilidade no projeto Google Cloud;
 - `RASAI_CRUX_API_KEY` continua necessária quando a CrUX API direta for chamada.
 
 ## Validação após configurar
 
-Execute primeiro uma auditoria pequena:
+Se houver autorização para consultas externas e uso da quota, execute uma auditoria pequena. Isso não é um teste offline:
 
 ```powershell
 rasai audit https://example.com `
