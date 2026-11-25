@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 import os
 from types import ModuleType
-from typing import Any, Iterator
+from typing import Any, Iterator, MutableMapping
 
 from rasai.m23_cli import APDEX_ENABLED_ENV
 from rasai.m25_cli import UX_ENABLED_ENV
@@ -413,7 +413,9 @@ def _deep_analysis_environment_switches() -> tuple[str, ...]:
 
 
 @contextmanager
-def project_plan(state: Any) -> Iterator[None]:
+def project_plan(state: Any, *, environment: MutableMapping[str, str] | None = None) -> Iterator[None]:
+    """Apply the existing execution projection, optionally to a preview environment copy."""
+    environment = os.environ if environment is None else environment
     selected = _plan(state).selected
     names = (
         "web_performance", "search_queries", "search_ai_competitive",
@@ -432,7 +434,7 @@ def project_plan(state: Any) -> Iterator[None]:
         *deep_analysis_switches,
     )
     environment_snapshot = {
-        name: (name in os.environ, os.environ.get(name))
+        name: (name in environment, environment.get(name))
         for name in environment_switches
     }
     try:
@@ -445,7 +447,7 @@ def project_plan(state: Any) -> Iterator[None]:
             if hasattr(state, "search_queries"):
                 state.search_queries = ()
             for name in ("RASAI_GSC_ENABLED", *_optional_environment_switches()):
-                os.environ[name] = "false"
+                environment[name] = "false"
         if "CAT-06" not in selected and hasattr(state, "synthetic_apdex"):
             state.synthetic_apdex = False
         if "CAT-07" not in selected and hasattr(state, "apdex_experience"):
@@ -453,8 +455,8 @@ def project_plan(state: Any) -> Iterator[None]:
         # The child/final fulfillment layer also reads these canonical environment
         # switches. Project them from the CAT plan so stale persisted configuration
         # cannot recreate work that the operator removed from this audit.
-        os.environ[APDEX_ENABLED_ENV] = "true" if "CAT-06" in selected else "false"
-        os.environ[UX_ENABLED_ENV] = "true" if "CAT-07" in selected else "false"
+        environment[APDEX_ENABLED_ENV] = "true" if "CAT-06" in selected else "false"
+        environment[UX_ENABLED_ENV] = "true" if "CAT-07" in selected else "false"
         if "CAT-08" not in selected:
             if hasattr(state, "improvement_enabled"):
                 # CAT-10 optional AI reuses the same evidence-bound Improvement engine
@@ -466,13 +468,13 @@ def project_plan(state: Any) -> Iterator[None]:
             for name in deep_analysis_switches:
                 # The local console wrapper owns post-audit Improvement execution and
                 # deliberately keeps the child runtime hook disabled to avoid duplicate calls.
-                os.environ[name] = "false"
+                environment[name] = "false"
         if "CAT-09" not in selected or not ai_execution_enabled(state):
             if hasattr(state, "content_remediation"):
                 state.content_remediation = False
             if hasattr(state, "technical_remediation"):
                 state.technical_remediation = False
-        os.environ["RASAI_PASSIVE_SECURITY"] = "true" if "CAT-10" in selected else "false"
+        environment["RASAI_PASSIVE_SECURITY"] = "true" if "CAT-10" in selected else "false"
         if not ai_execution_enabled(state):
             if hasattr(state, "search_ai_competitive"):
                 state.search_ai_competitive = False
@@ -488,9 +490,9 @@ def project_plan(state: Any) -> Iterator[None]:
             setattr(state, name, value)
         for name, (existed, value) in environment_snapshot.items():
             if existed and value is not None:
-                os.environ[name] = value
+                environment[name] = value
             else:
-                os.environ.pop(name, None)
+                environment.pop(name, None)
 
 
 def execution_ready(console_module: ModuleType, state: Any) -> tuple[str, str]:

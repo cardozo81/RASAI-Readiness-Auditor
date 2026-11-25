@@ -53,7 +53,7 @@ INÍCIO
 > M. Ver linha de comando
 ```
 
-o comando está no estado **PLANEJADO** e apresenta a projeção disponível da configuração corrente da próxima auditoria. Na versão 1.0.0, a projeção planejada não inclui os termos e opções SERP acrescentados ao comando apenas no momento da execução. Para executar externamente, confira e informe os argumentos de busca conforme a [referência CLI](CLI_REFERENCE.md#exemplos-de-execução-no-windows). A pesquisa Perplexity possui ações próprias do console e não deve ser considerada reproduzida pelo comando da auditoria.
+o comando está no estado **PLANEJADO** e apresenta a projeção disponível da configuração corrente da próxima auditoria. A correção posterior à release v1.0.0 (#767) inclui os termos e opções SERP usando o mesmo serializador da execução, respeitando a seleção do CAT-05 e a autorização corrente de IA. Na release original, esses termos podiam ser omitidos. A prévia não é autorização de execução ou cobrança nem captura de todos os ajustes posteriores do subprocesso. Para executar externamente, confira argumentos e custos conforme a [referência CLI](CLI_REFERENCE.md#exemplos-de-execução-no-windows). A pesquisa Perplexity solicitada pelo console e outras ações próprias pós-subprocesso não são reproduzidas nem comprovadas por esse comando; o aviso aparece nos formatos de shell e no log.
 
 Depois que o subprocesso da AUD termina, a tela de resultado oferece novamente:
 

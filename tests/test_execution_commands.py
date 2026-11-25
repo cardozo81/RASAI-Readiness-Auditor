@@ -323,3 +323,125 @@ def test_historical_commands_show_original_blocks_without_session_rebuild(
     assert "AUD-ORIGINAL" in observed[0]["powershell"]
     assert "--no-use-ai" in observed[0]["windows"]
     assert "PLANEJADO" not in observed[0]["windows"]
+
+
+@pytest.mark.parametrize("selected,authorized,queries", [
+    (("CAT-05",), True, ("seguro de vida", "previdencia privada")),
+    (("CAT-05",), False, ("seguro de vida", "previdencia privada")),
+    (("CAT-04",), True, ("seguro de vida", "previdencia privada")),
+    (("CAT-05",), False, ()),
+])
+def test_planned_serp_matches_governed_child_without_authorizing_work(
+    monkeypatch, selected, authorized, queries
+) -> None:
+    from types import ModuleType
+    from rasai import console_config, console_runtime
+    from rasai import console_governed_search_runtime as governed
+    from rasai.console_catalog_plan import project_plan, set_ai_execution_enabled, set_selected_catalog_ids
+    from rasai.console_search_intelligence import SearchConsoleState
+
+    state = SearchConsoleState(
+        target="https://example.test/",
+        search_queries=queries,
+        search_depth=30,
+        search_region="São Paulo",
+        search_device="desktop",
+        search_competitive=False,
+        search_compare_content=True,
+        search_max_content_pages=4,
+        search_content_timeout_seconds=12.5,
+        search_content_max_bytes=1_500_000,
+        search_content_max_redirects=2,
+        search_ai_competitive=True,
+        search_ymyl_mode="ON",
+        ai_provider="openai",
+        perplexity_draft_queries=("rascunho não autorizado",),
+    )
+    set_selected_catalog_ids(state, selected)
+    set_ai_execution_enabled(state, authorized)
+    monkeypatch.setattr(commands, "_names", lambda: ("OPENAI_API_KEY", "RASAI_GSC_ENABLED"))
+    monkeypatch.setattr(commands, "_secret", lambda name: name == "OPENAI_API_KEY")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-RASAI-TEST-DO-NOT-LEAK")
+    monkeypatch.setenv("RASAI_GSC_ENABLED", "true")
+    source_env = dict(os.environ)
+    observed = {}
+    module = ModuleType("command_plan_child_stub")
+
+    def child_stub(current):
+        observed["argv"] = tuple(console_runtime.build_command(current))
+        observed["env"] = dict(os.environ)
+        return 0
+
+    module.run_audit_from_console = child_stub
+    monkeypatch.setattr(console_runtime, "build_command", console_config.build_command)
+    monkeypatch.setattr(governed, "_INSTALLED", False)
+    monkeypatch.setattr(governed, "_project_result", lambda _state: None)
+    governed.install(module)
+
+    # Reproduce the original omission in the base builder, before projection.
+    assert "--search-query" not in console_config.build_command(state)
+    plan = commands.audit_plan(state, env=source_env)
+    # The preview must not call even the stub; no state or environment changes escape.
+    assert not observed
+    assert dict(os.environ) == source_env
+    assert state.search_queries == queries
+    assert state.search_ai_competitive is True
+    assert state.ai_provider == "openai"
+    assert state.perplexity_queries == ()
+    assert state.perplexity_draft_queries == ("rascunho não autorizado",)
+
+    with project_plan(state):
+        assert module.run_audit_from_console(state) == 0
+
+    assert plan.argv == observed["argv"]
+    assert dict(os.environ) == source_env
+    assert state.search_queries == queries
+    expected_search = "CAT-05" in selected and bool(queries)
+    if expected_search:
+        assert [plan.argv[i + 1] for i, token in enumerate(plan.argv) if token == "--search-query"] == list(queries)
+        for flag, value in (
+            ("--search-depth", "30"), ("--search-region", "São Paulo"),
+            ("--search-device", "desktop"), ("--search-max-content-pages", "4"),
+            ("--search-content-timeout-seconds", "12.5"), ("--search-content-max-bytes", "1500000"),
+            ("--search-content-max-redirects", "2"), ("--search-ymyl-mode", "ON"),
+        ):
+            assert plan.argv[plan.argv.index(flag) + 1] == value
+        assert "--no-search-competitive" in plan.argv
+        assert "--search-compare-content" in plan.argv
+        assert ("--search-ai-competitive" if authorized else "--no-search-ai-competitive") in plan.argv
+    else:
+        assert not any(token.startswith("--search-") or token.startswith("--no-search-") for token in plan.argv)
+    if not authorized or "CAT-05" not in selected:
+        assert plan.argv[plan.argv.index("--ai-provider") + 1] == "none"
+    gsc = next(item for item in plan.environment if item.name == "RASAI_GSC_ENABLED")
+    assert gsc.value == observed["env"]["RASAI_GSC_ENABLED"]
+    assert "sk-RASAI-TEST-DO-NOT-LEAK" not in commands.render_log(plan)
+
+
+def test_executed_command_uses_captured_argv_and_environment_without_reprojection(monkeypatch, tmp_path) -> None:
+    from rasai.console_search_intelligence import SearchConsoleState
+    from rasai import console_catalog_plan
+
+    state = SearchConsoleState(
+        search_queries=("termo que não pertence ao subprocesso",),
+        perplexity_queries=("pesquisa opcional do console",),
+    )
+    argv = ("python", "-m", "rasai", "audit", "https://example.test/", "--search-query", "termo efetivo")
+    monkeypatch.setattr(console_catalog_plan, "project_plan", lambda *_args, **_kwargs: pytest.fail("reprojeção indevida"))
+    monkeypatch.setattr(commands, "_names", lambda: ("OPENAI_API_KEY",))
+    monkeypatch.setattr(commands, "_secret", lambda name: name == "OPENAI_API_KEY")
+    plan = commands.executed(commands.audit_plan(state, argv=argv, env={"OPENAI_API_KEY": "sk-FAKE-SECRET"}))
+    assert plan.status == "EXECUTADO"
+    assert plan.argv == argv
+    log = commands.record(plan, tmp_path, "AUD-STUB", append=False).read_text(encoding="utf-8")
+    assert "Estado        : EXECUTADO" in log
+    assert "sk-FAKE-SECRET" not in log
+    assert "pesquisa opcional do console" not in log
+    assert "PLANEJADO" not in log
+    for shell, block in commands._blocks(log).items():
+        assert "Pesquisa Perplexity e outras ações próprias pós-subprocesso" in block
+        assert "não são reproduzidas nem comprovadas" in block
+        copied = commands._copyable_command(block, shell)
+        assert "Perplexity" not in copied
+        assert "**********" not in copied
+        assert "termo que não pertence ao subprocesso" not in copied
