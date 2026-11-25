@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Este documento define o contrato vigente das métricas fundamentadas em padrões, métodos reconhecidos e serviços externos usados pelo RASAi além do núcleo `SARI-001` / `SCORE-GEO-004`.
+Este documento define o contrato vigente das métricas fundamentadas em padrões, métodos reconhecidos e serviços externos usados pelo RASAi além do núcleo `SARI-001` / `SCORE-GEO-005`. Resultados históricos `SCORE-GEO-004` preservam sua versão e interpretação.
 
 Contrato: `STANDARDS-METRICS-001`.
 
@@ -333,7 +333,7 @@ Podem ser persistidos:
 - limites Common Crawl;
 - demais configurações não secretas previstas pelo console.
 
-Nunca são persistidos API keys, access tokens, refresh tokens, passwords, client secrets ou DSNs com credencial.
+O contrato proíbe a persistência de API keys, access tokens, refresh tokens, passwords, client secrets e DSNs com credencial nas configurações não secretas. Isso não atesta ausência de conteúdo sensível em artefatos arbitrários; consulte [segurança da informação](SECRET_AND_CONFIGURATION_SAFETY.md).
 
 ## SaaS e workers
 
@@ -364,7 +364,7 @@ Na auditoria, padrões e serviços são projetados no `report-catalog/`. CAT-01 
 
 As métricas também são projetadas nas superfícies temáticas quando há dados:
 
-- `report-catalog/index.html`: resumo executivo;
+- `report-catalog/index.html`: visão geral técnica e estado da auditoria;
 - `report-catalog/cat-01.html`: descoberta, padrões Web, serviços W3C/MDN/Web Platform e HTTP operacional;
 - `report-catalog/cat-03.html`: conteúdo/semântica e detalhamento aplicável de problemas estruturais;
 - `report-catalog/cat-04.html`: Open Web Metrics, PageSpeed/Lighthouse, CrUX e CrUX History;
@@ -372,7 +372,9 @@ As métricas também são projetadas nas superfícies temáticas quando há dado
 - `report-catalog/capture-context.html`: topologia de escopos;
 - `report-catalog/metrics.html`: inventário transversal de índices e métricas.
 
-Em múltiplas URLs, toda consolidação deve indicar denominador/universo.
+A apresentação executiva independente contextualiza padrões e serviços em `report-presentation/descoberta.html`, `conteudo.html`, `performance.html` e `search-geo.html` conforme o domínio e a evidência disponível. O detalhe de proveniência e da integração permanece nas páginas técnicas acima; não se presume paridade de campos. Consulte [matriz temática](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
+Em múltiplas URLs descobertas, toda consolidação deve indicar denominador/universo.
 
 ## Impacto operacional SaaS
 

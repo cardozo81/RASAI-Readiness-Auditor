@@ -251,9 +251,9 @@ Cada execução de recuperação recebe um identificador `RPR-*`. O `AUD-*` orig
 
 Para reproduzir exatamente a seleção feita no console, a CLI também aceita `--item` repetido com a chave canônica `COMPONENTE::ESCOPO`, além de `--use-ai|--no-use-ai` e dos overrides `--ai-provider`, `--ai-model` e `--ai-reasoning` quando IA é autorizada.
 
-No console, depois de selecionar os itens, a ação final escolhe reprocessar com IA ou sem IA e inicia a tentativa sem confirmação duplicada. O comando efetivamente executado é registrado e `M. Ver linha de comando` permanece disponível após a tentativa. O log humano correspondente é secret-free e fica fora do workspace da AUD.
+No console, depois de selecionar os itens, a ação final escolhe reprocessar com IA ou sem IA e inicia a tentativa sem confirmação duplicada. O comando efetivamente executado é registrado e `M. Ver linha de comando` permanece disponível após a tentativa. O log humano correspondente fica fora do workspace da AUD; seu contrato exclui valores de credenciais reconhecidas, mas comandos e texto livre podem conter dados sensíveis residuais.
 
-Uso em Agendador de Tarefas, cron, systemd timer ou launchd, incluindo a regra de `**********` para secrets e override apenas do processo, está em [EXECUTION_SCHEDULING.md](EXECUTION_SCHEDULING.md).
+Uso em Agendador de Tarefas, cron, systemd timer ou launchd, incluindo o marcador `**********` mantido comentado e a injeção segura de credenciais no ambiente de processo, está em [EXECUTION_SCHEDULING.md](EXECUTION_SCHEDULING.md).
 
 ## Regra de seleção
 
@@ -544,7 +544,7 @@ A Análise Direcionada continua sendo uma camada consultiva: falha excepcional n
 
 O estado de processamento, score, elegibilidade para consolidação, quantidade de requisitos, tentativas e reprocessamentos permanece persistido no contrato de fulfillment. `report/processing-status.json` não integra o contrato de saída de `rasai audit`.
 
-`report-catalog/` continua projetando o estado efetivo persistido, inclusive condição preliminar/final quando aplicável.
+`report-catalog/` continua projetando o estado efetivo persistido, inclusive condição preliminar/final quando aplicável. É o pacote técnico de referência; `report-presentation/` é a leitura executiva independente e não bloqueante. Confira a publicação e a integridade de cada pacote separadamente. Consulte [guia de relatórios](REPORT_GUIDE.md).
 
 Quando um `RPR-*` efetivamente executa trabalho, a projeção final de `report-catalog/` ocorre somente depois de o ledger `audit_reprocess_runs` estar encerrado com seu status, contadores e `completed_at` definitivos. O snapshot e o fingerprint do relatório devem representar o estado final do `audit.db`; não é válido selar o pacote enquanto o próprio RPR ainda está `RUNNING`.
 
@@ -556,7 +556,7 @@ Reexecuções não aumentam a quantidade de observações. O consolidado usa som
 
 Para preservar cronologia, o CONS distingue a data semântica da observação da data de revisão por RPR. Um RPR material posterior pode alterar a revisão lógica da mesma AUD sem criar uma nova observação. A governança longitudinal registra `source_revision_id`, `revision_at` e `revision_mode`: `REPLAY_SAFE` reutiliza a evidência persistida do marco original; `LIVE_RECOLLECTION` indica que houve nova coleta e exige qualificação quando a revisão ocorreu depois do próximo marco temporal. RPR sem item materialmente resolvido não é tratado como nova revisão temporal.
 
-Essa regra impede que falhas transitórias de API, provider ou coleta distorçam SARI-001, SCORE-GEO-004, Apdex, Web Performance ou métricas temporais.
+Essa regra impede que falhas transitórias de API, provider ou coleta distorçam SARI-001, o método vigente SCORE-GEO-005 (ou SCORE-GEO-004 em AUD histórica), Apdex, Web Performance ou métricas temporais.
 
 ## Relação com reutilização de configuração
 

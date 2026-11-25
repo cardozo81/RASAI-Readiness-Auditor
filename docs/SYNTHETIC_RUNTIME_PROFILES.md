@@ -8,7 +8,7 @@ Medições dependentes de browser não devem ser interpretadas apenas pelo rótu
 2. **hardware**: capacidade relativa de CPU aplicada por slowdown controlado;
 3. **rede**: RTT, download, upload e tipo de conexão usados na execução sintética.
 
-Esses perfis pertencem a `PROFILE_MEASUREMENT`. Eles alteram a condição em que uma medição sintética é coletada, mas **não alteram a fórmula Apdex nem o SCORE-GEO-004**.
+Esses perfis pertencem a `PROFILE_MEASUREMENT`. Eles alteram a condição em que uma medição sintética é coletada, mas **não alteram a fórmula Apdex nem o SCORE-GEO-005 (ou a nota histórica SCORE-GEO-004)**.
 
 ## Limite de equivalência com hardware real
 
@@ -98,6 +98,8 @@ hardware : desktop-constrained | desktop-balanced
 rede     : desktop-constrained | desktop-balanced | desktop-fiber
 ```
 
+O preset `mobile-5g` é um envelope sintético de latência e throughput; a API CDP usa `cellular4g` porque não possui `connectionType` 5G. Não é reprodução física de uma rede 5G.
+
 ### Compatibilidade histórica de Tablet
 
 O runtime mantém presets Tablet apenas para leitura/reprocessamento de evidência histórica que já os tenha persistido. Tablet **não integra a superfície pública de novas AUDs**, não é opção de `Device` e não aparece no catálogo avançado de configuração.
@@ -120,7 +122,7 @@ O console interativo apresenta somente essas seis variáveis. O SaaS/worker proj
 
 ## Synthetic Navigation Apdex
 
-Cada combinação URL × dispositivo usa o perfil correspondente ao dispositivo observado no snapshot.
+Cada combinação URL × dispositivo usa o perfil correspondente ao dispositivo observado no snapshot. Novas AUDs selecionam apenas um dispositivo; o exemplo compara perfis em duas AUDs independentes ou contextos históricos, não uma opção `both`.
 
 Exemplo:
 
@@ -136,7 +138,7 @@ URL /produto
     └── rede     desktop-balanced
 ```
 
-O relatório `cat-06.html` mostra os presets efetivos e os valores de CPU/rede/viewport persistidos na execução.
+A página técnica `report-catalog/cat-06.html` mostra os presets efetivos e os valores de CPU/rede/viewport persistidos na execução.
 
 ## Synthetic User Experience Apdex
 
@@ -147,7 +149,9 @@ AUD mobile  -> perfil MOBILE em 100% das amostras Experience
 AUD desktop -> perfil DESKTOP em 100% das amostras Experience
 ```
 
-Não existe `device_mix` público separado. O relatório `cat-07.html` mostra o device e os presets efetivos da população sintética, junto com concorrência, delay e sessão.
+Não existe `device_mix` público separado. A página técnica `report-catalog/cat-07.html` mostra o device e os presets efetivos da população sintética, junto com concorrência, delay e sessão.
+
+A página executiva `report-presentation/performance.html` contextualiza a medição e seus limites com as demais fontes de desempenho, sem substituir os detalhes técnicos dos presets. Consulte [guia de relatórios](REPORT_GUIDE.md).
 
 Os mesmos IDs públicos são usados localmente e no SaaS. Em uma nova AUD, o perfil efetivo é congelado na configuração persistida. Em um RPR da mesma AUD, o runtime reutiliza esse perfil congelado mesmo que operador, INI ou worker tenham sido alterados depois. Ao complementar uma AUD com CAT-07, a nova população usa a configuração efetiva do complemento e então também fica congelada.
 

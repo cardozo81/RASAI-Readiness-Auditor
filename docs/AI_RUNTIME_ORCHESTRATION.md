@@ -2,7 +2,7 @@
 
 Este documento descreve o contrato canônico de orquestração local do RASAi para qualquer necessidade lógica de IA. `AI=auto` e provider explícito usam o mesmo motor de ciclos, timers, classificação de outcome, health e quarentena; a diferença é somente o tamanho/ordenação do pool de providers.
 
-A lógica deste documento é operacional. Ela não altera a identidade pública `SARI-001`, a metodologia `SCORE-GEO-004` nem transforma respostas de IA em fatos determinísticos do website.
+A lógica deste documento é operacional. Ela não altera a identidade pública `SARI-001`, a metodologia `SCORE-GEO-005` (nem as notas históricas `SCORE-GEO-004`) nem transforma respostas de IA em fatos determinísticos do website.
 
 A política financeira, preços, janelas horárias e critérios de revisão do catálogo estão detalhados em [`AUTO_COST_AWARE_AI_ROUTING.md`](AUTO_COST_AWARE_AI_ROUTING.md).
 
@@ -23,7 +23,7 @@ continuam bloqueados.
 5. Capacidade (`APTA`) e participação no AUTO são estados diferentes: um provider pode permanecer apto e explicitamente selecionável mesmo quando o usuário o exclui do AUTO.
 6. Falhas terminais retiram o provider do restante daquela execução.
 7. Falhas transitórias permanecem recuperáveis em ciclos posteriores. A janela 3/5 sinaliza degradação de health, mas não exclui permanentemente o provider da AUD/RPR.
-8. Requests e responses externos são auditáveis, com sanitização de segredos.
+8. Requests e responses externos são auditáveis conforme a captura disponível, com sanitização de campos reconhecidos; isso não garante ausência de informação sensível residual.
 9. Interpretações YMYL/E-E-A-T de campos `auto` são informativas e transitórias: não sobrescrevem configuração nem entram no cálculo do SARI.
 10. Economia nunca reativa provider em quarentena nem altera classificação de falha.
 
@@ -248,7 +248,7 @@ Regras obrigatórias:
 - a Análise Direcionada compara o hash do contexto estratégico efetivo e só exige nova síntese quando esse contexto mudou;
 - CAT-09 volta à fila somente quando a mudança atinge a dependência semântica ou técnica das remediações assistidas por IA;
 - resultados derivados substituídos de Improvement Intelligence e Análise Direcionada são preservados em `audit_reprocess_derived_archive` antes da nova materialização;
-- o HTML do `report-catalog/` nunca dispara IA apenas para atualizar apresentação.
+- a materialização de `report-catalog/` e `report-presentation/` não dispara IA apenas para atualizar o HTML.
 
 ### Previsão de custo antes do reprocessamento
 
@@ -284,7 +284,9 @@ Para cada exchange são registrados, quando disponíveis:
 - SHA-256 do payload capturado antes de eventual truncamento;
 - indicação de truncamento.
 
-O `ai-integrations.html` apresenta essas comunicações em blocos expansíveis, permitindo relacionar request e response com o provider e a finalidade.
+A página técnica `report-catalog/ai-integrations.html` apresenta essas comunicações em blocos expansíveis, permitindo relacionar request e response com o provider e a finalidade.
+
+A página executiva `report-presentation/ia-custos.html` sintetiza uso, esforço, custo e proveniência; não se presume réplica de todos os payloads e tentativas. Consulte [guia de relatórios](REPORT_GUIDE.md).
 
 No relatório consolidado, o mesmo recorder é reutilizado sem gravar em nenhuma AUD. Os exchanges são copiados para `consolidated/executions/CONRUN-*/ai-exchanges.json` e, quando existe sucesso, também para `consolidated/CONS-*/ai-exchanges.json`. O HTML do CONS-5 projeta request e response sanitizados por tentativa.
 
@@ -300,7 +302,7 @@ Nunca devem ser persistidos como parte do exchange log:
 
 A sanitização ocorre **antes da persistência** do exchange. Metadados de configuração, como perfil/nível de reasoning solicitado, não são confundidos com texto privado do raciocínio do provider.
 
-Segredos encontrados em campos de payload ou query string do endpoint são redigidos.
+Campos de payload e parâmetros de query reconhecidos como segredos são redigidos. Não interpretar o mascaramento como prova de ausência de segredos arbitrários, dados pessoais ou conteúdo opaco; consulte [segurança e retenção](AI_RUNTIME_SECURITY.md).
 
 O tamanho máximo de captura é controlado por `RASAI_AI_EXCHANGE_LOG_MAX_BYTES`. O default é 512 KiB por lado da comunicação, com limite operacional entre 4 KiB e 4 MiB. Quando o payload excede o limite, o relatório indica truncamento e mantém o hash do conteúdo sanitizado completo observado pelo recorder.
 
@@ -316,7 +318,7 @@ Uma chamada externa pode ter sido concluída pelo provider e ainda assim ser rej
 
 A telemetria deve preservar essa distinção. Uma resposta rejeitada pelo contrato não deve ser rotulada genericamente como “provider indisponível” quando o provider de fato respondeu.
 
-Custos em `ai-integrations.html` são projetados por moeda a partir da telemetria persistida. `estimated_cost` representa custo técnico derivado do usage; `observed_cost`, quando efetivamente fornecido pelo provider, tem precedência na projeção daquela tentativa. Uma chamada sem telemetria suficiente permanece UNPRICED, mesmo que o billing externo possa posteriormente registrar cobrança. O ranking pré-chamada pode usar estimativas conservadoras para ordenar candidatos.
+Custos em `report-catalog/ai-integrations.html` são projetados por moeda a partir da telemetria persistida. `estimated_cost` representa custo técnico derivado do usage; `observed_cost`, quando efetivamente fornecido pelo provider, tem precedência na projeção daquela tentativa. Uma chamada sem telemetria suficiente permanece UNPRICED, mesmo que o billing externo possa posteriormente registrar cobrança. O ranking pré-chamada pode usar estimativas conservadoras para ordenar candidatos.
 
 Quando o provider retorna usage faturável sem uma dimensão de cache separada, o RASAi só resolve custo técnico derivado do usage se a regra vigente cobrar cached input e input normal pela mesma tarifa; caso contrário permanece UNPRICED. Para Cohere, a modalidade comercial também precisa estar explícita em `RASAI_COHERE_COMMERCIAL_MODE`; `UNKNOWN` nunca é convertido em TRIAL ou PRODUCTION por inferência.
 
@@ -363,7 +365,7 @@ A interpretação editorial da IA:
 - não sobrescreve `content_analysis_contexts`;
 - não cria valor resolvido permanente no banco;
 - não vira evidência determinística;
-- não altera SCORE-GEO-004 ou SARI-001 por si só;
+- não altera SCORE-GEO-005 ou SARI-001 por si só;
 - não é reutilizada como verdade canônica em outra execução.
 
 Ela existe em memória durante a execução e é injetada no HTML final depois que as projeções persistidas foram reconstruídas. O próprio HTML naturalmente preserva o texto exibido como artefato daquela auditoria.
@@ -387,7 +389,7 @@ Deve apresentar:
 
 Quando houver campos `auto`, deve manter a configuração original e, separadamente, exibir “Como a IA interpretou os campos AUTO nesta execução”.
 
-A seção deve declarar explicitamente que a interpretação é contextual, não canônica e sem impacto direto em SARI/SCORE-GEO-004.
+A seção deve declarar explicitamente que a interpretação é contextual, não canônica e sem impacto direto em SARI/SCORE-GEO-005.
 
 ## 11. PageSpeed, Lighthouse e Agentic Browsing
 
@@ -399,7 +401,7 @@ performance,accessibility,best-practices,seo,agentic-browsing
 
 O parser já preserva `lighthouseResult.categories.agentic-browsing.score` quando presente. A categoria continua experimental no Lighthouse; ausência isolada do score não deve ser transformada em zero nem invalidar as quatro categorias estáveis retornadas.
 
-Agentic Browsing permanece evidência externa e fora de SARI-001/SCORE-GEO-004.
+Agentic Browsing permanece evidência externa e fora de SARI-001/SCORE-GEO-005.
 
 Referência operacional primária: discovery/API client atual do Google PageSpeed Insights v5, cujo enum de `category` inclui `AGENTIC_BROWSING` desde junho de 2026.
 

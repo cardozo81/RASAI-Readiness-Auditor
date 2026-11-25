@@ -4,7 +4,7 @@
 
 ## Objetivo
 
-Esta capacidade transforma auditorias RASAi isoladas em um fluxo longitudinal vinculado a evidências, sem alterar a fonte de verdade da auditoria nem adicionar silenciosamente novos sinais ao `SARI-001`/`SCORE-GEO-004`.
+Esta capacidade transforma auditorias RASAi isoladas em um fluxo longitudinal vinculado a evidências, sem alterar a fonte de verdade da auditoria nem adicionar silenciosamente novos sinais ao `SARI-001`/`SCORE-GEO-005`.
 
 Ela mantém separadas as seguintes perguntas:
 
@@ -14,7 +14,7 @@ Ela mantém separadas as seguintes perguntas:
 4. **Associação:** um resultado mudou ao longo de um período comparável enquanto também existia uma regressão técnica?
 5. **Qualidade da decisão:** a evidência da auditoria está completa e confiável o suficiente para sustentar decisões de remediação?
 
-Coincidência temporal não constitui inferência causal.
+Coincidência temporal não constitui inferência causal. Novas AUDs usam `SCORE-GEO-005`; preservar a versão de scoring persistida nas AUDs históricas, inclusive `SCORE-GEO-004`. Não comparar notas de contratos distintos como se fossem metodologicamente equivalentes.
 
 ## Arquitetura
 
@@ -53,7 +53,7 @@ RASAI-OBS-002
 identity = (dataset_id, record_id)
 ```
 
-A proveniência do dataset persiste tipo de origem, método de captura, período, caminho/SHA-256 do artefato, horário da coleta e metadados. Segredos existem somente em runtime.
+A proveniência do dataset persiste tipo de origem, método de captura, período, caminho/SHA-256 do artefato, horário da coleta e metadados. Credenciais devem ser resolvidas em runtime, sem persistência de seus valores pelo contrato de observabilidade. Artefatos e metadados externos podem conter dados sensíveis residuais; aplique a [política de segurança](SECRET_AND_CONFIGURATION_SAFETY.md).
 
 ## RASAi Monitor
 
@@ -135,7 +135,7 @@ Regras comuns à coleta externa:
 - CrUX History;
 - proveniência do dataset.
 
-Esses são diagnósticos derivados e não alteram automaticamente `SARI-001`/`SCORE-GEO-004`.
+Esses são diagnósticos derivados e não alteram automaticamente `SARI-001`/`SCORE-GEO-005`.
 
 ## RASAi Quality
 
@@ -159,32 +159,11 @@ rasai scoring inspect
 
 ## Superfícies HTML da auditoria
 
-Após uma auditoria, a projeção audit-owned fica exclusivamente em `report-catalog/` e segue `src/rasai/catalog_report_contract.py`:
-
-```text
-index.html
-sari.html
-cat-01.html
-cat-02.html
-cat-03.html
-cat-04.html
-cat-05.html
-cat-06.html
-cat-07.html
-cat-08.html
-cat-09.html
-cat-10.html
-directed-analysis.html
-capture-context.html
-execution-evidence.html
-ai-integrations.html
-methodology.html
-metrics.html
-```
+O catálogo técnico `report-catalog/` segue `src/rasai/catalog_report_contract.py`. Consulte `cat-05.html` e `metrics.html` para os dados de observabilidade e `execution-evidence.html` para estados operacionais. A apresentação executiva `report-presentation/` é independente: `search-geo.html` contextualiza resultados observados de busca e GEO; `indices.html` e `index.html` sintetizam índices e situação da AUD conforme as evidências disponíveis. Não se presume projeção de todos os campos de observabilidade. O inventário completo e a especialização das 21 páginas técnicas e 11 executivas estão no [guia de relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios), sem duplicar aqui a lista de navegação.
 
 A ausência de execução ou de dado em uma capacidade não autoriza criar uma página paralela nem disparar coleta para preencher HTML. O catálogo deve projetar o estado persistido correspondente, inclusive ausência, indisponibilidade, parcialidade ou não aplicabilidade.
 
-Outputs derivados como `MON-*/report.html`, `verification/VER-*/report.html` e `quality/TIMELINE-*/report.html` possuem contratos standalone próprios e não fazem parte do HTML audit-owned do `AUD-*`.
+Outputs derivados como `MON-*/report.html`, `verification/VER-*/report.html` e `quality/TIMELINE-*/report.html` possuem contratos standalone próprios e não fazem parte de nenhum dos dois pacotes HTML da AUD.
 
 ## Expectativas de validação
 
