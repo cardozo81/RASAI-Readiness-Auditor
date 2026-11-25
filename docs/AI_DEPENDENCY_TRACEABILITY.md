@@ -20,7 +20,9 @@ Toda chamada continua usando a infraestrutura global existente para:
 
 CAT-03, CAT-08 e CAT-09 não possuem um mecanismo independente de provider.
 
-## Contrato `AI-DEPENDENCY-001`
+## Contrato `AI-DEPENDENCY-002`
+
+Na versão 1.0.0, novos snapshots registram `AI-DEPENDENCY-002`; para um snapshot histórico, consulte a versão persistida nele.
 
 Imediatamente antes do limite de execução do provider, o runtime pode persistir um registro em `ai_dependency_snapshots` com:
 

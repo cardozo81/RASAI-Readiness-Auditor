@@ -649,7 +649,7 @@ Na projeção compactada enviada ao provider, a comparabilidade básica de Monit
 
 O `report.html` apresenta os dados consolidados e o contexto decisório derivado das fontes persistidas.
 
-Sempre disponíveis:
+Quando as fontes contêm evidências elegíveis, a camada apresenta:
 
 1. estado de conclusividade da série;
 2. trajetória do `SARI-001` a partir dos valores `OVERALL_READINESS` persistidos. Os gráficos por dispositivo filtram a série pela versão de pontuação e pelo universo da última medição compatível;
@@ -659,7 +659,7 @@ Sempre disponíveis:
 
 Quando IA é usada, a camada decisória também pode incluir resumo interpretativo, prioridades P0-P3, correlações, diagnóstico contextual e ações sugeridas, sempre identificados como conteúdo assistido por IA e rastreáveis às evidências.
 
-O CONS preserva os valores e as versões de origem. Na versão 1.0.0, a camada decisória conserva um rótulo fixo `SCORE-GEO-004`, inclusive quando recebe linhas `SCORE-GEO-005`. Para interpretar a proveniência, consulte a versão persistida em cada linha e a matriz de comparabilidade. Não interprete uma diferença entre métodos como evolução do site.
+O CONS preserva os valores e as versões de origem. Na versão 1.0.0, a camada decisória pode rotular como `SCORE-GEO-004` uma série com pontos `SCORE-GEO-005`. A seção **Metodologia, cálculos e base técnica** também pode indicar `004` como vigente, classificar `005` como dado de desenvolvimento e descrever pesos iguais quando a série inclui `004`. Para interpretar os valores, use a versão persistida por ponto e o [método de prontidão](SCORE_GEO.md). A agregação hierárquica do Overall usa os pesos das dimensões efetivamente medidas. Compare somente pontos do mesmo método e de universo compatível.
 
 ## Matriz de encerramento estrutural do CONS
 

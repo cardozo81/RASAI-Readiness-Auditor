@@ -53,7 +53,7 @@ Este documento registra o fechamento do escopo desenvolvido na branch `feature/s
 - fulfillment existente preservado;
 - análise profunda solicitada continua obrigatória no fulfillment;
 - `COMPLETE_WITH_LIMITATIONS` não é promovido a completude integral;
-- `AI-DEPENDENCY-001` registra prontidão antes do limite do provider;
+- `AI-DEPENDENCY-002` registra a prontidão antes da chamada ao provedor. O registro histórico conserva a versão de origem;
 - IA técnica exige evidência técnica persistida;
 - deep analysis exige work items anteriores e contexto evidence-bound prontos.
 

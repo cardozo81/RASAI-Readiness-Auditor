@@ -2,7 +2,7 @@
 
 Referência operacional das variáveis reconhecidas pelo RASAi - Search & AI Readiness Auditor.
 
-A baseline pública atual é `v0.5.0`. Esta referência descreve o contrato vigente do runtime na linha pós-release.
+A referência corresponde à versão 1.0.0 do runtime. Consulte [versionamento](VERSIONING.md) para distinguir versão publicada e versão do código-fonte.
 
 Variáveis de ambiente são overrides avançados. Quando existe um default seguro, o runtime aplica esse valor mesmo que a variável não esteja materializada no sistema operacional. Segredos não devem ser gravados em `rasai-console.ini`, arquivos de URL, relatórios, bancos ou logs.
 

@@ -147,7 +147,7 @@ A property deve pertencer ao próprio contexto do job. Segredos OAuth podem exis
 
 ## Microsoft Clarity Data Export
 
-Referência oficial: <https://learn.microsoft.com/clarity/setup-and-installation/clarity-data-export-api>
+Referência oficial: <https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-data-export-api>
 
 Configuração:
 

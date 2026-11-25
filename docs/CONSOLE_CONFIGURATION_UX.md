@@ -1,6 +1,6 @@
 # Contrato de UX para configuração no console
 
-**Estado:** vigente para o software em desenvolvimento/pré-produção.
+**Estado:** contrato de configuração no console da versão 1.0.0.
 
 O `rasai-console` organiza configuração por **catálogo de auditoria**. Runtime, registries e validadores existentes continuam como fonte de verdade; a UI não redefine scoring, collectors, providers, retries, quarentena, fulfillment ou metodologia.
 

@@ -1,6 +1,6 @@
 # Evidências da execução e integridade da configuração
 
-**Estado:** contrato vigente de desenvolvimento/pré-produção.
+**Estado:** contrato de evidências de execução e configuração na versão 1.0.0.
 
 ## Objetivo
 

@@ -77,7 +77,7 @@ Com todos os pesos de grupos e dimensões medidos, sua contribuição nominal no
 15% × 3% × 100 = 0,45 ponto
 ```
 
-A contribuição nominal é 0,45 ponto (15% × 3% × 100) quando o peso medido das dimensões e dos grupos de descoberta corresponde ao universo integral. Não é um teto aritmético universal em universos parciais ou com exclusões legítimas: o cálculo normaliza os pesos efetivamente medidos. O efeito observado deve ser interpretado com os denominadores, contribuições e versão persistidos, sem prometer um limite independente da aplicabilidade.
+A contribuição nominal é 0,45 ponto (15% × 3% × 100) quando o peso medido das dimensões e dos grupos de descoberta corresponde ao universo integral. Não é um teto aritmético universal em universos parciais ou com exclusões legítimas: o cálculo normaliza os pesos efetivamente medidos. Interprete o efeito usando os denominadores, contribuições e a versão persistidos. Na versão 1.0.0, alguns rótulos do console e do catálogo técnico ainda apresentam 0,45 ponto como limite geral. A fórmula e os valores persistidos seguem os pesos efetivamente medidos.
 
 ### Preservação exata do cálculo técnico quando a evidência externa não existe
 

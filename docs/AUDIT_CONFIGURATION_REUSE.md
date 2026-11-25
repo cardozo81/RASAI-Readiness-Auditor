@@ -1,6 +1,6 @@
 # Reutilização de configuração de AUD
 
-**Estado:** contrato vigente de desenvolvimento/pré-produção.
+**Estado:** contrato de reutilização de configuração na versão 1.0.0.
 
 ## Objetivo
 
