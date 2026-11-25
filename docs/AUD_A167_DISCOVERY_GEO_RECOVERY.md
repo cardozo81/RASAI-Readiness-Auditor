@@ -1,5 +1,7 @@
 # AUD-A167: descoberta bounded, armazenamento e elegibilidade GEO/semântica
 
+> **Registro histórico — não é guia operacional vigente.** Registro de recuperação de uma auditoria específica. Os limites e mecanismos descritos pertencem ao recorte de implementação daquele ciclo; não substituem a referência vigente de configuração. Consulte as [issues](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues), [pull requests](https://github.com/cardozo81/RASAI-Readiness-Auditor/pulls) e o [índice atual da documentação](README.md). O [registro original na versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/AUD_A167_DISCOVERY_GEO_RECOVERY.md) permanece preservado.
+
 AUD de referência: `AUD-A16711D11A8A40BDA303A362C45CCEDD` (NYTimes, uma URL). Os resultados históricos, seu SQLite, artefatos e scores **não são sobrescritos** por este macrolote.
 
 ## Lote 1 - descoberta, tempo e volume

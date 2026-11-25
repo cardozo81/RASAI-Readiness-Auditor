@@ -1,6 +1,6 @@
 # Guia técnico
 
-**Estado:** contrato vigente de desenvolvimento/pré-produção.
+**Escopo:** visão técnica do pipeline e das fronteiras entre motores. Para instalar e operar a versão publicada, consulte [instalação](INSTALLATION.md) e [guia do usuário](USER_GUIDE.md).
 
 ## Pipeline
 

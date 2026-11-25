@@ -1,5 +1,7 @@
 # Estabilização CONS/RPR/relatórios - matriz inicial de evidências
 
+> **Registro histórico — não é guia operacional vigente.** Registro de preparação da v0.9.0, publicada em 29/10/2026. O status da matriz e das candidatas não representa a situação posterior à versão 1.0.0. Consulte as [issues](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues), [pull requests](https://github.com/cardozo81/RASAI-Readiness-Auditor/pulls) e o [índice atual da documentação](README.md). O [registro original na versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/STABILIZATION_RELEASE_READINESS.md) permanece preservado.
+
 > **STATUS HISTÓRICO:** esta matriz foi registrada antes da integração e da publicação. A [release `v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) foi publicada em 29/10/2026, `immutable=true`, sobre `5da8e6247094c20dcdbe770474ac31e7f93383b2`; preservar os estados da época, não usá-los como decisão atual.
 
 > Registro histórico incremental da branch única. Não equivale a aceite de release. A situação vigente está em [RELEASE_GATE_MATRIX.md](RELEASE_GATE_MATRIX.md); preservar os SHAs e resultados históricos abaixo.

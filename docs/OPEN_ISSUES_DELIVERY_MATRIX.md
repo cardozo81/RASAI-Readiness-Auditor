@@ -1,5 +1,7 @@
 # Matriz de pendências - issues abertas
 
+> **Registro histórico — não é guia operacional vigente.** Matriz de triagem e acompanhamento iniciada em 17/10/2026, anterior à release 1.0.0. Percentuais, branches, gates, prioridades e estados de issues abaixo pertencem ao ciclo original. Consulte as [issues](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues), [pull requests](https://github.com/cardozo81/RASAI-Readiness-Auditor/pulls) e o [índice atual da documentação](README.md). O [registro original na versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/OPEN_ISSUES_DELIVERY_MATRIX.md) permanece preservado.
+
 **Data de triagem:** 17/10/2026. **Repositório:**
 `cardozo81/RASAI-Readiness-Auditor`. **Intervalo:**
 issues abertas com IDs de 301 a 646 (inclusive). Não foram incluídas

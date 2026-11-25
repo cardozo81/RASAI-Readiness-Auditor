@@ -1,5 +1,7 @@
 # RASAi - Plano de evidências e conclusão das issues elegíveis
 
+> **Registro histórico — não é guia operacional vigente.** Plano de evidências de 15/10/2026. Restrições de números de issues, sequência de trabalho, branches e aceites são históricas, não regras vigentes para novas entregas. Consulte as [issues](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues), [pull requests](https://github.com/cardozo81/RASAI-Readiness-Auditor/pulls) e o [índice atual da documentação](README.md). O [registro original na versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/ISSUE_ACCEPTANCE_EVIDENCE_PLAN.md) permanece preservado.
+
 > Checkpoint verificado em 15/10/2026: `main@d91bf6eb89bc5570464c69323c44b673655bcafa`; 15 issues abertas ≥ #301; PRs abertas: 0; CI final 17/17 checks e 12/12 workflows push SUCCESS. Este documento **é plano**, não relatório de testes executados neste ciclo.
 
 ## Norma de execução

@@ -1,8 +1,28 @@
 # Documentação do RASAi
 
+## Comece pela sua necessidade
+
+| Quero… | Documento de entrada | Referência complementar |
+| --- | --- | --- |
+| Instalar e abrir o console no Windows | [Instalação](INSTALLATION.md) | [Guia do usuário](USER_GUIDE.md) |
+| Preparar uma auditoria e escolher catálogos | [Console interativo](INTERACTIVE_CONSOLE.md) | [Fluxo de catálogos](AUDIT_CATALOG_WORKFLOW.md) |
+| Executar comandos e scripts fora do console | [Referência CLI](CLI_REFERENCE.md) | [Agendamento e comandos externos](EXECUTION_SCHEDULING.md) |
+| Configurar parâmetros, modelos, esforço e instruções | [Configuração](CONFIGURATION.md) | [Variáveis de ambiente](ENVIRONMENT_VARIABLES.md), [modelos](AI_MODEL_CONFIGURATION.md), [perfis de instrução](AI_TASK_PROFILES.md) |
+| Configurar serviços externos e credenciais | [Credenciais externas](EXTERNAL_CREDENTIALS.md) | [Diagnóstico de integrações](INTEGRATION_DIAGNOSTICS.md) |
+| Entender custos e limites de IA | [Guia de IA](AI_GUIDE.md) | [Preços](AI_PRICING_CONFIGURATION.md), [custos e uso](CONSOLE_COST_AND_USAGE.md) |
+| Entender indicadores, pontuações e limitações | [Índice de prontidão e metodologias](SARI_READINESS_INDEX.md) | [Método de pontuação](SCORE_GEO.md), [glossário](GLOSSARY.md) |
+| Interpretar os relatórios | [Guia de relatórios](REPORT_GUIDE.md) | [Apresentação](REPORT_PRESENTATION.md), [artefatos](OUTPUTS_AND_ARTIFACTS.md) |
+| Regenerar relatórios sem repetir a coleta | [Rematerialização](REPORT_REMATERIALIZATION.md) | [Reprocessamento](AUDIT_REPROCESSING.md): operação diferente, com contratos próprios |
+| Comparar auditorias ao longo do tempo | [Consolidação](CONSOLIDATED_REPORTING.md) | [Validação de comparabilidade](CONSOLIDATED_REPORTING_VALIDATION.md) |
+| Proteger, reter ou compartilhar resultados | [Segurança da informação](SECRET_AND_CONFIGURATION_SAFETY.md) | [Exportação candidata à divulgação](PUBLIC_REPORT_EXPORT.md) |
+| Resolver problemas | [Solução de problemas](TROUBLESHOOTING.md) | [Configurações padrão](SYSTEM_DEFAULTS.md) |
+| Desenvolver ou verificar contratos técnicos | [Guia técnico](TECHNICAL_GUIDE.md) | [Especificação](specification/00_SPEC_INDEX.md), [política de CI](CI_POLICY.md) |
+
+Os guias operacionais descrevem as capacidades e as configurações disponíveis. As especificações, decisões arquiteturais e matrizes técnicas complementam esses guias, mas não são instruções iniciais de uso. Registros de aceites anteriores e planos datados não são fonte de status atual do backlog: consulte [issues](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues) e [pull requests](https://github.com/cardozo81/RASAI-Readiness-Auditor/pulls).
+
 ## Estado do produto
 
-A [última GitHub Release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) é a referência para a versão efetivamente distribuída, independentemente do número em `pyproject.toml`. O código-fonte declara `1.0.0`; suas [notas de versão](RELEASE_NOTES_V1_0_0.md) registram o delta desde [v0.10.0](RELEASE_NOTES_V0_10_0.md). `v0.9.2`, `v0.9.0` e `v0.8.0` permanecem marcos históricos. A documentação normativa descreve o contrato vigente da linha atual.
+A [última GitHub Release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) é a referência para a versão efetivamente distribuída, independentemente do número em `pyproject.toml`. A [release v1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v1.0.0) foi publicada em 25/11/2026 08:18:29 (America/Sao_Paulo), no commit `e55717b2a2c924cdc9f81e39565353d063f47892`. Suas [notas de versão](RELEASE_NOTES_V1_0_0.md) registram o delta desde [v0.10.0](RELEASE_NOTES_V0_10_0.md). `v0.9.2`, `v0.9.0` e `v0.8.0` permanecem marcos históricos. A documentação normativa descreve o contrato vigente da linha atual.
 
 O contrato funcional vigente usa:
 
@@ -121,6 +141,8 @@ A [matriz de decisão editorial por família](EDITORIAL_DECISION_GATE.md) define
 
 ## Ordem de leitura recomendada
 
+Referências aprofundadas por domínio, após o roteiro inicial. O nível técnico destes documentos varia conforme o público e a necessidade de rastreabilidade.
+
 1. [`GLOSSARY.md`](GLOSSARY.md) - siglas, identificadores, taxonomia e significado dos termos usados pelo RASAi.
 2. [`CATALOG_AND_REPORT_SURFACES.md`](CATALOG_AND_REPORT_SURFACES.md) e [`REPORT_GUIDE.md`](REPORT_GUIDE.md) - contrato uniforme de CAT-01 a CAT-10, páginas transversais e interpretação do relatório.
 3. [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md) - definição, versão pública 001 e limites do **Índice de Prontidão Search & IA** (`SARI-001`).
@@ -186,9 +208,26 @@ As referências abaixo sustentam domínios específicos; nenhuma delas homologa 
 Consulte também as páginas de governança de `report-catalog/`, especialmente metodologia, evidências da execução e IA/integrações; elas materializam a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
 ## Publicações e notas v0.9.2
 
+### Histórico de distribuição
+
+- [v1.0.0 — notas de versão](RELEASE_NOTES_V1_0_0.md) e [release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v1.0.0).
+- [v0.10.0 — notas de versão](RELEASE_NOTES_V0_10_0.md) e [release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0).
+- [v0.9.1 — notas de versão](RELEASE_NOTES_V0_9_1.md).
+
+
 Consulte a [última release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) para confirmar a versão publicada e seu SHA. A versão do pacote `0.9.2` possui [notas de distribuição](RELEASE_NOTES_V0_9_2.md), mas a identidade distribuída depende da tag e do commit efetivamente publicados. O histórico `v0.9.0` permanece associado ao seu próprio SHA imutável.
 
 As [notas preparatórias](RELEASE_NOTES_DRAFT.md), a [matriz de gates](RELEASE_GATE_MATRIX.md), o [pacote de decisão](RELEASE_CANDIDATE_0_9_0.md) e o [checklist de publicação](RELEASE_PUBLICATION_CHECKLIST.md) são **registros históricos anteriores à publicação**. Não substituem a [página oficial da release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) nem alteram evidências históricas.
 
 
 - [GEO multiquery e reanálise de integrações (linha v0.9.2)](GEO_AI_MULTIQUERY_AND_REANALYSIS.md) - atribuição por consulta, governança econômica, replay offline homologado e limites de validação paga não executada.
+
+### Registros históricos de engenharia
+
+Os seguintes arquivos não são roteiros vigentes. As decisões e evidências da época permanecem rastreáveis; o estado atual de implementação e aceite deve ser verificado nas issues e PRs correspondentes.
+
+- [Plano residual de 09/10/2026](RESIDUAL_IMPLEMENTATION_PLAN.md), [plano de evidências de 15/10/2026](ISSUE_ACCEPTANCE_EVIDENCE_PLAN.md), [gate pré-smoke de 16/10/2026](PRE_SMOKE_READINESS_GATE.md) e [matriz de pendências de 17/10/2026](OPEN_ISSUES_DELIVERY_MATRIX.md).
+- [Estabilização anterior à v0.9.0](STABILIZATION_RELEASE_READINESS.md), [candidata v0.10.0](RELEASE_CANDIDATE_V0_10_0.md) e [rascunho v0.9.2](RELEASE_NOTES_V0_9_2_DRAFT.md).
+- [Diagnóstico GEO da auditoria de 25/10/2026](GEO_AUD710_QUERY_AND_PRESENTATION_ACCEPTANCE.md) e [recuperação de descoberta em auditoria histórica](AUD_A167_DISCOVERY_GEO_RECOVERY.md).
+
+Não execute comandos de checkout, merge, publicação ou alteração de auditorias de um registro histórico sem reconciliar sua finalidade com a versão atual.
