@@ -1,6 +1,6 @@
-# RASAi 1.0.0 — notas de versão
+# RASAi 1.0.0 - notas de versão
 
-Primeiro marco 1.x do RASAi — Readiness Assessment for Search & AI, autorizado pelo responsável do projeto em 25/11/2026. Consolida a evolução acumulada após v0.10.0. O incremento identifica a maturidade pretendida do produto; não constitui alegação de ruptura metodológica nem certificação universal de integrações externas.
+Primeiro marco 1.x do RASAi - Readiness Assessment for Search & AI, autorizado pelo responsável do projeto em 25/11/2026. Consolida a evolução acumulada após v0.10.0. O incremento identifica a maturidade pretendida do produto; não constitui alegação de ruptura metodológica nem certificação universal de integrações externas.
 
 A base funcional deste preparo é `47cedb9cb2656484a753ccb7605ec0e304309dec` (main, 343 commits à frente de v0.10.0 na comparação do GitHub). O commit definitivo da tag será o SHA integrado e validado; a existência deste documento não comprova publicação. Consulte a [GitHub Release](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases) para confirmar o estado.
 
