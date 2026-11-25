@@ -1,6 +1,6 @@
 # Execução externa e agendamento
 
-**Estado:** contrato vigente de execução local na `main`; release pública atual: [`v0.10.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0). `v0.5.0` é referência histórica, não a release atual.
+**Estado:** contrato vigente de execução local na `main`; consulte a [última release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest). `v0.5.0` é referência histórica, não a release atual.
 
 Este documento descreve como transformar a configuração resolvida no console em um comando reproduzível para execução manual ou agendada, sem alterar o motor de auditoria, reprocessamento ou consolidação.
 

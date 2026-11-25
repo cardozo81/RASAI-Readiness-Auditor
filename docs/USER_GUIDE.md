@@ -1,6 +1,6 @@
 # Guia do usuário
 
-Guia operacional do RASAi - Search & AI Readiness Auditor para execução local, configuração do console e leitura dos resultados. Descreve os contratos vigentes na `main`; a release pública [`v0.10.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0) é uma tag distinta e pode não incluir correções posteriores.
+Guia operacional do RASAi - Search & AI Readiness Auditor para execução local, configuração do console e leitura dos resultados. Descreve os contratos vigentes na `main`; a [última release pública](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) é uma tag distinta e pode não incluir correções posteriores.
 
 ## Instalação local no Windows
 

@@ -2,8 +2,8 @@
 
 **RASAi** (Readiness Assessment for Search & AI) avalia a prontidão técnica e semântica de sites para mecanismos de busca e sistemas de IA. Combina coleta de evidências, avaliação reproduzível, relatórios HTML e recomendações rastreáveis. Não promete ranking, tráfego, conversões ou citações em respostas generativas.
 
-**Pacote Python (última release publicada):** [`v0.10.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.10.0), publicada em 15/11/2026; confira [a release mais recente](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest).  
-**Pacote Python (versão no código-fonte):** `0.10.0` na `main`; a branch de desenvolvimento pode conter correções posteriores à tag publicada. Consulte as [notas da release](docs/RELEASE_NOTES_V0_10_0.md).
+**Pacote Python (última release publicada):** consulte a [GitHub Release mais recente](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest).  
+**Pacote Python (versão no código-fonte):** `1.0.0`; a versão do código-fonte não comprova publicação. Consulte as [notas da v1.0.0](docs/RELEASE_NOTES_V1_0_0.md).
 **Índice público:** `SARI-001` (Search & AI Readiness Index)  
 **Método de pontuação:** versão pública `001`; contrato atual `SCORE-GEO-005`. Auditorias históricas preservam `SCORE-GEO-004`.
 
@@ -123,7 +123,7 @@ A [documentação completa](docs/README.md) centraliza contratos e guias especia
 - [Relatórios e catálogos](docs/CATALOG_AND_REPORT_SURFACES.md) · [Guia de relatórios](docs/REPORT_GUIDE.md)
 - [Consolidação longitudinal](docs/CONSOLIDATED_REPORTING.md) · [Verificação de correções](docs/REPORT_GUIDE.md)
 - [Monitoramento e observabilidade](docs/MONITORING_OBSERVABILITY.md) · [Plataforma](docs/PRODUCT_PLATFORM_ARCHITECTURE.md)
-- [Versionamento](docs/VERSIONING.md) · [Notas v0.10.0](docs/RELEASE_NOTES_V0_10_0.md) · [Notas v0.9.2](docs/RELEASE_NOTES_V0_9_2.md)
+- [Versionamento](docs/VERSIONING.md) · [Notas v1.0.0](docs/RELEASE_NOTES_V1_0_0.md) · [Notas v0.10.0](docs/RELEASE_NOTES_V0_10_0.md) · [Notas v0.9.2](docs/RELEASE_NOTES_V0_9_2.md)
 - [Pesquisa futura sobre runner SaaS](docs/SAAS_RUNNER_ARTIFACTS_FUTURE_ASSESSMENT.md) - proposta não implementada, rastreada na **Issue #1**.
 
 ## Segurança e responsabilidade
