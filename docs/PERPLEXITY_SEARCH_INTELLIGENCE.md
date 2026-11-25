@@ -1,6 +1,6 @@
 # Perplexity Search Intelligence
 
-**Estado:** implementação da issue #5  
+**Estado:** referência da integração implementada na versão 1.0.0  
 **Data de revalidação oficial:** 04/10/2026  
 **Surface implementada:** Perplexity Search API  
 **Boundary RASAi:** pesquisa externa / Search Intelligence, não provider evidence-bound canônico
@@ -271,6 +271,8 @@ A execução ocorre após o core determinístico da auditoria.
 
 ## Relatórios
 
+Para leitura executiva, abra `report-presentation/search-geo.html` (Search e GEO): reúne observações de busca, concorrência, pesquisa externa e contexto GEO persistidos, com detalhes locais. Para investigação técnica, use `report-catalog/cat-05.html` (Search & AI Intelligence) e `report-catalog/geo.html` (inteligência GEO consultiva). As páginas de custos, quando pertinentes, são `report-presentation/ia-custos.html` e `report-catalog/ai-integrations.html`. As projeções são independentes, não executam pesquisa para preencher lacunas e não têm correspondência obrigatória de cada tabela ou seção. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
 O contrato RASAI-PERPLEXITY-SEARCH-1 é rotulado como:
 
 ~~~text
@@ -320,7 +322,7 @@ Crédito, quota, saldo, rate limit, plano ou indisponibilidade comercial isolado
 Qualquer defeito funcional posterior em main deve virar bug específico.
 
 
-## Evolução GEO (#301, implementação em andamento)
+## Evolução GEO (#301, registro histórico da implementação)
 
 `RASAI_PERPLEXITY_ENABLED = true` é o **padrão do produto** que permite consultas explícitas à Perplexity Search API. `true` não dispara consultas automaticamente: a AUD ainda precisa de queries solicitadas e credencial `PERPLEXITY_API_KEY` configurada. `false` (`0`/`off`/`no`) impede chamadas externas e preserva a credencial e as queries existentes. A flag ausente preserva a compatibilidade anterior; valor inválido impede requisições por segurança. O `EnvironmentSpec` canônico registra o valor não secreto em `rasai-console.ini`; preferências `false` explícitas não são sobrescritas pelo baseline `true` no reinício. Restaurar padrões globais redefine `true`, mas não remove a chave quando escolhida a preservação de credenciais. CAT-05, Integrações e serviços e Todas as configurações expõem o controle. Diagnósticos locais permanecem sem consumo comercial.
 

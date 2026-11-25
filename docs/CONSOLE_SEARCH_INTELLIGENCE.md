@@ -10,7 +10,7 @@ O console separa três domínios:
 2. **provider/governança**: `RASAI_SERP_MODE`, `RASAI_SERP_PROVIDER`, limites `RASAI_SERP_*` e registry canônico;
 3. **credencial**: variável secreta exigida pelo provider live selecionado.
 
-A observação SERP desta superfície é evidence-bound e não altera `SARI-001` ou `SCORE-GEO-004` por ausência ou falha. A opção **Perplexity externa** é um subdomínio separado de pesquisa externa: preserva provenance própria, não vira SERP observada e não constitui evidência determinística.
+A observação SERP desta superfície é evidence-bound e não altera o índice ou o método de pontuação por ausência ou falha. A opção **Perplexity externa** é um subdomínio separado de pesquisa externa: preserva provenance própria, não vira SERP observada e não constitui evidência determinística.
 
 Google Search Console não faz parte desse domínio operacional. Embora ambos estejam relacionados a Search, GSC possui autenticação OAuth, property, política e readiness próprios e aparece como capacidade separada em `Preparar auditoria`.
 
@@ -261,13 +261,9 @@ Quando Search Intelligence é solicitado e a auditoria principal permite a etapa
 - termos, depth, device e região da próxima execução;
 - workspace do `AUD-*` gerado.
 
-A evidência persistida materializa o relatório:
+A evidência persistida alimenta os dois relatórios da auditoria.
 
-```text
-AUD-*/report-catalog/cat-05.html
-```
-
-Abrir o CAT-05 usa a evidência persistida e não refaz chamadas SERP somente para exibição.
+Para leitura executiva, abra `report-presentation/search-geo.html` (Search e GEO): reúne observações de busca, concorrência, pesquisa externa e contexto GEO persistidos, com detalhes locais. Para investigação técnica, use `report-catalog/cat-05.html` (Search & AI Intelligence) e `report-catalog/geo.html` (inteligência GEO consultiva). As páginas de custos, quando pertinentes, são `report-presentation/ia-custos.html` e `report-catalog/ai-integrations.html`. As projeções são independentes, não executam pesquisa para preencher lacunas e não têm correspondência obrigatória de cada tabela ou seção. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 ## Perplexity externa
 
@@ -299,7 +295,7 @@ Para série temporal e scheduling de queries, use o domínio próprio de `rasai 
 
 ## Segurança
 
-- termos e parâmetros Search não são secrets;
+- termos e parâmetros Search não são credenciais, mas podem revelar estratégia, interesses ou dados sensíveis; trate-os conforme a [política de segurança](SECRET_AND_CONFIGURATION_SAFETY.md);
 - chaves de provider são secrets e ficam fora do INI;
 - relatórios não devem expor a credencial;
 - uma key configurada não prova saldo, quota ou disponibilidade futura;

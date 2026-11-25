@@ -1,8 +1,10 @@
-# Search Intelligence no catálogo da auditoria
+# Search Intelligence nos relatórios da auditoria
 
 ## Objetivo
 
-`report-catalog/cat-05.html` é a superfície HTML audit-owned para evidências persistidas de Search Intelligence.
+`report-catalog/cat-05.html` é a superfície técnica especializada para evidências persistidas de Search Intelligence.
+
+Para leitura executiva, abra `report-presentation/search-geo.html` (Search e GEO): reúne observações de busca, concorrência, pesquisa externa e contexto GEO persistidos, com detalhes locais. Para investigação técnica, use `report-catalog/cat-05.html` (Search & AI Intelligence) e `report-catalog/geo.html` (inteligência GEO consultiva). As páginas de custos, quando pertinentes, são `report-presentation/ia-custos.html` e `report-catalog/ai-integrations.html`. As projeções são independentes, não executam pesquisa para preencher lacunas e não têm correspondência obrigatória de cada tabela ou seção. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 O relatório é intencionalmente observacional e consultivo. Ele consolida várias camadas de evidência sem fundir suas metodologias nem alterar a propriedade de cada dado.
 
@@ -16,11 +18,11 @@ Quando disponível, a página pode mostrar:
 - análise persistida de Competitive AI vinculada a evidências;
 - origem, provider, modelo, referência de artefato, hashes e limitações técnicas.
 
-A página não cria novo score e não altera `SARI-001` nem `SCORE-GEO-004`.
+A página não cria novo score e não altera `SARI-001` nem `SCORE-GEO-005`.
 
 ## Nome canônico do arquivo e navegação
 
-Arquivo canônico:
+Arquivo técnico especializado:
 
 ```text
 report-catalog/cat-05.html
@@ -28,7 +30,7 @@ report-catalog/cat-05.html
 
 A página CAT-05 pertence ao pacote `report-catalog/` e projeta o estado solicitado/persistido da auditoria, inclusive ausência de dados, limitações e evidência SERP quando disponível.
 
-A navegação do catálogo permanece governada pelo contrato de `report-catalog/`. A ausência de evidência não dispara coleta nem cria uma árvore HTML paralela.
+A navegação do catálogo permanece governada pelo contrato de `report-catalog/`. A ausência de evidência não dispara coleta. A apresentação executiva é um pacote independente, gerado somente a partir do estado persistido.
 
 ## Modelo de proveniência
 
@@ -198,7 +200,7 @@ SERP Observation
         |
         +--> HTML de Search Intelligence
 
-SARI-001 / SCORE-GEO-004
+SARI-001 / SCORE-GEO-005
         |
         +--> contrato de scoring e conjunto de evidências separados
 ```
@@ -218,7 +220,7 @@ Os limites de propriedade são:
 - observações SERP pertencem à observação do provider de Search configurado;
 - classificação e comparação competitivas determinísticas pertencem ao RASAi;
 - saída competitiva semântica pertence ao workflow de IA do RASAi e ao provider/modelo explicitamente identificado;
-- `SARI-001` e `SCORE-GEO-004` pertencem aos respectivos contratos de scoring do RASAi.
+- `SARI-001` e `SCORE-GEO-005` pertencem aos respectivos contratos de scoring do RASAi.
 
 Links cruzados são aceitáveis. Fusão metodológica sem contrato explícito não é.
 
@@ -263,7 +265,7 @@ Uma camada indisponível permanece indisponível. O relatório nunca deve preenc
 
 ## Segurança e privacidade
 
-O HTML não exibe segredos de API.
+Os relatórios não devem exibir segredos de API. Ainda assim, URLs, termos, resultados e anexos podem conter dados de acesso restrito; a revisão antes de compartilhar é obrigatória.
 
 Chaves de provider permanecem fora dos dados persistidos do relatório. A inspeção de páginas públicas continua sujeita à política de segurança de rede de Search Intelligence, incluindo aquisição limitada e validação orientada a SSRF.
 
@@ -288,4 +290,4 @@ Com evidência de Competitive AI:
 
 - o relatório também projeta o resultado semântico persistido, com proveniência de provider/modelo/evidência.
 
-Essa divulgação progressiva permite que Search Intelligence evolua de forma independente, mantendo uma única superfície HTML pública estável.
+Essa divulgação progressiva permite que Search Intelligence evolua de forma independente, mantendo especializações distintas nas duas projeções locais, sem criar resultados novos na renderização.
