@@ -2,7 +2,7 @@
 
 **Estado:** vigente  
 **Readiness:** `SARI-001`  
-**Scoring em runtime:** `SCORE-GEO-004`
+**Scoring em runtime:** `SCORE-GEO-005`
 
 ## 1. Estilo arquitetural
 
@@ -38,7 +38,7 @@ CLI / console interativo
 → comparação de dispositivos quando aplicável
 → findings
 → scoring por dimensão
-→ Overall SCORE-GEO-004
+→ Overall SCORE-GEO-005
 → priorização/remediação
 → site estático de relatório
 → enriquecimentos opcionais
@@ -48,22 +48,24 @@ A evidência autoritativa da auditoria permanece `AUD-*/audit.db` + artefatos.
 
 ## 4. Scoring
 
+O método `SCORE-GEO-005` é vigente para novas AUDs; `SCORE-GEO-004` permanece para interpretação/replay histórico, sem reclassificação retroativa de evidência ou nota.
+
 Método atual:
 
 ```text
-SCORE-GEO-004
+SCORE-GEO-005
 HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
 
 Os cálculos por dimensão permanecem determinísticos e vinculados a evidências. Overall é a média ponderada dos scores medidos das dimensões aplicáveis, usando pesos versionados e renormalização do denominador sobre as dimensões participantes. Dimensões aplicáveis sem valor não são imputadas como zero; reduzem Coverage/Confidence e podem restringir Consolidation. Dimensões críticas de readiness preservam os gates mais rígidos definidos em `05_SCORING_MODEL.md`.
 
-Nenhum enriquecimento posterior pode criar silenciosamente ScoreContribution nem entrar em SARI/SCORE-GEO-004.
+Nenhum enriquecimento posterior pode criar silenciosamente ScoreContribution nem entrar em SARI/SCORE-GEO-005.
 
 ## 5. Contexto de dispositivo
 
-O escopo público de dispositivo é `mobile`, `desktop` ou `both`. Somente contextos selecionados/materializados podem disparar análise posterior ou chamadas opcionais. Comparação Desktop × Mobile só é aplicável quando ambos existem.
+Novas auditorias aceitam somente `mobile` ou `desktop` em `--device-context`. Execute AUDs independentes para estudar os dois contextos. `both` pertence a contratos históricos, não é opção pública de nova AUD. Somente contextos efetivamente materializados podem sustentar análise e chamadas posteriores. Comparação Desktop × Mobile só é aplicável quando ambos existem e o universo comparado é compatível.
 
-Synthetic User Experience Apdex pode modelar `TABLET` como perfil sintético, mas `TABLET` não é um `DeviceContext` canônico do core; uma auditoria apenas mobile não pode executar silenciosamente contextos desktop ou tablet do pipeline principal.
+Synthetic User Experience Apdex respeita o dispositivo da nova AUD; `TABLET` não é uma opção operacional pública. Perfis ou mixes históricos podem ser interpretados sem habilitar aquisição de novos contextos não selecionados.
 
 ## 6. Limites de persistência
 
@@ -72,8 +74,16 @@ Synthetic User Experience Apdex pode modelar `TABLET` como perfil sintético, ma
 ```text
 AUD-*/audit.db
 AUD-*/artifacts/
-AUD-*/report-catalog/
 ```
+
+### Projeções derivadas, não fontes de evidência
+
+```text
+AUD-*/report-catalog/
+AUD-*/report-presentation/
+```
+
+O catálogo técnico (`report-catalog/index.html`) e a apresentação executiva (`report-presentation/index.html`) são projeções distintas das evidências persistidas; não há paridade obrigatória de páginas ou dependência do HTML do catálogo para gerar a apresentação. O estado de publicação e as limitações de cada pacote devem permanecer explícitos. Consulte a [correspondência temática dos relatórios](../REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 ### Sidecar de Observability
 

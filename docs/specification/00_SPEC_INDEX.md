@@ -92,7 +92,7 @@ Detalhes: `05_SCORING_MODEL.md`, `../SCORE_GEO.md`, `../SCORING_GUIDE.md` e `../
 
 ## 5. CATALOG-REPORT-002
 
-A projeção HTML audit-owned suportada é `<AUD-ID>/report-catalog/`. `<AUD-ID>/report/`, `<AUD-ID>/report.html` e `<AUD-ID>/cat-09.html` não pertencem ao contrato de saída de `rasai audit`.
+O contrato técnico `CATALOG-REPORT-002` delimita a projeção `<AUD-ID>/report-catalog/`; o produto também publica a apresentação executiva independente em `<AUD-ID>/report-presentation/`, conforme a elegibilidade da auditoria e o resultado de geração. `<AUD-ID>/report/`, `<AUD-ID>/report.html` e `<AUD-ID>/cat-09.html` não pertencem ao contrato de saída de `rasai audit`.
 
 Entrada principal:
 
@@ -100,7 +100,9 @@ Entrada principal:
 <AUD-ID>/report-catalog/index.html
 ```
 
-O contrato vigente inclui a visão geral, SARI, CAT-01 ... CAT-10 conforme o catálogo da auditoria e páginas próprias de governança, com manifest e assets do pacote. A fonte de verdade para filenames, ordem e labels é `src/rasai/catalog_report_contract.py`.
+O catálogo técnico (`report-catalog/index.html`) e a apresentação executiva (`report-presentation/index.html`) são projeções distintas das evidências persistidas; não há paridade obrigatória de páginas ou dependência do HTML do catálogo para gerar a apresentação. O estado de publicação e as limitações de cada pacote devem permanecer explícitos. Consulte a [correspondência temática dos relatórios](../REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
+O contrato vigente do catálogo técnico inclui a visão geral, SARI, CAT-01 ... CAT-10 conforme o catálogo da auditoria e páginas próprias de governança, com manifest e assets do pacote. A fonte de verdade para filenames, ordem e labels é `src/rasai/catalog_report_contract.py`.
 
 A materialização do catálogo é projeção read-only sobre os dados persistidos. Ela não dispara collectors, APIs, providers, IA, scoring ou workloads sintéticos para preencher HTML. Dados como findings, evidences, recommendations, root cause, precisão, métricas e telemetria continuam sendo produzidos pelas etapas funcionais da auditoria e apenas projetados no catálogo.
 

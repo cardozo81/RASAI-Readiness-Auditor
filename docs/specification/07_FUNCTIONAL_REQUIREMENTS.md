@@ -1,7 +1,11 @@
 # Requisitos funcionais e não funcionais do RASAi
 
 **Estado:** APROVADO / VIGENTE  
-**Contrato relacionado:** rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance + Sugestões e remediação de conteúdo por IA + análise semântica por IA, roteamento e telemetria + `SCORE-GEO-004` + `SARI-001` + `CATALOG-REPORT-002`
+**Contrato relacionado:** rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance + Sugestões e remediação de conteúdo por IA + análise semântica por IA, roteamento e telemetria + `SCORE-GEO-005` + `SARI-001` + `CATALOG-REPORT-002`
+
+O método `SCORE-GEO-005` é vigente para novas AUDs; `SCORE-GEO-004` permanece para interpretação/replay histórico, sem reclassificação retroativa de evidência ou nota.
+
+Novas auditorias aceitam somente `mobile` ou `desktop` em `--device-context`. Execute AUDs independentes para estudar os dois contextos. `both` pertence a contratos históricos, não é opção pública de nova AUD. Somente contextos efetivamente materializados podem sustentar análise e chamadas posteriores.
 
 Os identificadores `FR-GEO-*` e `NFR-GEO-*` são canônicos e permanecem inalterados. Na leitura humana, **FR** corresponde a **Functional Requirement - Requisito Funcional** e **NFR** a **Non-Functional Requirement - Requisito Não Funcional**. O segmento `GEO` faz parte do ID técnico indivisível e não define o escopo de negócio do requisito. Termos de implementação, flags, enums, nomes de classes e arquivos permanecem em inglês quando fazem parte do contrato técnico; definição, explicação, fundamento e descrição funcional são mantidos em português do Brasil.
 
@@ -125,7 +129,7 @@ Informar Confidence.
 Informar Consolidation Status.
 
 ### FR-GEO-040
-Calcular Overall Desktop e Overall Mobile de acordo com o contrato `SCORE-GEO-004`, preservando os critérios de Coverage, Confidence, aplicabilidade e Critical Readiness Gates.
+Calcular Overall Desktop e Overall Mobile de acordo com o contrato `SCORE-GEO-005`, preservando os critérios de Coverage, Confidence, aplicabilidade e Critical Readiness Gates.
 
 ### FR-GEO-041
 Evitar dupla penalização por `scoring_group`.
@@ -143,7 +147,7 @@ Consolidar recomendações repetitivas por causa raiz quando a evidência permit
 Gerar recomendações técnicas mesmo sem IA.
 
 ### FR-GEO-046
-Gerar a projeção HTML audit-owned em `report-catalog/`, com `report-catalog/index.html` como ponto de entrada, após a produção dos dados funcionais da auditoria. `report/`, `report.html` e `cat-09.html` não fazem parte do output de `rasai audit`.
+Gerar a projeção técnica em `report-catalog/`, com `report-catalog/index.html` como ponto de entrada, após a produção dos dados funcionais da auditoria. O catálogo técnico (`report-catalog/index.html`) e a apresentação executiva (`report-presentation/index.html`) são projeções distintas das evidências persistidas; não há paridade obrigatória de páginas ou dependência do HTML do catálogo para gerar a apresentação. O estado de publicação e as limitações de cada pacote devem permanecer explícitos. Consulte a [correspondência temática dos relatórios](../REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios). `report/`, `report.html` e `cat-09.html` não fazem parte do output de `rasai audit`.
 
 ### FR-GEO-047
 Produzir `report-catalog/` local e navegável sem servidor Web, usando dependências relativas internas ao workspace.
@@ -317,7 +321,7 @@ Quando `report-catalog/` apresentar resumo de Web Performance, rotulá-lo explic
 Executar Web Performance como enriquecimento pós-auditoria/fail-open: indisponibilidade ou erro do serviço externo não pode invalidar `RuleExecution`, Finding, Recommendation ou score já concluídos.
 
 ### FR-GEO-106
-Executar diagnósticos determinísticos de rastreamento, descoberta e acesso de crawlers como advisory/non-scoring, exceto regras explicitamente score-eligible pelo contrato. Quando IA técnica estiver explicitamente habilitada e produzir saída evidence-bound válida, permitir somente BR-GEO-055/056 nos grupos SITEMAP/ROBOTS, sem escolha de pesos pelo provider, sem bônus duplicado e sem alteração direta de Coverage, Confidence ou Consolidation. `BR-GEO-060` segue contrato externo corroborativo próprio. O runtime vigente permanece `SCORE-GEO-004`/`SARI-001`.
+Executar diagnósticos determinísticos de rastreamento, descoberta e acesso de crawlers como advisory/non-scoring, exceto regras explicitamente score-eligible pelo contrato. Quando IA técnica estiver explicitamente habilitada e produzir saída evidence-bound válida, permitir somente BR-GEO-055/056 nos grupos SITEMAP/ROBOTS, sem escolha de pesos pelo provider, sem bônus duplicado e sem alteração direta de Coverage, Confidence ou Consolidation. `BR-GEO-060` segue contrato externo corroborativo próprio. O runtime vigente permanece `SCORE-GEO-005`/`SARI-001`.
 
 ### FR-GEO-107
 Aprofundar a interpretação de `robots.txt` com evidência reabrível de grupos de crawler, `Allow`, `Disallow`, `Sitemap`, linhas inválidas, tamanho e campos relevantes, sem transformar ausência legítima do arquivo em bloqueio artificial.

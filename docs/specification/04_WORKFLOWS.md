@@ -28,7 +28,7 @@ Os princípios centrais são Evidence First, isolamento de falhas, escopo explí
 
 ## 2. Contexto de dispositivo
 
-O escopo público é `mobile`, `desktop` ou `both`. Somente contextos selecionados/materializados podem disparar renderização posterior, análise ou chamadas externas.
+Novas auditorias aceitam somente `mobile` ou `desktop` em `--device-context`. Execute AUDs independentes para estudar os dois contextos. `both` pertence a contratos históricos, não é opção pública de nova AUD. Somente contextos efetivamente materializados podem sustentar análise e chamadas posteriores.
 
 A comparação Desktop × Mobile só é aplicável quando ambos os contextos existem. Uma auditoria de contexto único não trata a ausência do outro contexto como falha de renderização.
 
@@ -87,7 +87,7 @@ Entrada canônica:
 report-catalog/index.html
 ```
 
-O runtime de `rasai audit` gera `report-catalog/` como projeção HTML. `report/`, `report.html` e `cat-09.html` não pertencem a esse output; recomendações, findings, evidências, causa raiz, precisão, scoring, integrações, IA e telemetria são materializados/persistidos por seus contratos funcionais.
+O runtime de `rasai audit` materializa o catálogo técnico conforme seu contrato de publicação. O catálogo técnico (`report-catalog/index.html`) e a apresentação executiva (`report-presentation/index.html`) são projeções distintas das evidências persistidas; não há paridade obrigatória de páginas ou dependência do HTML do catálogo para gerar a apresentação. O estado de publicação e as limitações de cada pacote devem permanecer explícitos. Consulte a [correspondência temática dos relatórios](../REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios). `report/`, `report.html` e `cat-09.html` não pertencem a esse output; recomendações, findings, evidências, causa raiz, precisão, scoring, integrações, IA e telemetria são materializados/persistidos por seus contratos funcionais.
 
 `report-catalog/` é gerado após a produção dos dados e não pode disparar coleta, provider, API externa ou IA apenas para preencher o HTML. `audit.db` + artifacts permanecem a evidência de origem.
 

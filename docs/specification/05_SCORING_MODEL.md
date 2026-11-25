@@ -407,7 +407,7 @@ A exceção explicitamente score-eligible desta família é `BR-GEO-060`, que us
 
 - grupo `EXTERNAL_CRAWL_CORROBORATION`;
 - peso de 3% dentro de `DISCOVERY_ACCESS`;
-- impacto máximo teórico de 0,45 ponto no Overall;
+- contribuição nominal de 0,45 ponto no Overall quando todos os pesos são medidos; não é teto universal em universos parciais normalizados;
 - somente `PASS` pode ser materializado pela evidência externa qualificada;
 - ausência, erro, timeout, indisponibilidade, alvo privado ou ausência de registro não geram `FAIL`, zero, redução de Coverage ou redução de Confidence;
 - não participa dos Critical Readiness Gates;
@@ -417,9 +417,9 @@ O contrato específico está em `../SARI_EXTERNAL_CRAWL_CORROBORATION.md`.
 
 ## 23. Relatório
 
-`sari.html` é a página canônica do SARI.
+`report-catalog/sari.html` é a referência técnica do índice; `report-presentation/indices.html` é a leitura executiva dos índices e limites, sem presumir paridade de campos. Consulte a [matriz de relatórios](../REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
-`methodology.html` é a página canônica estável do **Método de Pontuação de Prontidão** e expõe:
+`report-catalog/methodology.html` é a página canônica estável do **Método de Pontuação de Prontidão** e expõe:
 
 - `scoring_version` efetiva;
 - contrato de agregação;

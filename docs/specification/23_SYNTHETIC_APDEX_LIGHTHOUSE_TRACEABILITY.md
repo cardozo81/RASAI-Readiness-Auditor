@@ -47,19 +47,19 @@ Tolerating: duração > T e <= 4T
 Frustrated: duração > 4T
 ```
 
-Erros de aplicação/servidor, timeout e erro de navegação são `FRUSTRATED` quando o perfil sintético foi aplicado e a tentativa representa uma execução válida da Task.
+Erros de aplicação/servidor, timeout e erro de navegação são `FRUSTRATED` quando o perfil sintético foi aplicado e há duração registrada. Sem perfil ou duração, a amostra de navegação não recebe classificação.
 
 Falha da ferramenta em iniciar/aplicar browser, CPU ou rede é amostra inválida e fica fora do denominador. A exclusão deve permanecer persistida e auditável.
 
 ## 4. Configuração pública
 
-Synthetic Navigation Apdex é desabilitado por padrão. `T` não possui default deliberadamente: deve representar o objetivo/SLO da Task e não pode ser inventado a partir de Lighthouse, LCP, INP, CLS ou dados históricos.
+Na CLI direta sem overrides, Synthetic Navigation Apdex é desabilitado e `T` deve ser informado quando habilitado. A baseline do console habilita a capacidade com T=3 s. Revise a adequação ao SLO e a autorização de carga; não derive T de Lighthouse, LCP, INP, CLS ou dados históricos.
 
 | Parâmetro / variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| `RASAI_SYNTHETIC_APDEX` | `false` | booleano | `false`; habilitar somente quando houver objetivo e autorização de carga |
-| `RASAI_APDEX_THRESHOLD_SECONDS` | sem default | número finito `> 0` | usar threshold da Task/SLO definido pela organização |
-| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | `100` | inteiro `>= 1` | `100`; reduzir somente em smoke controlado |
+| `RASAI_SYNTHETIC_APDEX` | CLI bruto `false`; console `true` | booleano | `false`; habilitar somente quando houver objetivo e autorização de carga |
+| `RASAI_APDEX_THRESHOLD_SECONDS` | sem default no CLI bruto; console `3 s` | número finito `> 0` | usar threshold da Task/SLO definido pela organização |
+| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | `150` | inteiro `>= 1` | `150`; reduzir explicitamente para diagnóstico de baixa carga |
 | `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | `ceil(1.25 × samples)` | inteiro positivo validado pelo runtime | default derivado |
 | `RASAI_APDEX_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline seguro de carga |
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número finito positivo e, no contrato efetivo, maior que `4T` | default derivado |
@@ -87,7 +87,7 @@ Flags correspondentes:
 
 ## 5. Tamanho do grupo
 
-O alvo padrão é `100` amostras válidas por URL/dispositivo.
+O alvo padrão é `150` amostras válidas por URL/dispositivo, com 188 tentativas no orçamento derivado. O mínimo de 100 da especificação Apdex para apresentação normal não equivale ao default operacional nem garante representatividade.
 
 Grupos com 1-99 amostras válidas podem ser calculados para diagnóstico, mas são marcados como `small_group=*` e não representam o grupo final normal.
 
@@ -164,7 +164,7 @@ Quando a capacidade é habilitada e chega ao estágio de reporting, gera:
 report-catalog/cat-06.html
 ```
 
-A página deve mostrar:
+A página técnica detalha a medição de navegação; `report-presentation/performance.html` contextualiza a experiência sintética com outras fontes de desempenho. Não há paridade obrigatória de campos. A página técnica deve mostrar:
 
 - estado da execução;
 - `T` e `4T`;
@@ -221,7 +221,7 @@ A regressão deve cobrir:
 - grupos pequenos marcados explicitamente;
 - persistência e reabertura;
 - `cat-06.html` e navegação canônica;
-- ausência de alteração em `SARI-001/SCORE-GEO-004`;
+- ausência de alteração em `SARI-001/SCORE-GEO-005`;
 - ausência de chamadas LLM/PageSpeed/CrUX criadas exclusivamente por esta capacidade.
 
 ## 14. Referências e direitos autorais

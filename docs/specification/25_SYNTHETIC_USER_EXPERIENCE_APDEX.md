@@ -2,7 +2,7 @@
 
 **Estado:** INTEGRADO / VIGENTE  
 **Escopo:** Web Performance sintética, telemetria de ação de usuário e comparabilidade metodológica com RUM/APM.  
-**Não altera:** `BR-GEO-*`, `SARI-001`, `SCORE-GEO-004`, Coverage, Confidence, Consolidation, findings ou recomendações GEO.
+**Não altera:** `BR-GEO-*`, `SARI-001`, `SCORE-GEO-005`, Coverage, Confidence, Consolidation, findings ou recomendações GEO.
 
 ## 1. Objetivo
 
@@ -41,7 +41,7 @@ Os dois domínios possuem persistência, população, thresholds e relatórios i
 
 | Parâmetro / variável | Default efetivo | Valores permitidos | Origem |
 |---|---|---|---|
-| `RASAI_APDEX_EXPERIENCE` | `false` | booleano | RASAi |
+| `RASAI_APDEX_EXPERIENCE` | CLI bruto `false`; console `true` | booleano | RASAi |
 | `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | KPM temporal suportada | fallback executável compatível com referência Dynatrace |
 | `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | `3.0` | número finito `> 0` | referência/fallback Load Action |
 | `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12.0` | número finito `> satisfied` | referência/fallback Load Action |
@@ -259,7 +259,7 @@ A execução persiste configuração efetiva, contrato de medição e ambiente s
 
 ## 13. Relatório
 
-`report-catalog/cat-07.html` deve expor:
+`report-catalog/cat-07.html` é a referência técnica da experiência sintética; `report-presentation/performance.html` oferece leitura executiva com fontes e limites separados. A página técnica deve expor:
 
 - fronteira Synthetic vs RUM;
 - KPM efetiva;
@@ -286,7 +286,7 @@ O HTML deve refletir o estado persistido e não pode descrever a regra anterior 
 Falha de Experience:
 
 - não altera `SARI-001`;
-- não altera `SCORE-GEO-004`;
+- não altera `SCORE-GEO-005`;
 - não cria finding GEO;
 - não muda Coverage/Confidence;
 - não invalida Synthetic Navigation Apdex;
