@@ -102,12 +102,17 @@ Use o entrypoint canônico para gerar um catálogo em **cópia externa**, seguid
 ```powershell
 $AuditId = "AUD-EXEMPLO"
 $Fonte = Join-Path (Get-Location) "audits\$AuditId"
-$Saida = Join-Path $env:TEMP ("RASAI-REGEN-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+$Saida = Join-Path $env:TEMP ("RASAI-REGEN-" + (Get-Date -Format "yyyyMMdd-HHmmss") + "-" + [guid]::NewGuid().ToString('N'))
+if (Test-Path -LiteralPath $Saida) { throw "Destino já existente" }
 & .\.venv\Scripts\python.exe -B -m rasai rematerialize-report --audit-dir $Fonte --output-root $Saida
 if ($LASTEXITCODE -ne 0) { throw "Falha na regeneração do catálogo" }
 $Copia = Join-Path $Saida $AuditId
 & .\.venv\Scripts\python.exe -B -m rasai.parallel_report --audit-dir $Copia
 if ($LASTEXITCODE -ne 0) { throw "Falha na regeneração da apresentação" }
+foreach ($Pacote in @('report-catalog', 'report-presentation')) {
+    $Entrada = Join-Path $Copia "$Pacote\index.html"
+    if (-not (Test-Path -LiteralPath $Entrada -PathType Leaf)) { throw "Entrada ausente: $Pacote" }
+}
 ```
 
 Alternativa para um arquivo `.cmd`, executado na raiz do projeto. Substitua o identificador pelo da auditoria original e mantenha o destino externo e inexistente:
@@ -123,11 +128,13 @@ if exist "%SAIDA%" exit /b 1
 if errorlevel 1 exit /b 1
 ".venv\Scripts\python.exe" -B -m rasai.parallel_report --audit-dir "%SAIDA%\%AUD%"
 if errorlevel 1 exit /b 1
+if not exist "%SAIDA%\%AUD%\report-catalog\index.html" exit /b 1
+if not exist "%SAIDA%\%AUD%\report-presentation\index.html" exit /b 1
 echo "%SAIDA%\%AUD%\report-presentation\index.html"
 endlocal
 ```
 
-O exemplo interrompe o script se qualquer gerador falhar; uma saída parcial não deve ser tratada como relatório validado. Use novo destino se precisar repetir a operação.
+O exemplo interrompe o script se qualquer gerador falhar ou faltar uma das entradas HTML; a existência das duas entradas não substitui a validação de manifestos e integridade. O `report-catalog/` fornece o detalhe técnico por catálogo e as páginas transversais; o `report-presentation/` oferece leitura executiva especializada a partir das evidências disponíveis. Não presuma paridade de páginas, campos ou cobertura. Uma saída parcial não deve ser tratada como relatório validado. Use novo destino se precisar repetir a operação.
 
 A AUD original, seu `audit.db`, os artefatos complementares, os custos e as pontuações não devem ser reescritos. Não executar com escritor ativo ou sem a integridade necessária; o gerador pode recusar a cópia. Saídas anteriores e novas devem ser comparadas como **projeções de versões diferentes**, não como novas evidências. Consulte também a [apresentação offline](../src/rasai/parallel_report/README.md).
 

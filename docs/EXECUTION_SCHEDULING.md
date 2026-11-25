@@ -201,7 +201,7 @@ Mantenha a linha do secret comentada ou remova a linha.
 
 O processo utilizará o valor disponível no ambiente efetivo.
 
-No Windows, a entrada pública `rasai` ativa explicitamente secrets conhecidos persistidos em Windows/User ou Windows/Machine quando eles não já existem na sessão. Um valor já definido na sessão/processo prevalece e não é sobrescrito.
+No Windows, a entrada pública `rasai` ativa explicitamente secrets conhecidos persistidos em Windows/User ou Windows/Machine para `audit`, `reprocess`/`audit-reprocess` e `consolidate`/`consolidated-report` longitudinal, quando eles não existem na sessão. Um valor já definido na sessão/processo não é sobrescrito. Esse bootstrap não é uma garantia para todos os subcomandos: por exemplo, `rasai search` avulso precisa encontrar a credencial no ambiente efetivo. As superfícies consultivas offline despachadas antes desse bootstrap não exigem credenciais comerciais.
 
 ### Usar outra credencial somente naquela execução
 

@@ -409,9 +409,9 @@ SQLite continua disponível para operação local; PostgreSQL é o backend centr
 Reprocessamento seletivo:
 
 ```text
-rasai reprocess AUD-... --audits-root audits
-rasai reprocess AUD-... --item COMPONENTE:ESCOPO --no-use-ai
-rasai reprocess AUD-... --item COMPONENTE:ESCOPO --use-ai --ai-provider openai --ai-model MODELO
+rasai reprocess AUD-... --audits-root audits --status-only
+rasai reprocess AUD-... --item COMPONENTE::ESCOPO --no-use-ai
+rasai reprocess AUD-... --item COMPONENTE::ESCOPO --use-ai --ai-provider openai --ai-model MODELO
 ```
 
 Opções adicionais:
@@ -424,7 +424,7 @@ Opções adicionais:
 --ai-reasoning PROFILE
 ```
 
-`--item` pode ser repetido. Provider/model/reasoning explícitos exigem `--use-ai`. Sem `--item` e sem política explícita de IA, o comando preserva o comportamento normal de reprocessamento da CLI.
+O primeiro exemplo apenas consulta o estado, sem executar retries. Nos demais, substitua `COMPONENTE::ESCOPO` pela chave canônica de um item elegível da AUD; não execute o placeholder. `--item` pode ser repetido. Provider/model/reasoning explícitos exigem `--use-ai`. Sem `--item` e sem política explícita de IA, o comando preserva o comportamento normal de reprocessamento da CLI. Mesmo com `--no-use-ai`, a recuperação de uma fonte live pode executar coleta externa e consumir quota. Confirme a janela de validade, o estado e a política antes de alterar uma AUD. Consulte [reprocessamento](AUDIT_REPROCESSING.md).
 
 Relatório consolidado:
 
@@ -447,7 +447,7 @@ Opções:
 --ai-timeout-seconds SECONDS
 ```
 
-A CLI de consolidação é um adapter fino sobre os mesmos contratos de seleção e geração usados pelo console. Ela não implementa um segundo motor de CONS.
+A CLI de consolidação usa os mesmos contratos de seleção e geração do console. A saída longitudinal vigente é `CONS-5`, conforme [relatório consolidado](CONSOLIDATED_REPORTING.md). A opção `--specialist-ai` pode autorizar novas chamadas remuneradas de interpretação dos dados persistidos; omiti-la ou usar `--no-specialist-ai` mantém a geração determinística. A comparação de URLs distintas no mesmo domínio é uma superfície independente (`SAME_DOMAIN_COMPARATIVE`), não uma flexibilização do consolidado longitudinal.
 
 A geração, cópia e agendamento multiplataforma dos comandos está documentada em [EXECUTION_SCHEDULING.md](EXECUTION_SCHEDULING.md).
 
@@ -491,7 +491,7 @@ Variações: para 100 amostras de experiência, use `--apdex-experience-samples 
 
 ### 4. Pesquisa SERP
 
-Prévia de uma consulta avulsa (sem chamar o fornecedor):
+Prévia de uma consulta avulsa (sem chamar o fornecedor). A prévia valida parâmetros e limites do ambiente efetivo, não autenticação, disponibilidade ou faturamento. Em execução live avulsa, a credencial precisa estar disponível no processo; não presuma a ativação explícita de secrets persistidos no Windows que existe nos entrypoints de auditoria/reprocessamento/consolidação:
 
 ```cmd
 .venv\Scripts\python.exe -m rasai search "auditoria de sites" --domain example.com --mode live --provider serpapi --country BR --language pt-BR --device mobile --depth 10 --dry-run
@@ -506,11 +506,12 @@ set "RASAI_SERP_PROVIDER=serpapi"
 set "RASAI_SERP_MAX_QUERIES=2"
 set "RASAI_SERP_MAX_REQUESTS=10"
 set "RASAI_SERP_MAX_DEPTH=10"
+set "RASAI_SERP_RETRIES=1"
 .venv\Scripts\python.exe -m rasai audit https://example.com --max-pages 1 --device-context mobile --ai-provider none --search-query "auditoria de sites" --search-query "qualidade de páginas web" --search-region Brasil --search-device mobile --search-depth 10 --search-competitive --no-search-compare-content --no-search-ai-competitive
 endlocal
 ```
 
-Use esse bloco em um arquivo `.cmd`; `setlocal` e `endlocal` limitam as alterações de ambiente ao script. Para mudar os termos, repita `--search-query` e respeite os tetos de consultas, requisições e profundidade. Comparação de conteúdo e interpretação por IA são opções adicionais: podem baixar páginas concorrentes ou gerar consumo de IA; não são necessárias para observar a SERP.
+Use esse bloco em um arquivo `.cmd`; `setlocal` e `endlocal` limitam as alterações de ambiente ao script. Com 2 termos, profundidade 10 e 1 retry, o teto conservador de tentativas é 4 para SerpApi Google. Para mudar os termos, repita `--search-query` e respeite os tetos de consultas, requisições e profundidade. Comparação de conteúdo e interpretação por IA são opções adicionais: podem baixar páginas concorrentes ou gerar consumo de IA; não são necessárias para observar a SERP.
 
 ### 5. IA explícita ou seleção automática
 
@@ -550,7 +551,8 @@ $env:RASAI_SERP_MODE = 'live'
 $env:RASAI_SERP_PROVIDER = 'serpapi'
 $env:RASAI_SERP_MAX_QUERIES = '3'
 $env:RASAI_SERP_MAX_REQUESTS = '10'
-$env:RASAI_SERP_MAX_DEPTH = '20'
+$env:RASAI_SERP_MAX_DEPTH = '10'
+$env:RASAI_SERP_RETRIES = '1'
 $env:RASAI_IMPROVEMENT_INTELLIGENCE = 'true'
 $env:RASAI_PASSIVE_SECURITY = 'true'
 
@@ -578,12 +580,14 @@ $Argumentos = @(
     '--search-query', 'auditoria de sites',
     '--search-query', 'qualidade de páginas web',
     '--search-query', 'prontidão para inteligência artificial',
-    '--search-depth', '20', '--search-device', 'mobile',
+    '--search-depth', '10', '--search-device', 'mobile',
     '--search-competitive', '--no-search-compare-content', '--no-search-ai-competitive'
 )
 & $Python -m rasai @Argumentos
 if ($LASTEXITCODE -ne 0) { throw "Falha na execução. Consulte os logs da auditoria." }
 ```
+
+Neste exemplo SerpApi Google, 3 termos × 1 página de até 10 posições × (1 tentativa inicial + 1 retry) resultam em teto projetado de 6 tentativas HTTP, dentro do limite explícito de 10. Se aumentar a profundidade para 20 sem ajustar a quantidade de termos ou retries, o teto passa a 12 e excede o limite; o runtime pode recusar a pesquisa. O teto é de tentativas HTTP, não de créditos faturáveis. Use a prévia `rasai search --dry-run` com os mesmos termos, provider, profundidade e limites antes da auditoria.
 
 **Credenciais e autorização:** PageSpeed usa `RASAI_PAGESPEED_API_KEY`, CrUX atual/histórico usa `RASAI_CRUX_API_KEY`, SerpApi usa `RASAI_SERPAPI_API_KEY`, GSC usa OAuth e propriedade autorizada, Clarity usa `RASAI_CLARITY_API_TOKEN` e o projeto correspondente. Common Crawl não exige chave. IA usa as credenciais dos fornecedores elegíveis. Não copie chaves para esse script. As linhas comentadas de GSC/Clarity não desligam configurações previamente herdadas: confira o ambiente ou defina explicitamente `false` se não quiser esses serviços.
 
@@ -596,7 +600,9 @@ PowerShell 5.1/7, substitua os identificadores de exemplo pelos reais. Os comand
 ```powershell
 $Python = ".\.venv\Scripts\python.exe"
 & $Python -m rasai ai-reanalysis ".\audits\AUD-EXEMPLO"
+if ($LASTEXITCODE -ne 0) { throw "AUD não elegível para inspeção" }
 & $Python -m rasai ai-reanalysis ".\audits\AUD-EXEMPLO" --write-local-replay
+if ($LASTEXITCODE -ne 0) { throw "Falha na reanálise consultiva local" }
 ```
 
 O primeiro inspeciona o plano local; o segundo materializa a reanálise consultiva local sem novas chamadas comerciais. A autorização de uma nova inferência paga é separada. Veja [reanálise consultiva](GEO_AI_MULTIQUERY_AND_REANALYSIS.md).
