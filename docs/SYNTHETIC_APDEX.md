@@ -1,8 +1,8 @@
-# Synthetic Navigation Apdex
+# Apdex sintético de navegação
 
 Guia operacional do Synthetic Navigation Apdex do RASAi.
 
-> O **runtime/CLI bruto** permanece opt-in: sem `--synthetic-apdex` nem variável equivalente, o módulo não inventa uma medição. O **console interativo local**, porém, aplica a baseline versionada do produto em `rasai-defaults.ini`: Synthetic Navigation Apdex habilitado, `T=3 s` e carga inicial reduzida. Essa baseline não altera `SARI-001`, findings GEO, Coverage ou Confidence. O índice mede uma Task sintética de navegação e não deve ser confundido com RUM/APM de usuários reais.
+> O **runtime/CLI bruto** permanece opt-in: sem `--synthetic-apdex` nem variável equivalente, o módulo não inventa uma medição. O **console interativo local**, porém, aplica a baseline versionada do produto em `rasai-defaults.ini`: Synthetic Navigation Apdex habilitado, `T=3 s`, meta de 150 amostras válidas por URL e dispositivo e teto de 188 tentativas. Essa baseline não altera `SARI-001`, findings GEO, Coverage ou Confidence. O índice mede uma Task sintética de navegação e não deve ser confundido com RUM/APM de usuários reais.
 
 Consulte também [SYSTEM_DEFAULTS.md](SYSTEM_DEFAULTS.md).
 
@@ -16,7 +16,7 @@ Tolerating > T e <= 4T
 Frustrated > 4T
 ```
 
-Não existe `T` universal do padrão Apdex. No CLI bruto, `T` continua obrigatório quando o módulo é habilitado. No console, a baseline RASAi usa `T=3 s` **como derivação operacional RASAi** da fronteira Satisfied de 3 s do Load Action Dynatrace; isso não transforma o Synthetic Navigation Apdex em RUM nem faz de `T` um default Dynatrace do padrão Apdex. Quando a organização possui SLO/KPM real, esse valor deve prevalecer.
+A especificação Apdex v1.1 recomenda 4 segundos como valor inicial, mas permite ajuste ao contexto; não existe limite universal de satisfação aplicável a toda aplicação. No CLI bruto, `T` continua obrigatório quando o módulo é habilitado. No console, a baseline RASAi usa `T=3 s` **como derivação operacional RASAi** da fronteira Satisfied de 3 s do Load Action Dynatrace; isso não transforma o Synthetic Navigation Apdex em RUM nem faz de `T` um default Dynatrace do padrão Apdex. Quando a organização possui SLO/KPM real, esse valor deve prevalecer.
 
 ## Task medida
 
@@ -33,9 +33,9 @@ Timeout ou erro de navegação/aplicação conta como `FRUSTRATED` quando o prof
 
 ## Grupos
 
-O alvo normal/recomendado é `100` amostras válidas por URL/device. Grupos entre 1 e 99 amostras válidas são diagnósticos de grupo pequeno e recebem marcador específico. O objetivo é impedir que uma coleta curta pareça uma baseline final.
+A especificação Apdex v1.1 (seções 3.4 e 5.2) define 100 amostras como mínimo para apresentação normal do índice. A meta padrão do RASAi é 150 amostras válidas por URL e dispositivo, não uma exigência da especificação. Grupos entre 1 e 99 amostras válidas são diagnósticos de grupo pequeno e recebem marcador específico. O objetivo é impedir que uma coleta curta pareça uma baseline final.
 
-A baseline do console usa **1 amostra válida por URL/device** para manter o recurso habilitado com a menor carga operacional possível. Esse resultado é deliberadamente `small-group`/diagnóstico. Para análise mais representativa, aumente para `100` ou mais amostras válidas conforme a capacidade e autorização do alvo.
+O console usa por padrão **150 amostras válidas por URL e dispositivo**, com até 188 tentativas e uma página. Para diagnóstico de baixa carga, configure explicitamente um grupo menor, por exemplo 1 a 5 amostras. Um grupo pequeno não equivale a uma avaliação normal nem comprova representatividade de usuários reais.
 
 Quando o alvo configurado é menor que 100 e é integralmente atingido sem amostras inválidas, o run permanece `PARTIAL` por `SMALL_GROUP_BELOW_NORMAL_MINIMUM`. Esse estado é diferente de coleta incompleta ou amostra inválida.
 
@@ -59,9 +59,6 @@ CLI:
 --apdex-desktop-client-profile
 --apdex-desktop-hardware-profile
 --apdex-desktop-network-profile
---apdex-tablet-client-profile
---apdex-tablet-hardware-profile
---apdex-tablet-network-profile
 ```
 
 Variáveis:
@@ -82,31 +79,28 @@ RASAI_APDEX_MOBILE_NETWORK_PROFILE
 RASAI_APDEX_DESKTOP_CLIENT_PROFILE
 RASAI_APDEX_DESKTOP_HARDWARE_PROFILE
 RASAI_APDEX_DESKTOP_NETWORK_PROFILE
-RASAI_APDEX_TABLET_CLIENT_PROFILE
-RASAI_APDEX_TABLET_HARDWARE_PROFILE
-RASAI_APDEX_TABLET_NETWORK_PROFILE
 ```
 
 | Parâmetro | Fallback CLI/runtime | Baseline do console | Recomendado |
 |---|---|---|---|
 | habilitação | `false` | `true` | manter habilitado quando houver autorização para a carga sintética |
 | `T` | sem default; obrigatório se habilitado | `3 s` | usar SLO/KPM real quando conhecido; `3 s` é baseline RASAi Dynatrace-compatible |
-| amostras válidas | `100` | `1` | `>=100` para grupo normal/mais representativo |
-| máximo de tentativas | `ceil(1.25 × alvo)` | `2` com alvo 1 | manter derivado/compatível com o alvo |
+| amostras válidas | `150` | `150` | `>=100` para grupo normal; respeitar autorização de carga |
+| máximo de tentativas | `ceil(1.25 × alvo)` | `188` com alvo 150 | manter derivado/compatível com o alvo |
 | máximo de páginas | `1` | `1` | `1` como baseline seguro; ampliar deliberadamente |
 | timeout por navegação | `max(45 s, 4T + 5 s)` | `45 s` para `T=3 s` | default derivado |
 | delay | `1 s` | `1 s` | `1 s` ou maior conforme sensibilidade do alvo |
 | concorrência | `1` | `1` | `1`; faixa permitida `1..4`, com `3..4` exigindo delay >= `1 s` |
 
-Os presets de cliente, hardware e rede são definidos no catálogo [`SYNTHETIC_RUNTIME_PROFILES.md`](SYNTHETIC_RUNTIME_PROFILES.md). A precedência operacional do console é **CLI/ação explícita > variável de ambiente/SO > `rasai-console.ini` > `rasai-defaults.ini` > fallback interno**. Mobile e Desktop alimentam diretamente o Synthetic Navigation Apdex; os presets Tablet são compartilhados com a população do Synthetic User Experience Apdex.
+Os presets de cliente, hardware e rede são definidos no catálogo [`SYNTHETIC_RUNTIME_PROFILES.md`](SYNTHETIC_RUNTIME_PROFILES.md). A precedência operacional do console é **CLI/ação explícita > variável de ambiente/SO > `rasai-console.ini` > `rasai-defaults.ini` > fallback interno**. Os perfis Mobile e Desktop são as opções públicas; Tablet permanece somente para compatibilidade com evidência histórica.
 
-Os perfis alteram somente a condição de laboratório. Não alteram a fórmula Apdex, o threshold `T` escolhido pelo usuário nem `SARI-001`/`SCORE-GEO-004`. CPU significa slowdown relativo aplicado pelo Chrome DevTools Protocol; RAM, GPU, estado térmico e scheduler físicos não são emulados.
+Os perfis alteram somente a condição de laboratório. Não alteram a fórmula Apdex, o threshold `T` escolhido pelo usuário nem o índice de prontidão e seu método de pontuação. CPU significa slowdown relativo aplicado pelo Chrome DevTools Protocol; RAM, GPU, estado térmico e scheduler físicos não são emulados.
 
 ## Console interativo
 
 O console expõe Synthetic Apdex junto das demais configurações de auditoria, explica a finalidade de cada valor, lista os presets permitidos e mostra a carga máxima projetada em quantidade de navegações iniciadas.
 
-A tela informa explicitamente que o valor padrão de baixa carga (`1`) é diagnóstico e que `>=100` amostras válidas por URL/device é a referência normal/recomendada para obter resultado mais representativo.
+Grupos menores que 100 amostras válidas são diagnósticos; o padrão distribuído é 150. O operador deve avaliar a carga antes de confirmar.
 
 O timeout de Apdex é independente do timeout de IA e do timeout PageSpeed/Lighthouse.
 
@@ -114,7 +108,7 @@ O timeout de Apdex é independente do timeout de IA e do timeout PageSpeed/Light
 
 Synthetic Apdex não possui API paga própria e não chama LLM/PageSpeed/CrUX, mas gera CPU/tempo local, Chromium, tráfego HTTP real contra o alvo e múltiplos requests de subrecursos por navegação.
 
-Não interprete `100 amostras` como `100 requests HTTP`. A baseline automática usa 1 amostra por contexto para conter carga. Em smoke manual controlado, 3-5 amostras podem fornecer mais observações sem pretensão de grupo final. Não execute volume relevante contra produção sem autorização.
+Não interprete `100 amostras` como `100 requests HTTP`. O padrão distribuído usa 150 amostras válidas por contexto; reduza a meta explicitamente se a finalidade for apenas diagnóstico. Em smoke manual controlado, 3-5 amostras podem fornecer mais observações sem pretensão de grupo final. Não execute volume relevante contra produção sem autorização.
 
 A concorrência do Navigation é limitada a `1..4`: `1` é o valor recomendado; `2` representa carga baixa a moderada; `3` é moderado; `4` é avançado/alto. Para `3..4`, o runtime exige `RASAI_APDEX_DELAY_SECONDS >= 1`. O scheduler reduz trabalhos em voo quando o grupo se aproxima do target para não iniciar navegações físicas excedentes que ficariam fora da amostra persistida. Valores altos podem aumentar contenção de CPU/RAM local, pressionar o alvo, acionar rate limit/WAF/antibot e alterar a representatividade da própria medição.
 
