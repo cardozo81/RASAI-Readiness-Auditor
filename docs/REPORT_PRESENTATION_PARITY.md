@@ -1,5 +1,9 @@
 # Issue #710 - matriz de paridade informacional e arquitetura editorial
 
+> **Contexto histórico de engenharia.** Matriz inicial e complementos de paridade da #710, encerrada em 16/11/2026. Os estados de implementação e homologação abaixo pertencem aos recortes registrados, não constituem diagnóstico atual da versão 1.0.0. Para uso atual, consulte o [guia de leitura](REPORT_GUIDE.md), o [contrato de apresentação](REPORT_PRESENTATION_CONTRACT.md) e a [rematerialização](REPORT_REMATERIALIZATION.md). O [registro da versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/REPORT_PRESENTATION_PARITY.md) permanece acessível.
+
+**Leitura vigente na 1.0.0:** catálogo técnico (`report-catalog/`, 21 páginas) para investigação; apresentação executiva (`report-presentation/`, 11 páginas) para decisão, incluindo `report-presentation/rede.html` para conectividade e `report-presentation/performance.html` para desempenho e experiência. A matriz vigente de caminhos e finalidades está no [guia de leitura](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios). Os estados históricos abaixo não comprovam cobertura atual de campos nem dependência entre os pacotes.
+
 Baseline de análise: `e26d87c038c551e923d30468d9eae5bb6c145fa7` (`main`, merge da PR #709).
 
 Esta matriz antecede a implementação da #710. Ela descreve **paridade de fatos materiais e propósito**, não equivalência visual, HTML-a-HTML ou página-a-página. `audit.db + artifacts` continuam sendo a fonte de verdade material; `report-catalog/` é a projeção canônica auditável; `report-presentation/` permanece uma projeção executiva derivada e read-only.
@@ -14,9 +18,9 @@ Esta matriz antecede a implementação da #710. Ela descreve **paridade de fatos
 - detalhe técnico pode permanecer no catálogo/anexo quando a decisão humana recebe síntese suficiente e link explícito;
 - família persistida desconhecida não pode ser classificada como “IA, custos e proveniência” por fallback.
 
-## Diagnóstico da arquitetura atual
+## Diagnóstico histórico da arquitetura anterior à #710
 
-A apresentação possui dez páginas: Painel, Extração, Descoberta e padrões, Índices, Conteúdo e acessibilidade, Performance e experiência, Search e GEO, Segurança passiva, Plano de ação e IA/custos/proveniência.
+Na baseline histórica desta matriz, a apresentação possuía dez páginas: Painel, Extração, Descoberta e padrões, Índices, Conteúdo e acessibilidade, Performance e experiência, Search e GEO, Segurança passiva, Plano de ação e IA/custos/proveniência.
 
 Foram identificados três problemas arquiteturais objetivos:
 

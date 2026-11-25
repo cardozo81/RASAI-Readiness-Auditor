@@ -1,6 +1,6 @@
 # Continuidade de UX entre configuração e relatórios
 
-**Estado:** contrato de arquitetura de informação para o software ainda não publicado.
+**Escopo:** referência de arquitetura de informação, não guia de uso. A versão 1.0.0 está publicada; para operação, consulte [console interativo](INTERACTIVE_CONSOLE.md), [configuração](CONFIGURATION.md) e [guia de relatórios](REPORT_GUIDE.md).
 
 ## Princípio
 

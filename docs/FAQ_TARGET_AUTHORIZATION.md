@@ -1,4 +1,4 @@
-# Protocolo de descoberta e autorizacao FAQ por URL
+# Protocolo de descoberta e autorização de FAQ por URL
 
 **Issue:** #652. **Decisao do operador:** preparar a campanha, SEM
 autorizar ou executar cliques, chamadas externas, custos ou merge.
@@ -34,7 +34,7 @@ Nao relaxar esse limite implicitamente quando o ID real for opaco:
 uma eventual extensao de estruturas requer implementacao e
 regressoes separadas, sem autorizacao automatica de interagir.
 
-## 2. Plano por alvo a ser submetido ao responsavel
+## 2. Plano por alvo a ser submetido ao responsável
 
 Para **cada** URL, registrar e aprovar explicitamente, em entrada isolada:
 
@@ -54,7 +54,7 @@ Para **cada** URL, registrar e aprovar explicitamente, em entrada isolada:
 **Sem URL, candidato escolhido, isolamento fisico ou orcamento aprovados
 separadamente: nao configurar flags opt-in e nao executar campanha.**
 
-## 3. Execucao futura (nao autorizada nesta fase)
+## 3. Execução futura (não autorizada nesta fase)
 
 Na captura autorizada, comparar DOM vivo e hash pre-clique com a
 mesma pagina/snapshot da AUD, refazer elegibilidade do botao **no

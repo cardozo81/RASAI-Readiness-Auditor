@@ -30,7 +30,7 @@ A etapa de captura em navegador executa uma navegação Chromium normal para cad
 - interação limitada de lazy loading quando exigida pela regra de conteúdo lazy;
 - extração determinística e evidência semântica posteriores.
 
-As Open Web Metrics são coletadas antes da interação diagnóstica de lazy loading, no mesmo documento já carregado, e registram `additional_navigation_requests=0` e `additional_external_api_calls=0`. Ficam habilitadas por padrão porque não usam provider pago, quota externa ou nova aquisição física. Permanecem consultivas e não alteram `SARI-001` nem `SCORE-GEO-004`.
+As Open Web Metrics são coletadas antes da interação diagnóstica de lazy loading, no mesmo documento já carregado, e registram `additional_navigation_requests=0` e `additional_external_api_calls=0`. Ficam habilitadas por padrão porque não usam provider pago, quota externa ou nova aquisição física. Permanecem consultivas e não alteram o Índice de Prontidão Search & IA (`SARI-001`) nem o método vigente `SCORE-GEO-005`; `SCORE-GEO-004` permanece no histórico.
 
 A interação de lazy loading só ocorre quando o DOM inicial apresenta sinais lazy e o conteúdo essencial ainda não pode ser recuperado. A interação percorre a página já aberta no navegador e **não** navega novamente para a URL. A evidência primária de DOM/captura de tela é congelada antes da interação diagnóstica.
 
@@ -128,7 +128,7 @@ Redução de tokens só é permitida quando não remove informação semântica 
 - remove caminhos locais `artifact_reference`, pois um provider remoto não pode resolvê-los;
 - remove título/excerto duplicados da entrada semântica quando título e conteúdo principal completo já estão no nível superior;
 - orienta providers a não repetir evidências, texto de regras ou schema em campos de reasoning;
-- gera relatórios sem chamadas adicionais de IA.
+- materializa os relatórios individuais sem chamadas adicionais de IA: `report-catalog/` para investigação técnica (por exemplo, `capture-context.html` e `execution-evidence.html`) e `report-presentation/` para interpretação executiva (por exemplo, `extracao.html` e `ia-custos.html`). São projeções independentes de evidências persistidas, não novas coletas. Veja o [guia de relatórios](REPORT_GUIDE.md).
 
 Truncamento cego de conteúdo não é otimização padrão porque pode alterar avaliações de semântica, answerability, entidades ou claims factuais. Qualquer orçamento futuro de tokens deve preservar garantias determinísticas de cobertura e expor truncamento como limitação explícita.
 

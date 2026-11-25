@@ -1,6 +1,6 @@
 # Agrupamento de configuração: CAT-05 Search & AI Intelligence
 
-**Estado:** contrato vigente de desenvolvimento/pré-produção.
+**Estado:** contrato do console na versão 1.0.0.
 
 ## Objetivo
 

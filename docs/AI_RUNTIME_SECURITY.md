@@ -12,7 +12,7 @@ Como o request pode carregar texto ou evidência da página auditada, o banco `A
 
 O recorder não deve persistir headers de autenticação. Campos identificados como API key, authorization, password, access/refresh token, client secret ou bearer são redigidos. Query parameters reconhecidos como segredo também são redigidos.
 
-Campos reconhecidos como raciocínio privado/interno do provider não são persistidos.
+Campos reconhecidos como raciocínio privado ou interno do fornecedor são substituídos por marcador pelo registrador. Essa proteção não implica ausência de todo conteúdo opaco em bancos existentes. A cópia probatória SQLite deve continuar restrita. A sanitização local não altera o conteúdo já enviado ao fornecedor. Consulte a [declaração de dados tratados](SECRET_AND_CONFIGURATION_SAFETY.md#quais-dados-são-tratados-e-onde-ficam).
 
 ## Interpretação editorial transitória
 

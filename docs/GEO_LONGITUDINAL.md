@@ -7,6 +7,8 @@ não executa RPR, não modifica pontuação nem cria relatório
 consolidado novo. Não pressupõe que presença em Search API
 corresponda a citação em respostas generativas.
 
+**Situação na versão 1.0.0:** Na versão 1.0.0, o Relatório Consolidado Longitudinal vigente utiliza `CONS-5`. Os comandos `geo-cons-review` e `geo-cons-package` aceitam somente manifestos `CONS-3`; não são compatíveis com `CONS-5`. Preserve o contrato original e use `rasai geo-longitudinal` com AUDs explicitamente selecionadas para a consulta independente. A integração nativa e a tendência calibrada foram retiradas do backlog ativo em 25/11/2026 ([decisão da issue #311](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/311)); não constituem entrega prevista nem garantia metodológica.
+
 ## Execução
 
 Em um ambiente RASAi instalado:
@@ -39,7 +41,7 @@ explicitamente 2 a 100 pastas de AUD; nenhuma varredura automática.
   região/idioma/dispositivo e modo externo iguais. Grupos que
   divergirem permanecem separados.
 - Uma sequência com >=2 observações apresenta somente status/contagens
-  e timestamps persistidos, ordenados fisicamente. `trend_rate=N/D`
+  e timestamps persistidos, ordenados fisicamente. `trend_rate=null` (JSON)
   e `trend_conclusion=N/D` em todos os grupos: amostras, intent e
   filtros reais da plataforma Perplexity não são comprovadamente
   equivalentes entre datas.

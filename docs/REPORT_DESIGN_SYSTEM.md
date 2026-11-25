@@ -1,8 +1,12 @@
 # #633 - Redesenho unificado: baseline e contrato da primeira etapa
 
+> **Contexto histórico de engenharia.** Referência técnica de design com registros incrementais de implementação. Estados de branches, candidatas e aceites datados devem ser lidos como históricos; para regras transversais vigentes, consulte o contrato de apresentação. Para uso atual, consulte o [guia de leitura](REPORT_GUIDE.md), o [contrato de apresentação](REPORT_PRESENTATION_CONTRACT.md) e a [rematerialização](REPORT_REMATERIALIZATION.md). O [registro da versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/REPORT_DESIGN_SYSTEM.md) permanece acessível.
+
 **Estado atual:** código aprovado expressamente pelo operador em 15/10/2026 após rematerialização isolada e revisão das correções de Lighthouse, UX e superfícies. Gate técnico direcionado verde. Integração de PR #637 em `main` autorizada, condicionada a checagens CI e rastreabilidade do merge; o aceite não é certificação geral de conformidade ou prova comparativa de baseline ausente. Informações de andamento abaixo registram os checkpoints históricos.
 
 ## Escopo imutável
+
+Este documento descreve o sistema visual do catálogo técnico `report-catalog/`. As contagens de 19 páginas nos testes e nas iterações abaixo identificam o recorte histórico. Para a navegação vigente e a apresentação executiva independente, consulte o [guia de leitura](REPORT_GUIDE.md).
 
 Fonte de verdade: `CATALOG_REPORT_PAGES` / `CATALOG_REPORT_FILENAMES` em `catalog_report_contract.py`. O contrato atual possui **21 páginas**: `index.html`, `sari.html`, `cat-01.html` a `cat-10.html`, `network.html`, `geo.html`, `geo-content-review.html`, `directed-analysis.html`, `capture-context.html`, `execution-evidence.html`, `ai-integrations.html`, `methodology.html` e `metrics.html`. A nova página da #690 é projeção consultiva sem score ou motor próprio.
 

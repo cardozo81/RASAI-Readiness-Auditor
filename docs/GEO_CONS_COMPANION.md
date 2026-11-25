@@ -1,5 +1,7 @@
 # #311 - Companheiro GEO read-only no escopo de CONS-3
 
+**Limite de uso vigente:** Na versão 1.0.0, o Relatório Consolidado Longitudinal vigente utiliza `CONS-5`. Os comandos `geo-cons-review` e `geo-cons-package` aceitam somente manifestos `CONS-3`; não são compatíveis com `CONS-5`. Preserve o contrato original e use `rasai geo-longitudinal` com AUDs explicitamente selecionadas para a consulta independente. A integração nativa e a tendência calibrada foram retiradas do backlog ativo em 25/11/2026 ([decisão da issue #311](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/311)); não constituem entrega prevista nem garantia metodológica.
+
 ## Contrato implementado
 
 `rasai.geo_cons_companion.build_cons_geo_advisory` recebe o diretório

@@ -216,7 +216,9 @@ Uma deterministic hook não pode chamar provider de IA. Observação remota pert
 
 ## Report projection read-only
 
-A fase de relatório possui dois mecanismos complementares:
+A proteção a seguir descreve a projeção do catálogo técnico em `report-catalog/`. A apresentação executiva `report-presentation/` verifica as evidências e publica seu próprio manifesto. Consulte os [contratos dos pacotes](REPORT_GUIDE.md).
+
+A fase de geração do catálogo possui dois mecanismos complementares:
 
 1. funções historicamente usadas por wrappers são protegidas enquanto o contexto de report projection está ativo;
 2. o finalizer calcula um fingerprint lógico de `audit.db` antes e depois da materialização. Se houver mudança, a execução falha com `REPORT_RENDERER_MUTATED_AUDIT_DB`.

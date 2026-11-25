@@ -18,7 +18,9 @@ pressupõe que essas medições foram executadas ou tiveram resultado ruim.
 
 Exemplo motivador: Overall 86,484962; coverage=0,974737; confidence=HIGH
 coexiste com CONTENT_VALUE coverage=0,7/LOW/PARTIAL. Percentuais e fração
-canônica permanecem distintos, sem recalcular SCORE-GEO-004.
+canônica permanecem distintos, sem recalcular a nota original. Este é um exemplo histórico; o método vigente de novas AUDs é `SCORE-GEO-005`, com `SCORE-GEO-004` preservado para replay.
+
+O detalhamento técnico do índice e de seus limites está em `report-catalog/sari.html` e `methodology.html`; a síntese executiva está em `report-presentation/indices.html` e `index.html`. Não se presume réplica do aviso nem de cada campo. Consulte [guia de relatórios](REPORT_GUIDE.md).
 
 ## Limites de aceite
 
@@ -26,8 +28,7 @@ canônica permanecem distintos, sem recalcular SCORE-GEO-004.
   CrUX, SERP, Apdex nem efeitos reais em buscas/IA.
 - O aviso não altera notas, gates, coortes, AUD, coletores ou resultados.
 - Testes são offline; sem browser, rede, APIs pagas ou reprocessamento.
-- A #600 segue sujeita aos requisitos integrais de #601/#602 e aceite
-  visual previsto no seu escopo.
+- As issues [#600](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/600), [#601](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/601) e [#602](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/602) foram encerradas como concluídas. O encerramento não prova convergência entre métricas externas nem certifica toda AUD futura.
 
 ## Origem da população nos resumos web (#600)
 

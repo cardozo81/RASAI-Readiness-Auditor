@@ -1,4 +1,4 @@
-# Troubleshooting
+# Solução de problemas
 
 ## `rasai` não é reconhecido
 
@@ -9,6 +9,18 @@ Ative a `.venv` e reinstale o projeto em modo editável:
 python -m pip install -e .
 rasai --version
 ```
+
+## Versão do código diferente dos metadados instalados
+
+Após atualizar uma instalação editável, confira o runtime e os metadados usando o mesmo Python da `.venv`, sem iniciar auditoria:
+
+```powershell
+& .\.venv\Scripts\python.exe -c "import rasai, importlib.metadata as m; print(rasai.__file__, rasai.__version__, m.version('rasai-readiness-auditor'))"
+& .\.venv\Scripts\python.exe -m pip check
+& .\.venv\Scripts\rasai.exe --version
+```
+
+Se as versões divergirem, não considere apenas a versão da CLI como prova de instalação consistente. Examine metadados duplicados do pacote em `src/` e na `.venv/Lib/site-packages/`, confira o caminho importado e a versão pretendida. Preserve cópia externa dos metadados obsoletos antes de removê-los, somente após confirmar a identidade do pacote e que não são arquivos rastreados. Não apague diretórios inteiros de dependências ou auditorias. Se for necessária reinstalação editável sem isolamento de build, `setuptools>=68` deve estar previamente instalado; não atualize outras dependências sem motivo. Revalide as três superfícies acima após a recuperação.
 
 ## Chromium/Playwright
 
@@ -22,21 +34,14 @@ Se `RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE` estiver configurado, o caminho precisa
 
 Use o console em **4. IA** ou **E. Variáveis de ambiente / credenciais**. O status deve distinguir `DESABILITADA`, `CONFIGURAR`, `APTO` e `INDISPONÍVEL`; ausência de credencial não é finding do website.
 
-Para verificar presença sem exibir o segredo:
+Para verificar as integrações configuradas sem exibir valores de credenciais:
 
 ```powershell
-Test-Path Env:OPENAI_API_KEY
-Test-Path Env:DEEPSEEK_API_KEY
-Test-Path Env:MIMO_API_KEY
-Test-Path Env:XAI_API_KEY
-Test-Path Env:DASHSCOPE_API_KEY
-Test-Path Env:GEMINI_API_KEY
-Test-Path Env:ANTHROPIC_API_KEY
-Test-Path Env:MISTRAL_API_KEY
-Test-Path Env:COPILOT_GITHUB_TOKEN
+rasai providers --kind ai
+rasai providers --kind ai --configured-only
 ```
 
-A lista canônica, aliases, variável de credencial e URL oficial de cadastro/login ficam em [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md). Não mantenha uma lista paralela como fonte de verdade.
+Para verificar somente uma variável específica em PowerShell, use, por exemplo, `Test-Path Env:OPENAI_API_KEY`. A lista canônica, aliases, variáveis e URLs de obtenção estão em [configuração de provedores](PROVIDER_SETUP.md) e [credenciais externas](EXTERNAL_CREDENTIALS.md).
 
 Também verifique:
 
@@ -47,7 +52,7 @@ Também verifique:
 - esforço/reasoning aceito;
 - bloqueio/quarantine depois de erro operacional.
 
-MiMo exige chave PAYG `sk-...` no adapter atual. Chaves Token Plan `tp-...`/`ttp-...` são válidas no fornecedor, porém usam Base URL/modalidade próprias e não são suportadas pelo adapter PAYG do RASAi. O default vigente é `mimo-v2.6-flash`; `mimo-v2.5` e `mimo-v2.5-pro` deixam de ser efetivos em **21/10/2026 02:00 UTC**. Se uma configuração persistida ainda apontar para v2.5 depois desse instante, atualize `RASAI_MIMO_MODEL` ou restaure o catálogo/default vigente; o RASAi não deve substituir silenciosamente o modelo dentro de uma AUD. Migração: issue #183. Modalidades alternativas dos providers não devem ser tentadas por inferência da documentação externa; consulte a [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
+MiMo exige chave PAYG `sk-...` no adapter atual. Chaves Token Plan `tp-...`/`ttp-...` são válidas no fornecedor, porém usam Base URL/modalidade próprias e não são suportadas pelo adapter PAYG do RASAi. O default vigente é `mimo-v2.6-flash`; `mimo-v2.5` e `mimo-v2.5-pro` deixam de ser efetivos em **20/10/2026 23:00:00 (America/Sao_Paulo; 21/10/2026 02:00:00 UTC)**. Se uma configuração persistida ainda apontar para v2.5 depois desse instante, atualize `RASAI_MIMO_MODEL` ou restaure o catálogo/default vigente; o RASAi não deve substituir silenciosamente o modelo dentro de uma AUD. Migração: issue #183. Modalidades alternativas dos providers não devem ser tentadas por inferência da documentação externa; consulte a [issue #180](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/180).
 
 Mistral exige `MISTRAL_API_KEY` e acesso ao modelo `mistral-small-2603`; o adapter usa endpoint global Standard fixo e não possui endpoint override. Quando configurado/apto, pode participar de `AI=auto`.
 
@@ -92,6 +97,8 @@ Se aparecer `TIMEOUTERROR`, a chamada PageSpeed excedeu o timeout do cliente. O 
 
 PageSpeed executa Lighthouse remotamente. O RASAi não possui, nesse endpoint, um parâmetro separado para aumentar o timeout interno de carregamento da página dentro do Lighthouse.
 
+Na apresentação executiva, `report-presentation/performance.html` contextualiza medições de laboratório e campo, e `report-presentation/conteudo.html` apresenta evidências de acessibilidade disponíveis. Use as páginas técnicas acima para investigar a origem e o estado da coleta.
+
 ## Acessibilidade sem dados
 
 Acessibilidade automatizada reutiliza a categoria `accessibility` do artifact Lighthouse. Se PageSpeed falhou ou não produziu artifact/categoria, o resultado não pode ser materializado. Isso deve aparecer como limitação de coleta, não como score zero ou aprovação.
@@ -106,7 +113,7 @@ Acessibilidade automatizada reutiliza a categoria `accessibility` do artifact Li
 
 ## Synthetic Apdex `PARTIAL`
 
-Grupos com menos de 100 amostras válidas são deliberadamente small-group e recebem `*`. Um smoke de 3-5 amostras pode estar operacionalmente correto e ainda ser `PARTIAL` por não ser grupo final.
+Grupos com menos de 100 amostras válidas são diagnósticos de grupo pequeno. O padrão de navegação é 150 amostras e o de experiência é 100; ajuste explicitamente a meta se a finalidade for um diagnóstico de baixa carga. Um smoke de 3-5 amostras pode estar operacionalmente correto e ainda ser `PARTIAL` por não ser grupo final.
 
 ## INI não salva credenciais
 

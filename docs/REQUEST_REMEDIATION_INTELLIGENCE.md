@@ -76,7 +76,7 @@ Essas faixas descrevem **frequência**, não causalidade. O RASAi não declara q
 
 ## Impacto observado versus risco potencial
 
-O relatório separa fatos observados de risco potencial.
+O catálogo técnico separa fatos observados de risco potencial. Consulte `report-catalog/cat-07.html` para detalhe por amostra e `report-catalog/cat-09.html` para grupos de remediação. `report-presentation/performance.html` e `report-presentation/plano.html` apresentam as sínteses executivas correspondentes, conforme os registros disponíveis.
 
 Exemplos de impacto observado:
 

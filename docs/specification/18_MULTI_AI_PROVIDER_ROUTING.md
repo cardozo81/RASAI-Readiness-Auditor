@@ -1,7 +1,9 @@
 # Análise semântica por IA, roteamento e telemetria
 
 **Estado:** vigente  
-**Limite de scoring:** `SARI-001` / `SCORE-GEO-004`
+**Limite de scoring:** `SARI-001` / `SCORE-GEO-005`
+
+O método `SCORE-GEO-005` é vigente para novas AUDs; `SCORE-GEO-004` permanece para interpretação/replay histórico, sem reclassificação retroativa de evidência ou nota.
 
 IA é uma extensão de análise semântica. LLM não é engine de scoring, não substitui Business Rules e falha/ausência de provider não é defeito do website.
 
@@ -105,7 +107,7 @@ Falhas de rede, timeout, servidor, rate limit ou resposta vazia podem ser tratad
 
 ## 6. Consistência URL/dispositivo
 
-O escopo público de dispositivo é `mobile`, `desktop` ou `both`. Somente contextos materializados podem disparar chamada de IA.
+Novas auditorias aceitam somente `mobile` ou `desktop` em `--device-context`. Execute AUDs independentes para estudar os dois contextos. `both` pertence a contratos históricos, não é opção pública de nova AUD. Somente contextos efetivamente materializados podem sustentar análise e chamadas posteriores.
 
 Quando a política fixa provider por URL ou reutiliza preferência contextual, essa consistência deve seguir o runtime vigente. A comparação `BR-GEO-052` só existe quando ambos os dispositivos fazem parte do escopo.
 
@@ -168,6 +170,8 @@ Tokens ausentes permanecem `NULL`. Custo observado/estimado é telemetria operac
 
 ## 10. Relatório
 
+O detalhamento técnico de roteamento e tentativas fica em `report-catalog/ai-integrations.html`. A apresentação executiva `report-presentation/ia-custos.html` contextualiza uso, esforço, custo e proveniência conforme os registros disponíveis. Consulte o [guia dos relatórios](../REPORT_GUIDE.md) para o escopo de cada pacote.
+
 Página pública de telemetria:
 
 ```text
@@ -185,12 +189,12 @@ Invariantes:
 1. IA permanece opcional;
 2. `NONE` executa o auditor sem chamadas de LLM;
 3. ausência/falha de IA não equivale a baixa qualidade do website;
-4. LLM não calcula `SCORE-GEO-004`;
+4. LLM não calcula `SCORE-GEO-005`;
 5. somente evidência persistida pode sustentar resultado aceito;
 6. resultado válido não pode ser sobrescrito por tentativa posterior;
 7. contexto de dispositivo limita chamadas ao escopo solicitado;
 8. telemetria é separada de findings e score;
-9. outcomes externos não entram em `SARI-001`/`SCORE-GEO-004` sem contrato metodológico explícito e vigente;
+9. outcomes externos não entram em `SARI-001`/`SCORE-GEO-005` sem contrato metodológico explícito e vigente;
 10. o conjunto `AUTO` é derivado do registry vigente, não de uma lista fixa escrita nesta especificação;
 11. decisão de custo altera somente a ordem de tentativa entre providers ainda elegíveis.
 

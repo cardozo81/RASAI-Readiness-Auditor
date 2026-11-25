@@ -4,7 +4,7 @@
 
 Synthetic Population Apdex é uma camada opcional e aditiva de **CAT-07**. Ela mede o mesmo contrato de experiência sintética sob uma população **estratificada, ponderada e reproduzível** de condições de cliente, CPU, rede e sessão.
 
-Ela não substitui Synthetic Navigation Apdex / CAT-06, o Apdex Experience baseline do CAT-07, SCORE-GEO-004 ou RUM real. A versão inicial do runtime é `SYNTHETIC-POPULATION-001`.
+Ela não substitui Synthetic Navigation Apdex / CAT-06, o Apdex Experience baseline do CAT-07, o método de prontidão vigente `SCORE-GEO-005` (nem seus resultados históricos) ou RUM real. A versão inicial do runtime é `SYNTHETIC-POPULATION-001`.
 
 ## Ativação
 
@@ -101,10 +101,10 @@ FRUSTRATED -> 0.0
 
 ```text
 Apdex_h = (Satisfied_h + 0.5 × Tolerating_h) / N_h
-Apdex_population = Σ(weight_h × Apdex_h)
+Apdex_population = Σ(weight_h × Apdex_h) / Σ(weight_h observado)
 ```
 
-Quando algum estrato não possui amostra válida, o estado é `PARTIAL`, o percentual de peso observado é registrado e o indicador é normalizado somente pelo peso efetivamente observado. Cobertura parcial nunca é apresentada como 100% da população.
+O somatório inclui somente estratos com amostras válidas. O estado é completo quando todos alcançam as respectivas metas; parcial quando há amostras válidas, mas ao menos uma meta não foi alcançada; indisponível quando não há amostras válidas. O percentual de peso observado é registrado. Se nenhum estrato tiver amostra válida, não há indicador numérico. Exemplo: estrato A com peso 60% e Apdex 0,90; estrato B com peso 40% sem amostras válidas. O resultado observado é 0,90, com somente 60% de peso observado, e não 0,54 nem uma conclusão sobre toda a população.
 
 Também são persistidos S/T/F, shares ponderadas, mediana, P75/P90/P95 e um IC95 amostral aproximado do Apdex.
 
@@ -112,7 +112,7 @@ Também são persistidos S/T/F, shares ponderadas, mediana, P75/P90/P95 e um IC9
 
 O IC95 mede **incerteza amostral condicionada aos estratos e pesos fixados**. Ele não mede erro do dataset de pesos, viés de seleção, usuários não representados, variação geográfica não modelada nem a diferença entre laboratório e tráfego real.
 
-O relatório mantém separados o percentual de peso observado, a provenance dos pesos e a incerteza amostral.
+O cálculo usa a variância amostral dos valores 1, 0,5 e 0 de cada estrato com mais de uma amostra válida. Os pesos são normalizados pelo peso observado; a variância agregada soma peso normalizado ao quadrado vezes variância do estrato dividida pelo número de amostras. O intervalo é o Apdex ponderado mais ou menos 1,96 erro-padrão, limitado a [0, 1]. Estratos com uma única amostra não acrescentam variância estimada nessa implementação: um intervalo muito estreito ou nulo pode ser artefato de amostragem insuficiente, não prova de precisão ou representatividade. Leia-o com metas atingidas, contagens por estrato e peso observado. O relatório mantém separados o percentual de peso observado, a provenance dos pesos e a incerteza amostral.
 
 ## Persistência e RPR
 
@@ -135,7 +135,7 @@ O RPR reconstrói o perfil a partir da configuração congelada da AUD. Se a pop
 
 `report-catalog/cat-07.html` mantém baseline e população em blocos separados e mostra Apdex ponderado, peso observado, IC95 amostral, percentis, estratos, pesos, presets, origem dos pesos e versões metodológicas.
 
-A apresentação declara que Synthetic Population Apdex **não é RUM** e que a V1 não modela geografia de rede.
+Na apresentação executiva, consulte `report-presentation/performance.html` para contextualizar a experiência sintética com as demais fontes; o detalhe da população e sua proveniência deve ser investigado na página técnica acima, sem presumir projeção de cada campo. A apresentação técnica declara que Synthetic Population Apdex **não é RUM** e que a V1 não modela geografia de rede.
 
 ## Fronteiras
 

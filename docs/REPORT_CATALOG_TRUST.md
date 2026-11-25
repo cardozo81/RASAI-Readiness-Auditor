@@ -4,6 +4,8 @@
 
 O `report-catalog` deve ser uma projeção auditável do estado persistido da AUD. Ele não pode transformar ausência de dados em sucesso, inferir execução a partir de configuração nem reconstruir payload/evidência inexistentes.
 
+Este contrato é exclusivo do catálogo técnico (21 páginas, entrada `report-catalog/index.html`, detalhamento operacional em `report-catalog/execution-evidence.html` e evidências de integridade). A apresentação executiva (`report-presentation/`, 11 páginas) tem entrada `report-presentation/index.html` e contrato de publicação e verificação próprio; interpreta dados persistidos diretamente, sem depender do HTML técnico. O aceite do catálogo não certifica o pacote executivo. Consulte o [contrato da apresentação](REPORT_PRESENTATION_CONTRACT.md) e o [guia de correspondência temática](REPORT_GUIDE.md).
+
 ## Invariantes de estado
 
 As superfícies de relatório distinguem, quando aplicável:

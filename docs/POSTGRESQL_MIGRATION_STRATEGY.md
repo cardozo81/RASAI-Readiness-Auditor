@@ -2,7 +2,7 @@
 
 **Estado:** backend PostgreSQL 18 do control plane implementado como opção explícita. SQLite permanece o backend local padrão.
 
-O contrato de scoring é `SCORE-GEO-004`. Esta estratégia altera apenas a arquitetura de persistência do produto; não redefine scoring, `SARI-001`, evidência de auditoria nem metodologia de relatório.
+Esta estratégia trata da arquitetura de persistência do produto. Cada auditoria conserva sua evidência e a versão de pontuação registrada. Para o índice `SARI-001`, novas auditorias usam `SCORE-GEO-005` e resultados históricos podem conservar `SCORE-GEO-004`.
 
 ## Decisão
 

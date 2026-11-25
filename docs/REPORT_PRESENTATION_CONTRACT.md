@@ -1,6 +1,6 @@
 # Contrato de apresentação dos relatórios
 
-**Estado:** vigente.
+**Estado:** referência transversal de apresentação da versão 1.0.0. Para o roteiro de uso dos dois relatórios, consulte [guia de leitura](REPORT_GUIDE.md). As regras específicas da apresentação executiva complementam este contrato no [contrato técnico do gerador](../src/rasai/parallel_report/README.md).
 
 ### Regra editorial do português brasileiro
 
@@ -10,7 +10,7 @@ A distinção é por **origem do texto**, não por extensão ou facilidade de im
 
 Mudanças em cópias públicas exigem testes focais das frases alteradas e preservação dos conteúdos de evidência. Não usar normalização global ou dicionário por palavra isolada.
 
-Este documento define regras de apresentação que são comuns ao mini-site HTML do RASAi. Ele não altera cálculo, pesos, gates, persistência ou evidência do `SARI-001` / `SCORE-GEO-004` e não altera a fórmula Apdex.
+Este documento define regras de apresentação que são comuns ao mini-site HTML do RASAi. Ele não altera cálculo, pesos, gates, persistência ou evidência do índice de prontidão e do método de pontuação efetivamente persistido e não altera a fórmula Apdex.
 
 ## Faixas visuais do SARI
 
@@ -154,7 +154,7 @@ A camada de transparência deve separar claramente:
 
 A lista de inputs possíveis nunca deve ser apresentada como prova de que todos eles participaram daquela execução. A UI deve deixar explícita a diferença entre **o que pode alimentar a página** e **o que efetivamente foi materializado**.
 
-Identificadores internos, nomes de componentes, códigos e variáveis podem aparecer no nível de rastreabilidade técnica, mas não devem substituir o vocabulário humano da leitura principal. Para metodologia, usar **Índice de Prontidão Search & IA**, **Método de Pontuação de Prontidão**, **Regra de Avaliação de Prontidão** e **Evidência da Auditoria** como nomes principais; `SARI-001`, `SCORE-GEO-004`, `BR-GEO-*` e `EV-GEO-*` permanecem como IDs técnicos secundários.
+Identificadores internos, nomes de componentes, códigos e variáveis podem aparecer no nível de rastreabilidade técnica, mas não devem substituir o vocabulário humano da leitura principal. Para metodologia, usar **Índice de Prontidão Search & IA**, **Método de Pontuação de Prontidão**, **Regra de Avaliação de Prontidão** e **Evidência da Auditoria** como nomes principais; `SARI-001`, `SCORE-GEO-005` (vigente), `SCORE-GEO-004` (histórico), `BR-GEO-*` e `EV-GEO-*` permanecem como IDs técnicos secundários.
 
 A interface nunca deve expor valor de segredo, token, credencial ou chave. Quando necessário, informa apenas que determinada configuração/credencial está ausente ou inválida.
 
@@ -179,7 +179,7 @@ O relatório não deve sugerir uma configuração como solução quando a ausên
 
 ## Dashboard executivo
 
-`index.html` é a entrada executiva e deve priorizar resumo factual já existente nos relatórios especializados, sem criar novos cálculos.
+`report-catalog/index.html` resume a investigação técnica. `report-presentation/index.html` é a entrada da apresentação executiva, com síntese factual das evidências persistidas e navegação temática própria. Consulte a [matriz de páginas](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios) para localizar detalhes nos dois pacotes.
 
 Além dos indicadores persistidos, a navegação visual pode destacar três caminhos:
 
@@ -208,7 +208,9 @@ Na superfície humana de `CONS-*/report.html` e `CONS-*/rules-reference.html`, e
 
 No CONS, header, faixa de estado e navegação usam alinhamento à esquerda sem container de largura máxima próprio. Estados e prioridades relevantes podem usar sinaleiros discretos por cor/borda, sempre acompanhados de texto. Conteúdo interpretativo produzido por IA deve portar marcador visual explícito de origem; a marcação identifica a autoria automática e não converte a conclusão em evidência determinística. Payloads técnicos brutos podem preservar enums em en-US quando isso for necessário à auditabilidade.
 
-## Dashboard executivo e Apdex de experiência
+## Resumo técnico e Apdex de experiência
+
+Esta seção descreve `report-catalog/index.html` e `report-catalog/cat-07.html`. A leitura executiva de experiência fica em `report-presentation/performance.html`, com suas próprias seleções, fontes e limites.
 
 Quando houver estado persistido de Synthetic User Experience Apdex, `index.html` deve incluir um card complementar próprio, separado de Synthetic Navigation Apdex.
 
@@ -218,7 +220,7 @@ O card:
 - usa os resumos `POPULATION` persistidos;
 - mostra valor único quando todas as populações materializadas possuem o mesmo Apdex ou uma faixa mínima-máxima quando existem várias páginas;
 - mostra amostras válidas/target e o estado da execução;
-- permanece independente do SARI e não participa de `SCORE-GEO-004`.
+- permanece independente do SARI e não participa do método de pontuação de prontidão.
 
 ## Tentativas e retornos em `cat-07.html`
 

@@ -2,7 +2,7 @@
 
 **Estado:** backend PostgreSQL 18 implementado por configuração explícita. SQLite permanece o backend local padrão do control plane.
 
-Esta capacidade altera apenas a persistência de produto. Não altera `SARI-001`, `SCORE-GEO-004`, coleta de auditoria, aritmética de scoring nem a evidência imutável `AUD-*/audit.db`.
+Esta capacidade altera apenas a persistência de produto. Ela preserva o índice `SARI-001`, o método de pontuação de cada auditoria, a coleta e a evidência imutável em `AUD-*/audit.db`.
 
 ## Limite de armazenamento
 

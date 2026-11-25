@@ -4,7 +4,7 @@ Este documento descreve como o `rasai-console` apresenta exposição prévia e c
 
 ## Regra de fonte única
 
-O catálogo canônico de preços de IA é `src/rasai/ai_cost_policy.py`. O console não mantém preços próprios nem cria uma segunda contabilidade.
+O motor canônico `src/rasai/ai_cost_policy.py` interpreta o catálogo efetivo carregado por `ai_pricing_catalog.py`. A baseline é `src/rasai/config/ai-pricing-defaults.toml`; a configuração humana pode substituir essa fonte conforme [configuração de preços](AI_PRICING_CONFIGURATION.md). O console não mantém preços próprios nem cria uma segunda contabilidade.
 
 Depois da execução, o console lê os dados persistidos em `audit.db` e artifacts/logs correspondentes. A tabela `provider_pricing_catalog` é uma projeção auditável do catálogo canônico usado naquela execução, não uma fonte concorrente de regras.
 
@@ -92,9 +92,9 @@ provider quarantined
 artifact ausente
 ```
 
-O console e o report devem explicar qual coleta foi afetada.
+O console e os relatórios devem explicar qual coleta foi afetada, de acordo com a evidência disponível. O catálogo técnico `report-catalog/ai-integrations.html` detalha tentativas, uso e proveniência; `report-presentation/ia-custos.html` sintetiza previsão, consumo, esforço e limites. Não se presume paridade de campos nem fatura em qualquer pacote. Consulte [guia de relatórios](REPORT_GUIDE.md).
 
-Quando havia estimativa monetária prévia para IA, mas a execução termina com **zero sucessos de IA** e sem consumo monetário materializado, o fechamento financeiro não classifica o resultado como `DENTRO DO ESPERADO`. O estado exibido é `NÃO CONSUMIDO`, o campo `Desvio vs esperado` permanece sem valor comparativo e a observação deixa explícito que a IA solicitada não produziu execução bem-sucedida/consumo tarifável. Quando existe uma tentativa de IA falha persistida, o bloco reutiliza somente o diagnóstico técnico estruturado já registrado (`provider/model`, `error_class` ou `status`, `error_code/error_type` e `HTTP` quando disponível). Se esse diagnóstico não estiver disponível, o bloco orienta consultar as pendências canônicas do AUD. Nenhuma nova classificação de erro de integração é criada pela camada financeira.
+Quando havia estimativa monetária prévia para IA, mas a execução termina com **zero sucessos de IA** e sem consumo monetário materializado, o fechamento financeiro não classifica o resultado como `DENTRO DO ESPERADO`. O estado exibido é `NÃO CONSUMIDO`, o campo `Desvio vs esperado` permanece sem valor comparativo e a observação deixa explícito que a IA solicitada não produziu sucesso nem valor monetário materializado no ledger local. O rótulo `NÃO CONSUMIDO` não prova ausência de cobrança externa: uma tentativa falhada ou sem usage pode ter custo desconhecido. Quando existe uma tentativa de IA falha persistida, o bloco reutiliza somente o diagnóstico técnico estruturado já registrado (`provider/model`, `error_class` ou `status`, `error_code/error_type` e `HTTP` quando disponível). Se esse diagnóstico não estiver disponível, o bloco orienta consultar as pendências canônicas do AUD. Nenhuma nova classificação de erro de integração é criada pela camada financeira.
 
 Menor custo não reativa provider em quarentena, não reduz contador de falhas e não modifica a classificação de erro. A seleção econômica altera somente a ordem dos candidatos ainda elegíveis no `AI=auto`.
 
@@ -127,7 +127,7 @@ Consulte [AUDIT_REPROCESSING.md](AUDIT_REPROCESSING.md) para a seleção de depe
 ## Segurança
 
 - secrets aparecem somente como `[SET]`;
-- API keys/tokens não entram no INI, report ou log;
+- o contrato exclui API keys/tokens reconhecidos do INI, relatório e log; isso não garante ausência de informações sensíveis residuais em texto livre ou artefatos;
 - custos são estimativas técnicas;
 - não assuma que key configurada implica quota/saldo;
 - não confunda carga Synthetic Apdex com custo financeiro de API.

@@ -1,6 +1,6 @@
 # Persistência de credenciais no Windows
 
-**Estado:** contrato vigente do RASAi na linha pós-`v0.5.0`.
+**Estado:** contrato de persistência do console local na versão 1.0.0.
 
 O console local nunca grava API keys, tokens, senhas ou outros secrets no `rasai-console.ini`.
 
@@ -53,7 +53,7 @@ Windows/User ausente
 nenhum valor persistido  -> permanece não configurada
 ```
 
-O valor é colocado somente em `os.environ` do processo atual. Nenhum secret é copiado para INI, AUD, relatório ou catálogo de modelos/preços.
+O valor é colocado somente em `os.environ` do processo atual. O valor não é copiado pelo mecanismo de ativação para INI, AUD, relatório ou catálogo de modelos/preços. A política e as limitações de sanitização das demais superfícies são descritas em [segurança da informação](SECRET_AND_CONFIGURATION_SAFETY.md).
 
 ## Precedência
 
@@ -88,7 +88,7 @@ Se o operador remover somente o valor da sessão durante a execução atual, a p
 SO:USER persistida (não ativa nesta sessão)
 ```
 
-Na próxima inicialização normal, se não houver um override explícito no processo, o valor Windows/User volta a ser ativado.
+Na próxima inicialização normal do console, se não houver um override explícito no processo, o valor Windows/User volta a ser ativado. Para execução direta da CLI ou agendador, confirme que o processo realmente recebeu a credencial; a leitura automática descrita aqui é do console local.
 
 ## Exemplo: OpenAI, DeepSeek e outras integrações
 

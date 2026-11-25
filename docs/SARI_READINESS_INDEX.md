@@ -20,6 +20,58 @@ A leitura pública do SARI **não deve ser reduzida ao número 0-100**. O result
 2. **força/completude da medição**: Coverage, Confidence e Consolidation;
 3. **readiness operacional crítica**: Critical Readiness Gates e estado `READY`, `ATTENTION`, `BLOCKED` ou `UNKNOWN`.
 
+## Como interpretar as metodologias do RASAi
+
+O RASAi reúne avaliações de naturezas diferentes. Não transforme cada indicador em uma nota do índice de prontidão: a composição e os limites de cada medida são definidos pelo seu próprio contrato.
+
+| Avaliação | O que mede | Origem do método | O que não demonstra |
+| --- | --- | --- | --- |
+| Índice de prontidão | Qualidade ponderada das evidências aplicáveis e efetivamente avaliadas, com cobertura, confiança e critérios críticos separados | Método próprio do RASAi | Probabilidade de ranqueamento ou citação por IA |
+| Descoberta e indexabilidade | Acesso, diretivas, relações de URL e sinais verificáveis de descoberta | Protocolos Web, orientações dos buscadores e regras próprias | Indexação efetiva apenas pela existência de sitemap ou canonical |
+| Conteúdo, semântica e dados estruturados | Evidências de organização, entidades, utilidade, consistência e capacidade de responder | Regras próprias, vocabulários e práticas de busca | Aprovação por um buscador ou inclusão garantida em respostas |
+| Desempenho Web | Métricas e avaliações de laboratório e de campo, quando disponíveis | Lighthouse e CrUX/PageSpeed; Core Web Vitals | Experiência de todos os usuários ou causa isolada de ranking |
+| Acessibilidade | Sinais automatizados de acessibilidade | Referências W3C/WCAG e avaliações disponíveis | Certificação integral de conformidade WCAG |
+| Apdex de navegação | Classificação de amostras sintéticas de navegação em relação ao limite de tempo escolhido | Fórmula Apdex; aquisição e configuração próprias | Medição de usuários reais |
+| Apdex de experiência | Ações sintéticas, tempos e erros qualificáveis segundo a calibração | Fórmula Apdex e referências Dynatrace; implementação sintética própria | Equivalência integral ao RUM Dynatrace |
+| Apdex populacional | Agregação por estratos de teste e pesos declarados | Método sintético ponderado do RASAi | Representatividade real sem evidência da origem dos pesos |
+| Inteligência de busca e IA | Resultados e fontes efetivamente observados por consulta, contexto e serviço | Observação externa e análise própria | Visibilidade universal, causalidade ou equivalência entre universos de SERP e Perplexity |
+| Segurança passiva e rede | Sinais técnicos observáveis, configurações, conectividade e limitações | Referências técnicas e avaliação própria | Pentest, certificação de segurança ou identificação física garantida da origem |
+| Análise profunda e remediações | Interpretação e propostas de ação vinculadas à evidência | Regras e instruções próprias; IA consultiva quando aplicável | Evidência nova criada pela recomendação ou garantia de melhoria |
+
+A documentação de cada avaliação contém as regras detalhadas: [método de pontuação](SCORE_GEO.md), [Apdex de navegação](SYNTHETIC_APDEX.md), [Apdex de experiência](SYNTHETIC_USER_EXPERIENCE_APDEX.md), [Apdex populacional](SYNTHETIC_POPULATION_APDEX.md), [inteligência de busca](SERP_OBSERVATION.md), [Perplexity](PERPLEXITY_SEARCH_INTELLIGENCE.md) e [segurança passiva](PASSIVE_SECURITY_CATALOG.md).
+
+### Fontes externas e tipo de referência
+
+| Fonte pública | Tipo | Como usar na interpretação |
+| --- | --- | --- |
+| [RFC 9309 - protocolo de exclusão de robôs](https://www.rfc-editor.org/rfc/rfc9309.html) | Especificação técnica IETF | Diretivas de rastreamento não são autorização ou controle de acesso. |
+| [Google - perguntas sobre rastreamento e indexação](https://developers.google.com/search/help/crawling-index-faq) | Orientação do mantenedor de busca | Sitemap não garante indexação ou posição. Ausência opcional precisa ser distinguida de conflito ou bloqueio real. |
+| [Google - políticas de dados estruturados](https://developers.google.com/search/docs/appearance/structured-data/sd-policies) | Política do mantenedor de busca | Marcação válida não garante resultado enriquecido. |
+| [Google - recursos de IA e seu site](https://developers.google.com/search/docs/appearance/ai-features?hl=pt-br) | Orientação do mantenedor de busca | As práticas fundamentais de SEO permanecem relevantes; o índice do RASAi não é requisito oficial do Google. |
+| [W3C - WCAG 2.2](https://www.w3.org/TR/WCAG22/) e [entendimento da conformidade](https://www.w3.org/WAI/WCAG22/Understanding/conformance) | Recomendação técnica e guia interpretativo | A conformidade requer avaliação humana além das verificações automatizadas. |
+| [Google - PageSpeed Insights](https://developers.google.com/speed/docs/insights/v5/about) e [Web Vitals](https://web.dev/articles/vitals) | Metodologias e documentação do fornecedor | Separar laboratório e campo. Core Web Vitals usa LCP, INP e CLS; os limiares de campo são avaliados no percentil 75. |
+| [Apdex Alliance - especificação técnica](https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf) | Especificação de mercado | Fundamenta a fórmula de classificação de satisfação; o RASAi define a aquisição sintética e seus parâmetros. |
+| [Dynatrace - configuração Apdex para ações de carregamento](https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions) | Contrato de configuração do fornecedor | Referência para limiares e métrica de ação; não transfere automaticamente a semântica proprietária do RUM para o laboratório. |
+
+As fontes externas fundamentam conceitos e critérios específicos. Os pesos, fatores, regras de aplicabilidade, agregação e critérios de prontidão do índice são decisões metodológicas versionadas do RASAi, não pesos divulgados por esses mantenedores.
+
+### Da evidência ao resultado
+
+```mermaid
+flowchart TD
+    A[Coleta e contexto observados] --> B[Evidências persistidas]
+    B --> C[Regras e aplicabilidade]
+    C --> D[Grupos e dimensões ponderados]
+    D --> E[Qualidade medida]
+    D --> F[Cobertura e confiança]
+    C --> G[Critérios críticos de prontidão]
+    E --> H[Interpretação conjunta]
+    F --> H
+    G --> H
+    B --> I[Métricas externas e análises consultivas separadas]
+    I --> H
+```
+
 ## 2. Método vigente
 
 O índice usa o **Método de Pontuação de Prontidão**, versão pública **001**. O contrato técnico vigente para novas auditorias é:
@@ -191,7 +243,7 @@ Uma dimensão não crítica sem medição suficiente pode reduzir Coverage/Confi
 
 ### 8.1 Regra de apresentação pública do Overall
 
-O valor numérico continua sendo preservado sem truncamento artificial para manter a aritmética reproduzível. Porém, o relatório não deve apresentar a banda numérica como se fosse, isoladamente, a conclusão de readiness.
+O valor numérico continua sendo preservado sem truncamento artificial para manter a aritmética reproduzível. Porém, tanto a visão geral e o índice do catálogo técnico (`report-catalog/index.html`, `report-catalog/sari.html`) quanto o painel e os índices da apresentação executiva (`report-presentation/index.html`, `report-presentation/indices.html`) devem distinguir a banda numérica da conclusão de prontidão.
 
 Exemplos:
 
@@ -212,7 +264,7 @@ Essa regra evita falso positivo de apresentação sem inventar penalidade matem�
 
 ## 9. Coverage
 
-Coverage mede **completude**, não qualidade do website.
+Coverage mede **completude da medição aplicável**, não qualidade do website nem percentual de páginas do site conhecidas. O universo de cálculo depende das execuções recebidas; cobertura alta não comprova aquisição integral. Consulte [detalhes de cálculo](SCORE_GEO.md#overall-coverage).
 
 No Overall:
 
@@ -417,7 +469,7 @@ Contrato:
 
 - dimensão `DISCOVERY_ACCESS`;
 - grupo `EXTERNAL_CRAWL_CORROBORATION`;
-- peso de 3% dentro da dimensão, equivalente a impacto máximo teórico de 0,45 ponto no Overall;
+- peso nominal de 3% dentro da dimensão, correspondente a 0,45 ponto no Overall com todos os pesos medidos; a normalização pode alterar a participação efetiva (veja [corroboração externa](SARI_EXTERNAL_CRAWL_CORROBORATION.md#peso));
 - evidência externa somente positiva: quando todos os requisitos forem satisfeitos, a regra pode produzir `PASS`;
 - ausência de registro, erro, timeout, indisponibilidade, alvo privado ou resposta inconclusiva não produzem `FAIL`, zero, redução de Coverage ou redução de Confidence;
 - a regra não participa dos Critical Readiness Gates;
@@ -438,32 +490,53 @@ Continuam fora do Overall operacional:
 
 Esses dados são resultados. Servem para observabilidade e podem sustentar pesquisa empírica separada, sem tornar o índice circular ou alterar silenciosamente o contrato de scoring.
 
-## 18. Relatórios
+## 18. Relatórios: investigação técnica e leitura executiva
 
-Todas as superfícies canônicas são materializadas após uma auditoria concluída com sucesso. A presença do HTML não implica execução da capacidade correspondente; ausência de dado deve aparecer como estado neutro ou explicativo.
+O RASAi possui dois pacotes HTML complementares para uma AUD individual: o catálogo técnico (`report-catalog/`, 21 páginas) e a apresentação executiva (`report-presentation/`, 11 páginas). Ambos interpretam as evidências persistidas e a versão efetiva do índice, sem recalcular a pontuação durante a geração. Não são duas metodologias de SARI.
 
-```text
-report-catalog/index.html               -> síntese executiva com readiness qualificada
-report-catalog/sari.html                -> SARI-001, qualidade medida, força da medição, dimensões e gates
-report-catalog/methodology.html         -> fórmula, pesos, grupos, Coverage, Confidence e rastreabilidade
-report-catalog/capture-context.html     -> contexto da auditoria e configuração materializada
-report-catalog/execution-evidence.html  -> evidência da execução, fulfillment e integridade
-report-catalog/ai-integrations.html     -> telemetria de IA e integrações externas
-report-catalog/metrics.html             -> inventário transversal de índices e métricas
-report-catalog/cat-01.html              -> fundamentos técnicos, descoberta e padrões web
-report-catalog/cat-02.html              -> acessibilidade automatizada
-report-catalog/cat-03.html              -> conteúdo, semântica e dados estruturados
-report-catalog/cat-04.html              -> Web Performance e dados CrUX/Lighthouse
-report-catalog/cat-05.html              -> Search & AI Intelligence e observabilidade aplicável
-report-catalog/cat-06.html              -> Apdex de navegação
-report-catalog/cat-07.html              -> Apdex de experiência
-report-catalog/cat-08.html              -> análise profunda e melhorias
-report-catalog/cat-09.html              -> remediações
-report-catalog/cat-10.html              -> segurança passiva
-report-catalog/directed-analysis.html   -> análise direcionada
-```
+### 18.1 Catálogo técnico (`report-catalog/`)
 
-`index.html` e `sari.html` devem usar o estado de readiness/medição como conclusão visual primária. A banda `Excelente/Alta/Moderada/Baixa/Crítica` permanece válida para a **qualidade numérica medida**, mas não pode mascarar `PARTIAL`, `NOT_CONSOLIDATED`, `BLOCKED` ou `UNKNOWN`.
+Destinado à investigação analítica, à explicação do cálculo e à rastreabilidade das evidências, regras e contribuições que sustentam o índice.
+
+| Página | Especialização |
+| --- | --- |
+| `report-catalog/index.html` | Visão geral técnica da AUD, situação de prontidão, medição e matriz decisória de evidências. |
+| `report-catalog/sari.html` | Índice SARI, dimensões, qualidade medida, cobertura, confiança, consolidação e critérios críticos. |
+| `report-catalog/methodology.html` | Método efetivamente utilizado, fórmula, pesos, grupos, critérios e rastreabilidade metodológica. |
+| `report-catalog/metrics.html` | Inventário transversal de índices e métricas, com seus universos e proveniência. |
+| `report-catalog/capture-context.html` e `report-catalog/execution-evidence.html` | Contexto e configuração efetivos, evidência da execução, atendimento dos requisitos e integridade. |
+
+Os demais catálogos e páginas transversais aprofundam as evidências de cada domínio. O [guia de relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios) é a referência única para o inventário de páginas técnicas (21) e sua relação temática com as páginas executivas.
+
+### 18.2 Apresentação executiva (`report-presentation/`)
+
+Destinada à interpretação dos resultados e ao suporte à decisão, com onze páginas temáticas autônomas. Consome os dados persistidos diretamente, sem depender do HTML do catálogo técnico.
+
+| Página | Especialização |
+| --- | --- |
+| `report-presentation/index.html` | Painel executivo: situação observada da auditoria, resultados e limitações relevantes. |
+| `report-presentation/indices.html` | Leitura executiva dos índices e da suficiência da medição, distinguindo qualidade medida e limites da evidência disponível. |
+| `report-presentation/performance.html` | Desempenho Web e experiência, com medições de laboratório, campo e Apdex em universos distintos do SARI. |
+| `report-presentation/extracao.html` | Contexto da captura, registros e proveniência das evidências. |
+| `report-presentation/descoberta.html` | Sinais de acesso, descoberta e padrões Web. |
+| `report-presentation/conteudo.html` | Contexto dos sinais de conteúdo, semântica, estrutura e acessibilidade. |
+| `report-presentation/rede.html` | Conexões, origem, observações de rede e limitações. |
+| `report-presentation/seguranca.html` | Cobertura, achados e limitações de segurança passiva. |
+| <code>report-presentation/search&#45;geo.html</code> | Resultados observados de busca e GEO, sem confundi-los com pontuação de prontidão. |
+| `report-presentation/plano.html` | Achados, propostas e decisões persistidas, sem transformar recomendações em ações aprovadas. |
+| `report-presentation/ia-custos.html` | Uso de IA, esforço, custos e proveniência, sem atribuir às chamadas de IA o cálculo do índice. |
+
+As onze páginas acima têm funções próprias. As páginas temáticas contextualizam as evidências e métricas, mas não constituem onze cálculos do SARI. Consulte o [roteiro completo das onze páginas](REPORT_GUIDE.md#roteiro-de-leitura-executiva).
+
+### 18.3 Como interpretar os dois pacotes
+
+Comece pelo painel e pela página de índices da apresentação executiva. Para explicar a composição matemática, os pesos, as contribuições ou a evidência de uma regra, aprofunde a investigação nas páginas SARI e metodologia do catálogo técnico. Essa é uma orientação de leitura, não uma dependência entre os dois geradores nem uma exigência de duplicação de campos.
+
+A publicação do catálogo técnico e a da apresentação executiva possuem estados próprios. O catálogo é o gate técnico da publicação; a apresentação é uma projeção derivada não bloqueante. Um pacote pode estar ausente ou desatualizado mesmo quando o outro existe. A presença de HTML não comprova execução da capacidade correspondente nem conclusão integral da AUD. Leia os estados de ausência, parcialidade e indisponibilidade.
+
+A conclusão de prontidão deve distinguir nota, cobertura, confiança, consolidação e critérios críticos. Nas superfícies técnicas `report-catalog/index.html` e `report-catalog/sari.html`, a banda `Excelente/Alta/Moderada/Baixa/Crítica` qualifica a **qualidade numérica medida**, sem mascarar `PARTIAL`, `NOT_CONSOLIDATED`, `BLOCKED` ou `UNKNOWN`. Na apresentação executiva, `report-presentation/index.html` e `report-presentation/indices.html` devem ser interpretadas com a mesma separação conceitual, sem presumir réplica de cada campo ou classificação visual.
+
+Para comparar auditorias elegíveis ao longo do tempo, consulte o [relatório consolidado longitudinal](CONSOLIDATED_REPORTING.md), que possui contrato próprio e não integra nenhum dos dois pacotes de uma AUD individual.
 
 ## 19. Rastreabilidade
 
@@ -510,6 +583,8 @@ Isso não confirma a cobertura real das SERPs nem a experiência dos usuários.
 
 ## Matriz executiva de universos de evidência
 
-O painel `Matriz decisória de evidências` na visão geral e o recorte metodológico da página SARI explicam por que um índice SARI elevado pode coexistir com Lighthouse baixo, métricas CrUX de ORIGIN, amostras Apdex parciais e SERP incompleta. Valores continuam físicos e independentes; nenhuma média cruzada ou recalibração retroativa de `SCORE-GEO-004`/`SCORE-GEO-005` é produzida. A confiança alta do método não comprova resultados externos de ranking, menção em IA ou conformidade regulatória.
+O painel `Matriz decisória de evidências` em `report-catalog/index.html` e o recorte metodológico em `report-catalog/sari.html` explicam por que um índice SARI elevado pode coexistir com Lighthouse baixo, métricas CrUX de ORIGIN, amostras Apdex parciais e SERP incompleta. Valores continuam físicos e independentes; nenhuma média cruzada ou recalibração retroativa de `SCORE-GEO-004`/`SCORE-GEO-005` é produzida. A confiança alta do método não comprova resultados externos de ranking, menção em IA ou conformidade regulatória.
 
-O diagnóstico read-only `python -m rasai.report_decision_matrix_cli /caminho/AUD-ID` permite confrontar a fonte SQLite selada e a apresentação. Contrato consultivo RASAI-DECISION-EVIDENCE-604-001; escopos e limites em [`REPORT_DECISION_MATRIX.md`](REPORT_DECISION_MATRIX.md).
+A leitura executiva correlata está em `report-presentation/index.html` e `report-presentation/indices.html`, sem pressupor réplica da matriz técnica.
+
+O diagnóstico read-only `python -m rasai.report_decision_matrix_cli /caminho/AUD-ID` permite confrontar a fonte SQLite selada e as páginas técnicas do catálogo; não certifica o pacote executivo. Contrato consultivo RASAI-DECISION-EVIDENCE-604-001; escopos e limites em [`REPORT_DECISION_MATRIX.md`](REPORT_DECISION_MATRIX.md).

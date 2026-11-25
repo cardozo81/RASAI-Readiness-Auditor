@@ -2,6 +2,12 @@
 
 Os relatórios HTML do RASAi são projeções humanas dos dados persistidos. A camada de apresentação pode substituir valores internos por rótulos legíveis sem alterar o valor armazenado, o scoring, a comparabilidade ou a evidência.
 
+## Catálogo técnico e apresentação executiva
+
+O RASAi oferece duas leituras complementares da auditoria persistida: catálogo técnico (`report-catalog/`) e apresentação executiva (`report-presentation/`). A apresentação gera suas onze páginas e seus anexos locais a partir das fontes verificadas, sem consumir o HTML do catálogo como fonte de fatos. A geração não faz novas medições, chamadas de IA nem recálculo de pontuações. Para saber qual página abrir, consulte o [guia de leitura](REPORT_GUIDE.md#entrada-principal-da-auditoria); para regenerar em uma cópia externa, consulte [rematerialização](REPORT_REMATERIALIZATION.md).
+
+A cobertura de fontes e a integridade dos arquivos não são certificação de suficiência editorial ou de privacidade. Rótulos legíveis e anexos sanitizados não eliminam a necessidade de revisão do contexto, dos dados e das limitações antes de compartilhar. O [procedimento de revisão editorial](EDITORIAL_DECISION_GATE.md) distingue prova, interpretação e decisão humana.
+
 ## Regra
 
 Valores internos usados como mensagem principal devem ser apresentados de forma legível ao analista.

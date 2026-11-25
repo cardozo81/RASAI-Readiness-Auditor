@@ -7,7 +7,7 @@ Synthetic User Experience Apdex adiciona ao RASAi uma medição sintética calib
 | Domínio | Natureza | Task / população | Thresholds |
 |---|---|---|---|
 | Synthetic Navigation Apdex | laboratório sintético controlado | `NAVIGATION_LOAD`, por URL/dispositivo | `T` e `4T` conforme Apdex |
-| Synthetic User Experience Apdex | laboratório sintético enriquecido/calibrável | `SYNTHETIC_LOAD_ACTION`, mix explícito de dispositivos | limites Satisfied/Frustrated independentes, com baseline compatível com referências Dynatrace ou importação |
+| Synthetic User Experience Apdex | laboratório sintético enriquecido e calibrável | `SYNTHETIC_LOAD_ACTION`, dispositivo único da auditoria | limites Satisfied/Frustrated independentes, com baseline compatível com referências Dynatrace ou importação |
 | Dynatrace RUM | usuários reais | Load/XHR/Custom actions observadas no período | configuração efetiva da aplicação/ação |
 
 Synthetic User Experience Apdex **não é RUM**. O objetivo é reduzir diferenças metodológicas controláveis - KPM, thresholds, política de erros, sessão e mix de dispositivos - sem manipular o score para coincidir com Dynatrace.
@@ -50,7 +50,7 @@ limiar Satisfied <= valor <= limiar Frustrated  -> TOLERATING
 valor > limiar Frustrated                        -> FRUSTRATED
 ```
 
-Um erro qualificável pode forçar `FRUSTRATED` independentemente da duração quando a política de erros efetiva estiver habilitada. Synthetic Navigation Apdex permanece separado e continua usando `T/4T`.
+Sem perfil aplicado, a amostra de experiência é excluída. Com perfil aplicado, timeout ou erro de navegação força `FRUSTRATED` mesmo quando a KPM temporal está ausente. Para os demais estados, a ausência de KPM válida exclui a classificação; um erro qualificável pode forçar `FRUSTRATED` independentemente da duração válida quando a política de erros efetiva estiver habilitada. Essa precedência é própria do motor de experiência e não é idêntica à da navegação. O Apdex de navegação permanece separado e continua usando `T/4T`. A igualdade com o limiar inferior tem tratamento diferente: com 3 segundos, a navegação classifica uma amostra de exatamente 3 segundos como satisfeita, enquanto a experiência a classifica como tolerável (se não houver erro qualificável).
 
 ## 3. Fronteira temporal de USER_ACTION_DURATION
 
@@ -198,6 +198,8 @@ Quando CAT-07 é acrescentado posteriormente a uma AUD, a nova população usa a
 Synthetic Navigation Apdex permanece em persistência separada e conserva seu target independente.
 
 ## 9. Relatório HTML
+
+A página técnica `report-catalog/cat-07.html` é especializada na experiência sintética, distinta da navegação em `report-catalog/cat-06.html`. A leitura executiva em `report-presentation/performance.html` reúne os indicadores observados e seus limites; não pressupõe o mesmo detalhamento ou layout das páginas técnicas. A [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios) orienta a navegação.
 
 `report-catalog/cat-07.html` deve refletir exatamente a execução persistida e apresentar:
 

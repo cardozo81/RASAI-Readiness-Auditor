@@ -58,6 +58,8 @@ Valores de versão usados como **dados históricos ou fixtures** em testes não 
 
 ## Rastreabilidade de publicação
 
+**Marco publicado em 25/11/2026 08:18:29 (America/Sao_Paulo):** [GitHub Release `v1.0.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v1.0.0), `draft=false`, `prerelease=false`, `immutable=true`. A tag anotada `24b0e2751204f303f8949641060e38adc3294d23` resolve para o commit `e55717b2a2c924cdc9f81e39565353d063f47892`. As [notas de versão](RELEASE_NOTES_V1_0_0.md) descrevem o marco; o desenvolvimento posterior não modifica essa release. A [última release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) é a referência dinâmica de distribuição.
+
 **Marco publicado em 29/10/2026:** [GitHub Release `v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0), `draft=false`, `prerelease=false`, `immutable=true`, com tag anotada resolvendo para `main@5da8e6247094c20dcdbe770474ac31e7f93383b2`. O operador confirmou `gh release verify v0.9.0` e os workflows pós-merge terminaram 10/10 em sucesso. A release pública anterior `v0.8.0` permanece preservada. As versões metodológicas `SARI-001` e `SCORE-GEO-005` não foram alteradas pelo lançamento.
 
 **Registro de preparação (histórico):** a candidata `v0.9.0` foi preparada na antiga branch `release/prepare-v0.9.0` sobre `main@810cc076052df93f1d18c6807c18e63b225d9473`. O bump isolado, naquele momento, ainda não representava publicação; consultar o [checklist histórico](RELEASE_PUBLICATION_CHECKLIST.md).
@@ -84,7 +86,7 @@ A versão declarada no código, isoladamente, não prova que a HEAD atual foi pu
 
 ## Marcos históricos e estado pós-v0.7.0
 
-Estado reconciliado em 2026-10-06 para a governança da issue #243:
+Registro histórico reconciliado em 06/10/2026 para a governança da issue #243, não estado atual da distribuição:
 
 | Marco | Commit canônico | Publicação verificada |
 | --- | --- | --- |
@@ -122,6 +124,17 @@ Regras:
 - releases históricos anteriores à habilitação do recurso não devem ser apagados/republicados apenas para obter imutabilidade retroativa, salvo decisão específica de governança com análise de risco;
 - notas e metadados editoriais podem continuar ajustáveis quando o GitHub permitir, mas o baseline técnico (tag, commit e assets publicados) permanece congelado.
 
-A issue #247 controla a habilitação administrativa de Immutable Releases antes do próximo marco pós-`v0.7.0`.
+A [issue #247](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/247) foi encerrada como concluída. A release 1.0.0 possui imutabilidade comprovada; confirme o setting administrativo para cada publicação futura, sem inferi-lo apenas do estado de releases antigas.
+
+## Procedimento vigente de preparação e publicação
+
+1. Identificar a última release oficial, seu commit e o delta da candidata. Classificar mudanças funcionais e documentais; escolher a versão do pacote sem alterar contratos metodológicos que não mudaram.
+2. Preparar os identificadores canônicos e as notas na branch da candidata. Manter tag e release existentes intactas. Validar o diff e os gates aplicáveis ao SHA exato segundo a [política de CI](CI_POLICY.md), incluindo a regressão integral e a instalação/compatibilidade Windows e Linux quando o bump de versão exigir esses gates. Um workflow com nome de regressão em modo leve não é prova de suíte integral.
+3. Obter autorização de integração, integrar com segurança e verificar checks de `push` no commit definitivo da main. Aprovação no SHA anterior não substitui essa confirmação.
+4. Obter autorização para criação da tag/release e confirmar que a nova identidade ainda não existe e que o setting de imutabilidade está habilitado. Preparar a release como draft, verificar que a tag resolve para o commit integrado e conferir os assets autorizados. Não incluir AUDs, configurações privadas, tokens ou artefatos de clientes.
+5. Após autorização de publicação, publicar uma única vez, confirmar identidade da tag, SHA, estado imutável e assets. Usar `gh release verify <tag>` ou verificação equivalente. Registrar evidências na PR/issue da entrega. Não mover, excluir ou republicar tags e releases históricas.
+6. Sincronizar o ambiente local por avanço rápido quando elegível, preservando arquivos locais e auditorias. Conferir a versão do runtime, a versão dos metadados da distribuição instalada, a CLI e a integridade das dependências conforme [solução de problemas](TROUBLESHOOTING.md). Não usar `reset --hard` ou exclusão de branches como atalho para reconciliar divergências.
+
+O [checklist da candidata v0.9.0](RELEASE_PUBLICATION_CHECKLIST.md) e as matrizes datadas registram evidências de seus próprios ciclos. Não são checklists ativos nem autorizam operações em uma release futura.
 
 Nenhum próximo número de versão é inferido deste estado. Antes de novo bump/publicação, deve existir validação técnica da `main` cobrindo a integridade do processo de auditoria, a coerência entre configuração, coleta, persistência, derivação e apresentação, e a classificação das mudanças desde o último baseline publicado.

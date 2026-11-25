@@ -1,6 +1,6 @@
 # Perplexity Search Intelligence
 
-**Estado:** implementação da issue #5  
+**Estado:** referência da integração implementada na versão 1.0.0  
 **Data de revalidação oficial:** 04/10/2026  
 **Surface implementada:** Perplexity Search API  
 **Boundary RASAi:** pesquisa externa / Search Intelligence, não provider evidence-bound canônico
@@ -271,6 +271,8 @@ A execução ocorre após o core determinístico da auditoria.
 
 ## Relatórios
 
+Para leitura executiva, abra <code>report-presentation/search&#45;geo.html</code> (Search e GEO): reúne observações de busca, concorrência, pesquisa externa e contexto GEO persistidos, com detalhes locais. Para investigação técnica, use `report-catalog/cat-05.html` (Search & AI Intelligence) e `report-catalog/geo.html` (inteligência GEO consultiva). As páginas de custos, quando pertinentes, são `report-presentation/ia-custos.html` e `report-catalog/ai-integrations.html`. As projeções são independentes, não executam pesquisa para preencher lacunas e não têm correspondência obrigatória de cada tabela ou seção. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
 O contrato RASAI-PERPLEXITY-SEARCH-1 é rotulado como:
 
 ~~~text
@@ -320,15 +322,15 @@ Crédito, quota, saldo, rate limit, plano ou indisponibilidade comercial isolado
 Qualquer defeito funcional posterior em main deve virar bug específico.
 
 
-## Evolução GEO (#301, implementação em andamento)
+## Evolução GEO (#301, registro histórico da implementação)
 
 `RASAI_PERPLEXITY_ENABLED = true` é o **padrão do produto** que permite consultas explícitas à Perplexity Search API. `true` não dispara consultas automaticamente: a AUD ainda precisa de queries solicitadas e credencial `PERPLEXITY_API_KEY` configurada. `false` (`0`/`off`/`no`) impede chamadas externas e preserva a credencial e as queries existentes. A flag ausente preserva a compatibilidade anterior; valor inválido impede requisições por segurança. O `EnvironmentSpec` canônico registra o valor não secreto em `rasai-console.ini`; preferências `false` explícitas não são sobrescritas pelo baseline `true` no reinício. Restaurar padrões globais redefine `true`, mas não remove a chave quando escolhida a preservação de credenciais. CAT-05, Integrações e serviços e Todas as configurações expõem o controle. Diagnósticos locais permanecem sem consumo comercial.
 
 A nova superfície transversal `geo.html` é advisory e parte do `report-catalog` da AUD individual. Lê apenas evidências persistidas; não substitui CAT-05, não altera índice e não comprova answer inclusion ou citation inclusion em respostas generativas. Comparações de URLs entre SERP e Perplexity somente têm semântica direta quando a Search API recebeu **uma única consulta** e existe observação SERP live válida equivalente. Requests multi-query não oferecem, no contrato atual, vínculo individual fonte→query: apresentar indisponibilidade da comparação em vez de inventar pareamento.
 
-Apenas evidências rastreáveis podem fundamentar recomendações; snippets de concorrentes não comprovam conteúdo integral. A interpretação deve separar explicitamente observação, hipótese e ação de boas práticas. Evolução longitudinal para CONS-* fica no gap #311 e fora da presente implementação.
+Apenas evidências rastreáveis podem fundamentar recomendações; snippets de concorrentes não comprovam conteúdo integral. A interpretação deve separar explicitamente observação, hipótese e ação de boas práticas. A consulta longitudinal independente permanece disponível em [inventário GEO longitudinal](GEO_LONGITUDINAL.md). Na versão 1.0.0, o Relatório Consolidado Longitudinal vigente utiliza `CONS-5`. Os comandos `geo-cons-review` e `geo-cons-package` aceitam somente manifestos `CONS-3`; não são compatíveis com `CONS-5`. Preserve o contrato original e use `rasai geo-longitudinal` com AUDs explicitamente selecionadas para a consulta independente. A integração nativa e a tendência calibrada foram retiradas do backlog ativo em 25/11/2026 ([decisão da issue #311](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/311)); não constituem entrega prevista nem garantia metodológica.
 
-**Estado:** documento descreve projeto incremental; a implementação não deve ser considerada homologada até CI, testes de persistência/RPR, integridade e fechamento das issues-filhas #302-#310.
+**Estado desta etapa histórica:** as issues #301 e #302 a #310 foram encerradas como `completed`. Isso registra a conclusão das entregas daquele escopo, não comprova equivalência de populações externas nem tendência GEO calibrada. Os limites atuais permanecem descritos neste guia.
 
 
 ### Snapshot GEO derivado e reuso

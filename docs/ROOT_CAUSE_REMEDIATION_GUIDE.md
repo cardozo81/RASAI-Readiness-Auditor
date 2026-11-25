@@ -10,6 +10,8 @@ A projeção final fica em:
 report-catalog/cat-09.html
 ```
 
+A apresentação executiva `report-presentation/plano.html` organiza ações e decisões persistidas. Para rastrear ocorrências, seletores e validações técnicas, consulte a página do catálogo indicada acima. Cada pacote usa suas próprias projeções das evidências. Veja o [guia de leitura](REPORT_GUIDE.md).
+
 ## Separação de conceitos
 
 - **finding:** problema/alerta comprovado pela RuleExecution;

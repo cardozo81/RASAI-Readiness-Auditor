@@ -2,7 +2,7 @@
 
 Referência operacional das variáveis reconhecidas pelo RASAi - Search & AI Readiness Auditor.
 
-A baseline pública atual é `v0.5.0`. Esta referência descreve o contrato vigente do runtime na linha pós-release.
+A referência corresponde à versão 1.0.0 do runtime. Consulte [versionamento](VERSIONING.md) para distinguir versão publicada e versão do código-fonte.
 
 Variáveis de ambiente são overrides avançados. Quando existe um default seguro, o runtime aplica esse valor mesmo que a variável não esteja materializada no sistema operacional. Segredos não devem ser gravados em `rasai-console.ini`, arquivos de URL, relatórios, bancos ou logs.
 
@@ -130,7 +130,7 @@ Todos os campos abaixo usam `auto` por default.
 | `RASAI_FRESHNESS_SENSITIVITY` | `auto` | `auto`, `low`, `medium`, `high` | `auto` |
 | `RASAI_CONTENT_ORIGIN` | `auto` | `auto`, `first-party`, `third-party`, `user-generated`, `mixed` | `auto` |
 
-Um valor `auto` permanece `AUTO` no estado persistido. Eventual interpretação transitória por IA não sobrescreve o banco, não vira evidência determinística e não altera diretamente `SARI-001`/`SCORE-GEO-004`.
+Um valor `auto` permanece `AUTO` no estado persistido. Eventual interpretação transitória por IA não sobrescreve o banco, não vira evidência determinística e não altera diretamente o índice `SARI-001`.
 
 ### 6.1 IA - análise profunda e idioma
 
@@ -238,10 +238,12 @@ Depois da janela, uma nova observação live deve ocorrer em nova auditoria quan
 
 ## 8. Synthetic Navigation Apdex (`cat-06.html`)
 
+O catálogo técnico detalha navegação em `report-catalog/cat-06.html` e experiência em `report-catalog/cat-07.html`. A apresentação executiva reúne a leitura dessas fontes em `report-presentation/performance.html`, preservando amostras e limites de cada método.
+
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
 | `RASAI_SYNTHETIC_APDEX` | `false` no runtime genérico; baseline do console pode habilitar | booleano | habilitar deliberadamente conforme o catálogo |
-| `RASAI_APDEX_THRESHOLD_SECONDS` | `3` na baseline empacotada | número `> 0` | usar o SLO/KPM definido para o sistema quando conhecido |
+| `RASAI_APDEX_THRESHOLD_SECONDS` | sem default no CLI bruto quando habilitado; `3 s` na baseline empacotada do console | número finito `> 0` | usar o SLO/KPM definido para o sistema quando conhecido |
 | `RASAI_APDEX_SAMPLES_PER_CONTEXT` | **`150`** | inteiro `>= 1` | **`150`** |
 | `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | **`188`** para o target 150; em geral `ceil(1.25 × samples)` | inteiro `>= samples` | default derivado |
 | `RASAI_APDEX_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` |
@@ -392,7 +394,7 @@ Detalhes de registro do client, fluxo Authorization Code + PKCE, JWT, cookies e 
 
 ## 15. Precedência e persistência
 
-Quando a mesma capacidade puder ser definida por CLI/menu, variável e default, a superfície explícita da execução prevalece conforme o contrato do módulo.
+Quando a mesma capacidade puder ser definida por CLI/menu, variável e default, a superfície explícita da execução prevalece conforme o contrato do módulo. A seção `[environment]` não sobrepõe chaves existentes no processo durante sua leitura; campos tipados do INI e escolhas explícitas podem ser projetados novamente pelo console ao preparar o executor. Confira os valores efetivos, não presuma uma ordem linear universal. Consulte [precedência prática](CONFIGURATION.md#precedência-prática).
 
 Segredos podem existir apenas no processo/secret boundary apropriado. No Windows, persistência de segredo no escopo User só ocorre quando a superfície correspondente permitir e houver confirmação explícita. O INI do console não recebe segredos.
 
@@ -425,7 +427,7 @@ DYNATRACE_API_TOKEN
 
 ## 16. Telemetria e segurança de IA
 
-`ai_exchange_log` pode conter conteúdo/evidências da página efetivamente enviados ao provider. O workspace deve ser tratado como artefato potencialmente sensível. O recorder remove credenciais, headers de autenticação, parâmetros de segredo e campos reconhecidos como raciocínio privado antes da persistência.
+`ai_exchange_log` pode conter conteúdo/evidências da página efetivamente enviados ao provider. O workspace deve ser tratado como artefato potencialmente sensível. O registrador não deve persistir cabeçalhos de autenticação e aplica mascaramento aos campos e parâmetros reconhecidos como credenciais ou raciocínio privado. Isso não garante ausência de todo segredo ou dado opaco. Consulte [segurança e retenção da telemetria](AI_RUNTIME_SECURITY.md).
 
 Interpretação transitória de campos `auto` não deve ser promovida a evidência persistida nem a fato sobre credenciais, reputação, experiência pessoal, revisão profissional ou conformidade.
 
@@ -443,7 +445,7 @@ Quando não existir default tecnicamente seguro, documentar **sem default** em v
 
 ## Perplexity Search - ativação independente
 
-`RASAI_PERPLEXITY_ENABLED` é uma configuração booleana não secreta, com **default `true`**. Ela habilita a integração, mas não inicia nenhuma busca sem queries explicitamente solicitadas na AUD e a credencial `PERPLEXITY_API_KEY`. `false` interrompe novas chamadas externas e preserva a chave e as consultas configuradas. Ausência mantém o comportamento anteriormente homologado, enquanto valores inválidos não autorizam chamadas. A preferência `false` em `rasai-console.ini` ou no ambiente prevalece sobre o padrão `true` e sobrevive à reabertura. Restaurar padrões globais define `true` novamente, sem apagar a chave quando a opção de preservar credenciais é selecionada. CAT-05, menus 5 (Integrações) e 6 (Todas as configurações) apresentam o mesmo controle canônico. O diagnóstico local não executa buscas comerciais, e GEO não comprova citações de respostas gerativas.
+`RASAI_PERPLEXITY_ENABLED` é uma configuração booleana não secreta, com **default `true`**. Ela habilita a integração, mas não inicia nenhuma busca sem queries explicitamente solicitadas na AUD e a credencial `PERPLEXITY_API_KEY`. `false` interrompe novas chamadas externas e preserva a chave e as consultas configuradas. Ausência mantém o comportamento anteriormente homologado, enquanto valores inválidos não autorizam chamadas. O valor `false` explícito impede chamadas e prevalece sobre o padrão `true`. Quando salvo no INI pela superfície suportada do console, o valor é carregado novamente na abertura; um valor definido apenas no processo dura enquanto esse ambiente existir. Confira a configuração efetiva antes de executar. Rascunhos salvos de consultas e modo WEB/FAST não são autorização de execução comercial. Restaurar padrões globais define `true` novamente, sem apagar a chave quando a opção de preservar credenciais é selecionada. CAT-05, menus 5 (Integrações) e 6 (Todas as configurações) apresentam o mesmo controle canônico. O diagnóstico local não executa buscas comerciais, e GEO não comprova citações de respostas gerativas.
 
 ### Perplexity Search API - parâmetros do payload (issue #317)
 

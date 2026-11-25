@@ -28,12 +28,12 @@ Workers separados
 Audit / Search Monitoring / report refresh
 ```
 
-O navegador não calcula o **Índice de Prontidão Search & IA**, não executa o **Método de Pontuação de Prontidão**, não faz crawling e não reimplementa Search Intelligence. Ele projeta dados autorizados e cria comandos duráveis pelos contratos existentes. Os IDs técnicos `SARI-001` e `SCORE-GEO-004` permanecem no núcleo para rastreabilidade.
+O navegador não calcula o **Índice de Prontidão Search & IA**, não executa o **Método de Pontuação de Prontidão**, não faz crawling e não reimplementa Search Intelligence. Ele projeta dados autorizados e cria comandos duráveis pelos contratos existentes. O núcleo da auditoria preserva o identificador `SARI-001` e a versão do método em cada resultado.
 
 ## Princípios preservados
 
 - **Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001**, é o índice público; `SARI-001` é seu identificador metodológico técnico;
-- **Método de Pontuação de Prontidão**, versão pública **001**, é o método vigente; `SCORE-GEO-004` é seu contrato técnico;
+- **Método de Pontuação de Prontidão**, versão pública **001**, é o método vigente para novas auditorias sob `SCORE-GEO-005`. O contrato `SCORE-GEO-004` permanece disponível para leitura histórica;
 - o SaaS/control plane não altera diretamente `AUD-*/audit.db` nem artifacts; revisões da mesma AUD só ocorrem pelo contrato governado de RPR e permanecem rastreáveis;
 - o control plane continua separado da evidência do AUD;
 - SQLite continua backend local/default;
@@ -142,7 +142,7 @@ GET  /api/v1/execution-jobs/{job_id}/result
 Regras:
 
 - o AUD é autorizado novamente no servidor;
-- somente arquivos sob `AUD-*/report-catalog/` podem ser servidos;
+- as rotas da auditoria servem somente arquivos permitidos do catálogo técnico `AUD-*/report-catalog/`, com entrada em `index.html`. A apresentação executiva local `report-presentation/` tem [contrato próprio](REPORT_PRESENTATION.md);
 - `..`, traversal e saída por symlink/resolve são recusados;
 - extensões ficam limitadas a assets de apresentação Web;
 - `audit.db`, artifacts privados e paths internos não são expostos;
@@ -348,7 +348,7 @@ SaaS Pilot Web + OIDC/JWT
   -> runners privados e distribuição regional quando necessário
 ```
 
-Nenhum desses passos exige alterar `SARI-001` ou `SCORE-GEO-004`.
+A interface preserva o índice `SARI-001` e a versão de pontuação das auditorias de origem.
 
 ## Paridade do relatório consolidado
 

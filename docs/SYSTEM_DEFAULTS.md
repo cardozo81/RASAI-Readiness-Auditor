@@ -6,13 +6,7 @@ Esse arquivo representa a configuração padrão do produto para uma instalaçã
 
 ## Precedência
 
-A configuração efetiva do console local segue:
-
-1. argumento/ação explícita da sessão, quando aplicável;
-2. variável de ambiente/processo ou valor persistido no SO;
-3. `rasai-console.ini` do usuário;
-4. `rasai-defaults.ini` versionado do produto;
-5. fallback defensivo interno do código.
+A baseline estruturada é aplicada antes da leitura do INI do operador. Para variáveis adicionais, a leitura de `[environment]` não substitui chaves existentes no processo, e a aplicação de defaults não vazios respeita as fontes já presentes. O bootstrap restaura overrides externos não vazios. Isso não implica uma hierarquia universal na execução: campos tipados, escolhas explícitas do catálogo e argumentos podem ser projetados pelo console ao preparar o executor. Consulte [precedência prática](CONFIGURATION.md#precedência-prática) e [contrato de persistência](CONSOLE_CONFIG_PERSISTENCE.md#precedência-e-limitações).
 
 O `rasai-console.ini` é salvo pelo writer canônico. API keys, bearer tokens, passwords, DSNs com credencial e demais secrets não são escritos nele.
 
@@ -113,7 +107,7 @@ Depois da confirmação destrutiva exigida pela tela, o console:
 4. salva a configuração restaurada com o writer canônico quando aplicável;
 5. mantém secrets fora do INI.
 
-A restauração não apaga auditorias, `AUD-*/audit.db`, relatórios HTML, bancos do control plane ou arquivos do projeto.
+A restauração não apaga auditorias, `AUD-*/audit.db`, os pacotes individuais `report-catalog/` e `report-presentation/`, bancos do control plane ou arquivos do projeto.
 
 ## Distribuição e validação
 
@@ -138,8 +132,7 @@ A superfície configurável do console é inventariada em tempo de execução a 
 catálogos. O registry classifica, para cada chave, sensibilidade, persistência, default e
 ownership por `CAT-*`; não existe uma segunda lista manual por catálogo.
 
-Os nove perfis físicos sintéticos `RASAI_APDEX_*_{CLIENT|HARDWARE|NETWORK}_PROFILE`
-fazem parte da baseline empacotada e do contrato Save -> Reload -> Restore. Eles são
+A baseline INI empacotada declara seis seletores de perfil físico sintético `RASAI_APDEX_*_{CLIENT|HARDWARE|NETWORK}_PROFILE`: cliente, hardware e rede para mobile e desktop. A existência de perfis internos para Tablet não o torna opção operacional de nova AUD. Os seletores compartilhados participam do contrato de salvar, carregar e restaurar. Eles são
 configuração compartilhada entre CAT-06 e CAT-07, portanto não pertencem exclusivamente
 a nenhum dos dois catálogos.
 
@@ -151,7 +144,7 @@ exclusivas não secretas. O escopo é calculado pelo registry canônico, não po
 manual. Overrides exclusivos são removidos da sessão e de Windows/User quando aplicável,
 a baseline empacotada volta a prevalecer e o resultado é persistido pelo writer normal.
 
-Configurações compartilhadas são preservadas. Em especial, os nove perfis físicos
-sintéticos continuam intactos ao restaurar CAT-06 ou CAT-07; uma restauração exclusiva de
+Configurações compartilhadas são preservadas. Em especial, os seletores de perfis físicos
+sintéticos compartilhados continuam intactos ao restaurar CAT-06 ou CAT-07; uma restauração exclusiva de
 um desses catálogos não pode alterar silenciosamente a medição futura do outro.
 `Windows/Machine`, secrets e snapshots já congelados em AUD/RPR nunca são modificados.

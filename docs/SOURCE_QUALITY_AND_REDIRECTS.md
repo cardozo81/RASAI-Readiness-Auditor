@@ -197,7 +197,7 @@ Providers com wire format que ainda não possuem contrato homologado para essa e
 
 ## Relatórios individuais
 
-Quando houver diferença entre URL solicitada e URL final, erro técnico ou divergência entre HTTP e Chromium, **todas as páginas HTML do report** recebem o bloco:
+Quando houver diferença entre URL solicitada e URL final, erro técnico ou divergência entre HTTP e Chromium, a projeção do catálogo técnico `report-catalog/` inclui o bloco:
 
 > Origem, redirecionamentos e integridade de transporte
 
@@ -214,7 +214,7 @@ O bloco apresenta, conforme disponibilidade:
 - recomendações determinísticas;
 - explicação complementar de IA, quando disponível.
 
-O bloco é idempotente e é aplicado após os enriquecimentos Web Performance externo/Synthetic Navigation Apdex para cobrir também as páginas de Web Performance e Apdex.
+O bloco é idempotente e é aplicado após os enriquecimentos de Web Performance e Apdex ao catálogo técnico. Na apresentação executiva, `report-presentation/extracao.html` descreve o contexto da captura disponível. Consulte o catálogo técnico para investigar a cadeia e o diagnóstico de transporte.
 
 ## Exemplo que motivou a proteção
 

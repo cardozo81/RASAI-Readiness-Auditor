@@ -2,12 +2,12 @@
 
 **Estado:** IMPLEMENTADO / VIGENTE  
 **Domínio:** Web Performance externo  
-**Dependências:** report site e configuração opcional PageSpeed/CrUX; IA não é dependência obrigatória  
+**Dependências:** projeção técnica em `report-catalog/cat-04.html` e configuração opcional de PageSpeed/CrUX. A apresentação executiva em `report-presentation/performance.html` contextualiza as fontes de laboratório e campo persistidas. IA é facultativa.<br>
 **Natureza:** evidência externa aditiva; sem impacto automático no scoring
 
 ## 1. Objetivo
 
-Adicionar à auditoria RASAi evidências de Web Performance provenientes de fontes externas sem remover, substituir ou recalibrar silenciosamente `SCORE-GEO-004`.
+Adicionar à auditoria RASAi evidências de Web Performance provenientes de fontes externas sem remover, substituir ou recalibrar silenciosamente `SCORE-GEO-005`.
 
 Quando explicitamente habilitado, o recurso pode coletar:
 
@@ -19,7 +19,7 @@ Quando explicitamente habilitado, o recurso pode coletar:
 - telemetria de chamadas externas;
 - payloads JSON sanitizados das respostas externas bem-sucedidas.
 
-Esses dados são complementares. Nenhum valor Lighthouse/PageSpeed/CrUX é convertido automaticamente em contribuição para `SCORE-GEO-004` ou `SARI-001`.
+Esses dados são complementares. Nenhum valor Lighthouse/PageSpeed/CrUX é convertido automaticamente em contribuição para `SCORE-GEO-005` ou `SARI-001`.
 
 ## 2. Configuração PageSpeed/Lighthouse
 
@@ -45,7 +45,7 @@ Agentic Browsing continua experimental. Consequentemente:
 - ausência da categoria na resposta mantém o score indisponível/`NULL`;
 - indisponibilidade não é convertida em zero;
 - Performance, Accessibility, Best Practices e SEO válidos permanecem independentes e utilizáveis;
-- Agentic Browsing permanece fora de `SARI-001`/`SCORE-GEO-004`.
+- Agentic Browsing permanece fora de `SARI-001`/`SCORE-GEO-005`.
 
 ## 3. Core Web Vitals e CrUX
 
@@ -138,7 +138,7 @@ UNAVAILABLE
 
 `PARTIAL` indica evidência útil combinada com falha/indisponibilidade técnica real de componente configurado. `UNAVAILABLE` indica que nenhum contexto selecionado produziu evidência externa útil.
 
-Esses estados qualificam a coleta e não reduzem `SCORE-GEO-004`.
+Esses estados qualificam a coleta e não reduzem `SCORE-GEO-005`.
 
 ## 8. Persistência
 
@@ -174,7 +174,7 @@ O relatório deve distinguir:
 - indisponibilidade/incompletude;
 - `NO_DATA` CrUX de falha técnica do serviço;
 - telemetria de tentativas externas;
-- separação de `SARI-001`/`SCORE-GEO-004`;
+- separação de `SARI-001`/`SCORE-GEO-005`;
 - Agentic Browsing como categoria experimental.
 
 `report-catalog/index.html` pode resumir Web Performance, mas nunca recalcula Overall Readiness a partir dessas métricas.

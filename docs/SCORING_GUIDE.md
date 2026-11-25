@@ -106,7 +106,7 @@ Overall Coverage =
   / sum(Dimension Weight aplicável)
 ```
 
-Coverage mede completude da análise, não qualidade do site.
+Coverage mede completude da medição aplicável recebida pelo motor, não qualidade nem fração de páginas do site inspecionadas. Consulte [detalhes de cálculo](SCORE_GEO.md#overall-coverage).
 
 ## Overall
 
@@ -235,7 +235,7 @@ group_weight = 3%
 evidence_role = EXTERNAL_CORROBORATIVE
 ```
 
-Como `DISCOVERY_ACCESS` representa 15% do SARI, a influência teórica máxima desse grupo no Overall é 0,45 ponto.
+Como `DISCOVERY_ACCESS` representa 15% do SARI, a contribuição nominal do grupo é 0,45 ponto no Overall com pesos integralmente medidos. Em universos normalizados parciais, confira os denominadores e contribuições; veja [corroboração externa](SARI_EXTERNAL_CRAWL_CORROBORATION.md#peso).
 
 Ausência no Common Crawl, timeout, erro de rede, alvo privado/inelegível ou amostra insuficiente:
 
@@ -349,6 +349,8 @@ O comando deve refletir o contrato vigente e não executar rede.
 Não é necessário reexecutar website, IA ou APIs externas.
 
 ## Relatórios
+
+As páginas técnicas `report-catalog/sari.html` e `report-catalog/methodology.html` permitem investigar o índice e a metodologia. A apresentação executiva em `report-presentation/indices.html` contextualiza os índices e limitações; o painel `report-presentation/index.html` oferece síntese. Não há recálculo pelo gerador de HTML. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 ```text
 report-catalog/sari.html         SARI, dimensões, macrocomponentes, Coverage/Confidence e Critical Gates

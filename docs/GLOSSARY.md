@@ -88,6 +88,36 @@ A camada de apresentação usa nomes de negócio em pt-BR e mantém os identific
 | **TLS** | Transport Layer Security. | Segurança de transporte. |
 | **JSON-LD** | JSON for Linking Data. | Serialização de dados estruturados; sugestões permanecem advisory. |
 
+## Outros termos usados na operação
+
+- **Catálogo técnico (`report-catalog/`)**: pacote individual para investigar regras, métricas, estados e evidências. Entrada em `report-catalog/index.html`.
+- **Apresentação executiva (`report-presentation/`)**: pacote individual para interpretar resultados e orientar decisões com base nas evidências persistidas. Entrada em `report-presentation/index.html`.
+- **Relatório Consolidado Longitudinal (`CONS-5`)**: comparação de auditorias elegíveis da mesma URL e do mesmo dispositivo. A navegação e as demais saídas têm [guia próprio](REPORT_GUIDE.md).
+
+| Termo | Significado prático |
+| --- | --- |
+| Apdex | Índice de desempenho de aplicações entre 0 e 1, calculado pela classificação de amostras em satisfeitas, toleráveis e frustradas. |
+| KPM | Métrica-chave de desempenho usada para classificar a duração da ação na avaliação de experiência. |
+| Estrato | Grupo de testes com características e peso declarados, utilizado na avaliação populacional sintética. |
+| Percentil 75 (P75) | Valor abaixo do qual se situam aproximadamente 75% das observações da distribuição. |
+| DOM | Modelo de objetos do documento: estrutura interpretada pelo navegador, que pode mudar depois do carregamento e execução de JavaScript. |
+| Crawler | Programa que visita páginas e recursos para descobrir ou coletar informações. |
+| Canonical | Indicação da URL preferida entre versões equivalentes; não é garantia de escolha do buscador. |
+| GSC | Google Search Console: serviço de dados e diagnóstico de propriedades autorizadas na Pesquisa Google. |
+| OAuth | Protocolo de autorização que permite obter acesso delegado a recursos de um serviço. |
+| IP público de saída | Endereço observado pelo serviço externo que recebe uma conexão; pode representar NAT ou VPN, não necessariamente a interface local. |
+| GeoIP | Estimativa de localização associada a um IP segundo uma base de dados; não comprova posição física exata. |
+| Provedor de IA | Serviço que recebe a solicitação e executa um modelo. |
+| Esforço de raciocínio | Parâmetro operacional aceito por alguns modelos; não é medida de exatidão da resposta. |
+| Prompt / instrução | Texto e orientações enviados ao modelo para conduzir uma tarefa. |
+| Token de IA | Unidade de processamento de texto do modelo; diferente de token de autenticação. |
+| Credencial | Chave, senha ou token usado para autenticar ou autorizar acesso. |
+| Snapshot | Registro ou cópia de um estado observado em determinado contexto e instante. |
+| Manifesto | Inventário que descreve arquivos, identidade e informações de integridade de um pacote. |
+| Hash SHA-256 | Resumo criptográfico usado para verificar igualdade de conteúdo; não é criptografia de confidencialidade. |
+| Rematerialização | Regeneração de uma projeção de relatório a partir de dados existentes; não equivale a nova auditoria. |
+| N/D | Informação não disponível ou não determinada; consulte a razão e o contexto em vez de interpretar como zero. |
+
 ## Taxonomia de resultado
 
 ```text

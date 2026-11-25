@@ -2,12 +2,12 @@
 
 ## Contrato de linguagem para o usuário
 
-O console, os relatórios HTML e a documentação funcional devem apresentar capacidades e resultados pelos seus nomes compreensíveis, em português do Brasil. Códigos internos de módulos de implementação não pertencem a títulos, resumos, instruções, legendas nem mensagens operacionais.
+O console, o catálogo técnico (`report-catalog/`), a apresentação executiva (`report-presentation/`) e a documentação funcional devem apresentar capacidades e resultados pelos seus nomes compreensíveis, em português do Brasil. Códigos internos de módulos de implementação não pertencem a títulos, resumos, instruções, legendas nem mensagens operacionais.
 
 | Superfície | Termo público esperado | Critério de clareza |
 | --- | --- | --- |
 | Console e métricas de IA | Tempo e consumo das análises por IA | Diferenciar soma de durações, união de intervalos e tempo total da auditoria |
-| Console e relatório de custos | Tentativas de análise por IA e remediação de conteúdo | Não confundir custo estimado, gasto registrado e faturamento |
+| Console, investigação de tentativas em `report-catalog/ai-integrations.html` e síntese em `report-presentation/ia-custos.html` | Tentativas de análise por IA e remediação de conteúdo | Não confundir custo estimado, gasto registrado e faturamento |
 | Configuração e arquitetura | Arquitetura identificada durante a coleta | Distinguir arquitetura declarada, observada e indisponível |
 | Relatório de arquitetura | Rastreabilidade da arquitetura identificada | Preservar página, captura, dispositivo e limitações |
 | Web Performance | Tempos observados de requisições web | Não confundir soma de requisições HTTP com duração de etapa |

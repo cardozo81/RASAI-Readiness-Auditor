@@ -2,6 +2,8 @@
 
 ## Evidência comparável à última release tagueada
 
+Este capítulo registra a comparação histórica de 10/10/2026, relativa à v0.8.0. A versão 1.0.0 foi publicada em 25/11/2026; consulte as [notas de versão](RELEASE_NOTES_V1_0_0.md). O procedimento somente leitura abaixo pode ser aplicado a uma auditoria existente, mas as contagens do exemplo histórico não são valores padrão.
+
 Em 10/10/2026 a última **release publicada** no GitHub é
 `v0.8.0`, publicada em 07/10/2026, SHA canônico
 `4e9a3026ec0bbf6f46a4f30f3659fc2ab5a02a08`.
@@ -18,19 +20,17 @@ dessa AUD, não é possível declarar integridade material específica.**
 
 ## Modo somente leitura
 
-Com a **AUD concluída, console sem execução ativa e main local
-atualizada**, execute:
+Este verificador cobre o `audit.db` e o catálogo técnico `report-catalog/`. A apresentação executiva `report-presentation/` tem [manifesto e verificação próprios](REPORT_PRESENTATION.md).
+
+Com a **auditoria concluída, sem escritor ativo e instalação compatível**, substitua o caminho da auditoria e execute:
 
 ```powershell
 $python = ".\.venv\Scripts\python.exe"
 & $python -m rasai.audit_integrity_review `
-    --audit-dir ".\audits\AUD-3C3DD03BD7DC4A3082747AD28D545DBA" `
-    --expected-ai-attempts 8 `
-    --expected-web-calls 1 `
-    --expected-navigation-attempts 10
+    --audit-dir ".\audits\AUD-ID"
 ```
 
-O programa não abre conexão de rede, não executa processo RPR,
+Os argumentos opcionais `--expected-ai-attempts`, `--expected-web-calls` e `--expected-navigation-attempts` permitem confrontar contagens previamente comprovadas. Não copie valores de outra auditoria. O programa não abre conexão de rede, não executa processo RPR,
 não reaudita a URL e não grava `audit.db`, HTML ou manifests.
 Integra o verificador canônico `verify_catalog_report_package`
 com `catalog_report_is_fresh` e efetua:
@@ -38,7 +38,7 @@ com `catalog_report_is_fresh` e efetua:
    uma identidade AUD coincidente com o diretório;
 2. `completion_status=COMPLETE`, quando a auditoria é declarada
    completa no console;
-3. contagem M23 e M25: tentativas = válidas + inválidas =
+3. contagem das avaliações sintéticas de navegação e experiência: tentativas = válidas + inválidas =
    contagem de samples com `audit_id` na tabela correspondente,
    quando as tabelas e campos estão disponíveis;
 4. manifesto, SHA-256 de arquivos, snapshot lógico SQLite,
@@ -65,7 +65,7 @@ API keys ou conteúdos de IA, apenas contadores/estado técnico.
 - SHA-256 e banco íntegro não comprovam que o modelo IA recomendou
   a estratégia correta, que o alvo respondeu corretamente ou que
   preço estimado equivale a invoice do fornecedor.
-- O status **PARTIAL** de M23/M25 pode ser metodologia/suficiência
+- O estado **PARTIAL** das avaliações sintéticas de Apdex pode ser metodologia/suficiência
   amostral; não equivale a corrupção de registros.
 - Se a Perplexity estiver `enabled=true`, chave presente, mas a
   próxima AUD **não tiver queries explicitamente solicitadas**
@@ -78,9 +78,7 @@ API keys ou conteúdos de IA, apenas contadores/estado técnico.
 
 ## Operação após a verificação
 
-Anexe ou cole o JSON gerado, preferivelmente junto de
-`report-catalog/manifest.json` e `audit.db`, caso se deseje
-análise mais profunda do conteúdo da AUD.
+Mantenha o JSON gerado e as evidências em local privado e protegido. Não publique `audit.db`, o manifesto integral ou o catálogo técnico em issues ou PRs públicos. Compartilhe somente resultados agregados e sanitizados conforme a [declaração de segurança](SECRET_AND_CONFIGURATION_SAFETY.md) e o [procedimento de exportação](PUBLIC_REPORT_EXPORT.md).
 O reviewer não modifica bases históricas; se quiser exportar
 um resultado faça redirecionamento explícito do terminal
 para um caminho **fora da AUD**.

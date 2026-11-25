@@ -4,7 +4,7 @@
 
 Contrato: `SEARCH-MONITOR-001`.
 
-Search Intelligence Monitoring transforma uma query fornecida manualmente em um contexto de observação registrado e repetível. É uma capacidade operacional e longitudinal; não cria novo score de readiness e não altera `SARI-001` nem `SCORE-GEO-004`.
+Search Intelligence Monitoring transforma uma query fornecida manualmente em um contexto de observação registrado e repetível. É uma capacidade operacional e longitudinal; não cria novo score de readiness e não altera o índice nem o método de pontuação persistido.
 
 ## Objetivo
 
@@ -82,13 +82,15 @@ Credenciais não são persistidas nas tabelas, manifests ou relatórios.
 
 ## Registro e execução
 
+Substitua os identificadores de projeto, propriedade, ambiente e consulta pelos valores cadastrados e o domínio ilustrativo pelo alvo autorizado.
+
 Registrar:
 
 ```powershell
 rasai search-monitor --audits-root audits query add `
-  --project <project-id> `
-  --property <property-id> `
-  --environment <environment-id> `
+  --project 'PROJ-EXEMPLO' `
+  --property 'PROP-EXEMPLO' `
+  --environment 'ENV-EXEMPLO' `
   --query "seguro auto" `
   --domain cliente.example `
   --country BR `
@@ -106,13 +108,13 @@ rasai search-monitor --audits-root audits query list
 Executar:
 
 ```powershell
-rasai search-monitor --audits-root audits run --query-id <query-id>
+rasai search-monitor --audits-root audits run --query-id 'CONSULTA-EXEMPLO'
 ```
 
 Dry-run:
 
 ```powershell
-rasai search-monitor --audits-root audits run --query-id <query-id> --dry-run
+rasai search-monitor --audits-root audits run --query-id 'CONSULTA-EXEMPLO' --dry-run
 ```
 
 O dry-run separa teto SERP, tentativas de conteúdo e chamadas de IA.
@@ -127,9 +129,9 @@ Exemplo:
 
 ```powershell
 rasai search-monitor --audits-root audits query add `
-  --project <project-id> `
-  --property <property-id> `
-  --environment <environment-id> `
+  --project 'PROJ-EXEMPLO' `
+  --property 'PROP-EXEMPLO' `
+  --environment 'ENV-EXEMPLO' `
   --query "seguro auto" `
   --domain cliente.example `
   --mode live `
@@ -223,7 +225,12 @@ Relatório pontual da auditoria:
 
 ```text
 audits/AUD-*/report-catalog/cat-05.html
+audits/AUD-*/report-catalog/geo.html
 ```
+
+Apresentação executiva: <code>audits/AUD-*/report-presentation/search&#45;geo.html</code>.
+
+O catálogo técnico investiga observações de busca e GEO, enquanto a apresentação resume os fatos da auditoria para decisão. O catálogo do control plane acima é outra saída, longitudinal, não a apresentação executiva de uma AUD. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 O longitudinal não reescreve HTML histórico nem `audit.db`.
 
@@ -248,4 +255,4 @@ Detalhes: `POSTGRESQL_CONTROL_PLANE.md` e `POSTGRESQL_MIGRATION_STRATEGY.md`.
 
 Testes automatizados não devem consumir credenciais reais, chamar Search/IA live ou fazer crawl público de concorrentes.
 
-Cobertura obrigatória inclui escopo Project/Property/Environment, duplicidade, mudanças de ranking, profundidade, comparabilidade, ambos os backends, integridade de evidência/manifest, ausência de escrita recorrente em `AUD-*/audit.db`, seleção canônica de IA, `AUTO` e preservação de `SARI-001`/`SCORE-GEO-004`.
+Cobertura obrigatória inclui escopo Project/Property/Environment, duplicidade, mudanças de ranking, profundidade, comparabilidade, ambos os backends, integridade de evidência/manifest, ausência de escrita recorrente em `AUD-*/audit.db`, seleção canônica de IA, `AUTO` e preservação do índice e do método de pontuação persistido.

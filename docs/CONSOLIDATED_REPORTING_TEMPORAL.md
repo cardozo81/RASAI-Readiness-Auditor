@@ -4,7 +4,9 @@
 
 ## Objetivo
 
-O relatório consolidado `CONS-*` deve combinar execuções independentes do RASAi ao longo de um período sem tratar métricas distintas como se compartilhassem a mesma regra estatística.
+O relatório consolidado longitudinal [CONS-5](CONSOLIDATED_REPORTING.md) reúne evidências de múltiplas auditorias. Os pacotes individuais `report-catalog/` e `report-presentation/` têm [finalidades próprias](REPORT_GUIDE.md).
+
+O consolidado deve combinar execuções independentes do RASAi ao longo de um período sem tratar métricas distintas como se compartilhassem a mesma regra estatística.
 
 O contrato `TEMPORAL-APDEX-001` formaliza o caso que exige acesso às amostras brutas: **Synthetic Navigation Apdex** e **Synthetic User Experience Apdex**.
 

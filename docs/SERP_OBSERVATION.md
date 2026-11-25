@@ -1,6 +1,6 @@
 # SERP Observation - fundação de Search Intelligence
 
-**Estado:** fundação provider-neutral implementada / POC operacional.
+**Estado:** contrato de observação de busca tradicional da versão 1.0.0.
 
 SERP Observation é a camada factual de evidência de Search tradicional usada por RASAi Competitive Search & Content Intelligence. Semânticas de request/response específicas de fornecedores permanecem isoladas em adapters concretos; o código downstream consome objetos canônicos `SerpObservation` e `SerpResult`.
 
@@ -37,7 +37,8 @@ contrato SerpProvider
         +-- FixtureSerpProvider
         +-- SerpApiProvider      -> Google live
         +-- SerpApiBingProvider  -> Bing live
-        +-- adapters futuros
+        +-- ZenserpProvider      -> Google live
+        +-- ScrapingDogProvider  -> Google live
         |
         v
 SerpObservation / SerpResult canônicos
@@ -76,8 +77,10 @@ IDs de adapters live atuais:
 |---|---|---|---|
 | `serpapi` | Google | SerpApi | `start` do Google, páginas limitadas a 10 posições |
 | `serpapi-bing` | Bing | SerpApi | cursor `first` informado pelo provider para Bing |
+| `zenserp` | Google | Zenserp | `start`, páginas de até 10 posições |
+| `scrapingdog` | Google | ScrapingDog | `page` com índice iniciado em zero, páginas de até 10 posições |
 
-Os dois adapters usam a mesma variável BYOK `RASAI_SERPAPI_API_KEY`. IDs distintos tornam explícitas as regras específicas de request, paginação e normalização de cada mecanismo.
+Os dois adaptadores SerpApi usam `RASAI_SERPAPI_API_KEY`. Zenserp e ScrapingDog usam, respectivamente, `RASAI_ZENSERP_API_KEY` e `RASAI_SCRAPINGDOG_API_KEY`. Consulte [configuração dos provedores](PROVIDER_SETUP.md) e `rasai providers --kind serp` para a configuração efetiva; a integração técnica não garante quota ou disponibilidade da conta. IDs distintos tornam explícitas as regras específicas de request, paginação e normalização de cada mecanismo.
 
 ## 4. Adapter Google
 
@@ -242,7 +245,7 @@ Tabelas recorrentes do control plane:
 - `search_monitor_queries`;
 - `search_monitor_runs`.
 
-Nenhuma tabela de Search Intelligence altera `SARI-001`, `SCORE-GEO-004` ou tabelas de scoring.
+Nenhuma tabela de Search Intelligence altera automaticamente o índice ou o método de pontuação persistido.
 
 ## 10. Salvaguardas e controle de custo
 
@@ -349,7 +352,12 @@ Relatório pontual da auditoria:
 
 ```text
 AUD-*/report-catalog/cat-05.html
+AUD-*/report-catalog/geo.html
 ```
+
+Apresentação executiva: <code>AUD-*/report-presentation/search&#45;geo.html</code>.
+
+Para leitura executiva, abra <code>report-presentation/search&#45;geo.html</code> (Search e GEO): reúne observações de busca, concorrência, pesquisa externa e contexto GEO persistidos, com detalhes locais. Para investigação técnica, use `report-catalog/cat-05.html` (Search & AI Intelligence) e `report-catalog/geo.html` (inteligência GEO consultiva). As páginas de custos, quando pertinentes, são `report-presentation/ia-custos.html` e `report-catalog/ai-integrations.html`. As projeções são independentes, não executam pesquisa para preencher lacunas e não têm correspondência obrigatória de cada tabela ou seção. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 Histórico determinístico do par:
 
@@ -368,13 +376,13 @@ Todos são projeções de evidência persistida. A renderização não chama pro
 
 ## 15. Limitações atuais
 
-- adapters live de Search tradicional usam atualmente um único fornecedor, SerpApi, para Google e Bing;
+- há três fornecedores de SERP integrados; o Bing usa SerpApi e o Google dispõe de SerpApi, Zenserp e ScrapingDog; equivalência entre fornecedores não é presumida;
 - linhas normalizadas de Search permanecem focadas em resultados orgânicos;
 - não há integração com endpoint de billing/quota do provider;
 - a classificação de resultados competitivos é heurística, não um grafo comercial de entidades;
 - comparação de conteúdo concorrente usa HTML estático por HTTP, não DOM renderizado por browser;
 - ainda não há contrato competitivo canônico para canonical/`hreflang`/link graph;
-- suporte live de Competitive AI começa atualmente por OpenAI;
+- Competitive AI é uma etapa opcional distinta, regida pela seleção principal de IA; consulte [contrato de Competitive AI](COMPETITIVE_AI_INTELLIGENCE.md);
 - comparação longitudinal semântica da saída de Competitive AI ainda não é contrato estável;
 - monitoramento recorrente detecta mudanças, mas ainda não expõe uma superfície completa de notificações externas;
 - não há probes Search regionais distribuídos;
@@ -384,7 +392,7 @@ Todos são projeções de evidência persistida. A renderização não chama pro
 
 Observação periódica de queries já está implementada em `SEARCH-MONITOR-001`. As próximas extensões de Search Intelligence devem se concentrar em:
 
-1. adicionar um segundo fornecedor/provider de dados Search independente por trás de `SerpProvider`, reduzindo concentração de fornecedor;
+1. preservar o contrato comum e avaliar comparabilidade efetiva entre os fornecedores já integrados, somente quando houver necessidade e evidência;
 2. ampliar a cobertura de SERP features normalizadas quando a evidência do provider sustentar isso;
 3. adicionar aquisição competitiva por DOM renderizado para páginas client-rendered, preservando a aquisição estática limitada;
 4. adicionar comparações determinísticas de canonical, `hreflang` e link graph limitado;

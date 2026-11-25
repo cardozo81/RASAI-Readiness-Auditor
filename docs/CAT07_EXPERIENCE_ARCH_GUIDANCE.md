@@ -47,6 +47,8 @@ relação com uma navegação real ou confiabilidade do producer.
 
 ## Integração aditiva no console e CAT-07 (ciclo PR de #358)
 
+O orientador deste contrato é exibido no catálogo técnico `report-catalog/cat-07.html`. Para a leitura executiva das medições disponíveis de experiência, use `report-presentation/performance.html`. Os campos e as abstinências do orientador técnico devem ser conferidos no catálogo.
+
 CAT-07 Experience e CAT-06 Navigation são selecionáveis de modo independente;
 desabilitar Navigation não bloqueia a edição de Experience Apdex.\n\nO console agora oferece dois eixos de prévia: arquitetura declarada
 (AUTO/SSR/CSR_SPA/HYDRATED/MIXED/UNKNOWN) e calibração

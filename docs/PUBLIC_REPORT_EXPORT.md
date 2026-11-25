@@ -1,6 +1,6 @@
-# Exportação externa candidata de `report-catalog` - Issue #717
+# Exportação de relatórios para revisão de privacidade
 
-**Estado:** implementação segregada, sujeita à CI, revisão de segurança e homologação antes da publicação externa. **Não distribuir o ZIP canônico** de `report-catalog`: ele inclui `integrity/audit-snapshot.db`, com possíveis dados opacos/restritos que não foram liberados por uma varredura de HTML.
+**Disponibilidade:** a versão 1.0.0 inclui o exportador local. A saída é uma candidata à divulgação e exige revisão humana de privacidade. **Não distribuir o ZIP canônico** de `report-catalog`: ele inclui `integrity/audit-snapshot.db`, com possíveis dados opacos/restritos que não foram liberados por uma varredura de HTML.
 
 ## Perfis e limites de confiança
 
@@ -11,7 +11,7 @@
 
 A exportação não transforma ou reescreve o banco da auditoria, nem altera `report-catalog`, `report-presentation`, scoring, coleta, execução de IA, retry, ledger ou evidências. A exportação é um artefato **derivado e independente** do catálogo canônico.
 
-## Operação local (somente depois da homologação desta PR)
+## Operação local
 
 Exemplo Windows PowerShell, com pasta do relatório real existente e **ZIP de saída ainda inexistente fora da pasta de origem**:
 
@@ -55,4 +55,4 @@ O comando **não transmite** dados e não gera nova análise nem nova auditoria.
 
 Cobrir os casos sintéticos: segredo encapsulado no SQLite, segredo real no HTML fora de campos de payload, `encrypted_content` projetado, credencial em anexo textual, arquivo extra, ZIP com conteúdo proibido, duplicação, alteração de hashes, links quebrados, path traversal, ausência de aceite de assurance, destino dentro da origem, recusa de sobrescrita e ausência de mutação da árvore original.
 
-**Gate para resolver #717:** testes + CI aprovados no SHA final; smoke offline em Windows com cópia isolada de uma auditoria real; inspeção dos HTMLs e anexos; evidência de que nenhum conteúdo restrito foi distribuído. Não confundir a criação deste exportador com certificação de liberação pública.
+A validação técnica do exportador não certifica a liberação pública de uma auditoria específica. Para cada distribuição, examine os HTMLs e anexos e obtenha autorização sobre os dados efetivamente incluídos. Consulte a [declaração de segurança da informação](SECRET_AND_CONFIGURATION_SAFETY.md).

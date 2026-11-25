@@ -85,7 +85,7 @@ Severity × 45%
 + Ease × 10%
 ```
 
-Resultado: `0..100`.
+Resultado: `0..100`, arredondado a duas casas decimais pelo motor.
 
 Os pesos da fórmula são fixos em `PRIORITY-GEO-001`; não são parâmetros livres do usuário. Alteração desses pesos exige nova versão explícita do contrato de priorização.
 
@@ -97,29 +97,20 @@ Effort nunca deve reduzir artificialmente a importância de um blocker crítico.
 |---|---|---|---|
 | `P0` | blocker por regra especial | fixo no contrato | reservar a bloqueadores críticos materiais |
 | `P1` | `75..100` | fixo no contrato | preservar cálculo |
-| `P2` | `60..74,9` | fixo no contrato | preservar cálculo |
-| `P3` | `40..59,9` | fixo no contrato | preservar cálculo |
+| `P2` | `60 <= score < 75` | fixo no contrato | preservar cálculo |
+| `P3` | `40 <= score < 60` | fixo no contrato | preservar cálculo |
 | `P4` | `<40` | fixo no contrato | preservar cálculo |
 | `INFO` | informacional | fixo no contrato | não tratar como fila de correção obrigatória |
 
 ## 8. P0
 
-Pode ser usado para `CRITICAL` com impacto material sobre:
-
-- discovery;
-- access;
-- indexability;
-- rendering;
-
-em escopo relevante.
-
-`P0` não depende somente da fórmula.
+O motor atribui `INFO` antes das demais classes quando a severidade é informacional. Atribui `P0` antes dos limiares numéricos quando a severidade é `CRITICAL`, o impacto é `HIGH` ou `VERY_HIGH` e a categoria contém um dos termos técnicos `DISCOVERY`, `ACCESS`, `INDEX`, `RENDER`, `JAVASCRIPT` ou `SPA`, sem distinção de maiúsculas/minúsculas. Fora dessa condição, aplica os limiares da tabela ao score arredondado. `P0` não depende somente da fórmula.
 
 ## 9. Remediation Groups
 
 Findings individuais permanecem rastreáveis.
 
-Findings da mesma causa podem gerar um `RemediationGroup` e uma recomendação consolidada.
+O agrupador canônico usa regra, categoria e condição esperada normalizada como chave de causa. Usa a maior severidade do grupo. Isso não prova que a causa física de cada ocorrência seja idêntica; o diagnóstico localizado permanece rastreável. O impacto depende de escopo global, páginas afetadas versus total e dispositivos observados; a confiança de priorização é heurística de proveniência da fonte (determinística/HTTP ou semântica/IA), não o Confidence do SARI. O esforço deriva de termos da categoria, com fallback `UNKNOWN`, não de medição real de horas. O motor ordena grupos por score decrescente, regra e identificador em desempates. Prioridade calculada não equivale a acionabilidade nem substitui decisão humana. A referência técnica está em `report-catalog/cat-09.html`; a leitura de ações e decisões persistidas está em `report-presentation/plano.html`, sem presumir paridade de ocorrências. Consulte [guia de relatórios](../REPORT_GUIDE.md).
 
 ## 10. Root Cause
 

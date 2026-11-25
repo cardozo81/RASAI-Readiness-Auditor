@@ -98,11 +98,11 @@ Cada perfil possui somente os seguintes campos configuráveis:
 
 | Campo | Finalidade |
 |---|---|
-| `version` | versão funcional do perfil |
-| `role` | papel profissional assumido pela IA |
-| `objective` | objetivo intelectual da tarefa |
-| `competencies` | competências que devem orientar a análise |
-| `guidance` | orientação adicional específica do perfil |
+| `version` | versão funcional do perfil, até 64 caracteres |
+| `role` | papel profissional assumido pela IA, até 500 caracteres |
+| `objective` | objetivo intelectual da tarefa, até 1.200 caracteres |
+| `competencies` | lista de 1 a 12 itens, até 200 caracteres por item; duplicatas são deduplicadas |
+| `guidance` | orientação adicional específica do perfil, até 1.800 caracteres |
 
 Campos desconhecidos são rejeitados. Isso é intencional.
 
@@ -121,6 +121,29 @@ O arquivo de personas **não controla**:
 - política de preço.
 
 Esses elementos permanecem em contratos técnicos protegidos pelo código.
+
+### Exemplo de ajuste de instruções em português
+
+Exemplo completo de um arquivo de configuração parcial, para `config/ai-task-profiles.toml` (UTF-8). Se o arquivo já contém outros perfis, preserve-os e edite somente a seção desejada.
+
+```toml
+[metadata]
+schema_version = 1
+catalog_version = "operador-001"
+reference_date = "2026-11-25"
+description = "Ajuste de orientação da análise semântica"
+
+[profiles.SEMANTIC_READINESS]
+version = "1.1"
+role = "Especialista em semântica Web e prontidão para busca"
+objective = "Avaliar a organização das informações e sua clareza com base nas evidências coletadas."
+competencies = ["semântica HTML", "dados estruturados", "intenção de busca"]
+guidance = "Explique a insuficiência de evidência. Diferencie fatos observados de interpretação e priorize recomendações verificáveis."
+```
+
+O identificador da seção e os nomes dos campos são valores técnicos exigidos pelo leitor. Os limites dos cinco campos acima são aplicados pelo leitor canônico; preencher todos com conteúdo não vazio. Não incluir segredos, dados pessoais ou informações privadas nos perfis: suas instruções podem integrar prompts enviados ao fornecedor e registros da execução. A data no TOML mantém o formato ISO usado pelo arquivo, não o formato humano da documentação. O exemplo não altera a fórmula de pontuação, não cria um novo tipo de tarefa e não autoriza chamadas externas. A lista de competências deve ter de 1 a 12 itens; os demais campos são obrigatórios na seção sobrescrita. O catálogo de fábrica completa os perfis omitidos.
+
+Ative a origem `file` e indique o caminho em **Todas as configurações** se quiser exigir esse arquivo, ou mantenha `auto` para permitir retorno à fábrica quando o arquivo não existir. Uma seção inválida é rejeitada; não se deve corrigir o erro removendo controles de segurança.
 
 ## Grade de perfis
 
@@ -337,13 +360,15 @@ Isso permite rastrear qual especialização efetivamente participou de uma chama
 
 ## Relatório de uso de IA
 
-Quando o hash da tentativa pode ser relacionado ao envelope persistido, `ai-integrations.html` acrescenta a identidade do perfil à finalidade da comunicação.
+Quando o hash da tentativa pode ser relacionado ao envelope persistido, o catálogo técnico `report-catalog/ai-integrations.html` acrescenta a identidade do perfil à finalidade da comunicação.
 
 Exemplo conceitual:
 
 ```text
 Análise técnica · Perfil SOURCE_QUALITY v1.0
 ```
+
+A apresentação executiva `report-presentation/ia-custos.html` sintetiza o uso e o custo persistidos. Para investigar a identidade de perfil por tentativa, consulte o catálogo técnico.
 
 Provider, modelo e reasoning continuam sendo informações separadas. Essa separação é deliberada:
 

@@ -4,7 +4,7 @@
 
 `IMPROVEMENT-INTELLIGENCE-001` transforma evidências já coletadas pelo RASAi em um backlog de melhoria para **uma única URL explicitamente configurada**.
 
-A capacidade é separada de `SARI-001` e `SCORE-GEO-004`:
+A análise de melhorias é independente do índice `SARI-001` e do método de prontidão persistido em cada auditoria:
 
 - SARI/SCORE-GEO medem readiness segundo seus contratos;
 - Improvement Intelligence interpreta evidências e recomenda ações;
@@ -219,6 +219,8 @@ O relatório próprio contém o recorte de consumo da análise e a superfície c
 
 ## Relatórios
 
+A análise profunda é detalhada em `report-catalog/cat-08.html`, e as remediações e decisões têm superfícies técnicas em `report-catalog/cat-09.html` e `report-catalog/directed-analysis.html`. Na apresentação, `report-presentation/conteudo.html` contextualiza achados relacionados e `report-presentation/plano.html` organiza propostas e ações persistidas. Não presuma réplica de todas as tabelas, nem converta uma proposta em decisão aprovada. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
 A superfície canônica é:
 
 ```text
@@ -231,7 +233,7 @@ A página existe no contrato de relatório mesmo quando a capacidade não foi ex
 
 ## Relatório consolidado
 
-O consolidado usa o vocabulário canônico de dimensões do `SCORE-GEO-004`. Improvement Intelligence, Lighthouse/Core Web Vitals, Apdex, SERP e postura de segurança são complementares e não são artificialmente promediados dentro da série temporal do SARI.
+O [consolidado longitudinal](CONSOLIDATED_REPORTING.md) usa o vocabulário de dimensões e preserva a versão de pontuação registrada em cada origem. Improvement Intelligence, Lighthouse/Core Web Vitals, Apdex, SERP e postura de segurança são complementares e não são artificialmente promediados dentro da série temporal do SARI.
 
 A análise especialista do próprio consolidado possui telemetria separada e também utiliza a orquestração canônica quando IA é solicitada.
 

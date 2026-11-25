@@ -9,7 +9,22 @@
 - Playwright `>=1.57,<2`;
 - Chromium;
 - acesso HTTP/HTTPS às URLs auditadas;
-- egress adicional somente para integrações externas efetivamente habilitadas.
+- acesso de saída conforme as fontes ativas, inclusive descoberta externa de IP público habilitada por padrão; desabilitar IA não impede as demais comunicações.
+
+## Dependências declaradas pelo pacote
+
+O pacote exige Python 3.13, Playwright (>=1.57,<2) e tzdata (>=2026.1). A instalação editável usa setuptools (>=68) para empacotamento. Os grupos opcionais abaixo são declarados em [pyproject.toml](../pyproject.toml):
+
+| Grupo | Dependências | Finalidade |
+| --- | --- | --- |
+| documents | pypdf | Leitura de PDF |
+| postgresql | psycopg[binary] | Persistência PostgreSQL |
+| web | fastapi, uvicorn, httpx, PyJWT[crypto] | API e componentes Web |
+| copilot | github-copilot-sdk | Integração Copilot |
+| geoip | maxminddb | Leitura de bases GeoIP locais |
+| attestation | cryptography | Recursos de atestação |
+
+O Chromium é um componente separado, instalado pelo Playwright. A preparação opcional do GeoIP também é chamada pelo inicializador e não bloqueia a abertura do console em caso de falha; a aquisição de software depende de consentimento persistido. As bases e credenciais têm requisitos próprios.
 
 ## Inicialização recomendada no Windows
 
@@ -19,7 +34,7 @@ Na raiz do projeto, execute por duplo clique ou pelo terminal:
 abrir-rasai-console.cmd
 ```
 
-O launcher foi criado para deixar o ambiente local pronto para **todas as capacidades implementadas no produto**, inclusive integrações externas. A cada abertura ele:
+O inicializador prepara as dependências declaradas para as capacidades locais e opcionais. A disponibilidade efetiva de cada integração depende também de credenciais, permissões, rede e pré-requisitos próprios. A cada abertura ele:
 
 1. posiciona a execução na raiz do repositório;
 2. valida se existe uma `.venv` compatível com CPython 3.13;
@@ -125,7 +140,7 @@ rasai audit https://example.com `
   --no-web-performance
 ```
 
-A execução deve gerar `audit.db`, `logs/audit.log` quando o logging persistente estiver ativo e o mini-site em `report-catalog/`.
+Este exemplo realiza coleta real; use somente alvo autorizado. Não é smoke offline e não impede todas as integrações externas. Confira as fontes ativas e os custos antes de executar. A execução materializa `audit.db` e os artefatos disponíveis conforme o estado de coleta e publicação; `logs/audit.log` depende do logging persistente. Consulte o [guia de relatórios](REPORT_GUIDE.md) para distinguir catálogo técnico e apresentação executiva.
 
 ## Console interativo
 
@@ -161,16 +176,7 @@ abrir-rasai-console.cmd
 
 Como a instalação é editável, alterações em `src/` são utilizadas diretamente. Se `pyproject.toml` mudar, o launcher detecta a alteração pelo hash e reconcilia dependências, extras e entrypoints automaticamente.
 
-A atualização manual equivalente é:
-
-```powershell
-git fetch origin --prune
-git switch main
-git pull --ff-only origin main
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e .
-python -m playwright install chromium
-```
+Na atualização manual, encerre as execuções do RASAi, confira a origem do repositório, a branch atual e o estado do trabalho local. Preserve auditorias, configurações e arquivos não rastreados. Se não estiver na `main` ou houver alterações rastreadas, interrompa e reconcilie antes de atualizar. Na `main` limpa, use apenas avanço rápido (`git pull --ff-only origin main`); se falhar, não prossiga com instalação nem force a integração. Para uma release específica, confira a tag e o commit publicado antes de reconciliar o ambiente. A instalação e os downloads podem acessar a rede; não são necessários a cada execução. Use o inicializador recomendado ou a instalação manual acima, conforme as dependências requeridas.
 
 Se a instalação manual precisar de Copilot, reaplique `python -m pip install -e ".[copilot]"` após mudanças relevantes de dependências.
 

@@ -129,7 +129,7 @@ A política econômica altera somente a ordem dos providers ainda elegíveis. N�
 
 Adicionar ou atualizar um adapter de provider não deve exigir redefinir Business Rules, Finding, Score, Report ou Domain Model. Todos os adapters convergem para o contrato semântico normalizado e permanecem sujeitos à validação local do RASAi.
 
-IA não calcula `SARI-001` nem escolhe pesos do `SCORE-GEO-004`.
+IA não calcula `SARI-001` nem escolhe pesos do `SCORE-GEO-005` ou de seu contrato histórico `SCORE-GEO-004`.
 
 ## 9. Segurança e telemetria
 

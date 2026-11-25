@@ -1,5 +1,7 @@
 # Revisão de apresentação da PR #718 - gerador 0.4.16
 
+> **Contexto histórico de engenharia.** Revisão do gerador 0.4.16 na PR #718. As decisões e testes descritos preservam o contexto histórico de uma auditoria parcial; não são um gate aberto de merge. Para uso atual, consulte o [guia de leitura](REPORT_GUIDE.md), o [contrato de apresentação](REPORT_PRESENTATION_CONTRACT.md) e a [rematerialização](REPORT_REMATERIALIZATION.md). O [registro da versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/PRESENTATION_PARTIAL_EVIDENCE_REVIEW.md) permanece acessível.
+
 Na auditoria parcial, dois achados de descoberta não constituem um plano aprovado,
 uma previsão financeira não representa consumo de IA e uma captura passiva não
 comprova sondas ativas. A revisão mantém essas distinções visíveis nas páginas

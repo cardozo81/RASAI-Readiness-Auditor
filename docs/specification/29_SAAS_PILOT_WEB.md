@@ -11,7 +11,7 @@ Disponibilizar uma interface Web utilizável sobre o control plane e a execution
 
 `WEB-PILOT-001` - o browser deve consumir a API tenant-aware; nenhuma regra de negócio relevante pode existir apenas em JavaScript.
 
-`WEB-PILOT-002` - `SARI-001` e `SCORE-GEO-004` não podem ser recalculados, ajustados ou reinterpretados pela UI.
+`WEB-PILOT-002` - `SARI-001` e `SCORE-GEO-005` não podem ser recalculados, ajustados ou reinterpretados pela UI.
 
 `WEB-PILOT-003` - requests HTTP de execução somente podem criar durable execution jobs. Crawling/auditoria permanecem em worker separado.
 
@@ -19,7 +19,7 @@ Disponibilizar uma interface Web utilizável sobre o control plane e a execution
 
 `WEB-PILOT-005` - o catálogo HTTP de auditorias não pode expor `workspace_path`.
 
-`WEB-PILOT-006` - quando reports forem servidos via HTTP, somente a árvore `AUD-*/report-catalog/**` do AUD autorizado pode ser disponibilizada. `audit.db`, secrets, `AUD-*/report/` e artifacts fora da superfície pública não podem ser acessíveis pelo limite de rota.
+`WEB-PILOT-006` - quando relatórios individuais forem servidos via HTTP, somente a árvore do catálogo técnico `AUD-*/report-catalog/**` do AUD autorizado pode ser disponibilizada. A apresentação executiva local `report-presentation/` tem [contrato próprio](../REPORT_PRESENTATION.md) e fica fora dessas rotas. `audit.db`, secrets, `AUD-*/report/` e artifacts fora da superfície pública não podem ser acessíveis pelo limite de rota.
 
 `WEB-PILOT-007` - path traversal, symlink escape e extensão fora do allowlist de apresentação Web devem falhar fechado.
 

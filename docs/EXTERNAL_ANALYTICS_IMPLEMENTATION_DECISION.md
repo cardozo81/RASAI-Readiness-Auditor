@@ -17,7 +17,7 @@ Data de referência: 2026-09-13.
 A inclusão de Common Crawl foi aceita porque existe relação direta com discovery/crawl e o risco metodológico foi limitado por quatro mecanismos simultâneos:
 
 1. positive-only: ausência/erro não materializam regra;
-2. bounded: 3% de `DISCOVERY_ACCESS`, máximo de 0,45 ponto no Overall;
+2. peso de 3% em `DISCOVERY_ACCESS`, com contribuição nominal de 0,45 ponto quando os pesos são integralmente medidos. A normalização por cobertura parcial segue o [método vigente](SARI_EXTERNAL_CRAWL_CORROBORATION.md);
 3. não crítico: não entra em Critical Readiness Gates;
 4. ratio-preserving: quando BR-GEO-060 está ausente, os grupos técnicos mantêm exatamente as proporções anteriores.
 

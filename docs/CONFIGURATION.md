@@ -2,17 +2,53 @@
 
 O RASAi pode ser configurado por CLI, console interativo, arquivo INI do console e variáveis de ambiente. Credenciais permanecem fora do arquivo INI.
 
+## O que o operador pode configurar
+
+O console permite preparar a próxima auditoria, configurar credenciais e serviços, salvar parâmetros não secretos e restaurar padrões. A CLI oferece opções explícitas para parte dessas escolhas; os demais controles são variáveis de ambiente ou arquivos de configuração. Não trate todo o INI como entrada automática da CLI: existem leitores específicos, e a reprodução de uma sessão depende também dos argumentos e do ambiente efetivo.
+
+| O que ajustar | Onde ajustar | Efeito |
+| --- | --- | --- |
+| URL, dispositivo, projeto, idioma, mercado, páginas e pasta de auditorias | Preparar auditoria ou CLI | Define escopo de aquisição, contexto e destino. Uma URL inicial e um dispositivo por execução. |
+| Catálogos e autorização de IA | Preparar auditoria | Define plano interativo, dependências e supressão das capacidades opcionais não escolhidas. Não desliga todos os coletores basais. |
+| Fornecedor, modelo e esforço de IA | Inteligência Artificial, variáveis por fornecedor ou CLI quando disponível | Define a seleção e parâmetros permitidos pelo adaptador existente. |
+| Catálogo de modelos | Todas as configurações: origem/caminho; editar `config/ai-models.toml` | Habilita modelos e define seleção, vigência, esforço e elegibilidade; não cria novos adaptadores. |
+| Catálogo de preços | Todas as configurações: origem/caminho; editar `config/ai-pricing.toml` | Define estimativas e ordenação econômica. Não altera a cobrança real do fornecedor. |
+| Perfis de instrução de IA | Todas as configurações: origem/caminho; editar `config/ai-task-profiles.toml` | Define papel, objetivo, competências e orientação complementar por tarefa; não substitui contratos de evidência, segurança ou pontuação. |
+| Integrações externas | Integrações e serviços; opções específicas dos catálogos; ambiente e CLI conforme o serviço | Habilita fontes e define quotas, limites e parâmetros. A presença da credencial não basta para todas as fontes. |
+| Pesquisa SERP | Catálogo de inteligência de busca ou `--search-query` repetido e variáveis SERP | Solicita termos para uma nova auditoria, respeitando modo, fornecedor e tetos. |
+| Pesquisa Perplexity | Catálogo de inteligência de busca; parâmetros de ambiente; confirmação específica | Separa habilitação, rascunho de termos, WEB/FAST e autorização da execução. |
+| Apdex e perfis sintéticos | Preparar auditoria, CLI e ambiente | Define amostras, tentativas, carga, limites de tempo, perfis de cliente/hardware/rede e critérios de experiência. |
+| Fuso de apresentação | Console ou `RASAI_PRESENTATION_TIMEZONE` | Altera a apresentação temporal, não a referência UTC de persistência. |
+
+A relação exata de controles, tipos, valores e limites está na [referência de variáveis](ENVIRONMENT_VARIABLES.md). Veja também [exemplos de execução](CLI_REFERENCE.md#exemplos-de-execução-no-windows), [fluxo de catálogos](AUDIT_CATALOG_WORKFLOW.md) e [fuso horário](TIMEZONE_CONTRACT.md).
+
+### Como a configuração de IA chega à execução
+
+```mermaid
+flowchart TD
+    A[Operador escolhe fornecedor, modelo e esforço] --> D[Validar configuração efetiva]
+    B[Origem e catálogo de modelos e preços] --> D
+    C[Origem e perfis de instrução] --> D
+    D --> E{Configuração válida?}
+    E -->|Não| F[Corrigir antes de executar]
+    E -->|Sim| G[Fixar configuração da execução no console]
+    G --> H[Executar com os contratos de evidência e segurança]
+    H --> I[Registrar uso, custos e resultados]
+```
+
+Para os três arquivos TOML, `factory` ignora o arquivo local, `file` exige um arquivo válido e `auto` usa o arquivo indicado quando presente, com retorno ao catálogo de fábrica na ausência. O console normalmente configura `auto` e os caminhos em `config/`. Fora dele, os leitores de modelos e preços usam `factory` se não houver seleção no ambiente ou INI; o leitor de perfis usa `auto`. Configure os caminhos explicitamente em automações para evitar dependência do diretório atual.
+
+No console, a configuração dos três catálogos é validada e fixada em uma cópia temporária antes de iniciar a execução. Alterações posteriores no arquivo do operador passam a valer na próxima execução, não na que já começou. Os adaptadores, protocolos, esquemas de saída, regras de pontuação, limites de segurança e políticas de tratamento de falhas permanecem definidos pelo programa.
+
 ## Precedência prática
 
 Para `rasai audit`, argumentos CLI explícitos prevalecem sobre variáveis de ambiente quando a opção possui equivalente CLI.
 
 Para `rasai-console`:
 
-1. `rasai-console.ini` fornece parâmetros persistidos não sensíveis;
-2. variáveis já presentes no processo/ambiente têm precedência sobre valores persistidos equivalentes;
-3. alterações de sessão valem imediatamente para o processo atual;
-4. salvar o INI persiste somente estado não sensível;
-5. no Windows, secrets podem opcionalmente ser persistidos no ambiente User somente por ação explícita do operador.
+A precedência depende da superfície e do momento. Na leitura de `[environment]`, o carregador preenche chaves reconhecidas ainda ausentes no processo; se a chave já existe, essa seção não a substitui, inclusive quando seu valor no processo é vazio. Os campos tipados são reconstruídos pelas próprias seções do INI. O bootstrap do console restaura overrides externos não vazios após carregar o INI; ao preparar a execução, a projeção dos campos gerenciados pelo estado pode escrever novamente as variáveis correspondentes. Portanto, comparar textos do INI e do ambiente não identifica sozinho o valor consumido pelo motor. Confira plano, argumentos, ambiente efetivo e snapshot da execução. Veja [contrato de persistência](CONSOLE_CONFIG_PERSISTENCE.md#precedência-e-limitações).
+
+Alterações de sessão não equivalem a salvar o INI. Salvar persiste somente parâmetros não sensíveis; a persistência de credenciais no Windows/User é uma ação separada e explícita.
 
 O console nunca grava API keys, OAuth tokens, senhas ou outras credenciais no INI.
 
@@ -44,9 +80,11 @@ Não armazena secrets como chaves de IA, tokens OAuth, passwords ou credenciais 
 
 ## Valores padrão gerais
 
+A tabela distingue o default do runtime/CLI bruto da baseline empacotada de uma nova sessão do console. Nenhum default substitui a revisão do plano, autorização de carga e configuração efetiva. Os demais valores da baseline estão em [padrões do sistema](SYSTEM_DEFAULTS.md).
+
 | Configuração | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| dispositivo | `mobile` | `mobile`, `desktop`, `both` | `mobile` para execução mínima; `both` quando for necessário comparar dispositivos |
+| dispositivo | `mobile` | `mobile`, `desktop` | execute auditorias separadas para comparar dispositivos |
 | provider de IA | `none` | `none`, providers/aliases do registry e `auto` | `none` sem necessidade semântica; `auto` quando houver múltiplos providers aptos e política de fallback desejada |
 | remediação de conteúdo por IA | `false` | booleano | `false`; habilitar deliberadamente |
 | remediação técnica por IA | `false` | booleano | `false`; habilitar deliberadamente |
@@ -58,8 +96,8 @@ Não armazena secrets como chaves de IA, tokens OAuth, passwords ou credenciais 
 | idioma | `pt-BR` | valor textual aceito pela configuração | `pt-BR` para o produto no Brasil |
 | mercado | `BR` | valor textual aceito pela configuração | `BR` quando o mercado auditado for Brasil |
 | `audits-root` | `audits` | caminho válido | default |
-| Synthetic Navigation Apdex | `false` | booleano | `false`; habilitar apenas com `T` e autorização de carga adequados |
-| Synthetic User Experience Apdex | `false` | booleano | `false`; habilitar somente quando a medição calibrada for desejada |
+| Synthetic Navigation Apdex | CLI bruto `false`; baseline do console `true`, `T=3 s`, 150 amostras, até 188 tentativas | booleano | revisar carga e T antes de iniciar |
+| Synthetic User Experience Apdex | CLI bruto `false`; baseline do console `true`, 100 amostras, até 125 tentativas | booleano | revisar carga e calibração antes de iniciar |
 
 ## IA
 
@@ -128,19 +166,7 @@ O mesmo catálogo de pricing também suporta políticas de **uso nativo não-tok
 
 ### Modelos e reasoning
 
-| Provider | Default público de modelo | Modelos permitidos | Default de reasoning | Recomendado |
-|---|---|---|---|---|
-| OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `NONE` | default público; elevar capacidade deliberadamente |
-| DeepSeek | `deepseek-flash` | `deepseek-v4-pro`, `deepseek-flash` | `NONE` | default público |
-| MiMo | `mimo-v2.6-flash` | `mimo-v2.6-pro`, `mimo-v2.6-flash`; v2.5/pro disponíveis temporariamente até 21/10/2026 02:00 UTC | `NONE` | default público eficiente |
-| xAI | `grok-4.6` | `grok-4.6` | `LOW` | default público |
-| Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `NONE` | menor effort aceito; elevar deliberadamente |
-| Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` | default público |
-| Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `LOW` | default público |
-| Mistral | `mistral-small-2603` | `mistral-small-2603` | `PROVIDER_DEFAULT` | elegível ao AUTO |
-| Cohere | `command-a-03-2025` | `command-a-03-2025` | `PROVIDER_DEFAULT` | elegível ao AUTO |
-| Kimi / Moonshot | `kimi-k3` | `kimi-k3` | `LOW` | elegível ao AUTO |
-| GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` | deixar SDK/assinatura resolver o modelo; elegível ao AUTO |
+Os modelos públicos padrão e as opções de seleção de fábrica estão em [Modelos distribuídos na versão 1.0.0](AI_MODEL_CONFIGURATION.md#modelos-distribuídos-na-versão-100). Use `rasai providers --kind ai` para consultar os valores resolvidos no ambiente de execução. As variáveis por fornecedor são descritas na referência central de [variáveis de ambiente](ENVIRONMENT_VARIABLES.md#3-ia---modelos).
 
 Os valores permitidos de reasoning são publicados em `ENVIRONMENT_VARIABLES.md` e `PROVIDER_REGISTRY.md`.
 
@@ -182,7 +208,7 @@ Regras:
 - `auto` permite somente hipótese provisória baseada nas evidências disponíveis;
 - configuração explícita é preferível quando a classificação YMYL já é conhecida;
 - campos `auto` não podem virar fatos sobre autoria, expertise, experiência, compliance, reputação ou processo editorial oculto;
-- o contexto não cria score E-E-A-T/YMYL e não altera diretamente `SARI-001`/`SCORE-GEO-004`;
+- o contexto não cria score E-E-A-T/YMYL e não altera diretamente o índice `SARI-001`;
 - essas variáveis não criam custo externo por si só: apenas condicionam chamadas de IA que já estejam habilitadas.
 
 Base conceitual: [`CONTENT_ANALYSIS_CONTEXT.md`](CONTENT_ANALYSIS_CONTEXT.md).
@@ -225,7 +251,7 @@ report-catalog/cat-01.html
 
 ## Search Intelligence / SERP
 
-A coleta SERP é independente de SARI/SCORE-GEO-004. Providers live atuais:
+A coleta SERP é observacional e permanece independente do índice `SARI-001`. Para investigar termos, resultados e limites, consulte `report-catalog/cat-05.html`. A apresentação executiva em <code>report-presentation/search&#45;geo.html</code> contextualiza as observações persistidas. Providers live atuais:
 
 | Provider | Credencial |
 |---|---|
@@ -264,9 +290,9 @@ Consulte [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md) e [`ENVIRO
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| `RASAI_SYNTHETIC_APDEX` | `false` | booleano | `false` |
-| `RASAI_APDEX_THRESHOLD_SECONDS` | sem default | número finito `> 0` | usar SLO/KPM definido para o sistema; não inventar `T` |
-| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | `100` | inteiro `>= 1` | `100`; reduzir apenas em smoke controlado |
+| `RASAI_SYNTHETIC_APDEX` | CLI bruto `false`; console `true` | booleano | habilitar conforme a finalidade e carga autorizada |
+| `RASAI_APDEX_THRESHOLD_SECONDS` | sem default no CLI bruto; console `3 s` | número finito `> 0` | usar SLO/KPM definido para o sistema |
+| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | `150` | inteiro `>= 1` | `150`; reduzir explicitamente para diagnóstico de baixa carga |
 | `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | `ceil(1.25 × samples)` | inteiro positivo e validado pelo runtime | default derivado |
 | `RASAI_APDEX_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline de carga |
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número `> 4T` | default derivado |
@@ -274,13 +300,13 @@ Consulte [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md) e [`ENVIRO
 | `RASAI_APDEX_CONCURRENCY` | `1` | inteiro `1..4` | `1`; `3..4` exigem delay >= `1 s` |
 | `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto`; aplica o planner canônico e reutiliza apenas aquisição física comprovadamente compatível |
 
-Synthetic Navigation Apdex só pode ser habilitado com `T` explícito. Consulte [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md).
+No CLI bruto, Synthetic Navigation Apdex exige `T` no argumento ou ambiente quando habilitado; o console fornece `T=3 s` pela baseline se não houver ajuste efetivo. Consulte [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md).
 
 `RASAI_APDEX_ACQUISITION_MODE` não unifica as métricas. Em `auto`, o engine canônico pode projetar uma ocorrência física compatível para CAT-06 e CAT-07 sem unificar seus evaluators; targets, thresholds e classificações permanecem independentes e ambos herdam o device único da AUD. `isolated` mantém aquisições físicas separadas.
 
 ## Synthetic User Experience Apdex
 
-Os defaults, valores permitidos e recomendados dessa camada estão consolidados em [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md) e [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md). Ela permanece desabilitada por padrão e pode usar configuração Dynatrace importada quando explicitamente solicitada. A concorrência do Experience aceita `1..3`, mantém `1` como recomendado e exige delay >= `1 s` para o valor avançado `3`; sem override próprio, a herança de Navigation é limitada a `2`.
+Os defaults, valores permitidos e recomendados dessa camada estão consolidados em [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md) e [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md). No runtime/CLI bruto, a ativação permanece opt-in; a baseline empacotada do console a habilita independentemente da navegação. Pode usar configuração Dynatrace importada quando explicitamente solicitada. A concorrência do Experience aceita `1..3`, mantém `1` como recomendado e exige delay >= `1 s` para o valor avançado `3`; sem override próprio, a herança de Navigation é limitada a `2`.
 
 A origem dos defaults deve permanecer explícita. O baseline executável usa `USER_ACTION_DURATION` com `3 s / 12 s` como **fallback RASAi derivado da configuração Dynatrace Load**, pois o RASAi não reimplementa `VISUALLY_COMPLETE` com semântica proprietária. A política default de erros reproduzível usa JavaScript errors = `true`, request/HTTP/CSP errors qualificáveis = `true`, `console.error` = `false` e escopo de request = `all`; cancelamentos genéricos `net::ERR_ABORTED` de subrecursos permanecem diagnósticos por default e não são tratados como equivalência automática de request error Dynatrace. A captura reproduzível usa JavaScript = `true`, XMLHttpRequest = `true`, Fetch = `true`, `console.error` = `false` e máximo de `10` erros detalhados por página. Amostras, tentativas, páginas, device mix, sessão, settle, pacing, concorrência, timeout e perfis sintéticos permanecem **defaults operacionais RASAi**, não defaults Dynatrace.
 
@@ -288,18 +314,11 @@ A origem dos defaults deve permanecer explícita. O baseline executável usa `US
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| `RASAI_DEVICE_CONTEXT` | `mobile` | `mobile`, `desktop`, `both` | `mobile` para execução mínima; `both` quando a comparação Desktop × Mobile for necessária |
+| `RASAI_DEVICE_CONTEXT` | `mobile` | `mobile`, `desktop` | execute uma auditoria por dispositivo |
 
 ## Persistência do console
 
-O console usa `rasai-console.ini` ou o caminho indicado por `RASAI_CONSOLE_INI` como persistência de parâmetros não sensíveis. Na inicialização, a precedência é:
-
-```text
-valor já presente no processo/Windows
-> valor persistido em [environment]
-> valor persistido nas seções funcionais do INI
-> default do runtime
-```
+O console usa `rasai-console.ini` ou o caminho indicado por `RASAI_CONSOLE_INI` como persistência de parâmetros não sensíveis. Não existe uma única ordem linear que descreva todos os consumidores. A distinção entre `[environment]`, campos tipados, bootstrap e projeção ao executor está na seção [precedência prática](#precedência-prática).
 
 Valores não secretos do INI são projetados novamente para o ambiente dos adapters antes da execução. Assim, remediação de IA, timeout, máximo de ciclos, espera entre ciclos, modelo/reasoning selecionados, Web Performance e Synthetic Apdex podem sobreviver a salvar → fechar → reabrir. Os três parâmetros de execução de IA usam a mesma fonte de verdade no atalho de IA, em Todas as configurações, no snapshot da AUD e no RPR.
 
@@ -313,7 +332,7 @@ Secrets nunca entram no INI. No Windows, o console pode persistir/remover uma cr
 - logs e relatórios não devem registrar secrets;
 - credencial configurada não implica crédito/quota;
 - variáveis persistidas não equivalem a secret manager;
-- integrações derivadas não alteram silenciosamente `SARI-001/SCORE-GEO-004`.
+- integrações derivadas não alteram silenciosamente o índice de prontidão ou a versão do método de pontuação de uma auditoria.
 
 ## Documentos relacionados
 

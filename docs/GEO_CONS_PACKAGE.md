@@ -1,5 +1,7 @@
 # #311 - Pacote GEO consultivo derivado de uma seleção CONS
 
+**Limite de uso vigente:** Na versão 1.0.0, o Relatório Consolidado Longitudinal vigente utiliza `CONS-5`. Os comandos `geo-cons-review` e `geo-cons-package` aceitam somente manifestos `CONS-3`; não são compatíveis com `CONS-5`. Preserve o contrato original e use `rasai geo-longitudinal` com AUDs explicitamente selecionadas para a consulta independente. A integração nativa e a tendência calibrada foram retiradas do backlog ativo em 25/11/2026 ([decisão da issue #311](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/311)); não constituem entrega prevista nem garantia metodológica.
+
 O comando `python -m rasai.geo_cons_package` produz um artefato
 **independente** em `audits_root/consolidated-geo-companions/
 GCOMP-<fingerprint>/{manifest.json,report.html}`.
@@ -46,9 +48,9 @@ identidade CONS adulterada, sidecars SQLite, symlinks e
 idempotência byte a byte em Linux e Windows.
 
 O pacote é um **companion consultivo separado**, não uma integração
-nativa ao formato `CONS-3` produtivo. A issue #311 continua OPEN
-para critérios metodológicos de tendências calibradas e eventual
-integração formal sem romper fingerprints/contratos existentes.
+nativa ao formato de consolidação. A issue #311 foi encerrada como
+`not_planned` no escopo residual, preservando o pacote já entregue e
+as restrições metodológicas. Não há integração nativa planejada.
 
 
 ## Checagem de concorrência e proveniência do GCOMP

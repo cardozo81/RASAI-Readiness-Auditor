@@ -1,8 +1,8 @@
 # Contrato de falhas de IA, fulfillment e conclusão do AUD
 
-**Estado do contrato:** vigente na linha pós-`v0.5.0`.  
-**Data de referência original desta documentação:** 14/09/2026.  
-**Contrato de pricing de referência:** `RASAI-PRICING-2026-09-13`.
+**Estado:** contrato operacional reconciliado para a versão 1.0.0.  
+**Registro original:** 14/09/2026, catálogo histórico `RASAI-PRICING-2026-09-13`.  
+**Baseline distribuída:** `RASAI-PRICING-2026-10-23.1`; preserve a versão efetiva persistida por tentativa e consulte [configuração de preços](AI_PRICING_CONFIGURATION.md) para vigência e revisão comercial.
 
 Este documento define a relação entre configuração efetiva, trabalho esperado, tentativas externas, consumo, fulfillment, resultado lógico do `AUD-*`, reprocessamento e apresentação no console/SaaS.
 
@@ -391,13 +391,13 @@ O SaaS deve poder distinguir:
 - fallback;
 - custo e `pricing_version` de cada tentativa.
 
-Payloads duráveis continuam secret-free.
+O contrato de payloads duráveis exclui valores de credenciais reconhecidas. Não se trata de garantia absoluta de ausência de dados sensíveis em URLs, conteúdo ou texto livre.
 
 A camada SaaS não mantém uma tabela paralela de preço nem uma lógica alternativa de fulfillment.
 
 ## 16. Segurança e diagnóstico
 
-Mensagens de exceção persistidas são sanitizadas.
+Mensagens de exceção persistidas passam por sanitização dos campos reconhecidos. Trate texto livre e artefatos como potencialmente sensíveis e siga [segurança e retenção](AI_RUNTIME_SECURITY.md).
 
 Não devem ser persistidos no `error_detail`:
 
@@ -434,7 +434,7 @@ Este documento descreve o contrato atual do produto em desenvolvimento.
 
 ## 18. Execução parcial e disponibilidade externa
 
-A indisponibilidade de IA/API não é, por si só, falha fatal da execução. O pipeline e o `report-catalog/` podem ser materializados com fulfillment parcial, desde que dados válidos, provenance e integridade sejam preservados.
+A indisponibilidade de IA/API não é, por si só, falha fatal da execução. O pipeline e o catálogo técnico `report-catalog/` podem ser materializados com fulfillment parcial, desde que dados válidos, provenance e integridade sejam preservados. A apresentação executiva independente `report-presentation/` é derivada não bloqueante após o gate técnico; confirme cada publicação. `execution-evidence.html` e `ai-integrations.html` no catálogo detalham a operação, enquanto `index.html` e `ia-custos.html` na apresentação sintetizam estado e consumo conforme a evidência. Consulte [guia dos relatórios](REPORT_GUIDE.md).
 
 As causas permanecem distintas:
 

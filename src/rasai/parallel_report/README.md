@@ -1,4 +1,8 @@
-# Relatório paralelo offline
+# Gerador offline da apresentação executiva
+
+**Contrato na versão 1.0.0:** gerador interno `0.4.36`, conforme `__init__.py`. Os registros de entregas anteriores abaixo permanecem históricos. O pacote `report-presentation/` possui 11 páginas e não depende do HTML técnico `report-catalog/`, cujas 21 páginas são especializadas na investigação de evidências. Consulte o [guia de relatórios](../../../docs/REPORT_GUIDE.md), o [contrato transversal](../../../docs/REPORT_PRESENTATION_CONTRACT.md) e o [procedimento de rematerialização segura](../../../docs/REPORT_REMATERIALIZATION.md). A versão interna do gerador não é a versão do produto.
+
+A geração abaixo escreve apenas o pacote derivado; para auditorias que precisam ser preservadas sem alterações, use uma cópia isolada conforme o procedimento de rematerialização.
 
 ```powershell
 .\.venv\Scripts\python.exe -m rasai.parallel_report --audit-dir 'C:\caminho\AUD-ID'
@@ -25,7 +29,7 @@ dependências de produção são da biblioteca padrão Python 3.13.
 ## Evidência e limites da primeira entrega
 
 - Inventário integral de origem e hashes antes/depois, sem alterar AUD/catalog.
-- Anexos contêm todos os registros consultados, com redaction de credenciais.
+- Anexos preservam os registros consultados segundo os limites do contrato, com mascaramento de campos de credenciais reconhecidos. Não há garantia de sanitização de conteúdo arbitrário nem de pixels; trate a saída como confidencial até revisão específica.
 - Literais sanitizados não substituem a evidência original; hashes se referem
   ao original. Conteúdo binário é representado por tamanho/limitação.
 - Vínculos usam identidade inequívoca; sem correspondência não há aproximação.
@@ -54,7 +58,7 @@ demais arquivos gerados. `source_writes=0` exclui somente a nova saída derivada
 Nunca interpretar existência de relatório como homologação da auditoria.
 
 
-## Paridade semântica após a #710
+## Histórico de evolução semântica após a #710
 
 O HTML do `report-catalog` **não é fonte de fatos para este gerador**. Quadros executivos recebem registros diretamente de `audit.db` e sidecars verificados. Nenhum hyperlink de detalhe técnico exige o catálogo. Prévia, modal, inventário local e anexos JSON compõem uma navegação autônoma.
 
@@ -153,4 +157,4 @@ aprovações. Novas famílias sem política entram em revisão, nunca são
 silenciosamente marcadas como técnicas. A evidência de cobertura de 100%
 das famílias **não é** aceite editorial humano: ambos os recibos preservam
 `certifies_editorial_completeness=false`. A homologação da AUD real,
-inspeção visual e decisões de materialização ainda são obrigatórias.
+inspeção visual e decisões de materialização são requisitos de uma alegação de certificação semântica integral. A issue #722 foi encerrada administrativamente como `not_planned`; isso não altera o recibo nem transforma famílias pendentes em homologadas. Consulte a decisão registrada na [issue #722](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues/722).

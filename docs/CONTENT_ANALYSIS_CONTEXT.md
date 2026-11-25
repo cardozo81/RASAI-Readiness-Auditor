@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-O RASAi mantém um **contexto editorial explícito** para evitar análise genérica de conteúdo. Esse contexto condiciona a interpretação semântica, mas não altera aritmeticamente `SARI-001`/`SCORE-GEO-004`, não cria score proprietário de E-E-A-T/YMYL e não representa fator oficial isolado de ranking.
+O RASAi mantém um **contexto editorial explícito** para evitar análise genérica de conteúdo. Esse contexto condiciona a interpretação semântica, mas não altera aritmeticamente o índice `SARI-001`, não cria score proprietário de E-E-A-T/YMYL e não representa fator oficial isolado de ranking.
 
 A auditoria de conteúdo distingue dois escopos:
 
@@ -148,6 +148,8 @@ O perfil semântico reutilizável pertence à Property e é persistido em entida
 4. o worker converte o mesmo contrato para os envs canônicos do core.
 
 ## Relatórios
+
+A leitura técnica de conteúdo, contexto editorial e semântica está em `report-catalog/cat-03.html`. Na apresentação executiva, `report-presentation/conteudo.html` reúne contexto, achados e avaliações disponíveis, sem promover ausência de registro a avaliação executada. Consulte a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 O CAT-03 é a projeção canônica do diagnóstico de conteúdo/semântica:
 

@@ -1,8 +1,6 @@
 # AUTO cost-aware AI routing
 
-**Data de referência da política de preços: 03/10/2026**  
-**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-10-03.7`**  
-**Data de referência do catálogo de modelos: 03/10/2026**
+**Baseline distribuída na versão 1.0.0:** `RASAI-PRICING-2026-10-23.1` e `RASAI-MODELS-2026-10-23.1`, ambos de 23/10/2026. **Revisão recomendada:** 23/11/2026 (já atingida em 25/11/2026). Esta é a identidade dos arquivos empacotados, não validação comercial atual. O catálogo efetivo pode ser outro, conforme SOURCE e snapshot da execução.
 
 Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` está selecionado. O cadastro de modelos está em [`AI_MODEL_CONFIGURATION.md`](AI_MODEL_CONFIGURATION.md) e o schema comercial em [`AI_PRICING_CONFIGURATION.md`](AI_PRICING_CONFIGURATION.md).
 
@@ -20,7 +18,7 @@ A política econômica:
 
 ## 1.1 Limite da extensão de uso nativo
 
-O catálogo `RASAI-PRICING-2026-10-03.7` também preserva políticas `PER_REQUEST` e `PROVIDER_CREDITS` para consumidores não-token. Essa extensão **não redefine o AUTO**:
+O catálogo de fábrica vigente também preserva políticas `PER_REQUEST` e `PROVIDER_CREDITS` para consumidores não-token. Essa extensão **não redefine o AUTO**:
 
 - Perplexity Search API não é adicionada ao pool principal de providers por esta entrega;
 - Manus não é adicionado ao pool principal de providers por esta entrega;
@@ -124,7 +122,7 @@ Após a chamada, quando o usage é suficiente, o boundary econômico calcula o *
 
 ## 4. Estruturas comerciais interpretadas pelo motor
 
-O schema `1` suporta as estruturas necessárias às políticas conhecidas em 02/10/2026:
+O schema `1` suporta as seguintes estruturas para tarifas por token, além das unidades nativas descritas na seção 1.1:
 
 | Estrutura | Uso |
 |---|---|
@@ -141,7 +139,7 @@ Toda regra possui `effective_from`; `effective_until` é opcional. Sem regra vig
 
 ## 5. Estado de pricing de fábrica - referência 02/10/2026
 
-Valores em USD por 1 milhão de tokens.
+Registro histórico da política de 02/10/2026, mantido para rastreabilidade, não uma segunda tabela operacional. Valores em USD por 1 milhão de tokens. Para decisão atual, consulte o catálogo TOML efetivo e [configuração canônica de preços](AI_PRICING_CONFIGURATION.md). Entradas históricas não comprovam modelo selecionável ou tarifa vigente; os modelos MiMo v2.5 expiraram e o modelo `deepseek-v4-flash` possui entrada própria no catálogo distribuído.
 
 | Provider / modelo | Input | Cache | Output | Contexto |
 |---|---:|---:|---:|---|
@@ -167,7 +165,7 @@ Valores em USD por 1 milhão de tokens.
 
 ### DeepSeek
 
-Peak atual em UTC, segunda a sexta:
+Janela peak registrada pela política de referência, em UTC, segunda a sexta; confira regras e vigência no TOML efetivo:
 
 ```text
 01:00 <= UTC < 04:00
@@ -274,7 +272,7 @@ Não existe hot reload global de catálogos dentro de um worker que execute orga
 
 ## 9. Política de revisão
 
-O pricing e o catálogo de modelos de fábrica têm data de referência **02/10/2026**. A revisão ordinária de pricing é recomendada em **02/11/2026**.
+Os metadados dos catálogos distribuídos em 1.0.0 indicam referência **23/10/2026** e revisão recomendada **23/11/2026**. Não se deve inferir que a tarifa está atualizada, nem alterar o snapshot de uma AUD histórica. Para revisão comercial, confira fontes oficiais e a configuração humana efetiva; a revisão documental não atualiza modelos ou preços.
 
 Revisar imediatamente se houver mudança de preço, modelo default, disponibilidade de modelo, reasoning, região, endpoint, cache, janela horária, threshold de contexto, promoção, service tier ou divergência material entre estimativa e cobrança.
 
@@ -304,6 +302,6 @@ A suíte deve preservar:
 
 ### MiMo V2.6
 
-A família V2.6 substitui os defaults v2.5 sem alterar o protocolo PAYG Responses do RASAi. O AUTO usa `mimo-v2.6-flash` como default econômico e só o considera quando modelo e pricing estão vigentes. Os modelos v2.5 deixam de ser efetivos no instante oficial de retirada.
+A família V2.6 substitui os defaults v2.5 sem alterar o protocolo PAYG Responses do RASAi. O catálogo distribuído define `mimo-v2.6-flash` como default público. O AUTO exige modelo elegível e vigente; se a tarifa correspondente não puder ser resolvida, o candidato apto continua `UNPRICED`, após os precificados. Os modelos v2.5 deixam de ser efetivos no instante oficial de retirada.
 
 A eventual seleção de Token Plan, Batch ou UltraSpeed não é permitida pelo AUTO atual. Essas modalidades possuem contrato/custo distinto e não podem ser escolhidas silenciosamente para reduzir preço. Issue de migração: #183; condicionamento runtime de pricing: #181.

@@ -2,7 +2,7 @@
 
 **Estado:** vigente  
 **Índice:** **Search & AI Readiness Index - Índice de Prontidão Search & IA**, versão pública **001**, ID técnico `SARI-001`  
-**Método:** **Método de Pontuação de Prontidão**, versão pública **001**, contrato técnico `SCORE-GEO-004`  
+**Método:** **Método de Pontuação de Prontidão**, versão pública **001**, contrato técnico `SCORE-GEO-005`  
 **Agregação:** **Agregação Hierárquica Ponderada de Prontidão**, versão pública **001**, ID técnico `HIERARCHICAL_WEIGHTED_READINESS_V1`
 
 ## 1. Princípio
@@ -259,7 +259,7 @@ Overall `NOT_CONSOLIDATED` ocorre quando não há medição numérica, existe bl
 
 ## 12. Relatórios
 
-`report-catalog/sari.html` e `report-catalog/methodology.html` distinguem:
+`report-catalog/sari.html` e `report-catalog/methodology.html` são referências técnicas do índice e método. `report-presentation/indices.html` fornece leitura executiva dos índices e limitações, sem presumir paridade de campos. As páginas técnicas distinguem:
 
 - Score;
 - Coverage;
@@ -275,7 +275,7 @@ O relatório não pode apresentar valor numérico calculado sobre universo medid
 
 ## 13. Reprodutibilidade e comparabilidade
 
-`BR-GEO-054` valida integridade/reprodutibilidade do contrato de scoring persistido. O contrato vigente usa `SCORE-GEO-004` com `HIERARCHICAL_WEIGHTED_READINESS_V1`.
+`BR-GEO-054` valida integridade/reprodutibilidade do contrato de scoring persistido. O contrato vigente usa `SCORE-GEO-005` com `HIERARCHICAL_WEIGHTED_READINESS_V1`. O método `SCORE-GEO-005` é vigente para novas AUDs; `SCORE-GEO-004` permanece para interpretação/replay histórico, sem reclassificação retroativa de evidência ou nota.
 
 Dadas as mesmas `RuleExecutions`, contribuições, evidências e fórmula/gates versionados, dimensões e estado Overall devem ser reconstruíveis sem reabrir o website nem chamar IA.
 

@@ -7,7 +7,7 @@ Os IDs técnicos `BR-GEO-*` permanecem canônicos para rastreabilidade. Na docum
 
 Este documento descreve o contrato funcional vigente das **Regras de Avaliação de Prontidão** do RASAi. Identificadores, enums, nomes de campos e valores persistidos permanecem na forma técnica canônica; títulos e explicações são apresentados em português do Brasil.
 
-`BR-GEO-001..059` representam regras internas do contrato atual. `BR-GEO-060` é uma regra externa corroborativa, positive-only, baseada em Common Crawl. Ela integra o mesmo ruleset vigente porque pode contribuir para `SCORE-GEO-004` quando a evidência positiva qualifica conforme o contrato específico.
+`BR-GEO-001..059` representam regras internas do contrato atual. `BR-GEO-060` é uma regra externa corroborativa, positive-only, baseada em Common Crawl. Ela integra o mesmo ruleset vigente porque pode contribuir para `SCORE-GEO-005` quando a evidência positiva qualifica conforme o contrato específico.
 
 ## 1. Contrato comum
 
@@ -217,7 +217,7 @@ Finding somente quando a ambiguidade puder ser sustentada por evidência materia
 
 Avalia parsing, `@context`, `@type` e estrutura observada.
 
-Quando o estado-fonte registra explicitamente `present=false`, a observação continua persistida e reabrível, mas o adapter de scoring `SCORE-GEO-004` aplica a política versionada de aplicabilidade e projeta essa execução como `NOT_APPLICABLE` **somente para scoring**, com `reason=STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT` e preservação de `source_rule_result`. Portanto, ausência legítima de JSON-LD não reduz o SARI e não deve ser apresentada como requisito universal.
+Quando o estado-fonte registra explicitamente `present=false`, a observação continua persistida e reabrível, mas a política introduzida no adapter `SCORE-GEO-004` e reutilizada pelo `SCORE-GEO-005` aplica a política versionada de aplicabilidade e projeta essa execução como `NOT_APPLICABLE` **somente para scoring**, com `reason=STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT` e preservação de `source_rule_result`. Portanto, ausência legítima de JSON-LD não reduz o SARI e não deve ser apresentada como requisito universal.
 
 ### BR-GEO-035 - Tipos e propriedades relevantes de Dados Estruturados devem ser identificáveis
 
@@ -230,6 +230,10 @@ Compara markup com valores e conteúdo observável na página. Sem Structured Da
 ### BR-GEO-037 - Entidades dos Dados Estruturados devem ser coerentes com as entidades observadas
 
 Compara entidades declaradas e observadas. Ausência de Dados Estruturados não implica `FAIL` automático nem penalização numérica.
+
+## Aplicabilidade de declarações SEO opcionais
+
+No método vigente, a ausência opcional comprovada em BR-GEO-003 (sitemap), BR-GEO-013 (canonical) e BR-GEO-017 (robots.txt), quando registrada como WARNING e classificada `OPTIONAL_ABSENCE`, é interpretada como `NOT_APPLICABLE` para o cálculo. Não há bônus PASS, nem neutralização de conflitos, erros ou bloqueios. O motor de regras e seus resultados originais continuam preservados. Consulte [contrato de pontuação](../SCORE_GEO.md#aplicabilidade-de-sinais-seo-opcionais). O método `SCORE-GEO-005` é vigente para novas AUDs; `SCORE-GEO-004` permanece para interpretação/replay histórico, sem reclassificação retroativa de evidência ou nota.
 
 ## 11. Capacidade de resposta
 
@@ -409,9 +413,11 @@ Dimension = DISCOVERY_ACCESS
 Group = EXTERNAL_CRAWL_CORROBORATION
 Evidence role = EXTERNAL_CORROBORATIVE
 Group Weight = 3% de DISCOVERY_ACCESS
-Maximum Overall Impact = 0,45 ponto
+Nominal Overall Contribution = 0,45 ponto com todos os pesos medidos
 Critical Gate = não
 ```
+
+A contribuição nominal não é teto aritmético universal com denominadores normalizados parciais. Consulte [corroboração externa](../SARI_EXTERNAL_CRAWL_CORROBORATION.md#peso).
 
 A regra é `positive-only` e somente é materializada quando:
 
@@ -482,7 +488,7 @@ Política:
 - ausência de evidência não vira `FAIL`;
 - critério não resolvido permanece `UNKNOWN`.
 
-`NO_AI` não significa automaticamente baixa Coverage. A auditoria pode ser consolidada sem IA quando os grupos aplicáveis forem suficientemente medidos e os gates do `SCORE-GEO-004` forem satisfeitos.
+`NO_AI` não significa automaticamente baixa Coverage. A auditoria pode ser consolidada sem IA quando os grupos aplicáveis forem suficientemente medidos e os gates do `SCORE-GEO-005` forem satisfeitos.
 
 ### Provider configurado
 

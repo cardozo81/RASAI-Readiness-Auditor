@@ -21,7 +21,7 @@ CRITICAL_GATE_VERSION        SARI_CRITICAL_GATES_V1
 MEASUREMENT_CONFIDENCE       WEIGHTED_MEASUREMENT_CONFIDENCE_V1
 ```
 
-## Mudança versionada #602: sinais SEO opcionais
+## Aplicabilidade de sinais SEO opcionais
 
 Em novas auditorias, ausência isolada e realmente observada de robots.txt,
 canonical ou sitemap consultado não é prova de deficiência de indexação.
@@ -187,6 +187,11 @@ Cada conjunto de grupos de uma dimensão totaliza 1.0.
 
 ## RuleResult e fatores
 
+Em linguagem prática: aprovação contribui com o peso integral, advertência contribui com a fração prevista na regra e reprovação contribui com zero. Uma verificação não concluída reduz a cobertura, mas não recebe uma reprovação fictícia. Uma verificação comprovadamente não aplicável deixa de compor o universo de cálculo.
+
+Exemplo ilustrativo: três grupos aplicáveis com pesos 0,40, 0,30 e 0,30. O primeiro foi aprovado, o segundo reprovado e o terceiro ficou sem evidência suficiente. A qualidade medida é (0,40 / 0,70) × 100 = 57,14; a cobertura é 70%. Não se deve apresentar 57,14 como avaliação completa. Os pesos deste exemplo são didáticos, não substituem a tabela do método vigente.
+
+
 ```text
 PASS    = 1.00
 WARNING = 0.50 por padrão
@@ -289,6 +294,8 @@ Overall Coverage =
 
 Coverage mede quanto do peso aplicável foi avaliado; não atribui qualidade ao site.
 
+A cobertura é calculada sobre grupos/escopos representados pelas execuções aplicáveis recebidas pelo motor, não sobre todos os itens imagináveis nem sobre todas as páginas do site. Dentro do mesmo grupo e escopo, o motor escolhe o menor fator entre resultados conclusivos determinísticos; se não houver nenhum, escolhe o menor fator entre os demais resultados conclusivos contratados. Um resultado não resolvido não apaga automaticamente outro resultado conclusivo do mesmo escopo, embora erros registrados possam reduzir a confiança. Uma dimensão sem execuções fica sem nota, com cobertura zero e não consolidada. Quando todos os resultados são não aplicáveis por pré-requisito bloqueado, a dimensão permanece não consolidada em vez de sair legitimamente do denominador. A cobertura de aquisição e a integridade das evidências devem ser examinadas separadamente.
+
 ## Confidence
 
 Dimensão:
@@ -299,6 +306,8 @@ MEDIUM      coverage >= 0.80, zero errors
 LOW         avaliação abaixo dos critérios acima
 UNAVAILABLE coverage <= 0
 ```
+
+Neste cálculo, evidência completa significa que cada execução representativa avaliada possui referência de evidência (`evidence_ids`), não que toda a aquisição ou todo o site tenha sido inspecionado. Erros em execuções aplicáveis também entram na avaliação de confiança. Se nenhuma dimensão possui valor medido, a confiança geral é `UNAVAILABLE`.
 
 Overall usa `WEIGHTED_MEASUREMENT_CONFIDENCE_V1`:
 
@@ -343,8 +352,8 @@ NOT_APPLICABLE   fora do universo aplicável
 Overall:
 
 - `CONSOLIDATED` quando Coverage >= 0.80, Confidence HIGH/MEDIUM e nenhuma dimensão crítica aplicável está sem medição suficiente;
-- `PARTIAL` quando existe leitura útil com Coverage >= 0.50 mas o gate completo não foi atingido;
-- `NOT_CONSOLIDATED` quando a medição não sustenta a conclusão.
+- `PARTIAL` quando existe valor medido, Coverage >= 0.50, confiança disponível e nenhuma dimensão crítica aplicável bloqueia a consolidação, mas o critério completo não foi atingido;
+- `NOT_CONSOLIDATED` quando não há valor medido, existe bloqueio crítico de medição ou não são satisfeitos os critérios mínimos de cobertura e confiança.
 
 Um score baixo pode ser `CONSOLIDATED`: isso significa que a baixa qualidade foi medida com força suficiente.
 
@@ -389,6 +398,8 @@ UNKNOWN
 O estado geral é `READY`, `ATTENTION`, `BLOCKED` ou `UNKNOWN`.
 
 Critical Gates qualificam readiness e **não truncam artificialmente o valor 0-100**. São persistidos em `limitations` do Overall para manter a rastreabilidade do contrato. Na apresentação pública, porém, `BLOCKED`, `UNKNOWN` e `ATTENTION` prevalecem sobre uma banda numérica positiva para evitar falso positivo executivo.
+
+Entre estados de gates, o resultado geral segue a precedência `BLOCKED`, `UNKNOWN`, `WARNING` (apresentado como `ATTENTION`) e, por último, `READY`. A regra de precedência não substitui a qualificação de cobertura e consolidação.
 
 ## Precedência de evidência
 
@@ -488,6 +499,8 @@ Falha de provider não é falha do website. Quando a regra não pode ser conclu�
 Não é necessário reexecutar website, IA ou APIs externas para reproduzir o cálculo persistido.
 
 ## Relatórios
+
+A leitura técnica de composição e método está em `report-catalog/sari.html` e `report-catalog/methodology.html`. A leitura executiva do índice e suas limitações está em `report-presentation/indices.html`, com síntese no painel `report-presentation/index.html`. A organização editorial não altera pesos, contribuições ou o método persistido. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 ```text
 report-catalog/sari.html

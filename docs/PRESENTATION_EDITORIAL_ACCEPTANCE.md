@@ -1,5 +1,7 @@
 # PR 718: cobertura editorial e homologação técnica da apresentação 0.4.14
 
+> **Contexto histórico de engenharia.** Homologação técnica da apresentação 0.4.14 na PR #718. Branch, SHAs, comandos e resultados descrevem a reprodução daquele recorte, não um procedimento obrigatório na versão atual. Para uso atual, consulte o [guia de leitura](REPORT_GUIDE.md), o [contrato de apresentação](REPORT_PRESENTATION_CONTRACT.md) e a [rematerialização](REPORT_REMATERIALIZATION.md). O [registro da versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/PRESENTATION_EDITORIAL_ACCEPTANCE.md) permanece acessível.
+
 ## Escopo e causa reproduzida
 
 Branch `fix/partial-aud-presentation-independent-715`, base inicial

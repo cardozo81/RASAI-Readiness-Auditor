@@ -90,7 +90,7 @@ Após concluir as AUDs, usar o comando read-only:
 ```
 
 O arquivo de saída `.rasai-experimental-reports/<AUD-ID>/<SHA256>.html`
-é separado de `report-catalog`, sem JavaScript ou serviços externos.
+é um relatório experimental autônomo, sem JavaScript ou serviços externos. Os pacotes individuais `report-catalog/` e `report-presentation/` seguem o [guia de leitura](REPORT_GUIDE.md).
 Ele contém estado, delta observado/N/D, recusas, situação de FAQ
 sem interação/após clique declarado/não verificado, sem expor HTML
 pós-clique nem segredos. O operador deve confirmar a integridade

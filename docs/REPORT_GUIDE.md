@@ -4,15 +4,59 @@ O RASAi mantém HTML como projeção de leitura sobre dados persistidos; HTML n�
 
 ## Entrada principal da auditoria
 
-```text
-report-catalog/index.html
-```
+A auditoria pode oferecer duas projeções complementares, cada uma com entrada própria:
+
+| Relatório | Abra no navegador | Finalidade |
+| --- | --- | --- |
+| Apresentação executiva | `report-presentation/index.html` | Leitura orientada a decisões, em onze páginas temáticas autônomas |
+| Catálogo técnico | `report-catalog/index.html` | Investigação analítica, regras, métricas, evidências e detalhes por catálogo |
+
+Cada gerador lê as evidências persistidas e publica seu próprio pacote. O catálogo técnico é a referência para rastrear regras, métricas e evidências. A apresentação executiva resolve seus detalhes e anexos sem ler o HTML do catálogo. A geração do catálogo também dispensa o HTML da apresentação. Um pacote pode estar indisponível ou desatualizado mesmo quando o outro existe. Consulte [apresentação e limites](REPORT_PRESENTATION.md), [confiança do catálogo](REPORT_CATALOG_TRUST.md) e [regeneração offline](REPORT_REMATERIALIZATION.md).
+
+### Roteiro de leitura executiva
+
+| Página da apresentação | Pergunta que ajuda a responder |
+| --- | --- |
+| `index.html` - Painel | Qual é a situação observada e quais limitações precisam ser consideradas? |
+| `extracao.html` - Extração | O que foi capturado, em qual contexto, e onde está a evidência? |
+| `descoberta.html` - Descoberta e padrões | Quais sinais de acesso, descoberta e verificações técnicas foram observados? |
+| `indices.html` - Índices | Qual a qualidade medida e a suficiência da evidência para interpretá-la? |
+| `conteudo.html` - Conteúdo e acessibilidade | Que sinais de conteúdo, semântica, estrutura e acessibilidade foram registrados? |
+| `performance.html` - Performance e experiência | Quais medições de laboratório, campo e avaliações sintéticas estão disponíveis? |
+| `rede.html` - Rede e conectividade | Quais conexões, origens, endereços e medições de rede foram comprovados? |
+| <code>search&#45;geo.html</code> - Search e GEO | O que foi efetivamente observado nas buscas, fontes e comparações? |
+| `seguranca.html` - Segurança passiva | Quais sinais e limitações de segurança foram observados? |
+| `plano.html` - Plano de ação | Quais achados, propostas e decisões existem, sem confundir proposta com aprovação? |
+| `ia-custos.html` - IA, custos e proveniência | Quais integrações e tentativas foram registradas, com que modelo, esforço, uso e custo? |
+
+### Correspondência temática entre os relatórios
+
+Use esta matriz para escolher a página por objetivo. Os nomes de arquivo foram confrontados com os contratos de navegação do produto (21 páginas técnicas e 11 executivas). Cada coluna apresenta **caminhos relativos à pasta indicada**. A relação é de assunto e finalidade, não de equivalência visual, réplica de tabelas, dependência entre HTMLs ou certificação de completude. Uma página pode sintetizar evidências de mais de um catálogo e um assunto pode aparecer em mais de uma página.
+
+| Objetivo | `report-catalog/` - investigação técnica | `report-presentation/` - leitura executiva |
+| --- | --- | --- |
+| Situação geral e conclusão da auditoria | `index.html` - resumo, estados e encerramento estrutural | `index.html` - painel, leitura e situação observada |
+| Prontidão, critérios, pesos e indicadores | `sari.html`, `methodology.html`, `metrics.html` - índice, método e inventário de métricas | `indices.html` - interpretação dos índices e limites; `index.html` - síntese |
+| Captura, URLs e contexto | `capture-context.html` - topologia da captura e evidências | `extracao.html` - capturas, contexto e registros |
+| Fundamentos técnicos, descoberta e padrões | `cat-01.html` - verificações de acesso, descoberta e padrões | `descoberta.html` - observações técnicas e serviços |
+| Acessibilidade, conteúdo e semântica | `cat-02.html`, `cat-03.html` - diagnósticos especializados e dados estruturados | `conteudo.html` - contexto, achados e evidências de conteúdo e acessibilidade |
+| Laboratório, campo e Apdex | `cat-04.html`, `cat-06.html`, `cat-07.html` - desempenho, navegação e experiência em universos separados | `performance.html` - leitura conjunta com fontes, amostras e limites distintos |
+| Rede, conexões e topologia | `network.html` - observações e sondagens verificadas | `rede.html` - conexões, origem, inventário e mapa conforme evidências |
+| Busca, concorrência e GEO | `cat-05.html`, `geo.html` - evidência de busca e inteligência competitiva consultiva | <code>search&#45;geo.html</code> - resultados observados, fontes externas e contexto competitivo |
+| Revisão consultiva de conteúdo para GEO | `geo-content-review.html` - revisão consultiva própria, quando materializada | <code>search&#45;geo.html</code> e `conteudo.html` - assuntos relacionados; consultar a evidência técnica específica quando necessária, sem presumir réplica |
+| Melhorias, remediações e decisões | `cat-08.html`, `cat-09.html`, `directed-analysis.html` - diagnóstico, orientação, propostas e rastreabilidade | `plano.html` - ações e decisões persistidas; `conteudo.html` - achados relacionados |
+| Segurança passiva | `cat-10.html` - observações, recursos e diagnósticos | `seguranca.html` - cobertura, achados e limites |
+| Execução, integrações e custo | `execution-evidence.html`, `ai-integrations.html` - evidências operacionais, tentativas e telemetria | `ia-custos.html` - uso, esforço, custos e proveniência; `index.html` - situação operacional |
+
+Os dois pacotes permanecem locais e devem ser protegidos. Não confunda anexos de apoio, manifesto ou resumo com a fonte original nem com autorização de divulgação. A exportação pública atualmente documentada refere-se ao catálogo técnico e exige revisão de privacidade.
+
+Navegue pelas páginas de interesse e pelos anexos locais. Não interprete a existência de uma página como confirmação de que a coleta correspondente ocorreu; leia os estados e limitações. A [segurança da informação](SECRET_AND_CONFIGURATION_SAFETY.md) orienta o tratamento do pacote. O catálogo integral contém dados de acesso restrito; para divulgação, use o processo de [exportação candidata](PUBLIC_REPORT_EXPORT.md), sujeito à revisão humana.
 
 `<AUD>/report/`, `<AUD>/report.html` e `<AUD>/cat-09.html` não pertencem ao contrato HTML de uma execução `rasai audit`.
 
 ## Estrutura suportada
 
-A projeção audit-owned suportada é `report-catalog/`. Ela preserva:
+A projeção técnica canônica `report-catalog/` preserva:
 
 - visão geral e **Índice de Prontidão Search & IA**;
 - CAT-01 ... CAT-10 conforme contrato da auditoria;
@@ -68,7 +112,7 @@ Esses dados continuam disponíveis ao `report-catalog/` e a outras capacidades q
 
 ## Saídas fora do report da AUD
 
-Relatórios standalone, como monitoring, verification, timelines, históricos e consolidações, possuem contratos próprios e ficam fora da projeção audit-owned de `report-catalog/`.
+O [CONS-5 longitudinal](CONSOLIDATED_REPORTING.md) compara auditorias elegíveis de uma mesma URL e dispositivo. A [comparação no mesmo domínio](CONS_DOMAIN_COMPARATIVE.md) trata URLs distintas. [Históricos de busca](SEARCH_INTELLIGENCE_HISTORY.md), [monitoramento e verificações](MONITORING_CAPABILITIES.md) e o [companheiro consultivo GEO do CONS-3](GEO_CONS_COMPANION.md) têm contratos próprios. Essas saídas ficam fora dos dois pacotes HTML individuais. A [exportação pública](PUBLIC_REPORT_EXPORT.md) é uma saída candidata derivada do catálogo técnico e exige revisão.
 
 ## Índice e método de pontuação
 
@@ -101,6 +145,8 @@ A lista de superfícies audit-owned é definida por `src/rasai/catalog_report_co
 | segurança passiva | `cat-10.html` | postura passiva, vulnerabilidades conhecidas e remediações |
 | análise direcionada | `directed-analysis.html` | síntese estratégica sobre evidências e ações persistidas |
 | inteligência GEO observacional | `geo.html` | fontes Perplexity persistidas e sobreposição SERP quando comparável; sem prometer citação em IA |
+| revisão de conteúdo para GEO | `geo-content-review.html` | revisão consultiva de evidências de conteúdo, sem novo score |
+| rede e conectividade | `network.html` | conexões, sondagens e topologia observadas; sem inferir rota física |
 | contexto de captura | `capture-context.html` | escopo URL/dispositivo e topologia da captura |
 | evidências da execução | `execution-evidence.html` | fulfillment, estados de execução e integridade operacional |
 | IA e integrações | `ai-integrations.html` | tentativas, providers, modelos, tokens, custos e integrações |
@@ -350,7 +396,7 @@ Todas as páginas canônicas devem compartilhar navegação estável, apenas um 
 
 Após a finalização de uma auditoria, o menu é estruturalmente estático e deriva do catálogo canônico; habilitar ou desabilitar uma funcionalidade altera o **conteúdo/estado da página**, não a existência do link.
 
-A navegação é derivada diretamente de `CATALOG_REPORT_PAGES`: Visão geral, SARI, CAT-01 a CAT-10, Análise Direcionada e as páginas de governança Captura e contexto, Evidências da execução, IA e integrações, Metodologia e scoring e Índices e métricas.
+A navegação técnica é derivada do contrato de páginas do catálogo, incluindo visão geral, índice de prontidão, dez catálogos, Rede e conectividade, GEO, revisão de conteúdo GEO, Análise Direcionada e as páginas de governança Captura e contexto, Evidências da execução, IA e integrações, Metodologia e Índices e métricas. A apresentação possui navegação própria por temas, descrita no roteiro deste guia.
 
 O SaaS Pilot Web usa o mesmo catálogo canônico do mini-site para listar superfícies; não mantém uma segunda lista independente de filenames/rótulos. Interfaces podem indicar estado de disponibilidade dos dados, mas não devem redefinir o catálogo público.
 

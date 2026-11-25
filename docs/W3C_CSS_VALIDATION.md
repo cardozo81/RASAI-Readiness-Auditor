@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-O RASAi integra o **W3C CSS Validation Service** como evidência complementar de conformidade CSS por URL. A integração pertence à família de Web Quality/Standards, com relação **3/5** com Search & AI Readiness. Ela não altera `SARI-001` nem `SCORE-GEO-004`.
+O RASAi integra o **W3C CSS Validation Service** como evidência complementar de conformidade CSS por URL. A integração pertence à família de Web Quality/Standards, com relação **3/5** com Search & AI Readiness. Ela não altera o índice `SARI-001` nem o método vigente `SCORE-GEO-005`; o contrato `SCORE-GEO-004` permanece preservado no histórico.
 
 O RASAi não cria um “W3C CSS Score”. Ele preserva o resultado de validade e as contagens emitidas pela própria fonte.
 
@@ -73,6 +73,8 @@ Validação CSS mede conformidade sintática/semântica segundo a implementaçã
 - elegibilidade para Search ou AI retrieval.
 
 Por isso o estado e a proveniência da integração aparecem em `report-catalog/cat-01.html`; achados vinculados a conteúdo/estrutura podem ser detalhados em `report-catalog/cat-03.html`, e `report-catalog/metrics.html` mantém o inventário transversal quando aplicável. A evidência permanece fora do cálculo automático de SARI.
+
+Na apresentação executiva, `report-presentation/descoberta.html` é o destino temático para padrões Web, e `report-presentation/conteudo.html` para achados de conteúdo e estrutura. O pacote executivo não depende do HTML técnico nem garante réplica de cada mensagem do validador. Consulte o [guia de relatórios](REPORT_GUIDE.md).
 
 ## SaaS
 

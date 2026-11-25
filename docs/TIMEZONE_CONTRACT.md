@@ -29,7 +29,9 @@ São abrangidos, entre outros:
 
 Valores de data sem horário (`YYYY-MM-DD`) não recebem conversão de timezone, pois não representam um instante por si só.
 
-## Relatórios HTML
+## Relatórios HTML individuais
+
+O catálogo técnico (`report-catalog/`, 21 páginas) e a apresentação executiva (`report-presentation/`, 11 páginas) têm renderizadores independentes e compartilham a política temporal do produto. Ambos devem apresentar os instantes visíveis tipados no fuso efetivo persistido na AUD e preservar os valores originais nas fontes técnicas. O padrão do produto aplica-se quando o fuso histórico não pode ser comprovado, com indicação dessa limitação. O [guia de relatórios](REPORT_GUIDE.md) distingue suas páginas especializadas.
 
 A apresentação padrão converte timestamps ISO timezone-aware para `America/Sao_Paulo` sem alterar a fonte persistida. Exemplo:
 
@@ -75,7 +77,7 @@ A preferência de timezone permanece uma propriedade da camada de apresentação
 
 Alterar a preferência de exibição não deve reescrever timestamps históricos, modificar evidências imutáveis nem mudar o instante real de jobs já resolvidos.
 
-## Projeção de relatório por AUD - evolução #692
+## Projeção do catálogo técnico por AUD - evolução #692
 
 Na materialização de `report-catalog`, a origem preferida do timezone é
 `audit_execution_configurations.configuration_json.settings.presentation.timezone`.
@@ -95,6 +97,10 @@ banco da AUD mantêm seus valores e hashes. A apresentação de datas de fontes
 em formatos adicionais, como cabeçalhos RFC 7231 e epoch, deve ser resolvida
 pelo renderer de cada campo tipado, nunca por substituição cega de texto.
 
+
+## Projeção da apresentação executiva por AUD
+
+O gerador executivo usa `timezone_for_records` e `presentation_timezone_for_audit` (`src/rasai/parallel_report/presentation_labels.py`) para resolver a configuração histórica da mesma AUD, com indicação de proveniência ou fallback. A regra abrange os campos temporais tipados nas páginas temáticas, incluindo `report-presentation/extracao.html` (capturas), `report-presentation/rede.html` (observações de rede), <code>report-presentation/search&#45;geo.html</code> (busca observada) e `report-presentation/ia-custos.html` (comunicação e telemetria). Não converte arbitrariamente literais opacos nem muda os registros persistidos. A implementação e os testes da apresentação são independentes do shell técnico; o aceite de uma superfície não certifica a outra. Consulte [apresentação executiva](REPORT_PRESENTATION.md).
 
 ## Correções verificáveis posteriores na branch #692
 

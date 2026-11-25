@@ -130,6 +130,8 @@ A exclusão não gera automaticamente outro consolidado. Uma geração posterior
 
 ## Exclusão em duas fases
 
+A exclusão é destrutiva após a limpeza física. A área `audits/.trash/DEL-*/` é uma área de preparação e descarte, não uma lixeira de recuperação garantida nem um backup. Antes de confirmar, confira a lista de auditorias, as consolidações dependentes, a necessidade de retenção e a existência de uma cópia protegida quando necessária. Não use esta operação para resolver um problema de geração de relatório: consulte [rematerialização](REPORT_REMATERIALIZATION.md). A gestão de acesso e retenção deve seguir a [política de dados tratados](SECRET_AND_CONFIGURATION_SAFETY.md).
+
 A exclusão não executa `rmtree` diretamente sobre cada AUD do lote.
 
 ### Fase 1 - preparação/staging
@@ -237,7 +239,7 @@ Depois que um AUD sai do namespace operacional deixam de estar disponíveis, par
 
 - `audit.db`;
 - artifacts;
-- relatórios HTML do AUD;
+- pacotes locais `report-catalog/` (investigação técnica) e `report-presentation/` (leitura executiva) da AUD, quando existentes;
 - logs locais;
 - reprocessamento `RPR-*`;
 - reutilização da configuração daquele AUD;

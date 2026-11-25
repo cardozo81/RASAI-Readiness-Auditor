@@ -1,7 +1,7 @@
 # RASAi - Search & AI Readiness Auditor - visão e escopo do produto
 
 **Estado:** APROVADO / VIGENTE  
-**Fase do produto:** [`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0) publicada e estável, com operação local suportada e fundação SaaS/Pilot disponível no código atual; `v0.5.0` permanece como marco histórico.
+**Fase do produto:** [`v1.0.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v1.0.0) publicada, com operação local suportada e fundação SaaS/Pilot disponível no código atual. Consulte a [última release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest) para identidade distribuída.
 
 ## 1. Visão do produto
 
@@ -37,7 +37,7 @@ CITATION
 CAUSALIDADE
 ```
 
-Resultados externos observados podem ser armazenados e comparados, mas não são convertidos automaticamente em peso de `SARI-001`/`SCORE-GEO-004`. A única exceção externa vigente é `BR-GEO-060`, corroboração positiva Common Crawl definida por contrato específico.
+Resultados externos observados podem ser armazenados e comparados, mas não são convertidos automaticamente em peso de `SARI-001`/`SCORE-GEO-005`. A única exceção externa vigente é `BR-GEO-060`, corroboração positiva Common Crawl definida por contrato específico.
 
 ## 2. Contexto operacional atual
 
@@ -136,7 +136,7 @@ Desktop e Mobile são contextos independentes. Comparação Desktop x Mobile só
 
 ### Separação entre readiness e resultados
 
-Lighthouse, CrUX, Search Console, SERP Observation, Observed Generative Visibility e outros resultados externos mantêm proveniência/metodologia próprias. Sua existência não autoriza fusão automática com `SARI-001`/`SCORE-GEO-004`.
+Lighthouse, CrUX, Search Console, SERP Observation, Observed Generative Visibility e outros resultados externos mantêm proveniência/metodologia próprias. Sua existência não autoriza fusão automática com `SARI-001`/`SCORE-GEO-005`.
 
 `BR-GEO-060` é exceção explícita e limitada: Common Crawl pode corroborar positivamente `DISCOVERY_ACCESS` quando a evidência qualifica, sem penalizar ausência ou erro.
 
@@ -226,7 +226,7 @@ Estados e nomenclaturas específicos são definidos nos contratos vigentes de IA
 
 ## 10. Relatórios
 
-O formato principal de publicação de auditoria é HTML estático em `report-catalog/`, com navegação canônica e superfícies estáveis definidas por `CATALOG-REPORT-002`.
+A projeção técnica da auditoria é HTML estático em `report-catalog/`, com navegação e superfícies de `CATALOG-REPORT-002`. O catálogo técnico (`report-catalog/index.html`) e a apresentação executiva (`report-presentation/index.html`) são projeções distintas das evidências persistidas; não há paridade obrigatória de páginas ou dependência do HTML do catálogo para gerar a apresentação. O estado de publicação e as limitações de cada pacote devem permanecer explícitos. Consulte a [correspondência temática dos relatórios](../REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 Toda auditoria concluída com sucesso materializa as páginas canônicas registradas em `src/rasai/catalog_report_contract.py`. Quando o domínio correspondente não foi solicitado, não está configurado, não se aplica ou não possui dados, a página permanece presente e apresenta estado neutro explícito. A existência da superfície não dispara coleta adicional.
 
@@ -243,7 +243,7 @@ Características esperadas:
 
 ## 11. Dimensões de readiness
 
-O modelo vigente mantém dimensões metodológicas próprias do `SCORE-GEO-004`. A definição normativa dos pesos, aplicabilidade, cobertura, confiança e consolidação pertence a `05_SCORING_MODEL.md` e à documentação canônica `../SCORE_GEO.md`.
+O modelo vigente mantém as dimensões metodológicas do `SCORE-GEO-005`, com pesos preservados e política de aplicabilidade versionada. A definição normativa dos pesos, aplicabilidade, cobertura, confiança e consolidação pertence a `05_SCORING_MODEL.md` e à documentação canônica `../SCORE_GEO.md`.
 
 Nenhuma lista resumida neste charter deve substituir o contrato de scoring versionado.
 

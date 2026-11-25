@@ -1,6 +1,6 @@
 # Google Search Console - autenticação OAuth no RASAi
 
-O RASAi aceita duas formas de autenticação no Google Search Console. Este documento descreve o contrato atual do produto em desenvolvimento.
+O RASAi aceita duas formas de autenticação no Google Search Console. Este documento descreve o contrato da versão 1.0.0. Para provisionamento e permissões, consulte [credenciais externas](EXTERNAL_CREDENTIALS.md#google-search-console).
 
 ## Opção recomendada: OAuth durável com renovação automática
 

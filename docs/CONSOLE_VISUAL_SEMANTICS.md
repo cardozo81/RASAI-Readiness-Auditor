@@ -1,6 +1,6 @@
 # Semântica visual do console interativo
 
-**Estado:** contrato vigente da apresentação do console; `v0.5.0` é a baseline pública atual.
+**Estado:** contrato de apresentação do console na versão 1.0.0.
 
 Cor é reforço semântico; texto continua obrigatório.
 

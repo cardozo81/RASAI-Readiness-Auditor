@@ -244,7 +244,7 @@ O contrato vigente para novas auditorias é `SCORE-GEO-005` com agregação `HIE
 
 ## Evidência e remediation
 
-O report deve distinguir:
+Para investigar a execução das regras, consulte o catálogo técnico `report-catalog/methodology.html` e a página temática da regra. A apresentação executiva `report-presentation/indices.html` interpreta contribuições e cobertura a partir das evidências disponíveis. A leitura precisa distinguir:
 
 - valor observado/evidência;
 - conclusão da regra;

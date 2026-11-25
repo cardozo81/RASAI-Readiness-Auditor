@@ -2,7 +2,7 @@
 
 ## Estado metodológico vigente
 
-Este documento faz parte do contrato vigente de `SARI-001` / `SCORE-GEO-004`.
+Este documento faz parte do contrato de `SARI-001` / `SCORE-GEO-005` vigente para novas auditorias. O contrato histórico `SCORE-GEO-004` preserva sua interpretação de aplicabilidade; o peso nominal de corroboração não mudou.
 
 O RASAi admite **uma única família de evidência externa observacional diretamente no SARI**: corroboração histórica positiva de discovery por Common Crawl, materializada como `BR-GEO-060`.
 
@@ -71,13 +71,13 @@ Discovery atual bloqueado
 
 O grupo `EXTERNAL_CRAWL_CORROBORATION` pesa 3% dentro de `DISCOVERY_ACCESS`.
 
-Logo, seu impacto máximo teórico no Overall é:
+Com todos os pesos de grupos e dimensões medidos, sua contribuição nominal no Overall é:
 
 ```text
 15% × 3% × 100 = 0,45 ponto
 ```
 
-A regra não pode acrescentar mais de 0,45 ponto ao SARI Overall quando todas as dimensões aplicáveis estão presentes.
+A contribuição nominal é 0,45 ponto (15% × 3% × 100) quando o peso medido das dimensões e dos grupos de descoberta corresponde ao universo integral. Não é um teto aritmético universal em universos parciais ou com exclusões legítimas: o cálculo normaliza os pesos efetivamente medidos. Interprete o efeito usando os denominadores, contribuições e a versão persistidos. Na versão 1.0.0, alguns rótulos do console e do catálogo técnico ainda apresentam 0,45 ponto como limite geral. A fórmula e os valores persistidos seguem os pesos efetivamente medidos.
 
 ### Preservação exata do cálculo técnico quando a evidência externa não existe
 
@@ -148,7 +148,7 @@ Não existe key/token para Common Crawl.
 
 ## Reprodutibilidade
 
-A chamada externa acontece **antes do cálculo de `SCORE-GEO-004`**.
+A observação externa é adquirida antes do cálculo do score da nova auditoria; o contrato vigente é `SCORE-GEO-005`.
 
 Quando a regra qualifica:
 
@@ -159,7 +159,7 @@ Evidence persistida no audit.db
         ↓
 BR-GEO-060 RuleExecution persistida
         ↓
-SCORE-GEO-004
+SCORE-GEO-005 (novas auditorias)
         ↓
 score_contributions
 ```
@@ -178,7 +178,7 @@ As decisões abaixo são `RASAI_HEURISTIC` e pertencem ao contrato versionado do
 - uso positive-only;
 - exclusão de Critical Gates;
 - peso de 3% dentro de `DISCOVERY_ACCESS`;
-- impacto máximo de 0,45 ponto no Overall;
+- contribuição nominal de 0,45 ponto no Overall com pesos integralmente medidos;
 - bloqueio do uplift quando sinais críticos atuais de Discovery estão em FAIL.
 
 Common Crawl não homologa o SARI e uma captura não significa indexação em Google/Bing, ranking, disponibilidade atual ou conhecimento por IA.
@@ -187,11 +187,11 @@ Common Crawl não homologa o SARI e uma captura não significa indexação em Go
 
 ### CrUX History
 
-Permanece em `cat-04.html` / Observability como experiência real histórica. Não altera SARI.
+A experiência real histórica é investigada no catálogo técnico `report-catalog/cat-04.html` e contextualizada na apresentação executiva `report-presentation/performance.html`, sem presumir réplica de cada série. Não altera SARI.
 
 ### Microsoft Clarity
 
-Permanece em `cat-07.html` / Observability como comportamento agregado real. Não altera SARI.
+O comportamento agregado real é investigado em `report-catalog/cat-07.html`; a leitura executiva de experiência pertence a `report-presentation/performance.html`, conforme as evidências disponíveis. Não altera SARI.
 
 ### Google Search Console / Bing Webmaster
 
@@ -203,14 +203,14 @@ São resultados observados e não entram no cálculo.
 
 ## Relatórios
 
-`sari.html` e `methodology.html` devem mostrar explicitamente:
+As páginas técnicas `report-catalog/sari.html` e `report-catalog/methodology.html` detalham o contrato; a leitura executiva dos índices está em `report-presentation/indices.html` e o contexto externo em <code>report-presentation/search&#45;geo.html</code>. Não se presume paridade de cada campo. A referência técnica deve distinguir:
 
 - se BR-GEO-060 foi aplicada;
 - peso do grupo;
-- impacto máximo no Overall;
+- participação nominal no Overall e limites de interpretação do denominador;
 - razão de URLs observadas quando disponível;
 - aviso de que ausência não penaliza;
 - aviso de que o dado não prova indexação/ranking;
 - aviso de que o grupo não integra Critical Gates.
 
-`report-catalog/cat-01.html` mantém a evidência técnica de descoberta e `report-catalog/cat-05.html`/`metrics.html` projetam a leitura observacional aplicável das capturas Common Crawl.
+`report-catalog/cat-01.html` mantém a evidência técnica de descoberta e `report-catalog/cat-05.html` e `report-catalog/metrics.html` projetam a leitura observacional aplicável das capturas Common Crawl. O pacote executivo interpreta os sinais de descoberta em `report-presentation/descoberta.html`, as fontes de busca em <code>report-presentation/search&#45;geo.html</code> e os índices em `report-presentation/indices.html`, sem recalcular o SARI nem pressupor que a regra ou cada captura esteja replicada. Consulte o [guia de relatórios](REPORT_GUIDE.md).

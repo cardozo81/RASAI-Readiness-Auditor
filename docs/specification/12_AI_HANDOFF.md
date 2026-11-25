@@ -50,8 +50,8 @@ Planos/roadmaps históricos não prevalecem sobre contratos atuais.
 - NoneProvider obrigatório;
 - providers de IA isolados por provider/registry;
 - `SARI-001` é o índice público de readiness;
-- `SCORE-GEO-004` é o scoring runtime vigente para novas auditorias;
-- Overall 004 é determinístico e usa agregação hierárquica ponderada versionada;
+- `SCORE-GEO-005` é o scoring vigente para novas auditorias; `SCORE-GEO-004` permanece para replay histórico;
+- Overall é determinístico e usa agregação hierárquica ponderada versionada;
 - Sugestões/remediação textual por IA são opcionais/advisory e não alteram scoring por si só;
 - Search Console, URL Inspection, CrUX, PageSpeed, Apdex e resultados observados permanecem metodologias separadas salvo contrato versionado explícito;
 - relatório HTML estático em português;
@@ -79,7 +79,7 @@ Não interpretar a presença do modelo multi-user como afirmação de autentica�
 Ao trabalhar com Core Web Vitals, Lighthouse ou Search/AI Observability:
 
 1. mantenha Lighthouse lab e CrUX field semanticamente separados;
-2. não converta Lighthouse score, LCP, INP, CLS, Search Performance, URL Inspection ou outros resultados externos em `SARI-001/SCORE-GEO-004` sem nova decisão metodológica versionada;
+2. não converta Lighthouse score, LCP, INP, CLS, Search Performance, URL Inspection ou outros resultados externos em `SARI-001/SCORE-GEO-005` sem nova decisão metodológica versionada;
 3. ausência/erro de API externa é limitação de coleta, não finding automático do website;
 4. preserve opt-in, limites, timeout e escopo de coleta quando houver chamada externa;
 5. nunca reutilize automaticamente credencial de IA como chave/token de outro serviço;
@@ -91,9 +91,9 @@ Ao trabalhar com Core Web Vitals, Lighthouse ou Search/AI Observability:
 
 O PageSpeed Insights API vigente aceita `agentic-browsing` como categoria Lighthouse. Quando Web Performance estiver habilitado e nenhuma lista explícita de categorias for configurada, o RASAi solicita `performance`, `accessibility`, `best-practices`, `seo` e `agentic-browsing`. O score Agentic é experimental, permanece externo e não entra automaticamente no SARI.
 
-## 7. SCORE-GEO-004
+## 7. SCORE-GEO-005
 
-As onze dimensões permanecem evidence-bound.
+As onze dimensões permanecem vinculadas às evidências. Ausência opcional comprovada de sitemap, canonical ou robots.txt recebe interpretação específica de aplicabilidade pelo contrato 005; preservar o resultado original da regra e o contrato de cada AUD histórica. Consulte [método de pontuação](../SCORE_GEO.md).
 
 Overall:
 
@@ -132,7 +132,9 @@ A página de metodologia deve ser:
 report-catalog/methodology.html
 ```
 
-Totais monetários em `ai-integrations.html` devem derivar de `estimated_cost`/`cost_currency` persistidos nas tentativas. Uma chamada que falhou antes de retornar usage pode ter custo real no billing do provider, mas o RASAi não deve inventar esse valor; o relatório deve explicitar que o total é estimativa técnica e não invoice.
+A apresentação executiva independente em `report-presentation/` tem páginas especializadas, detalhadas no [guia de relatórios](../REPORT_GUIDE.md), sem obrigatoriedade de paridade com o catálogo técnico. Para custos, `report-presentation/ia-custos.html` oferece síntese e proveniência, enquanto a página técnica detalha tentativas.
+
+Totais monetários em `report-catalog/ai-integrations.html` devem derivar de `estimated_cost`/`cost_currency` persistidos nas tentativas. Uma chamada que falhou antes de retornar usage pode ter custo real no billing do provider, mas o RASAi não deve inventar esse valor; o relatório deve explicitar que o total é estimativa técnica e não invoice.
 
 ## 10. Não reabrir decisões sem necessidade
 

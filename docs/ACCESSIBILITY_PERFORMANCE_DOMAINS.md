@@ -2,12 +2,14 @@
 
 O RASAi apresenta Acessibilidade, Web Performance e **Search & AI Readiness** como domínios distintos para evitar mistura de métricas e conclusões.
 
-| Domínio | Finalidade | Fonte principal | Altera SARI/SCORE-GEO-004? |
+| Domínio | Finalidade | Fonte principal | Altera o índice de prontidão? |
 |---|---|---|---|
-| Search & AI Readiness | descoberta, extração, entendimento, answerability e citation readiness | evidências locais, regras e IA opcional | somente pelas regras próprias do SARI/SCORE-GEO-004 |
+| Search & AI Readiness | descoberta, extração, entendimento, answerability e citation readiness | evidências locais, regras e IA opcional | somente pelas regras próprias do `SARI-001` no método aplicável à AUD |
 | Acessibilidade automatizada | diagnóstico auxiliar de problemas detectáveis por Lighthouse | categoria `accessibility` do artifact Lighthouse | não |
 | Web Performance | métricas browser-native same-session + lab Lighthouse + dados de campo CrUX/CWV | W3C Web Performance APIs no Chromium local, PageSpeed/Lighthouse e CrUX | não |
 | Synthetic Apdex | experiência sintética de uma Task explícita de navegação | Chromium local e perfis controlados | não |
+
+A leitura técnica separa `report-catalog/cat-02.html` (acessibilidade), `report-catalog/cat-04.html` (desempenho) e `report-catalog/sari.html` (prontidão). A apresentação executiva organiza esses assuntos em `report-presentation/conteudo.html`, `report-presentation/performance.html` e `report-presentation/indices.html`. A organização por tema não altera os métodos nem cria um índice composto. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
 
 ## Acessibilidade
 

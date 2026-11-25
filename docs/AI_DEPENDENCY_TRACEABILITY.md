@@ -20,7 +20,9 @@ Toda chamada continua usando a infraestrutura global existente para:
 
 CAT-03, CAT-08 e CAT-09 não possuem um mecanismo independente de provider.
 
-## Contrato `AI-DEPENDENCY-001`
+## Contrato `AI-DEPENDENCY-002`
+
+Na versão 1.0.0, novos snapshots registram `AI-DEPENDENCY-002`; para um snapshot histórico, consulte a versão persistida nele.
 
 Imediatamente antes do limite de execução do provider, o runtime pode persistir um registro em `ai_dependency_snapshots` com:
 
@@ -68,7 +70,7 @@ Se uma dependência obrigatória estiver pendente/falhando, a análise não atra
 
 ## Relatório `IA e integrações`
 
-A página projeta os snapshots de dependência juntamente com as tentativas de IA.
+O catálogo técnico `report-catalog/ai-integrations.html` detalha os snapshots de dependência e as tentativas de IA. A apresentação executiva `report-presentation/ia-custos.html` contextualiza a telemetria disponível. Use o catálogo técnico para rastrear as dependências descritas neste documento.
 
 Para cada finalidade, deve ser possível auditar:
 

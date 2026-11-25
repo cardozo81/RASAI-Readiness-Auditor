@@ -5,7 +5,7 @@
 
 ## Superfícies e indicadores
 
-A visão geral index.html recebe a seção Matriz decisória de evidências; sari.html recebe a seção Universo medido e limites de comparação, com link para a visão geral. O leitor não recalcula o índice e não agrega métricas de universos diferentes.
+A visão geral técnica `report-catalog/index.html` recebe a seção Matriz decisória de evidências; `report-catalog/sari.html` recebe Universo medido e limites de comparação, com link para a visão geral. A leitura executiva de situação e índices está em `report-presentation/index.html` e `report-presentation/indices.html`, sem presumir réplica desta matriz. O leitor não recalcula o índice e não agrega métricas de universos diferentes.
 
 | Indicador | Fonte | Limitação |
 | --- | --- | --- |
@@ -15,7 +15,7 @@ A visão geral index.html recebe a seção Matriz decisória de evidências; sar
 | CrUX LCP/INP/CLS | web_performance_observations | ORIGIN agrega uma origem; URL significa página específica. |
 | CAT-06/CAT-07 | Status do catálogo persistido | Conclusão operacional não comprova representatividade das amostras Apdex. |
 | SERP | Uma observação identificável da AUD | Retorno versus requested_depth não é participação de mercado. |
-| Sinais SEO opcionais | score_contributions + rule_executions | Descontos do SCORE-GEO-004 já persistidos; não são aplicados novamente. |
+| Sinais SEO opcionais | score_contributions + rule_executions | Contribuições persistidas na versão metodológica original (005 vigente; 004 histórico); não aplicar descontos novamente nem reclassificar ausência opcional durante projeção. |
 | Alegações comerciais | Fronteira do CAT-03 | Esta matriz não autentica condições gerais ou registro regulatório. |
 | Presença generativa | Limitação de escopo | SERP e Search API não comprovam citação gerativa ou share. |
 

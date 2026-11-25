@@ -13,11 +13,11 @@ O resolvedor `architecture_context.resolve_architecture` é reutilizado por cada
 
 ## Superfícies
 
-- `index.html#architecture`: painel descritivo com descoberta módulo arquitetural, declaração, fonte, contexto efetivo apenas de relatório, motivos N/D e links técnicos preservados em code.
+- `report-catalog/index.html#architecture` (investigação técnica): painel descritivo com descoberta módulo arquitetural, declaração, fonte, contexto efetivo apenas de relatório, motivos N/D e links técnicos preservados em code.
 - `python -m rasai.architecture_audit_cli /caminho/AUD-ID`: JSON somente leitura com códigos por snapshot e modo do plano.
 - `python -m rasai.architecture_audit_cli /caminho/AUD-ID --consumer-matrix`: acrescenta tabela de elegibilidade, sem ativar consumidor.
 
-CAT-07 mantém seu orientador de Apdex independente. Nenhum perfil ou threshold é injetado; SARI, SCORE-GEO-004, navegação sintética/experiência sintética, registros Dynatrace, IA e motores de coleta não são alterados. A projeção não navega, não instala Docker e não consome APIs.
+A apresentação executiva `report-presentation/extracao.html` contextualiza a arquitetura com as capturas e os fatos selados. O orientador técnico de experiência em `report-catalog/cat-07.html` tem escopo próprio. As projeções preservam os limiares, perfis, evidências e método de prontidão registrados. A projeção não navega, não instala Docker e não consome APIs.
 
 ## Matriz de elegibilidade versionada
 

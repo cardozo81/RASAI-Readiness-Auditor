@@ -32,6 +32,8 @@ Audit
 └── Report
 ```
 
+O diagrama é conceitual, não descreve duas aquisições obrigatórias nem enumera todo o schema físico. Novas AUDs selecionam um dispositivo e uma URL inicial; podem descobrir múltiplas páginas dentro dos limites configurados. Os registros históricos podem conter mais de um contexto ou um conjunto explícito de URLs.
+
 Os nomes das entidades permanecem em inglês porque correspondem aos contratos técnicos do domínio e à nomenclatura persistida/codificada. Nas superfícies humanas, o nome conceitual em pt-BR deve aparecer primeiro; o termo técnico em inglês e o ID permanecem como rastreabilidade.
 
 ## 3. Identificadores
@@ -116,6 +118,8 @@ URL
 URL_SET
 ```
 
+`URL_SET` permanece como tipo histórico interno, não como entrada pública de novas AUDs. Consulte [referência CLI](../CLI_REFERENCE.md).
+
 ## 6. Page
 
 Representa a identidade lógica da URL.
@@ -147,6 +151,8 @@ Contextos canônicos:
 DESKTOP
 MOBILE
 ```
+
+A CLI pública de nova AUD aceita somente `mobile` ou `desktop`. Os enums de findings e comparações abaixo descrevem dados do domínio, não opções de entrada da CLI.
 
 Para findings:
 
@@ -534,7 +540,7 @@ Campos:
 - `auditor_version`;
 - `file_path`.
 
-O Report nunca é fonte primária dos dados.
+O Report nunca é fonte primária dos dados. O catálogo técnico `report-catalog/` e a apresentação executiva `report-presentation/` são pacotes independentes derivados das evidências persistidas; consulte [guia de relatórios](../REPORT_GUIDE.md).
 
 O Report pode rederivar dados somente de apresentação, como classificação visual, diagnóstico de crawl e aplicação de RemediationRecipe, desde que use apenas estado persistido e regras determinísticas versionadas.
 
@@ -556,4 +562,4 @@ O Report pode rederivar dados somente de apresentação, como classificação vi
 14. Finding sem evidência não pode ser publicado.
 15. RemediationRecipe não pode fabricar Evidence, HTML observado, URL preferencial, autor, fonte, data, claim ou informação comercial.
 16. Readiness Search & AI, Coverage e Confidence são conceitos distintos e devem permanecer visual e semanticamente separados.
-17. Se `OVERALL_READINESS` não for consolidável, o Report deve apresentar `NÃO DETERMINADA`, sem substituir o valor por Coverage ou zero.
+17. Distinguir nota numérica calculável de resultado consolidado. Se o Overall possuir valor parcial, qualificar o estado e suas limitações; quando não houver nota, apresentar ausência explícita, sem substituir o valor por Coverage ou zero. Consulte [contrato de pontuação](../SCORE_GEO.md).

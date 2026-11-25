@@ -2,6 +2,8 @@
 
 ## Estado
 
+A comparação de URLs no mesmo domínio tem contrato próprio. Para investigar uma auditoria de origem, consulte o catálogo técnico `report-catalog/`. Para a leitura executiva daquela auditoria, consulte `report-presentation/`. O [guia dos relatórios](REPORT_GUIDE.md) identifica as entradas e páginas de cada pacote.
+
 Esta implementação é um **contrato advisory puro**, não uma extensão do
 motor CONS produtivo. `selection.resolve_selection` continua exigindo
 exatamente a mesma URL e o mesmo dispositivo para uma série longitudinal.

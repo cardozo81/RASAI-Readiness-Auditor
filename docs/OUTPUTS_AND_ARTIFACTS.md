@@ -204,7 +204,7 @@ Pode conter responses JSON oficiais, CSVs importados e fatos observacionais norm
 
 ## Superfícies do `report-catalog/`
 
-O relatório audit-owned é composto somente pelas superfícies do catálogo:
+O pacote técnico `report-catalog/` tem 21 páginas analíticas e de governança, além dos recursos de integridade:
 
 - `index.html`: visão geral, estados dos CATs e Matriz de encerramento estrutural;
 - `sari.html`: leitura persistida do SARI;
@@ -213,6 +213,9 @@ O relatório audit-owned é composto somente pelas superfícies do catálogo:
 - `execution-evidence.html`: estados de execução, fulfillment e evidências operacionais;
 - `ai-integrations.html`: uso de IA, integrações, tentativas, tokens, custos e falhas/retries persistidos;
 - `directed-analysis.html`: análise direcionada quando materializada;
+- `network.html`: observações e sondagens de rede, quando comprovadas;
+- `geo.html`: inteligência competitiva observacional e fontes externas;
+- `geo-content-review.html`: revisão consultiva de conteúdo relacionada a GEO;
 - `methodology.html`: contratos e metodologia aplicáveis;
 - `metrics.html`: inventário de métricas persistidas;
 - `manifest.json` e `integrity/`: integridade e verificação offline do pacote;
@@ -238,6 +241,10 @@ CAT-01 a CAT-10 possuem o mesmo nível contratual e a mesma estrutura explicativ
 | CAT-10 | `PASSIVE_SECURITY_CATALOG.md` |
 
 Os detalhes de tabelas, artifacts, fórmulas e integrações ficam nesses documentos especializados. A definição funcional primária permanece uniforme.
+
+## Superfícies do `report-presentation/`
+
+A apresentação executiva possui 11 páginas temáticas e navegação própria: painel, extração, descoberta e padrões, índices, conteúdo e acessibilidade, performance e experiência, rede e conectividade, Search e GEO, segurança passiva, plano de ação, IA/custos/proveniência. Seus anexos locais e manifesto são próprios; não precisa abrir o HTML do catálogo para gerar ou navegar. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios) para a lista de arquivos e escolha da especialização. Não confunda a apresentação executiva com exportação autorizada para divulgação pública.
 
 ## Saídas derivadas e consolidadas
 
@@ -289,12 +296,15 @@ rasai scoring inspect
 
 ## Navegação canônica
 
-A navegação da AUD aponta exclusivamente para as páginas materializadas em `report-catalog/`:
+A navegação interna do catálogo técnico aponta para as páginas materializadas em `report-catalog/`. A apresentação executiva mantém navegação independente nas suas onze páginas. No catálogo, o conjunto inclui:
 
 ```text
 Visão geral
 Índice de Prontidão Search & IA
 CAT-01 ... CAT-10
+Rede e conectividade
+GEO
+Revisão de conteúdo GEO
 Contexto de captura
 Evidências de execução
 IA e integrações
@@ -307,6 +317,8 @@ Apenas a página atual recebe o estado ativo.
 
 ## Segurança e integridade
 
+A [declaração de segurança da informação](SECRET_AND_CONFIGURATION_SAFETY.md#quais-dados-são-tratados-e-onde-ficam) distingue dados coletados, persistidos, transmitidos e proibidos por contrato. O catálogo técnico e o banco não são pacotes públicos; consulte [exportação para revisão de privacidade](PUBLIC_REPORT_EXPORT.md).
+
 - segredos não devem aparecer em SQLite, artifacts, HTML, INI ou logs;
 - custo estimado não é fatura;
 - aquisição entre origens exige política explícita e segura;
@@ -315,7 +327,7 @@ Apenas a página atual recebe o estado ativo.
 - Improvement Intelligence usa somente postura de segurança passiva, sem exploração/pentest ativo;
 - gerar páginas neutras não dispara collectors, APIs, providers ou IA;
 - apagar bancos auxiliares ou projeções derivadas não remove a evidência original do AUD;
-- operações pós-auditoria não devem alterar o hash do `audit.db` de origem.
+- a rematerialização em cópia externa preserva o `audit.db` de origem; reprocessamento e outros complementos mutáveis têm contratos próprios de persistência e não são equivalentes a uma operação somente de leitura.
 
 Detalhes: [CATALOG_AND_REPORT_SURFACES.md](CATALOG_AND_REPORT_SURFACES.md), [REPORT_GUIDE.md](REPORT_GUIDE.md), [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md), [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md) e [SCORE_GEO.md](SCORE_GEO.md).
 
@@ -334,7 +346,7 @@ A coleta ativa G2 e a cartografia G3 são extensões opcionais independentes da 
 
 ### Proveniência temporal da observabilidade de rede (#659, G1)
 
-O horário apresentado em `network.html` corresponde exclusivamente ao `captured_at` do snapshot físico M3, convertido para UTC quando o banco contém fuso horário verificável. O horário de geração da projeção não substitui a captura; horário sem fuso é tratado como não observado. O destino exibido é somente o hostname público da URL final do snapshot (ou da URL solicitada, se necessário); caminhos, fragmentos, credenciais e parâmetros da URL não são divulgados.
+O horário apresentado em `network.html` corresponde ao instante persistido da captura ou da sonda correspondente, convertido para o fuso de apresentação selado da auditoria (padrão `America/Sao_Paulo`). UTC permanece a referência interna de armazenamento; consulte [contrato temporal](TIMEZONE_CONTRACT.md). O horário de geração da projeção não substitui a captura; horário sem fuso é tratado como não observado. O destino exibido é somente o hostname público da URL final do snapshot (ou da URL solicitada, se necessário); caminhos, fragmentos, credenciais e parâmetros da URL não são divulgados.
 
 Os indicadores de transporte continuam independentes: o IP público do peer observado via CDP não comprova a infraestrutura de origem; DNS, RTT TCP/TLS, hops, ASN e localização permanecem explicitamente não observados no G1. Snapshots complementares preexistentes são imutáveis, portanto nunca são regravados para incorporar campos novos. Este ajuste não introduz sondagens ativas, nem altera `audit.db` ou pontuações.
 
@@ -342,7 +354,7 @@ Os indicadores de transporte continuam independentes: o IP público do peer obse
 
 ## Sondagem complementar autorizada (#659, G2 - entrega inicial)
 
-O módulo `rasai.network_active_probe` permite sondar exclusivamente o hostname público já pertencente às páginas de uma AUD existente, **somente após autorização expressa**. Não é acionado pela auditoria, reprocessamento, consolidação nem rematerialização de relatórios. Ele não substitui observações passivas nem atualiza `audit.db`, scores ou artefatos selados.
+O módulo `rasai.network_active_probe` permite sondar exclusivamente o hostname público já pertencente às páginas de uma AUD existente, **somente após autorização expressa**. O comando pode ser usado de modo independente. A execução automática posterior a uma nova auditoria concluída também é suportada quando a sonda ativa está habilitada e há autorização do hostname exato da URL primária selada. Reprocessamento, consolidação e rematerialização não concedem nova autorização. Ele não substitui observações passivas nem atualiza `audit.db`, scores ou artefatos selados.
 
 Exemplo de uso **apenas para domínio cuja medição ativa esteja autorizada**:
 
@@ -350,9 +362,9 @@ Exemplo de uso **apenas para domínio cuja medição ativa esteja autorizada**:
 .\.venv\Scripts\python.exe -m rasai.network_active_probe --workspace "audits\\<AUD>" --audit-id "<AUD>" --host "dominio-autorizado.com.br" --permit-exact-host "dominio-autorizado.com.br" --authorize-active-network --port 443
 ```
 
-O processo filho possui limite total de 10 segundos, usa resolução DNS limitada a 32 respostas, rejeita o conjunto inteiro se qualquer endereço não for globalmente roteável e fixa a conexão TCP ao IP previamente validado para impedir mudança silenciosa por nova resolução. Só são aceitas as portas 80 e 443; TLS usa validação padrão e nome de servidor original. Sem solicitações HTTP, seguir redirects, ICMP, privilégios administrativos ou geolocalização externa. Restrições de rede, VPN e proxy de saída não são verificáveis automaticamente. O período DNS inclui cache do resolver local, e o tempo TCP/TLS mede a sessão do próprio executor.
+O processo filho da sonda básica possui limite de 10 segundos (com traceroute, o orçamento máximo do processo é ampliado para 55 segundos), usa resolução DNS limitada a 32 respostas, rejeita o conjunto inteiro se qualquer endereço não for globalmente roteável e fixa a conexão TCP ao IP previamente validado para impedir mudança silenciosa por nova resolução. Só são aceitas as portas 80 e 443; TLS usa validação padrão e nome de servidor original. A sonda básica não faz solicitações HTTP, não segue redirecionamentos, não usa ICMP nem consulta geolocalização externa; não exige privilégios administrativos. O traceroute opcional possui modo próprio conforme a plataforma, inclusive ICMP no Windows. Restrições de rede, VPN e proxy de saída não são verificáveis automaticamente. O período DNS inclui cache do resolver local, e o tempo TCP/TLS mede a sessão do próprio executor.
 
-O complemento independente fica em `artifacts/network/probes/` e é somente de criação exclusiva, com SHA-256 (integridade, não autoria). A página `network.html` lê os complementos válidos offline, sem rede nem mutação do pacote. Respostas DNS privadas, falhas de captura, campos ausentes e medições observadas permanecem estados distintos. O procedimento básico não solicita traceroute nem enriquecimento local por padrão. A extensão posterior suporta traceroute autorizado e atribuições ASN/GeoIP somente com bases locais opcionais. Não há identificação automática de CDN, origem física ou rota completa por inferência.
+O complemento independente fica em `artifacts/network/probes/` e é somente de criação exclusiva, com SHA-256 (integridade, não autoria). A página `network.html` lê os complementos válidos offline, sem rede nem mutação do pacote. Respostas DNS privadas, falhas de captura, campos ausentes e medições observadas permanecem estados distintos. O comando básico independente não solicita traceroute; o enriquecimento depende da política e das bases locais disponíveis. A extensão posterior suporta traceroute autorizado e atribuições ASN/GeoIP somente com bases locais opcionais. Não há identificação automática de CDN, origem física ou rota completa por inferência.
 
 
 
@@ -366,9 +378,9 @@ O mapa não afeta indicadores ou resultados da auditoria e é reconstituído em 
 
 ## Caminho de rede e enriquecimento local (#659, G2 complementar)
 
-A opção `--include-traceroute` tenta observar, sob autorização expressa, até oito saltos para o mesmo IP público já validado na medição TCP. O limite do comando de sistema é de oito segundos; se não houver suporte a traceroute TCP (Linux) ou `tracert` (Windows), a ausência é declarada. A apresentação distingue caminhos parciais, destino não confirmado e ausência de resposta. Endereços privados de intermediários são ocultados. Latências por hop **não** são diferenças entre saltos, nem comprovam enlace físico ou localização.
+A opção `--include-traceroute` tenta observar, sob autorização expressa, o caminho para o IP público validado pela sonda, com padrão de oito saltos e faixa de 1 a 16, configurável em `RASAI_NETWORK_MAX_HOPS`. O prazo do traceroute é calculado conforme sistema operacional e limite de saltos, com teto de 40 segundos; se não houver suporte a traceroute TCP (Linux) ou `tracert` (Windows), a ausência é declarada. A apresentação distingue caminhos parciais, destino não confirmado e ausência de resposta. Endereços privados de intermediários são ocultados. Latências por hop **não** são diferenças entre saltos, nem comprovam enlace físico ou localização.
 
-Bases MaxMind MMDB locais podem ser passadas opcionalmente por `--asn-db` e `--city-db`. Isso requer biblioteca `maxminddb` instalada e arquivos fornecidos pelo operador: não há download automático, consulta de API, compra ou chamadas de IA. O leitor valida limites, conteúdo, latitude, longitude, raio de precisão e SHA-256 da base. Dados de ASN representam atribuição aproximada de rede, não prova de propriedade do servidor; GeoIP representa localização estimada do IP, não localização física comprovada. CDN é informada apenas se houver evidência externa independente, não inferida de ASN ou GeoIP. Sem bases, esses campos permanecem como não observados. Pacotes já criados são imutáveis e não recebem medições posteriores.
+Bases MaxMind MMDB locais podem ser passadas opcionalmente por `--asn-db` e `--city-db`. Isso requer biblioteca `maxminddb` instalada e arquivos fornecidos pelo operador: a sonda não baixa bases, consulta API GeoIP, compra dados nem chama IA. A preparação opcional das bases pelo launcher é uma operação distinta e depende de consentimento persistido explícito; veja [instalação](INSTALLATION.md). O leitor valida limites, conteúdo, latitude, longitude, raio de precisão e SHA-256 da base. Dados de ASN representam atribuição aproximada de rede, não prova de propriedade do servidor; GeoIP representa localização estimada do IP, não localização física comprovada. CDN é informada apenas se houver evidência externa independente, não inferida de ASN ou GeoIP. Sem bases, esses campos permanecem como não observados. Pacotes já criados são imutáveis e não recebem medições posteriores.
 
 
 
@@ -383,9 +395,6 @@ O argumento opcional `--series-id` identifica uma nova medição autorizada sem 
 O pré-voo local é **somente leitura** e não faz requisições de rede. No PowerShell, a partir do repositório atualizado, execute:
 
 ```powershell
-git fetch origin --prune
-git switch main
-git pull --ff-only
 & ".\\.venv\\Scripts\\python.exe" -m rasai.network_acceptance --workspace "audits\\<AUD-ID>" --audit-id "<AUD-ID>" --host "<HOST-PUBLICO-DA-AUD>"
 ```
 
@@ -408,12 +417,11 @@ A origem, o instante e o raio de precisão dos marcadores GeoIP são também apr
 
 ## Recuperação de sondagem física já coletada: relatório anterior (#659)
 
-A coleta ativa autorizada grava pacote **imutável**, independente da projeção HTML. Se a medição registrar `observed_tcp=true` mas o catálogo retornar `CATALOG_REBUILD_FAILED`, não execute outra sondagem com um identificador novo apenas para recriar o relatório. A partir da branch corrigida, reexecute somente a projeção:
+A coleta ativa autorizada grava pacote **imutável**, independente da projeção HTML. Se a medição registrar `observed_tcp=true` mas o catálogo retornar `CATALOG_REBUILD_FAILED`, não execute outra sondagem com um identificador novo apenas para recriar o relatório. A partir de uma instalação compatível, substitua os parâmetros de exemplo pelo diretório da auditoria existente, o hostname já registrado e o identificador da série anteriormente coletada. O comando reconstitui somente a projeção; não execute contra uma auditoria sem o pacote de sonda correspondente.
 
 ```powershell
-git fetch origin --prune
-git switch main
-git pull --ff-only
+$Aud = Get-Item -LiteralPath "audits\<AUD-ID>"
+$DominioAlvo = "dominio-autorizado.com.br"
 $env:PYTHONPATH = (Resolve-Path ".\\src").Path
 & ".\\.venv\\Scripts\\python.exe" -m rasai.network_acceptance --workspace $Aud.FullName --audit-id $Aud.Name --host $DominioAlvo --series-id "homologacao-g2-01" --replay-existing
 ```
@@ -482,8 +490,18 @@ da evidência e sem modificação de `audit.db`. Um pacote desatualizado,
 adulterado ou de outra AUD é ignorado; o manifesto do catálogo monitora
 a presença e o conteúdo desses complementos para exigir rematerialização.
 
-Esta evolução **não altera M3/M6, sondagem G2, catálogo de regras, índices,
-scores, motores de AI/GEO, análise direcionada ou providência comercial dos
-provedores**. Como medições de rede não comprovam impacto em busca, rankings
+A interpretação consultiva de rede não altera a captura do navegador, a sonda complementar, as regras, os índices, as análises de busca e IA nem a cobrança dos fornecedores. Como medições de rede não comprovam impacto em busca, rankings
 ou citações por IA, a integração com análise direcionada/GEO se limita ao
 link consultivo existente na visão geral, sem promover hipóteses a achados.
+
+## Rede e conectividade: origem, topologia e descoberta de IP público
+
+A coleta de rede diferencia a **captura passiva do navegador** da **sonda complementar autorizada**. O endereço local obtido pelo socket da sonda (quando comprovado) é o ponto inicial **lógico do processo executor**, não o IP público de saída nem, necessariamente, a origem da conexão do navegador. O IP público de saída é identificado somente pela medição externa independente descrita abaixo, quando habilitada e bem-sucedida. Não é inferido por DNS, traceroute, GeoIP ou IP do destino. Essa medição é habilitada por padrão e possui controle próprio, diferente da autorização da sonda ativa ao domínio.
+
+- `report-catalog/network.html` e `report-presentation/rede.html` exibem a topologia lógica observada e o inventário de IPs com papéis distintos: origem local da sonda, peer remoto da captura, peer TCP da sonda, candidatos DNS (não equivalentes a conexões) e saltos públicos efetivamente registrados.
+- O traceroute mostra a ordem dos saltos e os estados de ausência/ocultação; **não comprova** continuidade física da rota nem que o destino respondeu. Saltos privados/reservados são ocultados e endereços não observados não são inventados.
+- O mapa geográfico usa somente coordenadas GeoIP persistidas e qualificadas como **aproximadas**. Um IP privado, um candidato DNS ou um endereço sem coordenadas verificadas não cria marcador geográfico.
+
+**Descoberta externa de IP público (IPv4/IPv6) - habilitada por padrão:** depois de cada nova AUD, o processo executor consulta serviços HTTPS gratuitos para identificar o endereço público observado em suas próprias requisições. **Isso independe da autorização de sondagem TCP/TLS do domínio auditado.** No menu **Preparar auditoria > Rede e conectividade**, a opção **6. Habilitar/desabilitar descoberta externa do IP público** permite desligar essa etapa para a sessão ou salvar a preferência no `rasai-console.ini`. As opções **7. API ipify** e **8. API ident.me** permitem desativar individualmente cada fornecedor, com preferência persistida no `rasai-console.ini`. A primeira consulta usa [ipify](https://www.ipify.org/) e, somente em falha, [ident.me](https://api.ident.me/). Desabilitar ambas as APIs, ou desligar a opção geral, interrompe somente a descoberta externa, preservando DNS/TCP/TLS/traceroute e demais evidências. Essa escolha é válida na sessão e pode ser salva no INI. Os controles correspondem a `RASAI_NETWORK_EGRESS_ENABLED`, `RASAI_NETWORK_EGRESS_IPIFY_ENABLED` e `RASAI_NETWORK_EGRESS_IDENTME_ENABLED` (booleanos `true/false`).
+
+O coletor complementar pós-AUD executa a consulta independente em processo isolado e realiza somente conexões **HTTPS diretas** a endereços fixos dos fornecedores, sem usar proxies de ambiente e sem enviar URLs auditadas, credenciais ou tokens. O serviço pode observar o IP e metadados de transporte da consulta; a política de privacidade é de cada fornecedor. São realizadas no máximo quatro consultas (IPv4/IPv6, primário/fallback), com limite de 2 segundos por tentativa e orçamento máximo de 10 segundos para o subprocesso isolado. Uma falha nunca bloqueia a AUD. Cada resultado é evidência da solicitação de eco externa, **não** comprova a origem da navegação do Chromium ou da conexão TCP ao destino. Se uma família não puder ser identificada, o catálogo e a apresentação registram o motivo resumido e preservam a auditoria original. O GeoIP local é reutilizado apenas quando há endereço público válido e base disponível. A regeneração dos relatórios permanece 100% offline.

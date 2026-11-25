@@ -1,5 +1,7 @@
 # Plano linear de pendências - RASAi (09/10/2026)
 
+> **Registro histórico - não é guia operacional vigente.** Plano de 09/10/2026. A lista de 17 issues e as orientações de branch são históricas e não devem ser utilizadas para iniciar trabalho atual. Consulte as [issues](https://github.com/cardozo81/RASAI-Readiness-Auditor/issues), [pull requests](https://github.com/cardozo81/RASAI-Readiness-Auditor/pulls) e o [índice atual da documentação](README.md). O [registro original na versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/RESIDUAL_IMPLEMENTATION_PLAN.md) permanece preservado.
+
 ## Fonte de verdade e baseline
 
 - Repositório: `cardozo81/RASAI-Readiness-Auditor`.

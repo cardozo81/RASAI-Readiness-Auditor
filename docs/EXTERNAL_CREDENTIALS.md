@@ -19,7 +19,7 @@ Credenciais reais nunca devem ser incluídas em documentação, issue, commit, r
 - URLs de criação e documentação abaixo apontam para fontes oficiais do fornecedor;
 - preços, quotas e políticas comerciais pertencem ao fornecedor e devem ser confirmados antes de uso operacional.
 
-Para execução externa/agendada, `M. Ver linha de comando` materializa nomes de secrets apenas como linhas comentadas com `**********`. Manter ou remover a linha comentada faz a execução usar a credencial disponível no ambiente do processo/SO. Ativar a linha e substituir o placeholder cria um override somente para aquele processo e seus filhos; não altera a credencial persistida no sistema operacional. O clipboard padrão não inclui placeholders. Consulte [EXECUTION_SCHEDULING.md](EXECUTION_SCHEDULING.md).
+Para execução externa/agendada, `M. Ver linha de comando` materializa nomes de secrets apenas como linhas comentadas com `**********`. Manter ou remover a linha comentada faz a execução usar a credencial disponível no ambiente do processo/SO. Um override fornecido ao ambiente do processo pode ser herdado por seus filhos e não altera por si só a credencial persistida no sistema operacional. Mantenha o placeholder comentado; não insira valores reais em comandos, scripts ou definições de agendamento. Prefira a injeção de credencial por mecanismo seguro da conta de execução. O clipboard padrão não inclui placeholders. Consulte [EXECUTION_SCHEDULING.md](EXECUTION_SCHEDULING.md).
 
 ## Providers de IA
 
@@ -661,6 +661,8 @@ Consulte também [PROVIDER_SETUP.md](PROVIDER_SETUP.md) e [SERP_OBSERVATION.md](
 
 ## Google PageSpeed Insights
 
+Para o procedimento detalhado de provisionamento, restrição por API/IP, comandos de uso e diagnóstico de PageSpeed/CrUX, consulte [chaves Google](GOOGLE_API_KEYS.md). Este documento mantém o inventário central de credenciais e a distinção entre seleção automática e solicitação explícita.
+
 ### Credencial
 
 ```text
@@ -687,7 +689,7 @@ Fluxo básico:
 6. aplique restrições de API e de uso compatíveis com o ambiente;
 7. configure a chave em `RASAI_PAGESPEED_API_KEY`.
 
-A key não é persistida no INI.
+A key não é persistida no INI. Para verificar a presença sem revelar o valor e persistir no Windows quando necessário, consulte [persistência de credenciais](WINDOWS_SECRET_PERSISTENCE.md).
 
 ## Chrome UX Report - CrUX e CrUX History
 

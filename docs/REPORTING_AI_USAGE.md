@@ -19,6 +19,8 @@ Uma resposta rejeitada localmente ainda representa comunicação externa e pode 
 
 Ausência de dado de IA não deve ser convertida em finding do website. O estado deve indicar, conforme a evidência persistida, se a finalidade estava desabilitada, não configurada, foi executada sem saída utilizável, ficou parcial ou falhou/ficou indisponível.
 
+A finalidade acima é do catálogo técnico. A leitura executiva correspondente fica em `report-presentation/ia-custos.html`, com uso, tentativas, provedores, modelos, esforço, custos e proveniência conforme evidência disponível. Ambas distinguem previsão, custo estimado, uso observado e cobrança efetiva; não executam IA para preencher lacunas. Anexos e telemetria podem conter dados privados. Veja a [matriz dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
 ## Transparência de custo e atribuição funcional
 
 `report-catalog/ai-integrations.html` centraliza a telemetria financeira e operacional das tentativas de IA. As páginas CAT apresentam o resultado funcional produzido e não repetem tokens, request/response ou custo individual.
@@ -119,7 +121,7 @@ A projeção HTML usa nomes públicos e funcionais para metadados, labels, títu
 
 Identidades canônicas de provider também são contexto técnico próprio: `OPENAI`, `GEMINI`, `DEEPSEEK`, `ANTHROPIC`, `MISTRAL`, `COHERE`, `KIMI` e demais providers do registry são exibidos como identidade do provider, sem passar pelo fallback genérico destinado a enums/condições internas.
 
-O conteúdo dessa tabela pertence à telemetria técnica. Ele não altera regras, findings, `SCORE-GEO-004` ou `SARI-001`.
+O conteúdo dessa tabela pertence à telemetria técnica. A telemetria preserva as regras, os achados e o índice `SARI-001` registrados na auditoria.
 
 ## AUTO
 

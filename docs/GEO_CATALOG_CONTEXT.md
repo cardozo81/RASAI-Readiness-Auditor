@@ -2,6 +2,10 @@
 
 ## O que a projeção exibe
 
+Para leitura executiva, abra <code>report-presentation/search&#45;geo.html</code> (Search e GEO): reúne observações de busca, concorrência, pesquisa externa e contexto GEO persistidos, com detalhes locais. Para investigação técnica, use `report-catalog/cat-05.html` (Search & AI Intelligence) e `report-catalog/geo.html` (inteligência GEO consultiva). As páginas de custos, quando pertinentes, são `report-presentation/ia-custos.html` e `report-catalog/ai-integrations.html`. As projeções são independentes, não executam pesquisa para preencher lacunas e não têm correspondência obrigatória de cada tabela ou seção. Consulte o [guia de leitura e correspondência temática dos relatórios](REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios).
+
+A matriz abaixo descreve especificamente os vínculos do catálogo técnico no recorte #308/#309. Não atribui os mesmos consumidores ou cálculos à apresentação executiva.
+
 O motor `geo_snapshot_context.py` é um consumidor **estritamente
 read-only** de `geo_observation_runs`, limitado à própria `audit_id`.
 Ele não executa pesquisa, IA, análise, relatório ou RPR, não recalcula
@@ -49,11 +53,11 @@ Testes garantem `read_bytes()` idênticos antes/depois da projeção,
 nenhum provider chamado, ausência de contaminação entre auditorias,
 sem novos IDs/custos/score e replay determinístico.
 
-## Gates que permanecem
+## Gates históricos do recorte #308/#309
 
-Métricas de marca/intenção/mercado, mapeamento per-query de
+No recorte original, métricas de marca/intenção/mercado, mapeamento per-query de
 múltiplas consultas, consumo comprovado da fonte por síntese IA,
 validação física de resultados externos reais e aceite visual do
-relatório permanecem dependências de #304/#306/#308.
+relatório foram tratados como dependências de #304/#306/#308. Para o comportamento multiquery posterior, consulte [GEO multiquery e reanálise](GEO_AI_MULTIQUERY_AND_REANALYSIS.md).
 Não declarar êxito da IA ou inferir presença GEO por ter ocorrido
 uma consulta Search API.

@@ -200,7 +200,7 @@ Nenhuma tabela de scoring é modificada.
 - histórico: somente leitura;
 - `--dry-run`: tetos separados para SERP, conteúdo e IA.
 
-Credenciais não são persistidas nos artefatos.
+O contrato exclui credenciais reconhecidas dos artefatos. Conteúdo extraído, consultas e URLs públicas podem conter informação sensível; a sanitização não é garantia de anonimização. Consulte a [matriz de segurança](SECRET_AND_CONFIGURATION_SAFETY.md).
 
 ## 13. Comportamento aditivo
 
@@ -208,7 +208,7 @@ Sem `--competitive`, `--compare-content` ou `--ai-competitive`, o comportamento 
 
 Sem `--ai-competitive`, nenhuma chamada de Competitive AI é feita. Falha de IA não reescreve evidência SERP nem a comparação determinística.
 
-`SARI-001` e `SCORE-GEO-004` são independentes.
+A inteligência competitiva é consultiva e não altera o Índice de Prontidão Search & IA (`SARI-001`) nem o método vigente (`SCORE-GEO-005`). O contrato `SCORE-GEO-004` permanece preservado nas auditorias históricas.
 
 ## 14. Política de testes
 
@@ -218,7 +218,7 @@ Os testes cobrem classificação, limites, extração, SSRF, gaps, evidence IDs,
 
 ## 15. Relatório e histórico
 
-Relatório pontual da AUD: `report-catalog/cat-05.html`.
+Na AUD individual, `report-catalog/cat-05.html` é a página de investigação técnica das observações SERP, comparações e evidências competitivas. <code>report-presentation/search&#45;geo.html</code> oferece interpretação executiva dos resultados de busca e do contexto competitivo. Cada pacote consome evidências persistidas sem depender do HTML do outro e sem nova pesquisa na renderização. Veja o [guia de relatórios](REPORT_GUIDE.md).
 
 Comparação temporal determinística: `SEARCH-HISTORY-001`.
 

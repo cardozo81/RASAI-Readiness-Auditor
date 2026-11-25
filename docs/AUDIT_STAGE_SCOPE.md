@@ -1,5 +1,7 @@
 # #319 - Tempo ativo, custo e escopo temporal M18/M20 (comprovação por sessão)
 
+O recorte histórico a seguir trata das durações e dos custos persistidos. `report-catalog/metrics.html` e `report-catalog/ai-integrations.html` servem à investigação técnica. A apresentação executiva `report-presentation/ia-custos.html` contextualiza uso, esforço, custo e proveniência disponíveis no pacote. Consulte [telemetria e fontes](REPORTING_AI_USAGE.md).
+
 ## Entrega técnica
 
 O módulo de inspeção read-only `audit_attempt_inspection.py` passa a

@@ -1,5 +1,7 @@
 # #328 - Hierarquia visual das evidências CAT-06 e CAT-07
 
+> **Contexto histórico de engenharia.** Recorte visual da #328, encerrada em 11/10/2026. Preservado como referência vinculada ao workflow existente. O estado de aceite descrito ao final pertence ao recorte original. Para uso atual, consulte o [guia de leitura](REPORT_GUIDE.md), o [contrato de apresentação](REPORT_PRESENTATION_CONTRACT.md) e a [rematerialização](REPORT_REMATERIALIZATION.md). O [registro da versão 1.0.0](https://github.com/cardozo81/RASAI-Readiness-Auditor/blob/e55717b2a2c924cdc9f81e39565353d063f47892/docs/REPORT_SECTION_UX.md) permanece acessível.
+
 ## Protótipo descritivo e implementação segura
 
 Seções de amostras de navegação, tentativas por perfil, amostras

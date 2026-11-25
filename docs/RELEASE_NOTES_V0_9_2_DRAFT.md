@@ -1,7 +1,7 @@
 # Registro histórico de planejamento  -  RASAi v0.9.2 (rascunho arquivado)
 
 **Escopo:** issues #681 e #682, única branch `feat/geo-multiquery-ai-only-rpr`.
-**Documento histórico de planejamento, não representa pendências técnicas atuais.** O código das issues #681/#682 foi integrado pela PR #683 em 30/10/2026; a homologação offline e o CI pós-merge estão aprovados. As caixas abaixo preservam os critérios inicialmente propostos, alguns deliberadamente fora do gate de publicação (serviços pagos, adapters futuros). Para o estado publicável consulte [notas finais propostas](RELEASE_NOTES_V0_9_2.md).
+**Documento histórico de planejamento, não representa pendências técnicas atuais.** O código das issues #681/#682 foi integrado pela PR #683 em 30/10/2026; a homologação offline e o CI pós-merge estão aprovados. As caixas abaixo preservam os critérios inicialmente propostos, alguns deliberadamente fora do gate de publicação (serviços pagos, adapters futuros). A [release v0.9.2](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.2) foi publicada em 30/10/2026 14:24:33 (America/Sao_Paulo), com imutabilidade habilitada. Consulte as [notas de versão](RELEASE_NOTES_V0_9_2.md) como referência daquela distribuição e o [versionamento](VERSIONING.md) para o procedimento vigente.
 
 ## Escopo originalmente planejado
 - Pesquisa Perplexity com 2-5 termos e GEO por IA: consultas individuais

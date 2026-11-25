@@ -76,7 +76,9 @@ logs ou hosting aberto. Documentos/HTML são dados não confiáveis; conteúdo d
 prompt injection permanece literal escapado, jamais instrução. O HTML não
 contém scripts, recursos remotos ou links ativos para URLs documentais.
 
-Uma AUD é evidência persistida. A geração do relatório é sua **projeção** e
+## Regenerar somente o catálogo técnico
+
+Uma AUD é evidência persistida. O catálogo técnico é uma **projeção** e
 não pode retroativamente mudar aquisições, tentativas, custos, estado de
 fulfillment, observações sidecar, hash das evidências ou a decisão de IA.
 A chamada interna `catalog_report_site.materialize_catalog_report_site` não é
@@ -94,6 +96,49 @@ Não há opção `--in-place`: a entrada original permanece intocada, e a
 operação se recusa a sobrescrever saídas preexistentes. O caminho de saída
 não pode estar dentro da AUD de origem. Para nova tentativa, use uma
 pasta de saída nova, preservando a anterior como evidência.
+
+## Regenerar catálogo e apresentação a partir de uma auditoria existente
+
+O script usa a rematerialização do catálogo técnico para preparar uma **cópia externa** da auditoria. Depois, o gerador da apresentação executiva lê as evidências desse diretório. A sequência é uma conveniência operacional. O gerador da apresentação consome o banco e os artefatos da cópia e dispensa qualquer HTML do catálogo. No PowerShell, na raiz da versão instalada (com a `.venv` instalada):
+
+```powershell
+$AuditId = "AUD-EXEMPLO"
+$Fonte = Join-Path (Get-Location) "audits\$AuditId"
+$Saida = Join-Path $env:TEMP ("RASAI-REGEN-" + (Get-Date -Format "yyyyMMdd-HHmmss") + "-" + [guid]::NewGuid().ToString('N'))
+if (Test-Path -LiteralPath $Saida) { throw "Destino já existente" }
+& .\.venv\Scripts\python.exe -B -m rasai rematerialize-report --audit-dir $Fonte --output-root $Saida
+if ($LASTEXITCODE -ne 0) { throw "Falha na regeneração do catálogo" }
+$Copia = Join-Path $Saida $AuditId
+& .\.venv\Scripts\python.exe -B -m rasai.parallel_report --audit-dir $Copia
+if ($LASTEXITCODE -ne 0) { throw "Falha na regeneração da apresentação" }
+foreach ($Pacote in @('report-catalog', 'report-presentation')) {
+    $Entrada = Join-Path $Copia "$Pacote\index.html"
+    if (-not (Test-Path -LiteralPath $Entrada -PathType Leaf)) { throw "Entrada ausente: $Pacote" }
+}
+```
+
+Alternativa para um arquivo `.cmd`, executado na raiz do projeto. Substitua o identificador pelo da auditoria original e mantenha o destino externo e inexistente:
+
+```cmd
+@echo off
+setlocal
+set "AUD=AUD-EXEMPLO"
+set "FONTE=%CD%\audits\%AUD%"
+set "SAIDA=%TEMP%\RASAI-REGEN-%RANDOM%-%RANDOM%"
+if exist "%SAIDA%" exit /b 1
+".venv\Scripts\python.exe" -B -m rasai rematerialize-report --audit-dir "%FONTE%" --output-root "%SAIDA%"
+if errorlevel 1 exit /b 1
+".venv\Scripts\python.exe" -B -m rasai.parallel_report --audit-dir "%SAIDA%\%AUD%"
+if errorlevel 1 exit /b 1
+if not exist "%SAIDA%\%AUD%\report-catalog\index.html" exit /b 1
+if not exist "%SAIDA%\%AUD%\report-presentation\index.html" exit /b 1
+echo "%SAIDA%\%AUD%\report-presentation\index.html"
+endlocal
+```
+
+O exemplo interrompe o script se qualquer gerador falhar ou faltar uma das entradas HTML; a existência das duas entradas não substitui a validação de manifestos e integridade. O `report-catalog/` fornece o detalhe técnico por catálogo e as páginas transversais; o `report-presentation/` oferece leitura executiva especializada a partir das evidências disponíveis. Não presuma paridade de páginas, campos ou cobertura. Uma saída parcial não deve ser tratada como relatório validado. Use novo destino se precisar repetir a operação.
+
+A AUD original, seu `audit.db`, os artefatos complementares, os custos e as pontuações não devem ser reescritos. Não executar com escritor ativo ou sem a integridade necessária; o gerador pode recusar a cópia. Saídas anteriores e novas devem ser comparadas como **projeções de versões diferentes**, não como novas evidências. Consulte também a [apresentação offline](../src/rasai/parallel_report/README.md).
 
 ## Regressao read-only em replay de GEO (#521, 13/10/2026)
 
