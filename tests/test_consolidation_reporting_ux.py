@@ -339,6 +339,7 @@ class MethodologyPresentationTests(unittest.TestCase):
             (("SCORE-GEO-004", "SCORE-GEO-004"), (20.0, 60.0), "SCORE-GEO-004", True),
             (("SCORE-GEO-004", "SCORE-GEO-005"), (20.0, 60.0), "SCORE-GEO-004, SCORE-GEO-005", False),
             (("UNKNOWN", "UNKNOWN"), (20.0, 60.0), "UNKNOWN", False),
+            (("1", "1"), (20.0, 60.0), "1", False),
             (("SCORE-GEO-005",), (None,), "SCORE-GEO-005", False),
             ((), (), "UNKNOWN", False),
         ):
