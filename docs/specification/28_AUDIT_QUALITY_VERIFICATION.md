@@ -8,7 +8,7 @@ Este domínio fornece capacidades derivadas e somente leitura que avaliam a qual
 
 Ele responde se o `AUD-*` persistido está saudável, qual é a força da evidência de cada finding, quais findings merecem atenção operacional, se recomendações ainda referenciam evidências válidas e não resolvidas, se uma auditoria comparada demonstra correção no nível de regra e como a evidência varia entre `AUD-*`.
 
-Nenhuma dessas capacidades altera `SARI-001` ou `SCORE-GEO-004`.
+Nenhuma dessas capacidades altera `SARI-001` ou `SCORE-GEO-005`.
 
 ## 2. Limites normativos
 
@@ -27,7 +27,7 @@ Qualidade/Verificação deve:
 
 ## 3. Qualidade da evidência e projeção
 
-O CLI vigente não possui subcomando `rasai quality report`. A qualidade estrutural de uma AUD é projetada pelas superfícies de governança do `report-catalog/`, principalmente:
+A apresentação executiva `report-presentation/index.html` sintetiza a situação observada e `report-presentation/indices.html` contextualiza os índices e limites; essas páginas não substituem as verificações estruturais técnicas. O CLI vigente não possui subcomando `rasai quality report`. A qualidade estrutural de uma AUD é projetada pelas superfícies de governança do `report-catalog/`, principalmente:
 
 ```text
 report-catalog/index.html
@@ -138,7 +138,7 @@ Verificações dependentes de tempo usam timestamps persistidos da auditoria/obs
 
 ## 8. Relação com Observability
 
-Quality pode inspecionar `observability.db` para verificações de qualidade/proveniência, mas outcomes observados permanecem separados de SARI/SCORE-GEO-004.
+Quality pode inspecionar `observability.db` para verificações de qualidade/proveniência, mas outcomes observados permanecem separados de SARI/SCORE-GEO-005.
 
 Contrato sidecar atual:
 

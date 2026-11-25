@@ -200,7 +200,7 @@ Telemetria mínima:
 - resumo/hash do request;
 - versão do contrato de remediação.
 
-API keys brutas, headers `Authorization` e corpos ilimitados de erro do provider nunca devem ser persistidos.
+O contrato proíbe persistir API keys brutas, headers `Authorization` e corpos ilimitados de erro do fornecedor. O mascaramento cobre campos reconhecidos, não é prova de ausência absoluta de dados sensíveis em texto livre ou conteúdo opaco. Proteja os artefatos conforme [segurança da telemetria](../AI_RUNTIME_SECURITY.md).
 
 Se provider/modelo não possuir base local de preço confiável, o relatório deve exibir estimativa monetária como indisponível, em vez de fabricar custo.
 
@@ -314,7 +314,7 @@ Requisitos de usabilidade:
 5. referências devem apontar preferencialmente para fontes públicas oficiais/primárias;
 6. nenhuma página pode sugerir garantia de ranking, citação, rich result ou conformidade regulatória.
 
-A telemetria da remediação também deve aparecer em `report-catalog/ai-integrations.html`, claramente separada da telemetria de análise semântica, com provider/modelo/reasoning/status/tokens/custo/duração/erro em nível de tentativa.
+Na apresentação executiva, `report-presentation/plano.html` sintetiza ações e `report-presentation/conteudo.html` contextualiza achados. A telemetria executiva está em `report-presentation/ia-custos.html`; não se presume réplica por tentativa. A telemetria técnica da remediação deve aparecer em `report-catalog/ai-integrations.html`, claramente separada da telemetria de análise semântica, com provider/modelo/reasoning/status/tokens/custo/duração/erro em nível de tentativa.
 
 ## 15. Invariantes de persistência
 
@@ -345,7 +345,7 @@ A capacidade deve preservar os seguintes contratos:
 5. claims numéricos não suportados são rejeitados;
 6. falhas de provider permanecem operacionais, não findings do website;
 7. remediação não altera score/findings preexistentes;
-8. `mobile`, `desktop` e `both` preservam escopo correto de dispositivo;
+8. novas AUDs aceitam `mobile` ou `desktop` e preservam o escopo escolhido; `both` é contexto histórico, não opção pública de nova execução;
 9. site de relatório expõe a página com CSS/navegação compartilhados e hierarquia visual consistente;
 10. contexto editorial é validado, persistido e exposto como configurado versus `AUTO`;
 11. combinações inválidas YMYL/contexto falham antes de produzir saída enganosa;

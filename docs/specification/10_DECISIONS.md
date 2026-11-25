@@ -6,7 +6,7 @@ Este documento registra somente decisões atualmente válidas para o produto.
 
 ## D-001 - Readiness por dispositivo
 
-Desktop e Mobile são contextos independentes. Scores, Coverage, Confidence e Consolidation são calculados e apresentados por dispositivo. Um contexto não executado não pode ser apresentado como defeito do website.
+Desktop e Mobile são contextos independentes. A CLI de nova auditoria aceita `mobile` ou `desktop`; para avaliar os dois, execute AUDs independentes. Scores, Coverage, Confidence e Consolidation são calculados e apresentados por dispositivo. Um contexto não executado não pode ser apresentado como defeito do website.
 
 ## D-002 - Índice e scoring
 
@@ -78,7 +78,7 @@ seo
 agentic-browsing
 ```
 
-Performance, Accessibility, Best Practices e SEO são categorias Lighthouse externas. Agentic Browsing é tratado como categoria experimental e contexto adicional. Sua ausência isolada não invalida uma coleta estável e seu score não entra automaticamente em `SARI-001`/`SCORE-GEO-004`.
+Performance, Accessibility, Best Practices e SEO são categorias Lighthouse externas. Agentic Browsing é tratado como categoria experimental e contexto adicional. Sua ausência isolada não invalida uma coleta estável e seu score não entra automaticamente em `SARI-001`/`SCORE-GEO-005`.
 
 Core Web Vitals de campo e métricas Lighthouse de laboratório permanecem semanticamente separados.
 
@@ -125,7 +125,7 @@ SERP Observation é provider-neutral e registra observação limitada de Search 
 
 `NOT_FOUND_WITHIN_DEPTH` somente pode ser emitido quando a profundidade solicitada tiver sido suficientemente observada. Orçamento esgotado antes dessa comprovação produz estado de indisponibilidade/parcialidade, não uma posição inventada.
 
-Search Intelligence, Competitive Search, Search History e Search Monitoring são non-scoring por default e não alteram automaticamente `SARI-001` ou `SCORE-GEO-004`.
+Search Intelligence, Competitive Search, Search History e Search Monitoring são non-scoring por default e não alteram automaticamente `SARI-001` ou `SCORE-GEO-005`.
 
 ## D-016 - Monitoring, observability e resultados
 
@@ -155,7 +155,7 @@ Quando uma decisão não puder ser determinada pelas evidências, o relatório d
 
 O mini-site de relatório é HTML estático, navegável, responsivo e reabrível a partir do workspace persistido.
 
-`report-catalog/sari.html` é a superfície canônica do SARI. `report-catalog/methodology.html` é a superfície canônica da metodologia. A versão metodológica pertence a `scoring_version`, banco, manifests, metadados e conteúdo do relatório; não a um filename público alternativo.
+`report-catalog/sari.html` é a referência técnica do SARI. `report-catalog/methodology.html` é a referência técnica da metodologia. `report-presentation/indices.html` é a leitura executiva especializada nos índices e seus limites; não exige réplica dos detalhes técnicos. Consulte [correspondência temática](../REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios). A versão metodológica pertence a `scoring_version`, banco, manifests, metadados e conteúdo do relatório; não a um filename público alternativo.
 
 Toda auditoria concluída com sucesso materializa as superfícies canônicas definidas por `CATALOG-REPORT-002` e `src/rasai/catalog_report_contract.py`. A seleção dos CATs governa o conteúdo aplicável, enquanto as páginas de governança do contrato permanecem estáveis.
 
@@ -183,7 +183,7 @@ O usage ledger é separado de findings/scoring e registra consumo operacional ne
 
 ## D-023 - Regra documental de contrato vigente
 
-O RASAi possui release pública estável [`v0.9.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v0.9.0), publicada em 29/10/2026 sobre `5da8e6247094c20dcdbe770474ac31e7f93383b2`; `v0.5.0` e `v0.8.0` são marcos históricos anteriores. A documentação normativa descreve o contrato vigente da linha atual e deve separar claramente release publicada, evolução pós-release, histórico, protótipos, superfícies piloto/pré-produção e backlog futuro.
+O RASAi possui release pública estável [`v1.0.0`](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/tag/v1.0.0), publicada em 25/11/2026 08:18:29 (America/Sao_Paulo) sobre `e55717b2a2c924cdc9f81e39565353d063f47892`. Consulte a [última release publicada](https://github.com/cardozo81/RASAI-Readiness-Auditor/releases/latest); `v0.9.0`, `v0.8.0` e `v0.5.0` são marcos históricos anteriores. A documentação normativa descreve o contrato vigente da linha atual e deve separar claramente release publicada, evolução pós-release, histórico, protótipos, superfícies piloto/pré-produção e backlog futuro.
 
 Não devem ser tratados como contrato do produto branch, PR, etapa de entrega, caminho removido, alias sem uso vigente ou decisão que não tenha efeito atual no runtime. Git é a fonte apropriada para rastreabilidade de implementação.
 

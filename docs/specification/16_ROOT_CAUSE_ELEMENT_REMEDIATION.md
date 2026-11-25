@@ -61,7 +61,7 @@ A projeção/persistência deve representar, conforme o contrato vigente, pelo m
 - `diagnostic_confidence`;
 - timestamp de materialização.
 
-A confiança diagnóstica desta camada classifica a precisão da localização/causa e **não participa do SARI-001 nem do SCORE-GEO-004**.
+A confiança diagnóstica desta camada classifica a precisão da localização/causa e **não participa do SARI-001 nem do SCORE-GEO-005**.
 
 ## 4. Elementos afetados
 
@@ -127,7 +127,7 @@ A remediação deve preferir alterar um elemento existente quando essa for a cor
 
 ## 7. Superfícies de relatório
 
-O contrato público atual é o mini-site estático em `report-catalog/`.
+Esta seção descreve o mini-site técnico `report-catalog/`. A apresentação executiva independente `report-presentation/plano.html` sintetiza ações e decisões a partir de evidência persistida; `report-presentation/conteudo.html` contextualiza achados de conteúdo. Não se presume paridade por ocorrência. Consulte [guia de relatórios](../REPORT_GUIDE.md).
 
 ### `report-catalog/index.html`
 

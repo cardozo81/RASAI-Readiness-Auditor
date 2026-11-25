@@ -5,7 +5,7 @@
 
 ## 1. Objetivo
 
-Definir uma fronteira de autenticação adequada à evolução SaaS sem criar banco de senhas próprio, sem transformar o Identity Provider em fonte de autorização RASAi e sem alterar `SARI-001`, `SCORE-GEO-004`, Search Intelligence ou a evidência imutável dos AUDs.
+Definir uma fronteira de autenticação adequada à evolução SaaS sem criar banco de senhas próprio, sem transformar o Identity Provider em fonte de autorização RASAi e sem alterar `SARI-001`, `SCORE-GEO-005` (nem resultados históricos `SCORE-GEO-004`), Search Intelligence ou a evidência imutável dos AUDs.
 
 ## 2. Separação normativa
 

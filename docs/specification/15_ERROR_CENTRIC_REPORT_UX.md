@@ -10,7 +10,7 @@ O relatório é uma projeção de dados persistidos. Não é fonte de verdade ne
 
 ## 2. Contrato atual de saída
 
-`CATALOG-REPORT-002` define a projeção HTML audit-owned em `report-catalog/`. A fonte de verdade para nomes, ordem e rótulos é `src/rasai/catalog_report_contract.py`.
+Este documento detalha o catálogo técnico `report-catalog/`, cujo contrato é `CATALOG-REPORT-002`. A apresentação executiva independente em `report-presentation/` possui navegação própria e sintetiza evidências sem depender do HTML técnico. Para suas páginas e critérios, consulte [contrato da apresentação](../REPORT_PRESENTATION_CONTRACT.md) e [matriz temática](../REPORT_GUIDE.md#correspondência-temática-entre-os-relatórios). A fonte de verdade para nomes, ordem e rótulos é `src/rasai/catalog_report_contract.py`.
 
 ```text
 <AUD-ID>/
@@ -43,7 +43,7 @@ A existência física da página não significa que a capacidade foi executada. 
 
 A versão do scoring pertence a `scoring_version` e ao conteúdo de `methodology.html`, não ao nome físico da página.
 
-`<AUD-ID>/report/`, `<AUD-ID>/report.html` e páginas convencionais fora de `report-catalog/` não integram o contrato audit-owned de `rasai audit`.
+`<AUD-ID>/report/`, `<AUD-ID>/report.html` e páginas legadas soltas não integram o contrato de catálogo. Essa restrição não exclui o pacote executivo `<AUD-ID>/report-presentation/`, que possui contrato próprio.
 
 ## 3. Navegação
 
@@ -129,7 +129,7 @@ Mobile e Desktop não possuem páginas audit-owned independentes. Um contexto n�
 
 ## 8. Remediação
 
-`report-catalog/cat-09.html` é a visão orientada a problema/causa.
+`report-catalog/cat-09.html` é a visão técnica orientada a problema/causa; `report-presentation/plano.html` oferece leitura executiva de ações e decisões persistidas, sem duplicar obrigatoriamente cada diagnóstico por ocorrência.
 
 Deve preservar:
 

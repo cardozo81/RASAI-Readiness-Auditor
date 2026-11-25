@@ -5,7 +5,7 @@
 
 ## 1. Objetivo
 
-Adicionar observabilidade longitudinal e resultados externos sem transformar sinais heterogêneos em um score transversal nem alterar silenciosamente `SARI-001`/`SCORE-GEO-004`.
+Adicionar observabilidade longitudinal e resultados externos sem transformar sinais heterogêneos em um score transversal nem alterar silenciosamente `SARI-001`/`SCORE-GEO-005`.
 
 A capacidade responde separadamente:
 
@@ -18,7 +18,7 @@ A capacidade responde separadamente:
 ## 2. Fronteira metodológica
 
 - `SARI-001` é o índice público de readiness;
-- `SCORE-GEO-004` é o scoring vigente das auditorias;
+- `SCORE-GEO-005` é o scoring vigente de novas auditorias; `SCORE-GEO-004` é histórico e cada comparação respeita a versão persistida;
 - Monitoring não cria novo score;
 - Observability não entra automaticamente no SARI;
 - Search Performance, URL Inspection, CrUX History, resultados Bing/IA e diagnósticos derivados permanecem identificados por fonte/método;
@@ -163,11 +163,11 @@ A superfície atual de scoring é:
 rasai scoring inspect
 ```
 
-Ela inspeciona o contrato `SCORE-GEO-004` e não executa fitting.
+Ela inspeciona o contrato vigente `SCORE-GEO-005` e não executa fitting.
 
 ## 9. Relatórios
 
-Por `AUD-*`, a projeção HTML audit-owned pertence exclusivamente a `report-catalog/`. Search & AI Observability é projetado principalmente em `cat-05.html` e `metrics.html`; estados de execução e qualidade estrutural ficam nas superfícies de governança do catálogo. Ausência de dado utilizável permanece explícita e não cria uma página HTML paralela.
+Por `AUD-*`, Search & AI Observability possui projeção técnica principalmente em `report-catalog/cat-05.html` e `report-catalog/metrics.html`; estados de execução e qualidade estrutural ficam nas superfícies de governança do catálogo. A apresentação independente `report-presentation/search-geo.html` contextualiza observações de busca e GEO e `report-presentation/index.html` sintetiza a situação da AUD. Não se presume que todo campo de Observability esteja projetado na apresentação. Ausência de dado utilizável deve permanecer explícita. Os artefatos longitudinais abaixo não são páginas de nenhum dos dois pacotes.
 
 Artefatos derivados independentes:
 
@@ -186,7 +186,7 @@ quality/TIMELINE-*/report.html
 - `observe report` funciona sem dataset externo;
 - Monitoring permanece somente leitura;
 - dados fora da origem auditada são rejeitados/excluídos;
-- segredos não são persistidos;
+- o contrato proíbe persistência de segredos e aplica controles aos campos reconhecidos; proteger artefatos e logs contra dados sensíveis residuais conforme [segurança](../SECRET_AND_CONFIGURATION_SAFETY.md);
 - quotas/períodos são limitados;
 - artefatos externos são entrada não confiável;
 - sidecars/relatórios derivados não modificam evidências/regras/scores do `AUD-*`.

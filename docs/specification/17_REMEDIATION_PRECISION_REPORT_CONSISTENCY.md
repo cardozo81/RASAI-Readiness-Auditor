@@ -109,6 +109,8 @@ A existência de capability configurada não autoriza afirmar que análises exte
 
 ## 7. Distribuição das informações no mini-site
 
+As próximas subseções descrevem a especialização técnica do `report-catalog/`. A apresentação executiva possui visão geral em `report-presentation/index.html`, ações em `report-presentation/plano.html` e contexto de achados em `report-presentation/conteudo.html`. Seu contrato é independente; consulte o [guia de relatórios](../REPORT_GUIDE.md) para decidir onde investigar cada assunto.
+
 ### `report-catalog/index.html`
 
 Mantém visão executiva, scores e atalhos para as áreas especializadas. Não deve repetir recipes completas por ocorrência.
